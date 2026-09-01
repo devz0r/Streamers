@@ -1,24 +1,29 @@
 """The Kicker and D/ST projection models.
 
-Both follow the same contract -- ``fit`` on completed games, ``predict`` on a
-slate -- but differ in structure:
+Both share the same shape -- a Vegas anchor plus a regularised adjustment
+stage (:class:`_AnchoredCore`) -- and both follow the same contract: ``fit`` on
+completed games, ``predict`` on a slate.
 
-**Kicker** is a single regression on fantasy points. Weekly kicker scoring is
-close to irreducible noise (the strongest single public factor correlates about
-0.12), so the job is to squeeze the Vegas signal and the team's field-goal
-*generation* profile without overfitting to kicker identity.
+**Kicker.** Weekly kicker scoring is close to irreducible noise; the strongest
+single public factor correlates about 0.12 with actual points. The job is
+therefore to squeeze the Vegas signal and the team's field-goal *generation*
+profile without overfitting to kicker identity, which is exactly what a heavily
+penalised adjustment stage does.
 
-**D/ST** is deliberately split in two, because the two halves have different
-statistical character:
+**D/ST** additionally fits a :class:`~streamer.models.tiers.TierModel`, because
+the points-allowed component is a step function of a quantity Vegas already
+prices and therefore has to be handled as a *distribution*: a defence projected
+to allow 20.5 points is a mixture, not a single tier. The tier model always
+runs -- it is what produces ``P(shutout)``, ``P(under 14)`` and the per-tier
+probabilities -- but whether it also feeds the point projection is a structural
+choice the backtest makes, not an assumption:
 
-* the points-allowed tier component, which is a step function of a quantity
-  Vegas already prices, handled as a distribution by :class:`~streamer.models.tiers.TierModel`;
-* the big-play component (sacks, takeaways, scores), which is a smooth count
-  process driven by matchup, handled by a regression.
-
-Adding a distribution-aware tier term to a regression-projected big-play term
-beats regressing the noisy total directly, and it is what produces the
-per-tier probabilities and P(top-12) the CLI reports.
+``two_stage=False`` (the default, and what the 2023-2025 backtest selected)
+    Project total fantasy points directly; the tier model supplies
+    probabilities only.
+``two_stage=True``
+    Project the big-play component only, and add the tier model's expected
+    points. Better MAE, worse ranking -- see DECISIONS.md.
 """
 
 from __future__ import annotations

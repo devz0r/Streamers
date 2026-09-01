@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from . import __version__
-from .config import Config, get_config
+from .config import Config, get_config, load_config
 
 log = logging.getLogger("streamer")
 
@@ -27,30 +27,61 @@ log = logging.getLogger("streamer")
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
-def _table(frame: pd.DataFrame, columns: list[tuple[str, str]], limit: int | None = None) -> str:
-    """Render a frame as a fixed-width table without pulling in a dependency."""
+def _format_cell(value, col: str, fmt: str | None) -> str:
+    """Format one cell, choosing sensible precision from the column's meaning."""
+    if isinstance(value, (bool, np.bool_)):
+        return "yes" if value else ""
+    if value is None:
+        return "--"
+    if isinstance(value, (int, np.integer)) and not isinstance(value, bool):
+        return str(value)
+    if not isinstance(value, float):
+        return str(value)
+    if not np.isfinite(value):
+        return "--"
+    kind = fmt or _infer_format(col)
+    if kind == "pct":
+        return f"{value * 100:.0f}%"
+    if kind == "corr":
+        # Correlations and edges live in the third decimal; rounding to one
+        # turns a real result into a row of zeroes.
+        return f"{value:+.3f}"
+    if kind == "mae":
+        return f"{value:.2f}"
+    return f"{value:.1f}"
+
+
+def _infer_format(col: str) -> str:
+    if col.startswith("p_") or col.endswith("hit_rate"):
+        return "pct"
+    if "corr" in col or col.endswith("edge"):
+        return "corr"
+    if "mae" in col:
+        return "mae"
+    return "num"
+
+
+def _table(
+    frame: pd.DataFrame,
+    columns: list[tuple[str, ...]],
+    limit: int | None = None,
+) -> str:
+    """Render a frame as a fixed-width table without pulling in a dependency.
+
+    Each column is ``(name, header)`` or ``(name, header, format)`` where format
+    is one of ``pct``, ``corr``, ``mae``, ``num``.
+    """
     if frame is None or frame.empty:
         return "  (nothing to show)"
     view = frame.head(limit) if limit else frame
-    headers = [label for _col, label in columns]
+    headers = [spec[1] for spec in columns]
     rows: list[list[str]] = []
     for row in view.itertuples():
         cells = []
-        for col, _label in columns:
-            value = getattr(row, col, None)
-            if isinstance(value, float):
-                if not np.isfinite(value):
-                    cells.append("--")
-                elif col.startswith("p_"):
-                    cells.append(f"{value * 100:.0f}%")
-                else:
-                    cells.append(f"{value:.1f}")
-            elif isinstance(value, (bool, np.bool_)):
-                cells.append("yes" if value else "")
-            elif value is None or (isinstance(value, float) and np.isnan(value)):
-                cells.append("--")
-            else:
-                cells.append(str(value))
+        for spec in columns:
+            col = spec[0]
+            fmt = spec[2] if len(spec) > 2 else None
+            cells.append(_format_cell(getattr(row, col, None), col, fmt))
         rows.append(cells)
     widths = [
         max(len(headers[i]), max((len(r[i]) for r in rows), default=0))
@@ -346,7 +377,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     rank = sub.add_parser("rank", help="ranked D/ST and K tables for a week")
     add_week(rank)
-    rank.add_argument("--limit", type=int, default=16, help="rows to print per table")
+    rank.add_argument(
+        "--limit", type=int, default=16,
+        help="rows to print per table (0 for the whole slate)",
+    )
     rank.add_argument("--publish", action="store_true", help="also write docs/index.html")
     rank.add_argument("--no-store", action="store_true", help="do not persist predictions")
     rank.set_defaults(func=cmd_rank)
@@ -384,9 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     if not args.verbose:
         logging.getLogger("streamer").setLevel(logging.INFO)
-    cfg = get_config() if args.config is None else __import__(
-        "streamer.config", fromlist=["load_config"]
-    ).load_config(args.config)
+    cfg = get_config() if args.config is None else load_config(args.config)
     try:
         return int(args.func(args, cfg))
     except KeyboardInterrupt:

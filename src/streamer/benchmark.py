@@ -151,8 +151,9 @@ def compare_week(
             log.warning("only %s %s entries matched; skipping", len(matched), position)
             continue
 
-        # Compare on the same set of units both systems ranked.
-        key = "team" if position == "DST" else "team"
+        # Both systems are joined on team: a D/ST *is* its team, and a slate
+        # carries one starting kicker per team, so this keys both positions.
+        key = "team"
         mine_ranked = mine.copy()
         mine_ranked["model_rank"] = mine_ranked["expected_points"].rank(
             ascending=False, method="first"

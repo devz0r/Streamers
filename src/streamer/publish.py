@@ -171,8 +171,8 @@ def render_page(rankings: Rankings, cfg: Config | None = None) -> str:
     parts.append(_benchmark_section(cfg))
     parts.append(_calibration_section(cfg, rankings))
     parts.append(_ledger_section(cfg))
-    parts.append(_archive_section(cfg, rankings))
-    parts.append(_footer(rankings))
+    parts.append(_archive_section(cfg))
+    parts.append(_footer())
     parts.append("</div></body></html>")
     return "\n".join(p for p in parts if p)
 
@@ -360,7 +360,7 @@ def _ledger_section(cfg: Config) -> str:
     )
 
 
-def _archive_section(cfg: Config, rankings: Rankings) -> str:
+def _archive_section(cfg: Config) -> str:
     docs = cfg.docs_dir
     weeks = sorted(
         (int(p.stem.split("_")[1]) for p in docs.glob("week_*.html") if p.stem.split("_")[1].isdigit()),
@@ -372,7 +372,7 @@ def _archive_section(cfg: Config, rankings: Rankings) -> str:
     return f"<h2>Archive</h2><div class='archive'>{links}</div>"
 
 
-def _footer(rankings: Rankings) -> str:
+def _footer() -> str:
     return (
         "<footer>"
         "Projections are Vegas-anchored regressions fit on 2021-2025 nflverse data, "

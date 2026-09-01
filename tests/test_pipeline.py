@@ -317,3 +317,42 @@ def test_tuned_alpha_overrides_the_config_seed(tmp_cfg):
     seed = ridge_alpha(tmp_cfg, "DST")
     save_selection({"DST": {"estimator": "ridge", "ridge_alpha": seed + 111.0}}, tmp_cfg)
     assert ridge_alpha(tmp_cfg, "DST") == pytest.approx(seed + 111.0)
+
+
+# ---------------------------------------------------------------------------
+# Terminal table formatting
+# ---------------------------------------------------------------------------
+def test_table_keeps_correlation_precision():
+    """Rounding a rank correlation to one decimal turns a result into zeroes."""
+    from streamer.cli import _table
+
+    frame = pd.DataFrame({
+        "season": ["2024"], "mae": [4.3172], "rank_corr": [0.3296],
+        "rank_corr_edge": [0.0119], "top5_hit_rate": [0.663],
+    })
+    out = _table(frame, [
+        ("season", "Season"), ("mae", "MAE"),
+        ("rank_corr", "RankR"), ("rank_corr_edge", "Edge"),
+        ("top5_hit_rate", "Top5"),
+    ])
+    assert "4.32" in out       # MAE to two places
+    assert "+0.330" in out     # correlation to three, with a sign
+    assert "+0.012" in out
+    assert "66%" in out        # rates as percentages
+
+
+def test_table_handles_missing_and_empty():
+    from streamer.cli import _table
+
+    assert "(nothing to show)" in _table(pd.DataFrame(), [("a", "A")])
+    frame = pd.DataFrame({"a": [float("nan")], "b": [True], "c": [False]})
+    out = _table(frame, [("a", "A"), ("b", "B"), ("c", "C")])
+    assert "--" in out
+    assert "yes" in out
+
+
+def test_table_limit_zero_shows_everything():
+    from streamer.cli import _table
+
+    frame = pd.DataFrame({"a": list(range(20))})
+    assert _table(frame, [("a", "A")], limit=0).count("\n") == 21  # header + rule + 20
