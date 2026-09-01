@@ -111,6 +111,36 @@ def test_sack_yardage_counts_against_the_offense(cfg, toy_pbp, toy_games):
     assert buf["yards_allowed"] < 35
 
 
+def test_a_muffed_return_is_charged_to_the_returning_unit(cfg, toy_pbp, toy_games):
+    """FUML counts only fumbles the D/ST unit itself loses, never the offence's."""
+    import pandas as pd
+
+    pbp = toy_pbp.copy()
+    muff = pbp.iloc[[0]].copy()
+    muff["play_type"] = "punt"
+    muff["field_goal_attempt"] = 0.0
+    muff["field_goal_result"] = None
+    # NYJ punts, BUF returns and coughs it up; NYJ recovers.
+    muff["posteam"], muff["defteam"] = "NYJ", "BUF"
+    muff["fumble"] = 1.0
+    muff["fumbled_1_team"], muff["fumble_recovery_1_team"] = "BUF", "NYJ"
+    pbp = pd.concat([pbp, muff], ignore_index=True)
+
+    lines = dst_game_lines(pbp, toy_games, cfg)
+    assert lines[lines["team"] == "BUF"].iloc[0]["fumbles_lost"] == 1
+    assert lines[lines["team"] == "NYJ"].iloc[0]["fumbles_lost"] == 0
+
+
+def test_an_offensive_fumble_is_not_charged_to_the_dst(cfg, toy_pbp, toy_games):
+    """The toy game has NYJ's offence losing a fumble; BUF recovered it."""
+    lines = dst_game_lines(toy_pbp, toy_games, cfg)
+    # NYJ's offence lost it, so neither D/ST unit is charged a fumble lost...
+    assert lines[lines["team"] == "NYJ"].iloc[0]["fumbles_lost"] == 0
+    assert lines[lines["team"] == "BUF"].iloc[0]["fumbles_lost"] == 0
+    # ...but BUF's defense is credited with the recovery.
+    assert lines[lines["team"] == "BUF"].iloc[0]["fumble_recoveries"] == 1
+
+
 def test_fourth_down_stop_needs_a_conversion_attempt(cfg, toy_pbp, toy_games):
     """Punts and field goals on fourth down are not stops."""
     lines = dst_game_lines(toy_pbp, toy_games, cfg)

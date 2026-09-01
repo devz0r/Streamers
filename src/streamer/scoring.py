@@ -162,13 +162,17 @@ class DstStatLine:
     extra_points_returned: int = 0
     #: Offence stopped on a fourth-down conversion attempt. Scored by Yahoo.
     fourth_down_stops: int = 0
+    #: Fumbles lost by this unit itself -- a muffed punt or kickoff return, or
+    #: a defender losing the ball back after a takeaway. Never an offensive
+    #: fumble: those belong to the offence, not the D/ST.
+    fumbles_lost: int = 0
 
 
 #: Scalar (per-event) D/ST scoring fields, as opposed to the tier ladders.
 DST_EVENT_FIELDS: tuple[str, ...] = (
     "sack", "interception", "fumble_recovery", "safety", "one_point_safety",
     "defensive_td", "return_td", "blocked_kick", "blocked_kick_td",
-    "extra_point_returned", "fourth_down_stop",
+    "extra_point_returned", "fourth_down_stop", "fumble_lost",
 )
 
 
@@ -191,6 +195,7 @@ class DstScoring:
     blocked_kick_td: float
     extra_point_returned: float
     fourth_down_stop: float
+    fumble_lost: float
     #: ``(low, high_or_None, points)`` with inclusive bounds, ascending.
     points_allowed_tiers: tuple[tuple[int, int | None, float], ...]
     #: Same shape, or ``None`` when the profile does not score yards allowed.
@@ -311,6 +316,7 @@ class DstScoring:
             + line.blocked_kick_tds * self.blocked_kick_td
             + line.extra_points_returned * self.extra_point_returned
             + line.fourth_down_stops * self.fourth_down_stop
+            + line.fumbles_lost * self.fumble_lost
         )
 
     #: Retained under its old name for callers that predate the yards ladder.

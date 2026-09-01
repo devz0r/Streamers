@@ -67,6 +67,11 @@ profiles:
       blocked_kick: 2.0          # blocked punt, PAT or FG
       blocked_kick_td: 6.0       # blocked kick returned for a TD
       extra_point_returned: 2.0  # 2pt return
+      # Fumble lost by the D/ST unit itself: a muffed punt or kickoff return,
+      # or a defender coughing it back up after a takeaway. NOT an offensive
+      # fumble -- those belong to the offence, not this unit. Set to 0.0 if
+      # your league's FUML line is the offensive one.
+      fumble_lost: -2.0
       fourth_down_stop: 0.0      # not an ESPN scoring item
       points_allowed_tiers:
         - [0, 0, 6.0]
@@ -125,6 +130,7 @@ profiles:
       blocked_kick: 2.0
       blocked_kick_td: 6.0
       extra_point_returned: 2.0
+      fumble_lost: 0.0           # not a Yahoo D/ST scoring item
       fourth_down_stop: 1.0      # Yahoo default: defensive stop on downs
       points_allowed_tiers:
         - [0, 0, 10.0]

@@ -66,20 +66,32 @@ Both profiles were re-tuned and re-validated independently after the change:
 | Yahoo | D/ST | +0.333 | +0.318 | **+0.015** |
 | Yahoo | Kicker | +0.178 | +0.128 | **+0.051** |
 
-### Two gaps in the supplied ESPN sheet
-Recorded because both were filled by assumption rather than instruction:
+### One gap in the supplied ESPN sheet
+**18-27 points allowed was absent.** The sheet ran 14-17 at +1 then jumped to
+28-34 at -1. ESPN's default for that band is **0**, which is also the only
+value that keeps the ladder monotonic across the gap, so 0 is what is
+configured. The ladder validator would have rejected the gap outright.
 
-- **18-27 points allowed was absent.** The sheet ran 14-17 at +1 then jumped to
-  28-34 at -1. ESPN's default for that band is **0**, which is also the only
-  value that keeps the ladder monotonic across the gap, so 0 is what is
-  configured. The ladder validator would have rejected the gap outright.
-- **"Total Fumbles Lost (FUML)" carried no value**, and is not a D/ST scoring
-  item on ESPN in any case -- fumble *recovery* is, and it is already scored at
-  2. It is ignored. If it was meant as something else, it is a one-line change
-  in `config.yaml`.
+The sheet also listed "Fumble Return TD" and "Fumble Recovered for TD"
+separately at 6 apiece; those are the same event and are scored once. Likewise
+"Interception Return TD" and "Fumble Return TD" are both the generic
+`defensive_td`.
 
-The supplied sheet also listed "Fumble Return TD" and "Fumble Recovered for TD"
-separately at 6 apiece; those are the same event and are scored once.
+### What FUML means for a D/ST unit
+`Total Fumbles Lost (FUML) -2` was supplied among the D/ST lines. A defence
+cannot lose an *offensive* fumble -- those belong to the offence -- so the only
+reading under which it affects a D/ST score is the unit losing the ball itself:
+
+- a muffed punt or kickoff return, or a botched snap on a punt (special teams
+  is part of the D/ST unit); or
+- a defender coughing the ball back up after a takeaway.
+
+Both are counted; the second is vanishingly rare (one occurrence in 2024 against
+36 return fumbles). League-wide this runs about **0.06 per team-game**, so it is
+worth roughly -0.13 points a week on average but a full -2 in the games where it
+lands. It is `dst_scoring.fumble_lost` in config, so if the line was actually
+ESPN's *offensive* FUML setting that got pasted along -- which would have no
+bearing on D/ST or K rankings at all -- setting it to `0.0` reverts it.
 
 ### Field-goal buckets are split from accuracy buckets
 Scoring needs 0-39 / 40-49 / 50-59 / 60+, because ESPN pays a premium for a

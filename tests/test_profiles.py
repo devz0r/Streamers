@@ -71,7 +71,7 @@ def test_counting_stats_are_identical_across_profiles(cfg, toy_pbp, toy_games):
     espn = dst_game_lines(toy_pbp, toy_games, cfg.for_profile("espn"))
     yahoo = dst_game_lines(toy_pbp, toy_games, cfg.for_profile("yahoo"))
     shared = ["sacks", "interceptions", "fumble_recoveries", "points_allowed",
-              "yards_allowed", "fourth_down_stops"]
+              "yards_allowed", "fourth_down_stops", "fumbles_lost"]
     for column in shared:
         assert espn[column].tolist() == yahoo[column].tolist(), column
 

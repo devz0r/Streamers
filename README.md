@@ -64,6 +64,7 @@ gets a plain-English review in `reports/`.
 | Points-allowed bands | 8 tiers, 46+ floor at -4 | 7 tiers, 35+ floor at -4 |
 | Yards allowed | scored, 9 tiers | not scored |
 | Fourth-down stop | — | 1 |
+| Fumble lost by the unit | -2 | — |
 | Missed FG | -1 | no penalty |
 | Missed PAT | -0.5 | no penalty |
 | 60+ yard FG | 6 | 5 |

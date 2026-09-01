@@ -28,7 +28,7 @@ KICK_PLAY_TYPES = ("punt", "kickoff", "field_goal", "extra_point")
 DST_EVENT_COLUMNS: tuple[str, ...] = (
     "sacks", "interceptions", "fumble_recoveries", "safeties", "one_point_safeties",
     "defensive_tds", "return_tds", "blocked_kicks", "blocked_kick_tds",
-    "extra_points_returned", "fourth_down_stops",
+    "extra_points_returned", "fourth_down_stops", "fumbles_lost",
 )
 
 #: Scrimmage plays that count toward total yards allowed. Penalty yardage is
@@ -194,6 +194,7 @@ def dst_game_lines(
         + out["blocked_kick_tds"] * scoring.blocked_kick_td
         + out["extra_points_returned"] * scoring.extra_point_returned
         + out["fourth_down_stops"] * scoring.fourth_down_stop
+        + out["fumbles_lost"] * scoring.fumble_lost
     )
     out["fantasy_points"] = (
         out["tier_points"] + out["yards_tier_points"] + out["big_play_points"]
@@ -273,6 +274,22 @@ def _dst_events(pbp: pd.DataFrame) -> pd.DataFrame:
                 & (df[rec_col] != df[fum_col])
             )
             credit(mask, rec_col, "fumble_recoveries")
+
+    # Fumbles lost by the D/ST unit itself. Two cases, and neither is an
+    # offensive fumble: a muffed punt or kickoff return (special teams is part
+    # of the D/ST unit, so a botched snap on a punt counts too), and a defender
+    # losing the ball back after taking it away.
+    for i in (1, 2):
+        rec_col, fum_col = f"fumble_recovery_{i}_team", f"fumbled_{i}_team"
+        if rec_col not in df.columns or fum_col not in df.columns:
+            continue
+        lost = df[fum_col].notna() & df[rec_col].notna() & (df[fum_col] != df[rec_col])
+        on_kick = df["play_type"].fillna("").isin(("punt", "kickoff"))
+        on_defense = (
+            df["play_type"].fillna("").isin(("pass", "run"))
+            & (df[fum_col] == df["defteam"])
+        )
+        credit(lost & (on_kick | on_defense), fum_col, "fumbles_lost")
 
     # Fourth-down stops: the offence went for it and failed. Punts and field
     # goals are not conversion attempts and do not count. Yahoo scores these.

@@ -83,7 +83,30 @@ def test_the_two_profiles_really_do_differ(espn, yahoo):
     assert e.points_allowed_points(0) == 6.0 and y.points_allowed_points(0) == 10.0
     assert e.sack == 2.5 and y.sack == 1.0
     assert e.fourth_down_stop == 0.0 and y.fourth_down_stop == 1.0
+    assert e.fumble_lost == -2.0 and y.fumble_lost == 0.0
     assert e.scores_yards_allowed and not y.scores_yards_allowed
+
+
+def test_espn_penalises_a_fumble_the_unit_loses_itself(espn, yahoo):
+    """FUML: a muffed return costs the D/ST, and it is not an offensive fumble."""
+    line = DstStatLine(points_allowed=10, yards_allowed=310, sacks=2, fumbles_lost=1)
+    espn_scoring = DstScoring.from_config(espn)
+    clean = DstStatLine(points_allowed=10, yards_allowed=310, sacks=2)
+    assert espn_scoring.score(line) == pytest.approx(espn_scoring.score(clean) - 2.0)
+    # Yahoo does not score it at all.
+    yahoo_scoring = DstScoring.from_config(yahoo)
+    assert yahoo_scoring.score(line) == pytest.approx(yahoo_scoring.score(clean))
+
+
+def test_fumbles_lost_and_recoveries_are_opposite_columns(espn):
+    """A recovery is a takeaway; a fumble lost is the unit's own giveaway."""
+    scoring = DstScoring.from_config(espn)
+    took = DstStatLine(points_allowed=10, yards_allowed=300, fumble_recoveries=1)
+    gave = DstStatLine(points_allowed=10, yards_allowed=300, fumbles_lost=1)
+    assert scoring.score(took) > scoring.score(gave)
+    assert scoring.score(took) - scoring.score(gave) == pytest.approx(
+        scoring.fumble_recovery - scoring.fumble_lost
+    )
 
 
 def test_ladders_are_monotone_and_total(any_profile):
@@ -189,7 +212,7 @@ def test_every_component_is_scored(any_profile):
         points_allowed=0, yards_allowed=50, sacks=1, interceptions=1,
         fumble_recoveries=1, safeties=1, one_point_safeties=1, defensive_tds=1,
         return_tds=1, blocked_kicks=1, blocked_kick_tds=1, extra_points_returned=1,
-        fourth_down_stops=1,
+        fourth_down_stops=1, fumbles_lost=1,
     )
     expected = (
         scoring.points_allowed_points(0) + scoring.yards_allowed_points(50)
@@ -197,6 +220,7 @@ def test_every_component_is_scored(any_profile):
         + scoring.safety + scoring.one_point_safety + scoring.defensive_td
         + scoring.return_td + scoring.blocked_kick + scoring.blocked_kick_td
         + scoring.extra_point_returned + scoring.fourth_down_stop
+        + scoring.fumble_lost
     )
     assert scoring.score(line) == pytest.approx(expected)
 
