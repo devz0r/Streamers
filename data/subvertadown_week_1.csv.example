@@ -1,0 +1,11 @@
+# Subvertadown's published rankings, typed by hand. Rename to
+# subvertadown_week_1.csv to benchmark against it.
+# A `position` column lets one file carry both lists; without it, a `team`
+# column is read as D/ST and a `player` column as K.
+position,rank,name
+DST,1,Jaguars
+DST,2,Chargers
+DST,3,Seahawks
+K,1,Cameron Dicker
+K,2,Jake Bates
+K,3,Daniel Carlson

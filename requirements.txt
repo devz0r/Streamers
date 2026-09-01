@@ -1,0 +1,14 @@
+# Pinned runtime dependencies. Python 3.11+.
+#
+# nflreadpy is the nflverse-maintained successor to nfl_data_py, which has not
+# shipped a release since September 2024. See DECISIONS.md.
+nflreadpy==0.1.5
+pandas==2.3.3
+numpy==2.3.5
+polars==1.35.2
+pyarrow==22.0.0
+scikit-learn==1.9.0
+scipy==1.17.1
+PyYAML==6.0.3
+python-dotenv==1.2.3
+requests==2.34.2

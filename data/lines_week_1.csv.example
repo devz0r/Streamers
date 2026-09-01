@@ -1,0 +1,7 @@
+# Manual line entry. Rename to lines_week_1.csv to use it.
+# `spread` is the HOME team's sportsbook line: -3.5 means the home team is
+# favoured by 3.5. Team names accept abbreviations, nicknames or full names.
+home_team,away_team,spread,total
+SEA,NE,-3.5,44.5
+CAR,CHI,2.5,47.5
+CIN,TB,-3.5,51.5

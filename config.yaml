@@ -1,0 +1,180 @@
+# streamer — configuration
+#
+# Every scoring and season assumption lives here. Nothing in the model code
+# hard-codes a scoring rule; `streamer.scoring` reads this file.
+#
+# Defaults: ESPN standard (full-PPR league context) D/ST and Kicker scoring,
+# 10-team league (top-12 finish is the "startable" bar used for P(top-12)).
+
+season:
+  # Season currently being projected / published.
+  current: 2026
+  # Seasons used to train the historical prior.
+  train_seasons: [2021, 2022, 2023, 2024, 2025]
+  # Regular-season weeks only. Fantasy playoffs end week 17 in most leagues,
+  # but we project the full regular season.
+  max_regular_season_week: 18
+
+league:
+  teams: 10
+  # A "startable" week. With 10-32 teams rostering one DST/K, top-12 is the
+  # standard streaming success bar (and what Subvertadown implicitly targets).
+  startable_rank: 12
+
+# ---------------------------------------------------------------------------
+# ESPN standard Kicker scoring
+# ---------------------------------------------------------------------------
+kicker_scoring:
+  fg_0_39: 3.0
+  fg_40_49: 4.0
+  fg_50_plus: 5.0
+  # ESPN's default sheet exposes a single "Total Field Goals Missed (FGM)"
+  # line at -1. We expose it per-bucket so leagues that only penalise short
+  # misses can override without touching code.
+  fg_missed_0_39: -1.0
+  fg_missed_40_49: -1.0
+  fg_missed_50_plus: -1.0
+  pat_made: 1.0
+  pat_missed: -1.0
+
+# ---------------------------------------------------------------------------
+# ESPN standard D/ST scoring
+# ---------------------------------------------------------------------------
+dst_scoring:
+  sack: 1.0
+  interception: 2.0
+  fumble_recovery: 2.0
+  safety: 2.0
+  defensive_td: 6.0          # INT return TD, fumble return TD
+  return_td: 6.0             # kickoff / punt return TD credited to D/ST
+  blocked_kick: 2.0          # blocked punt, PAT or FG
+  blocked_kick_td: 6.0       # blocked kick returned for a TD (in addition)
+  extra_point_returned: 2.0
+  # Points-allowed tiers: list of [inclusive_low, inclusive_high, points].
+  # `null` upper bound means "and above".
+  points_allowed_tiers:
+    - [0, 0, 5.0]
+    - [1, 6, 4.0]
+    - [7, 13, 3.0]
+    - [14, 17, 1.0]
+    - [18, 21, 0.0]
+    - [22, 27, -1.0]
+    - [28, 34, -3.0]
+    - [35, 45, -5.0]
+    - [46, null, -6.0]
+  # If true, points scored by the OPPONENT's own defense/special teams (e.g. a
+  # pick-six thrown by our offense) are excluded from the points-allowed total.
+  # ESPN's public behaviour is to charge the D/ST with the full opponent score;
+  # flip this if your league host differs.
+  points_allowed_excludes_opponent_dst_st: false
+
+# ---------------------------------------------------------------------------
+# Modelling
+# ---------------------------------------------------------------------------
+model:
+  # Candidate estimators; the backtest picks the winner per position and the
+  # choice is persisted to results/model_selection.json.
+  candidates: [ridge, gbm]
+  # Stage 1: the Vegas anchor. Lightly regularised on purpose -- this block is
+  # the signal, not the noise, and shrinking it would only blunt the baseline
+  # the adjustments are measured against.
+  anchor_alpha: 1.0
+  # Stage 2: the adjustment penalty. NOT hand-picked -- `streamer backtest
+  # --tune --save` sweeps `ridge_alpha_grid` walk-forward and writes the winner
+  # per position to results/model_selection.json, which overrides these seeds.
+  # The values below are what that sweep selected on 2023-2025.
+  ridge_alpha: 300.0
+  ridge_alpha_by_position:
+    K: 10000.0
+    DST: 300.0
+  ridge_alpha_grid: [30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0]
+  gbm:
+    max_iter: 300
+    learning_rate: 0.05
+    max_depth: 4
+    min_samples_leaf: 40
+    l2_regularization: 1.0
+  # Current-season rows get this much more weight than historical rows during
+  # the in-season refit, so the model tracks 2026 identity changes without
+  # overreacting to a single week.
+  current_season_weight: 2.0
+  # Exponential decay applied per season of age on top of the above.
+  season_decay: 0.85
+  # Floor/ceiling are empirical residual quantiles from walk-forward residuals.
+  floor_quantile: 0.15
+  ceiling_quantile: 0.85
+  # Monte-Carlo draws used for P(top-12).
+  sim_draws: 4000
+  # Minimum completed weeks of training data before a model will fit.
+  min_train_rows: 400
+
+# Bayesian shrinkage: how many league-average "pseudo-observations" a team or
+# player carries before its own sample is trusted. Larger = slower to move.
+shrinkage:
+  # Team offence/defence rate stats. Per-position, because the two models want
+  # different things and the backtest is unambiguous about it: D/ST ranking
+  # improves markedly with a weak prior (real defensive identity -- especially
+  # sack rate, the most stable D/ST signal -- survives instead of being washed
+  # toward league average), while kicker ranking prefers a firmer prior because
+  # team field-goal rates are noisier than they look. The rolling accumulator
+  # already applies exponential decay, so this is shrinkage on top of that.
+  team_rate_prior_games:
+    DST: 1.0
+    K: 6.0
+  kicker_accuracy_prior_attempts: 25.0
+  # Per-team in-season adjustment factors (sack rate, RZ stall, etc.) update
+  # Bayesianly against the team's own multi-season prior with this weight.
+  team_adjustment_prior_games: 8.0
+
+# Factor-correlation ledger
+ledger:
+  trailing_weeks: 4
+  # Prior strength (in team-week observations) of the historical correlation
+  # when blending with current-season correlation. The prior's influence decays
+  # automatically as the current-season sample grows: the blend is
+  #   r = (n_cur * r_cur + k * r_hist) / (n_cur + k)
+  prior_strength: 250.0
+  # Feature weight multiplier = clip(|r_blend| / |r_hist|, lo, hi) ** gamma
+  weight_gamma: 1.0
+  weight_clip: [0.25, 3.0]
+
+# ---------------------------------------------------------------------------
+# Data sources
+# ---------------------------------------------------------------------------
+odds:
+  # The Odds API free tier. Key read from ODDS_API_KEY in .env / environment.
+  api_base: "https://api.the-odds-api.com/v4"
+  sport: "americanfootball_nfl"
+  regions: "us"
+  markets: "spreads,totals"
+  odds_format: "american"
+  # Books to average, in preference order. Empty list = average all returned.
+  bookmakers: []
+  # Fallback chain, tried in order, first success wins:
+  #   api      -> The Odds API (needs ODDS_API_KEY)
+  #   csv      -> data/lines_week_N.csv (manual entry, see README)
+  #   schedule -> nflverse schedule spread_line/total_line (closing lines)
+  #   last     -> most recent cached pull for this week
+  fallback_order: [api, csv, schedule, last]
+
+weather:
+  # Manual CSV override: data/weather_week_N.csv
+  # Missing rows default to neutral (0 mph wind, no precipitation).
+  default_wind_mph: 0.0
+  default_temp_f: 60.0
+  # Wind above this is treated as materially kicker-suppressing.
+  high_wind_threshold: 15.0
+
+paths:
+  raw: data/raw
+  results: results
+  reports: reports
+  docs: docs
+
+publish:
+  site_title: "Streamer — DST & K Rankings"
+  # Number of rows shown in the primary tables on the published page.
+  top_n: 16
+  # A unit qualifies as a 2-week stream hold if it ranks inside this cutoff
+  # in BOTH the current week and the following week.
+  two_week_rank_cutoff: 12

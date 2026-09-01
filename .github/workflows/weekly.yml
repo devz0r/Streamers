@@ -1,0 +1,117 @@
+name: weekly
+
+# Tuesday: score the completed week and recalibrate.
+# Wednesday: rank the upcoming week and publish the page.
+#
+# Times are UTC. 11:00 UTC is 07:00 ET during EDT and 06:00 ET during EST --
+# early enough that the refreshed page is waiting on a phone before work.
+on:
+  schedule:
+    - cron: "0 11 * * 2"   # Tuesday — update (+ benchmark if a CSV is committed)
+    - cron: "0 11 * * 3"   # Wednesday — rank + publish
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "NFL week to run (defaults to the auto-detected week)"
+        required: false
+        type: string
+      job:
+        description: "Which half to run"
+        required: false
+        default: both
+        type: choice
+        options: [both, update, publish]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly
+  cancel-in-progress: false
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    env:
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Cache raw nflverse pulls
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: nflverse-${{ github.run_id }}
+          restore-keys: nflverse-
+
+      - name: Work out which week to run
+        id: week
+        run: python scripts/current_week.py >> "$GITHUB_OUTPUT"
+        env:
+          STREAMER_WEEK_OVERRIDE: ${{ inputs.week }}
+
+      - name: Decide which half to run
+        id: mode
+        run: |
+          MODE="${{ inputs.job }}"
+          if [ -z "$MODE" ] || [ "$MODE" = "both" ]; then
+            case "${{ github.event.schedule }}" in
+              "0 11 * * 2") MODE=update ;;
+              "0 11 * * 3") MODE=publish ;;
+              *)            MODE=both ;;
+            esac
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+
+      # --- Tuesday ---------------------------------------------------------
+      - name: Score last week and recalibrate
+        if: steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both'
+        run: streamer update --week "${{ steps.week.outputs.completed_week }}"
+
+      - name: Benchmark against Subvertadown
+        if: steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both'
+        run: |
+          WEEK="${{ steps.week.outputs.completed_week }}"
+          if [ -f "data/subvertadown_week_${WEEK}.csv" ]; then
+            streamer benchmark --week "$WEEK"
+          else
+            echo "No data/subvertadown_week_${WEEK}.csv committed; skipping benchmark."
+          fi
+
+      # --- Wednesday -------------------------------------------------------
+      # `rank` walks the odds fallback chain itself (API -> manual CSV ->
+      # schedule closing lines -> last cached pull) and flags a degraded pull on
+      # the page, so a missing or rate-limited key never blocks publishing.
+      - name: Rank and publish the upcoming week
+        if: steps.mode.outputs.mode == 'publish' || steps.mode.outputs.mode == 'both'
+        run: |
+          WEEK="${{ steps.week.outputs.upcoming_week }}"
+          streamer rank --week "$WEEK" --publish
+
+      - name: Commit the refreshed page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs reports results
+          if git diff --staged --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "weekly: refresh rankings (${{ steps.mode.outputs.mode }})"
+            for attempt in 1 2 3 4; do
+              git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+              echo "push failed (attempt $attempt); retrying"
+              sleep $((2 ** attempt))
+            done
+            exit 1
+          fi

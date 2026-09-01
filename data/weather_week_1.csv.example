@@ -1,0 +1,5 @@
+# Manual weather for outdoor stadiums. Rename to weather_week_1.csv to use it.
+# Domes are forced to neutral automatically, so only outdoor games matter here.
+home_team,wind,temp
+SEA,12,58
+PIT,18,49

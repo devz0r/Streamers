@@ -1,0 +1,15 @@
+# Raw nflverse pulls are large and fully reproducible from the loaders.
+data/raw/*.parquet
+!data/raw/.gitkeep
+
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.DS_Store
+
+# Secrets
+.env
