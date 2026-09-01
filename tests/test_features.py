@@ -194,3 +194,87 @@ def test_vegas_anchor_columns_are_real_features():
 
     assert set(VEGAS_ANCHOR["K"]).issubset(set(KICKER_FEATURES))
     assert set(VEGAS_ANCHOR["DST"]).issubset(set(DST_FEATURES))
+
+
+# ---------------------------------------------------------------------------
+# Placeholder rows for unplayed games
+# ---------------------------------------------------------------------------
+def _future_slate(toy_games):
+    """Week 2 fixtures for the same teams, which have not been played."""
+    nxt = toy_games[["season", "game_id", "team", "opponent"]].drop_duplicates().copy()
+    nxt["week"] = 2
+    # Both teams in a game must keep sharing one game_id, or the opponent
+    # join silently produces nothing.
+    nxt["game_id"] = nxt["game_id"].str.replace("_01_", "_02_", regex=False)
+    return nxt[["season", "week", "game_id", "team", "opponent"]]
+
+
+def _games_with_upcoming(toy_games):
+    """The played week plus a scheduled, unplayed week 2.
+
+    Real runs always have the upcoming fixtures (with lines, without scores) in
+    the games frame, because that is what the schedule feed carries.
+    """
+    upcoming = toy_games.copy()
+    upcoming["week"] = 2
+    upcoming["game_id"] = upcoming["game_id"].str.replace("_01_", "_02_", regex=False)
+    upcoming["team_score"] = float("nan")
+    upcoming["opp_score"] = float("nan")
+    return pd.concat([toy_games, upcoming], ignore_index=True)
+
+
+def test_unplayed_kicker_rows_have_no_target(cfg, toy_pbp, toy_games):
+    """A placeholder row padded with 0.0 would read as a real scoreless game.
+
+    That is the bug this guards: it would both contaminate training and let
+    `update` "score" a week that has not happened.
+    """
+    from streamer.features.build import build_kicker_features
+
+    future = _future_slate(toy_games)
+    kickers = future.merge(
+        pd.DataFrame({"team": ["NYJ", "BUF", "DEN", "KC"],
+                      "player_id": ["K1", "K2", "K3", "K4"],
+                      "player_name": ["T.Boot", "A.Leg", "B.Toe", "C.Foot"]}),
+        on="team", how="inner",
+    )
+    out = build_kicker_features(toy_pbp, _games_with_upcoming(toy_games), cfg, future, kickers)
+    upcoming = out[out["week"] == 2]
+    assert not upcoming.empty
+    assert upcoming["fantasy_points"].isna().all()
+
+
+def test_unplayed_dst_rows_have_no_target(cfg, toy_pbp, toy_games):
+    from streamer.features.build import build_dst_features
+
+    out = build_dst_features(
+        toy_pbp, _games_with_upcoming(toy_games), cfg, _future_slate(toy_games)
+    )
+    upcoming = out[out["week"] == 2]
+    assert not upcoming.empty
+    assert upcoming["fantasy_points"].isna().all()
+
+
+def test_completed_only_rejects_placeholder_rows():
+    """Second line of defence, independent of how the target got filled."""
+    from streamer.pipeline import _completed_only
+
+    frame = pd.DataFrame({
+        "fantasy_points": [7.0, 0.0, float("nan"), 4.0],
+        "is_future": [0, 1, 1, 0],
+    })
+    out = _completed_only(frame)
+    assert len(out) == 2
+    assert sorted(out["fantasy_points"]) == [4.0, 7.0]
+
+
+def test_unplayed_rows_still_receive_priors(cfg, toy_pbp, toy_games):
+    """Dropping the target must not mean dropping the features."""
+    from streamer.features.build import DST_FEATURES, build_dst_features
+
+    out = build_dst_features(
+        toy_pbp, _games_with_upcoming(toy_games), cfg, _future_slate(toy_games)
+    )
+    upcoming = out[out["week"] == 2]
+    for column in DST_FEATURES:
+        assert upcoming[column].notna().all(), column

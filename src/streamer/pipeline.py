@@ -123,8 +123,8 @@ def build_slate(
     kicker_all = build_kicker_features(pbp, games, cfg, future_games, future_kickers)
     dst_all = build_dst_features(pbp, games, cfg, future_games)
 
-    kicker_train = kicker_all[kicker_all["fantasy_points"].notna()].copy()
-    dst_train = dst_all[dst_all["fantasy_points"].notna()].copy()
+    kicker_train = _completed_only(kicker_all)
+    dst_train = _completed_only(dst_all)
 
     def slice_slate(frame: pd.DataFrame) -> pd.DataFrame:
         return frame[
@@ -155,6 +155,18 @@ def build_slate(
         week=week,
         games=slate_games,
     )
+
+
+def _completed_only(frame: pd.DataFrame) -> pd.DataFrame:
+    """Rows for games that have actually been played.
+
+    Belt and braces: a realised target *and* no placeholder flag. Training on a
+    placeholder row would teach the model that every upcoming game scores zero.
+    """
+    out = frame[frame["fantasy_points"].notna()]
+    if "is_future" in out.columns:
+        out = out[out["is_future"].fillna(0) != 1]
+    return out.copy()
 
 
 def apply_lines(

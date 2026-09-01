@@ -137,6 +137,25 @@ then samples historical residuals — bucketed by predicted level, because
 high-scoring spots are also more variable — and bins the draws onto the ladder.
 This is what produces `P(shutout)` and `P(under 14)`.
 
+### Ridge, not gradient boosting
+The brief said to fit both and keep whichever backtests better. Ridge wins for
+both positions, and not narrowly -- the tree model fails the baseline gate
+outright:
+
+| Position | Estimator | Rank corr | Edge vs Vegas | MAE | Fit time |
+|---|---|---|---|---|---|
+| D/ST | ridge | **+0.330** | **+0.012** | **4.32** | 5s |
+| D/ST | gbm | +0.262 | -0.056 | 4.50 | 228s |
+| Kicker | ridge | **+0.169** | **+0.049** | **3.72** | 4s |
+| Kicker | gbm | +0.041 | -0.078 | 3.89 | 241s |
+
+This is the expected outcome for the shape of the problem: ~2,800 rows, 25
+correlated features and a target dominated by variance the features cannot see.
+Trees find structure that does not replicate, while a heavily-penalised linear
+adjustment stage degrades toward the Vegas anchor instead. Both candidates stay
+in the code and `streamer backtest` still evaluates both, because the right
+answer could change if the feature set grows.
+
 ### Things that were tried and rejected
 Recorded because negative results are results:
 

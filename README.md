@@ -61,7 +61,9 @@ Walk-forward on 2023-2025, training only on strictly earlier games:
 | D/ST | **+0.330** | +0.318 | **+0.012** | **4.32** | 4.35 | **66%** | 62% |
 | Kicker | **+0.170** | +0.120 | **+0.050** | **3.72** | 3.73 | **57%** | 50% |
 
-Reproduce with `streamer backtest --seasons 2023-2025`.
+Reproduce with `streamer backtest --seasons 2023-2025`. Ridge is the selected
+estimator for both positions; gradient boosting was evaluated on the same
+walk-forward split and fails the baseline gate (D/ST +0.262, Kicker +0.041).
 
 Two honest caveats. The D/ST rank-correlation edge is real but small — opponent
 implied total is genuinely most of the available signal, and the practical gain

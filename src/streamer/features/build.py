@@ -236,6 +236,11 @@ def kicker_priors(
                 extra[col] = 0.0 if pd.api.types.is_numeric_dtype(lines[col]) else None
         extra["is_future"] = 1
         lines = pd.concat([lines, extra[lines.columns]], ignore_index=True)
+        # Placeholder rows are padded with zeros so the rolling accumulator can
+        # read them, but the *target* must stay missing: a 0.0 here would be
+        # indistinguishable from a real scoreless game and would both
+        # contaminate training and let `update` "score" an unplayed week.
+        lines.loc[lines["is_future"] == 1, "fantasy_points"] = np.nan
     lines = lines.sort_values(["season", "week", "game_id"]).reset_index(drop=True)
     for bucket, _low, _high in FG_BUCKETS:
         lines[f"att_{bucket}"] = lines[f"fg_made_{bucket}"] + lines[f"fg_missed_{bucket}"]

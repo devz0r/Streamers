@@ -448,6 +448,15 @@ def write_week_review(result: UpdateResult, cfg: Config | None = None) -> Path:
     return path
 
 
+def _mean_or_na(values: list[float], places: int = 3, pct: bool = False) -> str:
+    """Mean of possibly-all-NaN values, without numpy's empty-slice warning."""
+    finite = [v for v in values if v is not None and np.isfinite(v)]
+    if not finite:
+        return "n/a"
+    mean = float(np.mean(finite))
+    return f"{mean:.0%}" if pct else f"{mean:.{places}f}"
+
+
 def _pct(value: float) -> str:
     return "n/a" if value is None or np.isnan(value) else f"{value:.0%}"
 
@@ -589,8 +598,8 @@ def _trend_section(result: UpdateResult, cfg: Config) -> list[str]:
             for _w, g in grp.groupby("week")
         ]
         lines.append(
-            f"| {position} | {weeks} | {mae:.2f} | {_fmt(float(np.nanmean(per_week)), 3)} | "
-            f"{float(np.nanmean(top5)):.0%} |"
+            f"| {position} | {weeks} | {mae:.2f} | {_mean_or_na(per_week, 3)} | "
+            f"{_mean_or_na(top5, pct=True)} |"
         )
     lines.append("")
     return lines
