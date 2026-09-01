@@ -7,8 +7,8 @@ so the tier boundaries can be tested exactly. All values are read from
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Mapping, Sequence
 
 from .config import Config, get_config
 
@@ -73,7 +73,7 @@ class KickerScoring:
     pat_missed: float
 
     @classmethod
-    def from_config(cls, cfg: Config | None = None) -> "KickerScoring":
+    def from_config(cls, cfg: Config | None = None) -> KickerScoring:
         raw = (cfg or get_config()).kicker_scoring
         return cls(**{f: float(raw[f]) for f in cls.__dataclass_fields__})
 
@@ -154,7 +154,7 @@ class DstScoring:
     points_allowed_excludes_opponent_dst_st: bool = False
 
     @classmethod
-    def from_config(cls, cfg: Config | None = None) -> "DstScoring":
+    def from_config(cls, cfg: Config | None = None) -> DstScoring:
         raw = (cfg or get_config()).dst_scoring
         tiers = tuple(
             (int(low), None if high is None else int(high), float(pts))

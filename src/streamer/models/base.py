@@ -136,7 +136,7 @@ class ResidualBands:
     pooled: np.ndarray = field(default_factory=lambda: np.zeros(1))
 
     @classmethod
-    def fit(cls, predictions: np.ndarray, actuals: np.ndarray, n_buckets: int = 4) -> "ResidualBands":
+    def fit(cls, predictions: np.ndarray, actuals: np.ndarray, n_buckets: int = 4) -> ResidualBands:
         pred = np.asarray(predictions, dtype=float)
         act = np.asarray(actuals, dtype=float)
         mask = np.isfinite(pred) & np.isfinite(act)

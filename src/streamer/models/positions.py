@@ -197,7 +197,7 @@ class KickerModel:
         multipliers: dict[str, float] | None = None,
         alpha: float | None = None,
         compute_weights: bool = True,
-    ) -> "KickerModel":
+    ) -> KickerModel:
         cfg = cfg or get_config()
         train = train[train[cls.TARGET].notna()]
         if train.empty:
@@ -257,7 +257,7 @@ class DstModel:
         two_stage: bool = False,
         alpha: float | None = None,
         compute_weights: bool = True,
-    ) -> "DstModel":
+    ) -> DstModel:
         cfg = cfg or get_config()
         train = train[train[cls.TARGET].notna()]
         if train.empty:
@@ -337,7 +337,7 @@ class VegasBaseline:
     sign: float
 
     @classmethod
-    def fit(cls, train: pd.DataFrame, column: str, target: str = "fantasy_points") -> "VegasBaseline":
+    def fit(cls, train: pd.DataFrame, column: str, target: str = "fantasy_points") -> VegasBaseline:
         x = pd.to_numeric(train[column], errors="coerce")
         y = pd.to_numeric(train[target], errors="coerce")
         mask = x.notna() & y.notna()

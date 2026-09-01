@@ -35,3 +35,14 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# B905 (`zip(strict=)`) is excluded deliberately: most zips here pair a column
+# list with a coefficient array of guaranteed equal length, and annotating
+# every one adds noise without catching anything.
+select = ["E", "F", "W", "UP", "B", "I"]
+ignore = ["E501", "B905"]

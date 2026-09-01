@@ -11,15 +11,14 @@ import pytest
 
 from streamer.config import Config
 from streamer.scoring import (
+    FG_BUCKETS,
     DstScoring,
     DstStatLine,
-    FG_BUCKETS,
     KickerScoring,
     KickerStatLine,
     fg_bucket,
     tier_probabilities_from_samples,
 )
-
 
 # ---------------------------------------------------------------------------
 # D/ST points-allowed tiers

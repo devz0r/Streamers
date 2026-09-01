@@ -91,7 +91,7 @@ class FactorLedger:
         asof_week: int,
         cfg: Config | None = None,
         previous: pd.DataFrame | None = None,
-    ) -> "FactorLedger":
+    ) -> FactorLedger:
         """Build the ledger from every completed game available to this refit."""
         cfg = cfg or get_config()
         conf = cfg.ledger

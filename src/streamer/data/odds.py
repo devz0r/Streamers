@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -261,7 +261,7 @@ def get_lines(
     return LinesResult(
         frame=slate.reset_index(drop=True),
         sources={str(k): int(v) for k, v in sources.items()},
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
         warnings=warnings,
     )
 

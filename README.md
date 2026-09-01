@@ -89,14 +89,18 @@ cp .env.example .env      # then paste your key from https://the-odds-api.com/
 Verify:
 
 ```bash
-pytest                                  # test suite
-streamer backtest --seasons 2023-2025   # ~2 min, downloads and caches nflverse data
+pytest                                             # test suite (~2s)
+streamer backtest --seasons 2023-2025 --estimator ridge   # ~1 min
 streamer rank --week 1
 ```
 
 The first data pull downloads five seasons of play-by-play (~65 MB) into
 `data/raw/`. It is cached, so everything after the first run is fast, and
 backtests are reproducible. `STREAMER_REFRESH=1` forces a re-fetch.
+
+Dropping `--estimator ridge` also backtests the gradient-boosted candidate,
+which takes about seven minutes — worth doing once, or after changing the
+feature set, to confirm the choice still holds.
 
 ---
 
@@ -213,7 +217,7 @@ automated run produces.
 | `streamer rank --week N` | Ranked D/ST and K tables with expected points, floor/ceiling, P(top-12), a one-line rationale each, and two-week hold flags. `--publish` also writes the page. |
 | `streamer update --week N` | Scores that week's predictions, appends to history, re-fits, rewrites the ledger, writes `reports/week_N_review.md`. |
 | `streamer benchmark --week N` | Head-to-head vs Subvertadown on rank correlation and top-5 hit rate; updates `reports/benchmark.md`. |
-| `streamer backtest --seasons 2023-2025` | Walk-forward validation against the Vegas-only baseline. `--tune` sweeps the penalty, `--save` persists the winner, `--strict` exits non-zero if a position fails to beat the baseline. |
+| `streamer backtest --seasons 2023-2025` | Walk-forward validation against the Vegas-only baseline. `--estimator ridge` skips the slower tree candidate, `--tune` sweeps the penalty, `--save` persists the winner to `results/model_selection.json`, `--strict` exits non-zero if a position fails to beat the baseline. |
 | `streamer publish --week N` | Renders `docs/index.html` and `docs/week_N.html`. |
 
 Global flags: `--offline` (cached data and manual CSVs only), `--season`,

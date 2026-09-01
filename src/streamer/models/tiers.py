@@ -62,7 +62,7 @@ class TierModel:
         frame: pd.DataFrame,
         cfg: Config | None = None,
         sample_weight: np.ndarray | None = None,
-    ) -> "TierModel":
+    ) -> TierModel:
         cfg = cfg or get_config()
         scoring = DstScoring.from_config(cfg)
         columns = [c for c in TIER_FEATURES if c in frame.columns]

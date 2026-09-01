@@ -15,7 +15,6 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from .config import Config, get_config
@@ -164,7 +163,6 @@ def compare_week(
         if len(pair) < 5:
             continue
 
-        actual_rank = pair["fantasy_points"].rank(ascending=False, method="min")
         # Both systems' ranks are re-densified over the shared set so neither is
         # penalised for units the other did not list.
         mine_order = pair["model_rank"].rank(method="first")

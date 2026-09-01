@@ -23,7 +23,6 @@ from streamer.calibrate import append_history, score_week, store_predictions
 def slate_predictions():
     teams = ["KC", "BUF", "SF", "DAL", "NYJ", "PHI", "BAL", "DET",
              "GB", "MIN", "SEA", "LA", "MIA", "CIN", "PIT", "CLE"]
-    rng = np.random.default_rng(4)
     return pd.DataFrame({
         "season": 2026, "week": 5, "position": "DST", "team": teams,
         "opponent": teams[::-1], "player_id": None, "player_name": None,
@@ -88,7 +87,6 @@ def test_predictions_store_replaces_the_same_week(tmp_cfg, slate_predictions):
 
 
 def test_team_adjustments_move_gradually(tmp_cfg):
-    rng = np.random.default_rng(2)
     rows = []
     for season in (2024, 2025, 2026):
         for week in range(1, 10):

@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from .config import Config, get_config
-from .features.build import DST_FEATURES, FACTOR_LABELS, KICKER_FEATURES
+from .features.build import DST_FEATURES, KICKER_FEATURES
 from .features.rolling import bayesian_update
 from .models.base import spearman
 from .models.ledger import FactorLedger, append_ledger, load_ledger
@@ -90,6 +90,7 @@ class WeekScore:
     top5_hit_rate: float
     baseline_mae: float
     baseline_rank_corr: float
+    baseline_top5_hit_rate: float
     top5_mean_points: float
     slate_mean_points: float
     misses: pd.DataFrame = field(default_factory=pd.DataFrame)
@@ -137,9 +138,9 @@ def score_week(
         base_rank = merged["baseline_points"].rank(ascending=False, method="first")
         baseline_mae = float((merged["baseline_points"] - merged["actual_points"]).abs().mean())
         baseline_rc = spearman(merged["baseline_points"], merged["actual_points"])
+        baseline_top5 = float((merged.loc[base_rank <= 5, "actual_rank"] <= cutoff).mean())
     else:
-        base_rank = pd.Series(np.nan, index=merged.index)
-        baseline_mae, baseline_rc = float("nan"), float("nan")
+        baseline_mae = baseline_rc = baseline_top5 = float("nan")
 
     score = WeekScore(
         position=position,
@@ -149,6 +150,7 @@ def score_week(
         top5_hit_rate=float((merged.loc[top5, "actual_rank"] <= cutoff).mean()),
         baseline_mae=baseline_mae,
         baseline_rank_corr=baseline_rc,
+        baseline_top5_hit_rate=baseline_top5,
         top5_mean_points=float(merged.loc[top5, "actual_points"].mean()),
         slate_mean_points=float(merged["actual_points"].mean()),
         misses=merged.nlargest(5, "error"),
@@ -319,7 +321,7 @@ def run_update(
     history = append_history(pd.concat(history_rows, ignore_index=True), cfg) if history_rows \
         else load_history(cfg)
     if ledgers:
-        append_ledger([l.frame for l in ledgers.values()], cfg)
+        append_ledger([entry.frame for entry in ledgers.values()], cfg)
     adjustments = update_team_adjustments(context.dst_train, season, week, cfg)
 
     result = UpdateResult(
@@ -406,8 +408,9 @@ def write_week_review(result: UpdateResult, cfg: Config | None = None) -> Path:
         ]
 
     lines += ["## How the model did", "",
-              "| Position | n | MAE | Vegas-only MAE | Rank corr | Vegas-only rank corr | Top-5 hit rate | Top-5 avg pts | Slate avg |",
-              "|---|---|---|---|---|---|---|---|---|"]
+              "| Position | n | MAE | Vegas-only MAE | Rank corr | Vegas-only rank corr | "
+              "Top-5 hit rate | Vegas-only top-5 | Top-5 avg pts | Slate avg |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for position in ("DST", "K"):
         s = result.scores.get(position)
         if s is None:
@@ -415,7 +418,8 @@ def write_week_review(result: UpdateResult, cfg: Config | None = None) -> Path:
         lines.append(
             f"| {position} | {s.n} | {s.mae:.2f} | {_fmt(s.baseline_mae)} | "
             f"{_fmt(s.rank_corr, 3)} | {_fmt(s.baseline_rank_corr, 3)} | "
-            f"{s.top5_hit_rate:.0%} | {s.top5_mean_points:.1f} | {s.slate_mean_points:.1f} |"
+            f"{s.top5_hit_rate:.0%} | {_pct(s.baseline_top5_hit_rate)} | "
+            f"{s.top5_mean_points:.1f} | {s.slate_mean_points:.1f} |"
         )
     lines.append("")
 
@@ -444,6 +448,10 @@ def write_week_review(result: UpdateResult, cfg: Config | None = None) -> Path:
     return path
 
 
+def _pct(value: float) -> str:
+    return "n/a" if value is None or np.isnan(value) else f"{value:.0%}"
+
+
 def _fmt(value: float, places: int = 2) -> str:
     return "n/a" if value is None or (isinstance(value, float) and np.isnan(value)) \
         else f"{value:.{places}f}"
@@ -469,7 +477,8 @@ def _verdict_line(score: WeekScore) -> str:
         f"{_fmt(score.baseline_rank_corr, 3)} -- {verdict}. "
         f"The five recommended units averaged {score.top5_mean_points:.1f} points "
         f"against a slate average of {score.slate_mean_points:.1f}, and "
-        f"{score.top5_hit_rate:.0%} of them finished startable."
+        f"{score.top5_hit_rate:.0%} of them finished startable "
+        f"(Vegas-only: {_pct(score.baseline_top5_hit_rate)})."
     )
 
 

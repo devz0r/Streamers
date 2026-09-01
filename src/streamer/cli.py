@@ -273,7 +273,7 @@ def cmd_backtest(args: argparse.Namespace, cfg: Config) -> int:
     from .pipeline import save_selection, training_seasons
 
     seasons = _parse_seasons(args.seasons)
-    print(f"Building features (this pulls and caches play-by-play)...")
+    print("Building features (this pulls and caches play-by-play)...")
     pbp = load_pbp(training_seasons(cfg), cfg)
     games = games_frame(cfg)
     kicker = build_kicker_features(pbp, games, cfg)

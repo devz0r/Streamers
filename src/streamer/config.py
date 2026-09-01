@@ -141,7 +141,7 @@ def load_config(path: str | Path | None = None) -> Config:
     """Load configuration from ``path`` (default: ``<repo root>/config.yaml``)."""
     root = repo_root()
     cfg_path = Path(path) if path is not None else root / "config.yaml"
-    with open(cfg_path, "r", encoding="utf-8") as fh:
+    with open(cfg_path, encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
     if not isinstance(raw, dict):
         raise ValueError(f"{cfg_path} did not parse to a mapping")

@@ -12,7 +12,7 @@ from __future__ import annotations
 import html
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -144,7 +144,7 @@ def render_page(rankings: Rankings, cfg: Config | None = None) -> str:
     cfg = cfg or get_config()
     conf = cfg.publish
     top_n = int(conf["top_n"])
-    generated = datetime.now(timezone.utc).strftime("%a %d %b %Y, %H:%M UTC")
+    generated = datetime.now(UTC).strftime("%a %d %b %Y, %H:%M UTC")
 
     parts: list[str] = [
         "<!doctype html>",
@@ -398,7 +398,7 @@ def publish(rankings: Rankings, cfg: Config | None = None) -> PublishResult:
     payload = {
         "season": rankings.season,
         "week": rankings.week,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "line_source": rankings.line_source,
         "dst": _json_rows(rankings.dst),
         "kicker": _json_rows(rankings.kicker),

@@ -7,7 +7,6 @@ the live tool useless, and it would be invisible without a test like this.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 import pytest
 
