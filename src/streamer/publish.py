@@ -261,7 +261,7 @@ def render_page(
 #: schedule is properly priced, just not freshly pulled.
 _LINE_BADGE = {
     "live": ("ok", "live odds"),
-    "fallback": ("", "lines"),
+    "fallback": ("", None),        # the source phrase is the label
     "incomplete": ("warn", "incomplete lines"),
 }
 
@@ -270,7 +270,10 @@ def _badges(rankings: Rankings, cfg: Config) -> str:
     badges = []
     if rankings.context and rankings.context.lines:
         lines = rankings.context.lines
-        cls, label = _LINE_BADGE.get(lines.status, ("", "lines"))
+        cls, label = _LINE_BADGE.get(lines.status, ("", None))
+        # Only the dominant source; describe() names the rest, so the full
+        # phrase here would repeat itself on a mixed slate.
+        label = label or lines.primary_label()
         badges.append(
             f'<span class="badge {cls}">{_e(label)}: {_e(lines.describe())}</span>'
         )

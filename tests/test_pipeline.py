@@ -286,6 +286,13 @@ def test_only_unpriced_games_raise_the_alarm(tmp_cfg, slate_predictions):
     assert "no spread or total" in broken
 
 
+def test_badge_label_names_only_the_dominant_source():
+    """Otherwise a mixed slate reads 'live odds and nflverse...: 10 games, 6 from nflverse...'."""
+    assert _lines({"api": 16}).primary_label() == "live odds"
+    assert _lines({"api": 10, "schedule": 6}).primary_label() == "live odds"
+    assert _lines({"schedule": 10, "api": 6}).primary_label() == "nflverse closing lines"
+
+
 def test_source_phrase_reads_as_prose():
     assert _lines({"api": 16}).source_phrase() == "live odds"
     assert _lines({"schedule": 16}).source_phrase() == "nflverse closing lines"
@@ -295,9 +302,13 @@ def test_source_phrase_reads_as_prose():
     assert _lines({}).source_phrase() == "no source"
 
 
-def test_describe_names_sources_in_plain_english():
-    assert "live odds" in _lines({"api": 16}).describe()
-    assert "nflverse closing lines" in _lines({"schedule": 16}).describe()
+def test_describe_does_not_repeat_the_badge_label():
+    """"live odds: 16 from live odds" reads like a bug, so describe() omits it."""
+    assert _lines({"api": 16}).describe() == "16 games"
+    assert _lines({"schedule": 16}).describe() == "16 games"
+    # A mixed slate names only the minority sources.
+    mixed = _lines({"api": 10, "schedule": 6}).describe()
+    assert mixed == "10 games, 6 from nflverse closing lines"
     assert "unpriced" in _lines({"schedule": 14}, missing=2).describe()
     assert _lines({}).describe() == "no lines available"
 

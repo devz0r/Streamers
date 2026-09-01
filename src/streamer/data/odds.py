@@ -98,7 +98,7 @@ class LinesResult:
     }
 
     def source_phrase(self) -> str:
-        """Just the sources, e.g. ``nflverse closing lines``."""
+        """Every source in prose, e.g. ``live odds and nflverse closing lines``."""
         if not self.sources:
             return "no source"
         names = [
@@ -109,21 +109,25 @@ class LinesResult:
             return names[0]
         return ", ".join(names[:-1]) + f" and {names[-1]}"
 
+    def primary_label(self) -> str:
+        """The dominant source alone, for a badge that has limited room."""
+        return self.SOURCE_LABELS.get(self.primary_source, self.primary_source)
+
     def describe(self) -> str:
+        """Counts per source, e.g. ``16 games`` or ``10 games, 6 from nflverse``.
+
+        The badge already names the dominant source, so the majority source is
+        not repeated here -- "live odds: 16 from live odds" reads like a bug.
+        """
         if not self.sources:
             return "no lines available"
-        labels = {
-            "api": "live odds",
-            "csv": "your manual CSV",
-            "schedule": "nflverse closing lines",
-            "last": "last cached pull",
-        }
-        parts = [
-            f"{n} from {labels.get(src, src)}"
-            for src, n in sorted(self.sources.items(), key=lambda kv: -kv[1])
+        ranked = sorted(self.sources.items(), key=lambda kv: -kv[1])
+        parts = [f"{ranked[0][1]} games"]
+        parts += [
+            f"{n} from {self.SOURCE_LABELS.get(src, src)}" for src, n in ranked[1:]
         ]
         text = ", ".join(parts)
-        return text if not self.missing else f"{text}; {self.missing} game(s) unpriced"
+        return text if not self.missing else f"{text}, {self.missing} unpriced"
 
 
 def _load_dotenv(root: Path) -> None:
