@@ -3,8 +3,13 @@
 # Every scoring and season assumption lives here. Nothing in the model code
 # hard-codes a scoring rule; `streamer.scoring` reads this file.
 #
-# Defaults: ESPN standard (full-PPR league context) D/ST and Kicker scoring,
-# 10-team league (top-12 finish is the "startable" bar used for P(top-12)).
+# Two league profiles are configured. Every command runs both by default;
+# `--profile espn` or `--profile yahoo` narrows it. The published page carries
+# both with a switch between them.
+#
+# Adding a third league needs nothing but another block under `profiles`: a
+# name, a league size and two scoring sheets. The CLI choices, the page switch
+# and the per-profile storage all follow from this file.
 
 season:
   # Season currently being projected / published.
@@ -15,58 +20,122 @@ season:
   # but we project the full regular season.
   max_regular_season_week: 18
 
-league:
-  teams: 10
-  # A "startable" week. With 10-32 teams rostering one DST/K, top-12 is the
-  # standard streaming success bar (and what Subvertadown implicitly targets).
-  startable_rank: 12
+# Profile used when --profile is not given.
+default_profile: espn
 
 # ---------------------------------------------------------------------------
-# ESPN standard Kicker scoring
+# League scoring profiles
+#
+# Field-goal buckets are 0-39 / 40-49 / 50-59 / 60+ for both profiles. Yahoo
+# does not distinguish 50-59 from 60+ (both score 5), and neither profile
+# distinguishes inside 0-39, so the finest partition either league needs is
+# what both are expressed in.
 # ---------------------------------------------------------------------------
-kicker_scoring:
-  fg_0_39: 3.0
-  fg_40_49: 4.0
-  fg_50_plus: 5.0
-  # ESPN's default sheet exposes a single "Total Field Goals Missed (FGM)"
-  # line at -1. We expose it per-bucket so leagues that only penalise short
-  # misses can override without touching code.
-  fg_missed_0_39: -1.0
-  fg_missed_40_49: -1.0
-  fg_missed_50_plus: -1.0
-  pat_made: 1.0
-  pat_missed: -1.0
+profiles:
 
-# ---------------------------------------------------------------------------
-# ESPN standard D/ST scoring
-# ---------------------------------------------------------------------------
-dst_scoring:
-  sack: 1.0
-  interception: 2.0
-  fumble_recovery: 2.0
-  safety: 2.0
-  defensive_td: 6.0          # INT return TD, fumble return TD
-  return_td: 6.0             # kickoff / punt return TD credited to D/ST
-  blocked_kick: 2.0          # blocked punt, PAT or FG
-  blocked_kick_td: 6.0       # blocked kick returned for a TD (in addition)
-  extra_point_returned: 2.0
-  # Points-allowed tiers: list of [inclusive_low, inclusive_high, points].
-  # `null` upper bound means "and above".
-  points_allowed_tiers:
-    - [0, 0, 5.0]
-    - [1, 6, 4.0]
-    - [7, 13, 3.0]
-    - [14, 17, 1.0]
-    - [18, 21, 0.0]
-    - [22, 27, -1.0]
-    - [28, 34, -3.0]
-    - [35, 45, -5.0]
-    - [46, null, -6.0]
-  # If true, points scored by the OPPONENT's own defense/special teams (e.g. a
-  # pick-six thrown by our offense) are excluded from the points-allowed total.
-  # ESPN's public behaviour is to charge the D/ST with the full opponent score;
-  # flip this if your league host differs.
-  points_allowed_excludes_opponent_dst_st: false
+  espn:
+    name: "ESPN"
+    description: "ESPN, 10-team"
+    league:
+      teams: 10
+      # A "startable" week: roughly one D/ST and one K per team, so the number
+      # of managers who need a usable one each week.
+      startable_rank: 12
+
+    kicker_scoring:
+      fg_0_39: 3.0
+      fg_40_49: 4.0
+      fg_50_59: 5.0
+      fg_60_plus: 6.0
+      # ESPN's sheet exposes a single "Total Field Goals Missed" line at -1,
+      # applied at every distance.
+      fg_missed_0_39: -1.0
+      fg_missed_40_49: -1.0
+      fg_missed_50_59: -1.0
+      fg_missed_60_plus: -1.0
+      pat_made: 1.0
+      pat_missed: -0.5
+
+    dst_scoring:
+      sack: 2.5
+      interception: 2.5
+      fumble_recovery: 2.0
+      safety: 2.0
+      one_point_safety: 1.0
+      defensive_td: 6.0          # INT return TD, fumble return TD
+      return_td: 6.0             # kickoff / punt return TD
+      blocked_kick: 2.0          # blocked punt, PAT or FG
+      blocked_kick_td: 6.0       # blocked kick returned for a TD
+      extra_point_returned: 2.0  # 2pt return
+      fourth_down_stop: 0.0      # not an ESPN scoring item
+      points_allowed_tiers:
+        - [0, 0, 6.0]
+        - [1, 6, 4.0]
+        - [7, 13, 3.0]
+        - [14, 17, 1.0]
+        # ASSUMPTION: 18-27 was absent from the supplied sheet. ESPN's default
+        # for that band is 0, which is also the only value that keeps the
+        # ladder monotonic between 14-17 (+1) and 28-34 (-1).
+        - [18, 27, 0.0]
+        - [28, 34, -1.0]
+        - [35, 45, -3.0]
+        - [46, null, -4.0]
+      # ESPN also scores total yards allowed. Set to null for leagues that do
+      # not (see the Yahoo profile).
+      yards_allowed_tiers:
+        - [0, 99, 5.0]
+        - [100, 199, 3.0]
+        - [200, 299, 2.0]
+        - [300, 349, 1.0]
+        - [350, 399, -1.0]
+        - [400, 449, -2.0]
+        - [450, 499, -3.0]
+        - [500, 549, -4.0]
+        - [550, null, -5.0]
+      points_allowed_excludes_opponent_dst_st: false
+
+  yahoo:
+    name: "Yahoo"
+    description: "Yahoo, 14-team"
+    league:
+      teams: 14
+      startable_rank: 14
+
+    kicker_scoring:
+      fg_0_39: 3.0
+      fg_40_49: 4.0
+      fg_50_59: 5.0
+      fg_60_plus: 5.0
+      # Yahoo's default sheet has no missed-field-goal penalty at all.
+      fg_missed_0_39: 0.0
+      fg_missed_40_49: 0.0
+      fg_missed_50_59: 0.0
+      fg_missed_60_plus: 0.0
+      pat_made: 1.0
+      pat_missed: 0.0
+
+    dst_scoring:
+      sack: 1.0
+      interception: 2.0
+      fumble_recovery: 2.0
+      safety: 2.0
+      one_point_safety: 0.0
+      defensive_td: 6.0
+      return_td: 6.0
+      blocked_kick: 2.0
+      blocked_kick_td: 6.0
+      extra_point_returned: 2.0
+      fourth_down_stop: 1.0      # Yahoo default: defensive stop on downs
+      points_allowed_tiers:
+        - [0, 0, 10.0]
+        - [1, 6, 7.0]
+        - [7, 13, 4.0]
+        - [14, 20, 1.0]
+        - [21, 27, 0.0]
+        - [28, 34, -1.0]
+        - [35, null, -4.0]
+      yards_allowed_tiers: null
+      points_allowed_excludes_opponent_dst_st: false
 
 # ---------------------------------------------------------------------------
 # Modelling
@@ -83,10 +152,10 @@ model:
   # --tune --save` sweeps `ridge_alpha_grid` walk-forward and writes the winner
   # per position to results/model_selection.json, which overrides these seeds.
   # The values below are what that sweep selected on 2023-2025.
-  ridge_alpha: 300.0
+  ridge_alpha: 3000.0
   ridge_alpha_by_position:
     K: 10000.0
-    DST: 300.0
+    DST: 3000.0
   ridge_alpha_grid: [30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0]
   gbm:
     max_iter: 300

@@ -3,6 +3,10 @@ name: weekly
 # Tuesday: score the completed week and recalibrate.
 # Wednesday: rank the upcoming week and publish the page.
 #
+# Every step runs BOTH scoring profiles (ESPN and Yahoo) -- the CLI defaults to
+# --profile all -- so each league gets its own calibration and both land on the
+# one published page, switchable client-side.
+#
 # Times are UTC. 11:00 UTC is 07:00 ET during EDT and 06:00 ET during EST --
 # early enough that the refreshed page is waiting on a phone before work.
 #
@@ -88,10 +92,11 @@ jobs:
         if: steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both'
         run: |
           WEEK="${{ steps.week.outputs.completed_week }}"
-          if [ -f "data/subvertadown_week_${WEEK}.csv" ]; then
+          # Either a shared file or a per-profile one is enough to run.
+          if ls data/subvertadown_week_"${WEEK}"*.csv >/dev/null 2>&1; then
             streamer benchmark --week "$WEEK"
           else
-            echo "No data/subvertadown_week_${WEEK}.csv committed; skipping benchmark."
+            echo "No data/subvertadown_week_${WEEK}*.csv committed; skipping benchmark."
           fi
 
       # --- Wednesday -------------------------------------------------------

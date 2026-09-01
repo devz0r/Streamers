@@ -64,6 +64,7 @@ def toy_pbp() -> pd.DataFrame:
             punt_blocked=0.0, punt_attempt=0.0, kickoff_attempt=0.0,
             defensive_extra_point_conv=0.0, epa=0.0, wp=0.5,
             aborted_play=0.0, penalty=0.0,
+            fourth_down_converted=0.0, fourth_down_failed=0.0, yards_gained=5.0,
         )
         base.update(kw)
         rows.append(base)
@@ -79,7 +80,9 @@ def toy_pbp() -> pd.DataFrame:
          kicker_player_id="K1", kicker_player_name="T.Boot", qb_dropback=0.0, pass_attempt=0.0)
 
     # --- Game 1: BUF defense ---
-    play(sack=1.0, qb_hit=1.0)
+    play(sack=1.0, qb_hit=1.0, yards_gained=-7.0)
+    # A fourth-down stop: NYJ went for it and failed. Yahoo scores this.
+    play(down=4.0, fourth_down_failed=1.0, yards_gained=1.0)
     play(interception=1.0)
     play(fumble=1.0, fumble_lost=1.0, fumbled_1_team="NYJ", fumble_recovery_1_team="BUF")
     play(safety=1.0)
@@ -89,7 +92,8 @@ def toy_pbp() -> pd.DataFrame:
 
     # BUF's own offense, so the team-week join has both sides of the game.
     for _ in range(3):
-        play(posteam="BUF", defteam="NYJ", fixed_drive=2.0, fixed_drive_result="Punt")
+        play(posteam="BUF", defteam="NYJ", fixed_drive=2.0,
+             fixed_drive_result="Punt", yards_gained=10.0)
     play(posteam="BUF", defteam="NYJ", fixed_drive=3.0, fixed_drive_result="Touchdown",
          yardline_100=5.0, touchdown=1.0, td_team="BUF")
 

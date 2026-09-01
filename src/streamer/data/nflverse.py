@@ -32,6 +32,7 @@ PBP_COLUMNS: tuple[str, ...] = (
     "extra_point_attempt", "extra_point_result",
     "kicker_player_id", "kicker_player_name",
     "sack", "qb_hit", "interception", "complete_pass", "incomplete_pass",
+    "fourth_down_converted", "fourth_down_failed", "yards_gained",
     "pass_attempt", "rush_attempt", "qb_dropback", "qb_scramble",
     "fumble", "fumble_lost", "fumble_forced",
     "fumble_recovery_1_team", "fumble_recovery_2_team",

@@ -19,7 +19,7 @@ import pandas as pd
 from ..actuals import dst_game_lines, kicker_game_lines
 from ..config import Config, get_config
 from ..data.weather import resolve_weather
-from ..scoring import FG_BUCKETS
+from ..scoring import FG_FEATURE_BUCKETS
 from .rolling import RateSpec, add_shrunk_rate, decayed_per_game
 from .team_week import build_team_week
 
@@ -79,6 +79,8 @@ DST_FEATURES: tuple[str, ...] = (
     "def_takeaway_td_per_game",
     "def_points_allowed_per_drive",
     "def_big_play_points_per_game",
+    "def_yards_allowed_per_game",
+    "def_sacks_per_game",
     "sack_opportunity",
     "takeaway_opportunity",
 )
@@ -138,6 +140,8 @@ FACTOR_LABELS: dict[str, str] = {
     "def_takeaway_td_per_game": "Defense TDs per game",
     "def_points_allowed_per_drive": "Defense points allowed per drive",
     "def_big_play_points_per_game": "Defense big-play points/game",
+    "def_yards_allowed_per_game": "Defense yards allowed/game",
+    "def_sacks_per_game": "Defense sacks/game",
     "sack_opportunity": "Sack opportunity (def x O-line x volume)",
     "takeaway_opportunity": "Takeaway opportunity",
 }
@@ -242,18 +246,23 @@ def kicker_priors(
         # contaminate training and let `update` "score" an unplayed week.
         lines.loc[lines["is_future"] == 1, "fantasy_points"] = np.nan
     lines = lines.sort_values(["season", "week", "game_id"]).reset_index(drop=True)
-    for bucket, _low, _high in FG_BUCKETS:
-        lines[f"att_{bucket}"] = lines[f"fg_made_{bucket}"] + lines[f"fg_missed_{bucket}"]
+    # Accuracy is modelled on the coarser feature buckets: a per-kicker 60+
+    # rate would be built from a handful of attempts league-wide per season.
+    for bucket, scoring_buckets in FG_FEATURE_BUCKETS:
+        lines[f"made_{bucket}"] = sum(lines[f"fg_made_{b}"] for b in scoring_buckets)
+        lines[f"att_{bucket}"] = lines[f"made_{bucket}"] + sum(
+            lines[f"fg_missed_{b}"] for b in scoring_buckets
+        )
     lines["pat_att"] = lines["pat_made"] + lines["pat_missed"]
     lines["fga_50_plus"] = lines["att_50_plus"]
 
     # Prior strength is expressed in attempts, and `add_shrunk_rate` multiplies
     # prior_games by the mean denominator per game, so convert here.
     specs = []
-    for bucket, _low, _high in FG_BUCKETS:
+    for bucket, _scoring_buckets in FG_FEATURE_BUCKETS:
         mean_att = max(lines[f"att_{bucket}"].mean(), 1e-6)
         specs.append(
-            RateSpec(f"k_acc_{bucket}", f"fg_made_{bucket}", f"att_{bucket}", k / mean_att)
+            RateSpec(f"k_acc_{bucket}", f"made_{bucket}", f"att_{bucket}", k / mean_att)
         )
     mean_pat = max(lines["pat_att"].mean(), 1e-6)
     specs.append(RateSpec("k_pat_acc", "pat_made", "pat_att", k / mean_pat))
@@ -342,16 +351,22 @@ def build_dst_features(
     # it has been generating, decayed and shrunk like every other prior.
     if not lines.empty:
         bp = lines[["season", "week", "game_id", "team", "big_play_points",
-                    "defensive_tds", "return_tds", "fumble_recoveries"]].copy()
+                    "defensive_tds", "return_tds", "fumble_recoveries",
+                    "yards_allowed", "sacks"]].copy()
         bp["takeaway_tds"] = bp["defensive_tds"] + bp["return_tds"]
         priors = priors.merge(bp, on=["season", "week", "game_id", "team"], how="left")
-        for col in ("big_play_points", "fumble_recoveries", "takeaway_tds"):
+        for col in ("big_play_points", "fumble_recoveries", "takeaway_tds",
+                    "yards_allowed", "sacks"):
             priors[col] = priors[col].fillna(0.0)
         priors = priors.sort_values(["season", "week", "game_id", "team"]).reset_index(drop=True)
         for col, out in (
             ("big_play_points", "def_big_play_points_per_game"),
             ("fumble_recoveries", "def_fumble_rec_per_game"),
             ("takeaway_tds", "def_takeaway_td_per_game"),
+            # A defence's own yardage history is the strongest single predictor
+            # of the yards it will allow next week -- more so than the market.
+            ("yards_allowed", "def_yards_allowed_per_game"),
+            ("sacks", "def_sacks_per_game"),
         ):
             priors = decayed_per_game(priors, col, ["team"], out)
 
@@ -362,6 +377,7 @@ def build_dst_features(
         "def_sack_rate", "def_pressure_rate", "def_int_rate",
         "def_points_per_drive_allowed", "def_big_play_points_per_game",
         "def_fumble_rec_per_game", "def_takeaway_td_per_game",
+        "def_yards_allowed_per_game", "def_sacks_per_game",
     ]
     df = priors[[c for c in self_cols if c in priors.columns]].copy()
     df = df.rename(columns={"def_points_per_drive_allowed": "def_points_allowed_per_drive"})
@@ -407,8 +423,8 @@ def build_dst_features(
 
     if not lines.empty:
         target = lines[["season", "week", "game_id", "team", "fantasy_points",
-                        "big_play_points", "tier_points", "points_allowed",
-                        "sacks", "interceptions"]]
+                        "big_play_points", "tier_points", "yards_tier_points",
+                        "points_allowed", "yards_allowed", "sacks", "interceptions"]]
         df = df.merge(target, on=["season", "week", "game_id", "team"], how="left")
 
     for col in DST_FEATURES:

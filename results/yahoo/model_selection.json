@@ -1,0 +1,14 @@
+{
+  "DST": {
+    "estimator": "ridge",
+    "mae": 4.579966484011214,
+    "rank_corr": 0.3331187164400022,
+    "ridge_alpha": 3000.0
+  },
+  "K": {
+    "estimator": "ridge",
+    "mae": 3.6115890421914045,
+    "rank_corr": 0.17816563509444247,
+    "ridge_alpha": 10000.0
+  }
+}

@@ -5,8 +5,10 @@ of Subvertadown: Vegas-anchored projections that re-calibrate themselves against
 their own results every week, published to a phone-friendly page you can open
 from anywhere.
 
-Defaults are **ESPN standard D/ST and Kicker scoring** in a 10-team league
-context. Everything lives in [`config.yaml`](config.yaml).
+Two leagues are configured out of the box — **ESPN (10-team)** and **Yahoo
+(14-team)** — and they are ranked separately, because the same defense is worth
+genuinely different amounts in each. The published page carries a switch
+between them. Everything lives in [`config.yaml`](config.yaml).
 
 ```
 $ streamer rank --week 1
@@ -52,18 +54,49 @@ trailing four weeks). Next week's feature weights come from a shrinkage blend of
 those, so a factor whose signal shifts loses weight automatically. Each week
 gets a plain-English review in `reports/`.
 
+### The two profiles
+
+| | ESPN (10-team) | Yahoo (14-team) |
+|---|---|---|
+| Sack | 2.5 | 1 |
+| Interception | 2.5 | 2 |
+| Shutout | 6 | 10 |
+| Points-allowed bands | 8 tiers, 46+ floor at -4 | 7 tiers, 35+ floor at -4 |
+| Yards allowed | scored, 9 tiers | not scored |
+| Fourth-down stop | — | 1 |
+| Missed FG | -1 | no penalty |
+| Missed PAT | -0.5 | no penalty |
+| 60+ yard FG | 6 | 5 |
+
+Those differences are not cosmetic. A sack is worth 2.5x more in ESPN, which
+pulls pass-rush matchups up its rankings; Yahoo's shutout pays 10 against
+ESPN's 6, which rewards chasing the lowest implied totals harder. Kickers
+reorder too — Yahoo penalises nothing, so a high-volume, lower-accuracy leg
+ranks better there than in ESPN.
+
+Each profile keeps its own trained models, history, factor ledger and benchmark
+record under `results/<profile>/` and `reports/<profile>/`. They share only the
+raw nflverse cache, which does not depend on scoring.
+
 ### Does it actually beat the market?
 
 Walk-forward on 2023-2025, training only on strictly earlier games:
 
-| Position | Rank corr | Vegas-only | Edge | MAE | Vegas-only MAE | Top-5 hit rate | Vegas-only |
-|---|---|---|---|---|---|---|---|
-| D/ST | **+0.330** | +0.318 | **+0.012** | **4.32** | 4.35 | **66%** | 62% |
-| Kicker | **+0.170** | +0.120 | **+0.050** | **3.72** | 3.73 | **57%** | 50% |
+| Profile | Position | Rank corr | Vegas-only | Edge | MAE | Vegas MAE | Top-5 hit | Vegas |
+|---|---|---|---|---|---|---|---|---|
+| ESPN | D/ST | **+0.359** | +0.344 | **+0.015** | **6.19** | 6.23 | **64%** | 63% |
+| ESPN | Kicker | **+0.171** | +0.122 | **+0.049** | **3.72** | 3.73 | **56%** | 49% |
+| Yahoo | D/ST | **+0.333** | +0.318 | **+0.015** | **4.58** | 4.61 | **72%** | 71% |
+| Yahoo | Kicker | **+0.178** | +0.128 | **+0.051** | **3.61** | 3.62 | **63%** | 58% |
 
 Reproduce with `streamer backtest --seasons 2023-2025`. Ridge is the selected
-estimator for both positions; gradient boosting was evaluated on the same
-walk-forward split and fails the baseline gate (D/ST +0.262, Kicker +0.041).
+estimator throughout; gradient boosting was evaluated on the same walk-forward
+split and fails the baseline gate (D/ST +0.262, Kicker +0.041).
+
+The absolute numbers are not comparable across profiles — ESPN pays 2.5 a sack
+and adds a yards-allowed ladder, so its D/ST scores are simply bigger, and
+Yahoo's higher top-5 rate reflects a 14-team startable bar against ESPN's 12.
+The **edge over the Vegas-only baseline** is the comparable figure.
 
 Two honest caveats. The D/ST rank-correlation edge is real but small — opponent
 implied total is genuinely most of the available signal, and the practical gain
@@ -111,17 +144,18 @@ feature set, to confirm the choice still holds.
 **Tuesday — score last week.**
 
 ```bash
-streamer update --week 5          # score, re-fit, rewrite the ledger
+streamer update --week 5          # both leagues: score, re-fit, rewrite the ledger
 streamer benchmark --week 5       # optional: head-to-head vs Subvertadown
 ```
 
-Writes `reports/week_5_review.md` (what it got wrong, which weights moved and
-why) and updates `results/history.parquet` and `results/factor_ledger.parquet`.
+Writes `reports/<profile>/week_5_review.md` (what it got wrong, which weights
+moved and why) and updates each profile's `history.parquet` and
+`factor_ledger.parquet`.
 
 **Wednesday — rank the coming week.**
 
 ```bash
-streamer rank --week 6 --publish  # rankings + docs/index.html
+streamer rank --week 6 --publish  # both leagues + docs/index.html
 ```
 
 Wednesday is deliberate: waiver claims process Wednesday morning and lines have
@@ -136,6 +170,10 @@ All optional — each one only overrides a fallback the tool already handles.
 | `data/lines_week_N.csv` | No API key, or you want your own book's numbers | `home_team,away_team,spread,total` |
 | `data/weather_week_N.csv` | Wind matters for an outdoor game | `home_team,wind,temp` |
 | `data/subvertadown_week_N.csv` | Benchmarking | `rank,team` (D/ST) or `rank,player` (K) |
+
+Subvertadown publishes different rankings per scoring system. Name the file
+`subvertadown_week_N_espn.csv` or `..._yahoo.csv` to give each profile its own,
+or use the plain `subvertadown_week_N.csv` for both.
 
 `spread` is the **home team's sportsbook line** — type it the way the book
 prints it (`-3.5` means the home team is favoured by 3.5). Team names accept
@@ -211,10 +249,13 @@ itself pushes to `${GITHUB_REF_NAME}`, so it works under any branch name.
 [`.github/workflows/weekly.yml`](.github/workflows/weekly.yml) runs at 11:00 UTC
 (07:00 ET during EDT):
 
-- **Tuesday** — `update` on the completed week, plus `benchmark` if you
-  committed a Subvertadown CSV
+- **Tuesday** — `update` on the completed week for both leagues, plus
+  `benchmark` if you committed a Subvertadown CSV
 - **Wednesday** — `rank` and `publish` the upcoming week, then commit the
   refreshed page
+
+Both profiles run in every step, so each league keeps its own calibration
+history and both appear on the one published page.
 
 If the odds pull fails, it publishes anyway using the fallback chain and marks
 the page as running on fallback lines. Run it by hand any time from the
@@ -236,8 +277,14 @@ automated run produces.
 | `streamer backtest --seasons 2023-2025` | Walk-forward validation against the Vegas-only baseline. `--estimator ridge` skips the slower tree candidate, `--tune` sweeps the penalty, `--save` persists the winner to `results/model_selection.json`, `--strict` exits non-zero if a position fails to beat the baseline. |
 | `streamer publish --week N` | Renders `docs/index.html` and `docs/week_N.html`. |
 
-Global flags: `--offline` (cached data and manual CSVs only), `--season`,
-`--verbose`, `--config`.
+Global flags: `--profile` (`espn`, `yahoo`, or `all` — the default),
+`--offline` (cached data and manual CSVs only), `--season`, `--verbose`,
+`--config`.
+
+```bash
+streamer rank --week 6                  # both leagues
+streamer rank --week 6 --profile yahoo  # just the Yahoo one
+```
 
 ---
 
@@ -245,14 +292,14 @@ Global flags: `--offline` (cached data and manual CSVs only), `--season`,
 
 | Path | Contents |
 |---|---|
-| `docs/index.html` | The published page — current week |
+| `docs/index.html` | The published page — current week, both leagues |
 | `docs/week_N.html` | Weekly archive |
-| `reports/week_N_review.md` | Plain-English weekly review |
-| `reports/benchmark.md` | Running head-to-head vs Subvertadown |
-| `results/history.parquet` | Every scored prediction |
-| `results/factor_ledger.parquet` | Per-factor correlations and weights, by week |
-| `results/team_adjustments.parquet` | Bayesian per-team in-season adjustments |
-| `results/predictions.parquet` | What was published, so `update` scores the real thing |
+| `reports/<profile>/week_N_review.md` | Plain-English weekly review |
+| `reports/<profile>/benchmark.md` | Running head-to-head vs Subvertadown |
+| `results/<profile>/history.parquet` | Every scored prediction |
+| `results/<profile>/factor_ledger.parquet` | Per-factor correlations and weights, by week |
+| `results/<profile>/team_adjustments.parquet` | Bayesian per-team in-season adjustments |
+| `results/<profile>/predictions.parquet` | What was published, so `update` scores the real thing |
 
 ---
 

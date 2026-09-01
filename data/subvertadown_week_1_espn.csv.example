@@ -1,0 +1,10 @@
+# Subvertadown's ESPN rankings for week 1, typed by hand.
+# Rename to subvertadown_week_1_espn.csv to benchmark the ESPN profile.
+# Drop the _espn suffix to use one file for both profiles.
+position,rank,name
+DST,1,Jaguars
+DST,2,Chargers
+DST,3,Seahawks
+K,1,Cameron Dicker
+K,2,Jake Bates
+K,3,Daniel Carlson

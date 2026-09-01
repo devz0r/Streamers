@@ -8,8 +8,10 @@ attribution rules are spelled out rather than inferred:
   is the *punting* team. Both are special-teams scores for the returning unit.
 * A blocked field goal or PAT returned for a score is credited to the blocking
   (defensive) team.
-* A half sack still belongs to one sack *play*; ESPN counts team sacks as sack
-  plays, so we count plays, not player credits.
+* A half sack still belongs to one sack *play*; team sacks are counted as sack
+  plays, not player credits, which is what every host does.
+* A fourth-down stop is a *failed conversion attempt*. A punt or field goal on
+  fourth down is neither, and does not count.
 """
 
 from __future__ import annotations
@@ -22,11 +24,16 @@ from .scoring import FG_BUCKETS, DstScoring, KickerScoring
 
 KICK_PLAY_TYPES = ("punt", "kickoff", "field_goal", "extra_point")
 
-#: Every non-tier D/ST scoring component we count out of play-by-play.
+#: Every non-ladder D/ST scoring component we count out of play-by-play.
 DST_EVENT_COLUMNS: tuple[str, ...] = (
-    "sacks", "interceptions", "fumble_recoveries", "safeties", "defensive_tds",
-    "return_tds", "blocked_kicks", "blocked_kick_tds", "extra_points_returned",
+    "sacks", "interceptions", "fumble_recoveries", "safeties", "one_point_safeties",
+    "defensive_tds", "return_tds", "blocked_kicks", "blocked_kick_tds",
+    "extra_points_returned", "fourth_down_stops",
 )
+
+#: Scrimmage plays that count toward total yards allowed. Penalty yardage is
+#: excluded, which is what "total yards" means on every fantasy host.
+YARDAGE_PLAY_TYPES = ("pass", "run")
 
 
 # ---------------------------------------------------------------------------
@@ -59,12 +66,12 @@ def kicker_game_lines(pbp: pd.DataFrame, cfg: Config | None = None) -> pd.DataFr
     # Distance is occasionally missing on blocked kicks; treat those as 0-39
     # (the modal blocked-kick bucket) rather than dropping the attempt.
     dist = kicks["distance"].fillna(35.0)
+    conditions = [
+        (dist >= low) & (dist <= high) if high is not None else (dist >= low)
+        for _name, low, high in FG_BUCKETS
+    ]
     bucket = pd.Series(
-        np.select(
-            [dist <= 39, dist <= 49],
-            ["0_39", "40_49"],
-            default="50_plus",
-        ),
+        np.select(conditions, [name for name, _l, _h in FG_BUCKETS], default=FG_BUCKETS[-1][0]),
         index=kicks.index,
     )
 
@@ -121,7 +128,7 @@ def _empty_kicker_frame() -> pd.DataFrame:
 def dst_game_lines(
     pbp: pd.DataFrame, games: pd.DataFrame, cfg: Config | None = None
 ) -> pd.DataFrame:
-    """One row per defense-game with every ESPN D/ST component and total."""
+    """One row per defense-game with every D/ST component and the profile total."""
     cfg = cfg or get_config()
     scoring = DstScoring.from_config(cfg)
 
@@ -135,6 +142,11 @@ def dst_game_lines(
          "team_score", "opp_score"]
     ].copy()
     out = out.merge(events, on=["season", "week", "game_id", "team"], how="left")
+
+    # Yards allowed = yards the opponent's offence gained.
+    yards = offense_yards(pbp).rename(columns={"posteam": "opponent", "yards": "yards_allowed"})
+    out = out.merge(yards, on=["season", "week", "game_id", "opponent"], how="left")
+    out["yards_allowed"] = out["yards_allowed"].fillna(0.0).round().clip(lower=0).astype(int)
     event_cols = [c for c in events.columns if c not in ("season", "week", "game_id", "team")]
     out[event_cols] = out[event_cols].fillna(0.0)
 
@@ -165,19 +177,50 @@ def dst_game_lines(
 
     out["points_allowed"] = out["points_allowed"].round().astype(int)
     out["tier_points"] = out["points_allowed"].map(scoring.points_allowed_points)
+    out["yards_tier_points"] = (
+        out["yards_allowed"].map(scoring.yards_allowed_points)
+        if scoring.scores_yards_allowed
+        else 0.0
+    )
     out["big_play_points"] = (
         out["sacks"] * scoring.sack
         + out["interceptions"] * scoring.interception
         + out["fumble_recoveries"] * scoring.fumble_recovery
         + out["safeties"] * scoring.safety
+        + out["one_point_safeties"] * scoring.one_point_safety
         + out["defensive_tds"] * scoring.defensive_td
         + out["return_tds"] * scoring.return_td
         + out["blocked_kicks"] * scoring.blocked_kick
         + out["blocked_kick_tds"] * scoring.blocked_kick_td
         + out["extra_points_returned"] * scoring.extra_point_returned
+        + out["fourth_down_stops"] * scoring.fourth_down_stop
     )
-    out["fantasy_points"] = out["tier_points"] + out["big_play_points"]
+    out["fantasy_points"] = (
+        out["tier_points"] + out["yards_tier_points"] + out["big_play_points"]
+    )
     return out.reset_index(drop=True)
+
+
+def offense_yards(pbp: pd.DataFrame) -> pd.DataFrame:
+    """Total scrimmage yards gained per (game, offence).
+
+    Sacks carry negative ``yards_gained`` and so reduce the total, which is the
+    net-yards convention every fantasy host uses.
+    """
+    if pbp.empty:
+        return pd.DataFrame(columns=["season", "week", "game_id", "posteam", "yards"])
+    plays = pbp[
+        pbp["posteam"].notna() & pbp["play_type"].isin(YARDAGE_PLAY_TYPES)
+    ].copy()
+    if plays.empty:
+        return pd.DataFrame(columns=["season", "week", "game_id", "posteam", "yards"])
+    plays["yards_gained"] = pd.to_numeric(plays["yards_gained"], errors="coerce").fillna(0.0)
+    return (
+        plays.groupby(["season", "week", "game_id", "posteam"], dropna=False)["yards_gained"]
+        .sum()
+        .reset_index()
+        .rename(columns={"yards_gained": "yards"})
+    )
 
 
 def _dst_events(pbp: pd.DataFrame) -> pd.DataFrame:
@@ -213,7 +256,12 @@ def _dst_events(pbp: pd.DataFrame) -> pd.DataFrame:
     # Sacks, INTs and safeties are all credited to the defense on the play.
     credit(df["sack"] == 1, "defteam", "sacks")
     credit(df["interception"] == 1, "defteam", "interceptions")
-    credit(df["safety"] == 1, "defteam", "safeties")
+    # Ordinary two-point safeties only; the one-point variety is credited below.
+    credit(
+        (df["safety"] == 1) & ~df["play_type"].fillna("").isin(("extra_point", "field_goal")),
+        "defteam",
+        "safeties",
+    )
 
     # Fumble recoveries: the recovering team must differ from the fumbling one.
     for i in (1, 2):
@@ -225,6 +273,22 @@ def _dst_events(pbp: pd.DataFrame) -> pd.DataFrame:
                 & (df[rec_col] != df[fum_col])
             )
             credit(mask, rec_col, "fumble_recoveries")
+
+    # Fourth-down stops: the offence went for it and failed. Punts and field
+    # goals are not conversion attempts and do not count. Yahoo scores these.
+    if "fourth_down_failed" in df.columns:
+        df["fourth_down_failed"] = pd.to_numeric(
+            df["fourth_down_failed"], errors="coerce"
+        ).fillna(0.0)
+        credit(df["fourth_down_failed"] == 1, "defteam", "fourth_down_stops")
+
+    # A one-point safety is a safety conceded on a try. Vanishingly rare, but
+    # ESPN scores it, so it is counted rather than assumed away.
+    credit(
+        (df["safety"] == 1) & df["play_type"].fillna("").isin(("extra_point", "field_goal")),
+        "defteam",
+        "one_point_safeties",
+    )
 
     # Blocked kicks: punts, field goals and PATs all count.
     credit(df["punt_blocked"] == 1, "defteam", "blocked_kicks")

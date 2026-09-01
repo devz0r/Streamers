@@ -4,9 +4,17 @@ Subvertadown publishes ranked DST and K lists each week but no projections, so
 the only fair comparison is on *ordering*: rank correlation against actual
 finishes, and how often each system's top five finished startable.
 
-Input is a hand-entered CSV at ``data/subvertadown_week_N.csv`` with columns
-``rank`` and ``team`` (D/ST) or ``player`` (K); a ``position`` column lets one
-file carry both lists. The running record lands in ``reports/benchmark.md``.
+Input is a hand-entered CSV with columns ``rank`` and ``team`` (D/ST) or
+``player`` (K); a ``position`` column lets one file carry both lists.
+
+Subvertadown publishes different rankings for different scoring systems, so
+each profile looks for its own file first and falls back to a shared one:
+
+``data/subvertadown_week_5_espn.csv``   -> used by the ESPN profile
+``data/subvertadown_week_5_yahoo.csv``  -> used by the Yahoo profile
+``data/subvertadown_week_5.csv``        -> used by either, if no profile file
+
+The running record lands in ``reports/<profile>/benchmark.md``.
 """
 
 from __future__ import annotations
@@ -32,7 +40,15 @@ BENCHMARK_COLUMNS = (
 
 
 def subvertadown_path(week: int, cfg: Config | None = None) -> Path:
+    """The rankings file for this week and profile.
+
+    Prefers a profile-specific file, since Subvertadown's ESPN and Yahoo lists
+    genuinely differ; falls back to a shared file so one CSV can serve both.
+    """
     cfg = cfg or get_config()
+    specific = cfg.data_dir / f"subvertadown_week_{week}_{cfg.profile}.csv"
+    if specific.exists():
+        return specific
     return cfg.data_dir / f"subvertadown_week_{week}.csv"
 
 
@@ -46,7 +62,8 @@ def read_subvertadown(week: int, cfg: Config | None = None) -> pd.DataFrame:
     path = subvertadown_path(week, cfg)
     if not path.exists():
         raise FileNotFoundError(
-            f"{path} not found -- paste Subvertadown's week {week} rankings there "
+            f"{path} not found -- paste Subvertadown's week {week} "
+            f"{cfg.profile_label} rankings there "
             "(columns: rank,team for D/ST; rank,player for K)"
         )
     df = pd.read_csv(path)

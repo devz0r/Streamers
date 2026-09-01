@@ -2,8 +2,16 @@
 
 Every scoring rule, shrinkage constant and modelling knob lives in
 ``config.yaml`` at the repository root. Nothing else in the codebase is
-allowed to hard-code a scoring value -- tests assert the ESPN defaults come
-from here.
+allowed to hard-code a scoring value -- tests assert the defaults come from
+here.
+
+Scoring is organised into **profiles** (``espn``, ``yahoo``): a profile owns
+the league size and both scoring sheets, while the season, model and data
+settings are shared. :meth:`Config.for_profile` returns a config bound to one
+profile, and everything downstream reads ``cfg.kicker_scoring`` /
+``cfg.dst_scoring`` / ``cfg.league`` without knowing which profile it is.
+Because the two profiles score the same game differently, each keeps its own
+trained state under ``results/<profile>/`` and its own reports.
 """
 
 from __future__ import annotations
@@ -35,10 +43,52 @@ def repo_root() -> Path:
 
 @dataclass(frozen=True)
 class Config:
-    """Parsed ``config.yaml`` with convenience accessors."""
+    """Parsed ``config.yaml``, bound to one scoring profile."""
 
     raw: dict[str, Any]
     root: Path = field(default_factory=repo_root)
+    #: Which entry of ``profiles`` this config reads scoring from.
+    profile: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.profile:
+            object.__setattr__(self, "profile", self.default_profile)
+        if self.profile not in self.profiles:
+            raise ValueError(
+                f"unknown scoring profile {self.profile!r}; "
+                f"available: {', '.join(sorted(self.profiles))}"
+            )
+
+    # -- profiles ----------------------------------------------------------
+    @property
+    def profiles(self) -> dict[str, Any]:
+        return self.raw["profiles"]
+
+    @property
+    def profile_names(self) -> list[str]:
+        return list(self.profiles)
+
+    @property
+    def default_profile(self) -> str:
+        return str(self.raw.get("default_profile") or next(iter(self.raw["profiles"])))
+
+    def for_profile(self, profile: str | None) -> Config:
+        """A config identical to this one but reading ``profile``'s scoring."""
+        if not profile or profile == self.profile:
+            return self
+        return Config(raw=self.raw, root=self.root, profile=profile)
+
+    @property
+    def _profile(self) -> dict[str, Any]:
+        return self.profiles[self.profile]
+
+    @property
+    def profile_label(self) -> str:
+        return str(self._profile.get("name", self.profile.upper()))
+
+    @property
+    def profile_description(self) -> str:
+        return str(self._profile.get("description", self.profile_label))
 
     # -- section accessors -------------------------------------------------
     @property
@@ -47,15 +97,15 @@ class Config:
 
     @property
     def league(self) -> dict[str, Any]:
-        return self.raw["league"]
+        return self._profile["league"]
 
     @property
     def kicker_scoring(self) -> dict[str, float]:
-        return self.raw["kicker_scoring"]
+        return self._profile["kicker_scoring"]
 
     @property
     def dst_scoring(self) -> dict[str, Any]:
-        return self.raw["dst_scoring"]
+        return self._profile["dst_scoring"]
 
     @property
     def model(self) -> dict[str, Any]:
@@ -114,6 +164,17 @@ class Config:
         p.mkdir(parents=True, exist_ok=True)
         return p
 
+    def profile_path(self, key: str) -> Path:
+        """A per-profile subdirectory of a configured directory.
+
+        ESPN and Yahoo score the same game differently, so their histories,
+        ledgers and fitted selections are separate state and must never share
+        a file.
+        """
+        p = self.path(key) / self.profile
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
     @property
     def data_dir(self) -> Path:
         p = self.root / "data"
@@ -126,18 +187,18 @@ class Config:
 
     @property
     def results_dir(self) -> Path:
-        return self.path("results")
+        return self.profile_path("results")
 
     @property
     def reports_dir(self) -> Path:
-        return self.path("reports")
+        return self.profile_path("reports")
 
     @property
     def docs_dir(self) -> Path:
         return self.path("docs")
 
 
-def load_config(path: str | Path | None = None) -> Config:
+def load_config(path: str | Path | None = None, profile: str | None = None) -> Config:
     """Load configuration from ``path`` (default: ``<repo root>/config.yaml``)."""
     root = repo_root()
     cfg_path = Path(path) if path is not None else root / "config.yaml"
@@ -145,10 +206,10 @@ def load_config(path: str | Path | None = None) -> Config:
         raw = yaml.safe_load(fh)
     if not isinstance(raw, dict):
         raise ValueError(f"{cfg_path} did not parse to a mapping")
-    return Config(raw=raw, root=cfg_path.resolve().parent)
+    return Config(raw=raw, root=cfg_path.resolve().parent, profile=profile or "")
 
 
-@functools.lru_cache(maxsize=1)
-def get_config() -> Config:
-    """Process-wide cached configuration."""
-    return load_config()
+@functools.lru_cache(maxsize=4)
+def get_config(profile: str | None = None) -> Config:
+    """Process-wide cached configuration for ``profile``."""
+    return load_config(profile=profile)

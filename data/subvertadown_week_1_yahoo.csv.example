@@ -1,0 +1,10 @@
+# Subvertadown's Yahoo rankings for week 1, typed by hand.
+# Rename to subvertadown_week_1_yahoo.csv to benchmark the Yahoo profile.
+# His Yahoo and ESPN lists genuinely differ, so keep them in separate files.
+position,rank,name
+DST,1,Jaguars
+DST,2,Seahawks
+DST,3,Chargers
+K,1,Cameron Dicker
+K,2,Daniel Carlson
+K,3,Jake Bates

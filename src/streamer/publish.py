@@ -110,7 +110,41 @@ details { background: var(--panel); border: 1px solid var(--line); border-radius
 summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 .archive { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
 .archive a { font-size: .8rem; padding: .25rem .6rem; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; text-decoration: none; }
+
+/* Profile switch.
+   Radios live at the top of <body>; the labels are styled as a segmented
+   control and the :checked state drives which panel is visible. No JavaScript,
+   so the switch works instantly on a phone and still works with JS disabled. */
+.profile-radio { position: absolute; opacity: 0; pointer-events: none; }
+.switch {
+  display: flex; gap: .25rem; padding: .25rem; margin: .9rem 0 .25rem;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 999px; position: sticky; top: .5rem; z-index: 5;
+  backdrop-filter: blur(8px);
+}
+.switch label {
+  flex: 1; text-align: center; padding: .45rem .5rem; border-radius: 999px;
+  font-size: .85rem; font-weight: 600; color: var(--muted); cursor: pointer;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: background .12s ease, color .12s ease;
+}
+.switch label:hover { color: var(--text); }
+.profile-panel { display: none; }
 """
+
+
+def _switch_rules(profiles: list[str]) -> str:
+    """Per-profile :checked rules, generated so any number of profiles works."""
+    rules = []
+    for name in profiles:
+        rules.append(
+            f"#profile-{name}:checked ~ .wrap .switch label[for=profile-{name}]"
+            "{background:var(--accent);color:#fff;}"
+        )
+        rules.append(
+            f"#profile-{name}:checked ~ .wrap #panel-{name}{{display:block;}}"
+        )
+    return "\n".join(rules)
 
 
 def _e(value: object) -> str:
@@ -139,12 +173,27 @@ class PublishResult:
     archive_path: Path
 
 
-def render_page(rankings: Rankings, cfg: Config | None = None) -> str:
-    """Render the whole page to an HTML string."""
+def render_page(
+    ranked: dict[str, Rankings] | Rankings, cfg: Config | None = None
+) -> str:
+    """Render the whole page to an HTML string.
+
+    ``ranked`` maps profile name to that profile's rankings. When more than one
+    is supplied the page carries a segmented switch between them, implemented
+    with a hidden radio per profile and ``:checked`` sibling rules -- no
+    JavaScript, so switching is instant on a phone and survives a stale cache.
+    """
     cfg = cfg or get_config()
+    if isinstance(ranked, Rankings):
+        ranked = {cfg.profile: ranked}
+    profiles = [name for name in cfg.profile_names if name in ranked] or list(ranked)
+    if not profiles:
+        raise ValueError("nothing to publish")
+
     conf = cfg.publish
-    top_n = int(conf["top_n"])
     generated = datetime.now(UTC).strftime("%a %d %b %Y, %H:%M UTC")
+    first = ranked[profiles[0]]
+    default = cfg.default_profile if cfg.default_profile in profiles else profiles[0]
 
     parts: list[str] = [
         "<!doctype html>",
@@ -152,25 +201,55 @@ def render_page(rankings: Rankings, cfg: Config | None = None) -> str:
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
         '<meta name="color-scheme" content="dark light">',
-        f"<title>{_e(conf['site_title'])} - Week {rankings.week}</title>",
-        f"<style>{STYLE}</style>",
+        f"<title>{_e(conf['site_title'])} - Week {first.week}</title>",
+        f"<style>{STYLE}\n{_switch_rules(profiles)}</style>",
         "</head><body>",
+    ]
+
+    # The radios must precede .wrap so the :checked sibling selectors reach it.
+    for name in profiles:
+        checked = " checked" if name == default else ""
+        parts.append(
+            f'<input class="profile-radio" type="radio" name="profile" '
+            f'id="profile-{_e(name)}"{checked}>'
+        )
+
+    parts += [
         '<div class="wrap">',
         "<header>",
-        f"<h1>Week {rankings.week} streaming rankings</h1>",
-        f'<p class="sub">{_e(conf["site_title"])} &middot; {rankings.season} season &middot; '
+        f"<h1>Week {first.week} streaming rankings</h1>",
+        f'<p class="sub">{_e(conf["site_title"])} &middot; {first.season} season &middot; '
         f"updated {generated}</p>",
-        _badges(rankings, cfg),
         "</header>",
     ]
 
-    parts.append(_notices(rankings))
-    parts.append(_two_week_section(rankings))
-    parts.append(_ranking_section("Defense / Special Teams", rankings.dst, "DST", top_n, cfg))
-    parts.append(_ranking_section("Kickers", rankings.kicker, "K", top_n, cfg))
-    parts.append(_benchmark_section(cfg))
-    parts.append(_calibration_section(cfg, rankings))
-    parts.append(_ledger_section(cfg))
+    if len(profiles) > 1:
+        labels = "".join(
+            f'<label for="profile-{_e(n)}">'
+            f'{_e(cfg.for_profile(n).profile_description)}</label>'
+            for n in profiles
+        )
+        parts.append(f'<div class="switch">{labels}</div>')
+
+    for name in profiles:
+        bound = cfg.for_profile(name)
+        rankings = ranked[name]
+        parts.append(f'<div class="profile-panel" id="panel-{_e(name)}">')
+        parts.append(_badges(rankings, bound))
+        parts.append(_notices(rankings))
+        parts.append(_two_week_section(rankings))
+        parts.append(
+            _ranking_section("Defense / Special Teams", rankings.dst, "DST",
+                             int(conf["top_n"]), bound)
+        )
+        parts.append(
+            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound)
+        )
+        parts.append(_benchmark_section(bound))
+        parts.append(_calibration_section(bound, rankings))
+        parts.append(_ledger_section(bound))
+        parts.append("</div>")
+
     parts.append(_archive_section(cfg))
     parts.append(_footer())
     parts.append("</div></body></html>")
@@ -187,7 +266,10 @@ def _badges(rankings: Rankings, cfg: Config) -> str:
     est = rankings.dst["estimator"].iloc[0] if not rankings.dst.empty and "estimator" in rankings.dst else None
     if est:
         badges.append(f'<span class="badge">model: {_e(est)}</span>')
-    badges.append(f'<span class="badge">ESPN scoring &middot; {cfg.league["teams"]}-team</span>')
+    badges.append(
+        f'<span class="badge">{_e(cfg.profile_label)} scoring &middot; '
+        f'{cfg.league["teams"]}-team</span>'
+    )
     return f'<div class="badges">{"".join(badges)}</div>'
 
 
@@ -383,25 +465,40 @@ def _footer() -> str:
     )
 
 
-def publish(rankings: Rankings, cfg: Config | None = None) -> PublishResult:
-    """Write ``docs/index.html`` and the week's archive copy."""
+def publish_profiles(
+    ranked: dict[str, Rankings], cfg: Config | None = None
+) -> PublishResult:
+    """Write ``docs/index.html`` and the week's archive copy.
+
+    One page carries every profile, switched client-side, so a single URL on a
+    phone home screen covers both leagues.
+    """
     cfg = cfg or get_config()
+    if not ranked:
+        raise ValueError("nothing to publish")
     docs = cfg.docs_dir
-    archive = docs / f"week_{rankings.week}.html"
+    week = next(iter(ranked.values())).week
+    html = render_page(ranked, cfg)
 
-    # Write the archive first so the index's archive list includes this week.
-    archive.write_text(render_page(rankings, cfg), encoding="utf-8")
+    archive = docs / f"week_{week}.html"
+    archive.write_text(html, encoding="utf-8")
+    # Re-rendered so the index's archive list includes the week just written.
     index = docs / "index.html"
-    index.write_text(render_page(rankings, cfg), encoding="utf-8")
+    index.write_text(render_page(ranked, cfg), encoding="utf-8")
 
-    # A machine-readable copy, handy for spot-checking a published page.
     payload = {
-        "season": rankings.season,
-        "week": rankings.week,
         "generated_at": datetime.now(UTC).isoformat(),
-        "line_source": rankings.line_source,
-        "dst": _json_rows(rankings.dst),
-        "kicker": _json_rows(rankings.kicker),
+        "week": week,
+        "profiles": {
+            name: {
+                "label": cfg.for_profile(name).profile_description,
+                "season": r.season,
+                "line_source": r.line_source,
+                "dst": _json_rows(r.dst),
+                "kicker": _json_rows(r.kicker),
+            }
+            for name, r in ranked.items()
+        },
     }
     (docs / "latest.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -409,6 +506,12 @@ def publish(rankings: Rankings, cfg: Config | None = None) -> PublishResult:
     if not nojekyll.exists():
         nojekyll.write_text("")
     return PublishResult(index_path=index, archive_path=archive)
+
+
+def publish(rankings: Rankings, cfg: Config | None = None) -> PublishResult:
+    """Publish a single profile's rankings."""
+    cfg = cfg or get_config()
+    return publish_profiles({cfg.profile: rankings}, cfg)
 
 
 def _json_rows(frame: pd.DataFrame) -> list[dict]:

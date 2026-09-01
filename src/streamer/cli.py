@@ -5,6 +5,11 @@
     streamer benchmark --week N      head-to-head vs Subvertadown
     streamer backtest  --seasons A-B walk-forward validation vs a Vegas baseline
     streamer publish   --week N      render docs/index.html for phone access
+
+Every command runs against one or more **scoring profiles** (``espn``,
+``yahoo``). ``--profile`` selects one; the default is ``all``, because the two
+leagues score the same games differently and you almost always want both.
+Each profile keeps its own trained state, history and ledger.
 """
 
 from __future__ import annotations
@@ -99,6 +104,8 @@ def _table(
 
 
 def _print_rankings(rankings, cfg: Config, limit: int) -> None:
+    print(f"\n{'=' * 72}")
+    print(f"  {cfg.profile_description}")
     print(f"\n=== Week {rankings.week} ({rankings.season}) — D/ST ===")
     print(f"    lines: {rankings.line_source}")
     print(_table(rankings.dst, [
@@ -139,6 +146,18 @@ def _print_rankings(rankings, cfg: Config, limit: int) -> None:
 # Commands
 # ---------------------------------------------------------------------------
 def cmd_rank(args: argparse.Namespace, cfg: Config) -> int:
+    from .publish import publish_profiles
+
+    ranked = {}
+    for bound in _selected(args, cfg):
+        ranked[bound.profile] = _rank_one(args, bound)
+    if args.publish:
+        result = publish_profiles(ranked, cfg)
+        print(f"\n  published -> {result.index_path}")
+    return 0
+
+
+def _rank_one(args: argparse.Namespace, cfg: Config):
     from .calibrate import store_predictions
     from .rankings import rank_week
 
@@ -161,16 +180,17 @@ def cmd_rank(args: argparse.Namespace, cfg: Config) -> int:
         if frames:
             store_predictions(pd.concat(frames, ignore_index=True), cfg)
             print(f"\n  stored predictions -> {cfg.results_dir / 'predictions.parquet'}")
-
-    if args.publish:
-        from .publish import publish
-
-        result = publish(rankings, cfg)
-        print(f"  published -> {result.index_path}")
-    return 0
+    return rankings
 
 
 def cmd_update(args: argparse.Namespace, cfg: Config) -> int:
+    for bound in _selected(args, cfg):
+        print(f"\n{'=' * 72}\n  {bound.profile_description}")
+        _update_one(args, bound)
+    return 0
+
+
+def _update_one(args: argparse.Namespace, cfg: Config) -> int:
     from .calibrate import run_update
 
     result = run_update(args.week, args.season, cfg, allow_network=not args.offline)
@@ -200,6 +220,14 @@ def cmd_update(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def cmd_benchmark(args: argparse.Namespace, cfg: Config) -> int:
+    codes = []
+    for bound in _selected(args, cfg):
+        print(f"\n{'=' * 72}\n  {bound.profile_description}")
+        codes.append(_benchmark_one(args, bound))
+    return 0 if any(c == 0 for c in codes) else 1
+
+
+def _benchmark_one(args: argparse.Namespace, cfg: Config) -> int:
     from .benchmark import append_benchmark, compare_week, write_benchmark_report
     from .calibrate import load_stored_predictions
     from .pipeline import build_slate
@@ -267,12 +295,18 @@ def cmd_benchmark(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def cmd_backtest(args: argparse.Namespace, cfg: Config) -> int:
+    codes = [_backtest_one(args, bound) for bound in _selected(args, cfg)]
+    return max(codes) if codes else 1
+
+
+def _backtest_one(args: argparse.Namespace, cfg: Config) -> int:
     from .backtest import run_backtest, select_best
     from .data.nflverse import games_frame, load_pbp
     from .features.build import build_dst_features, build_kicker_features
     from .pipeline import save_selection, training_seasons
 
     seasons = _parse_seasons(args.seasons)
+    print(f"\n{'=' * 72}\n  {cfg.profile_description}")
     print("Building features (this pulls and caches play-by-play)...")
     pbp = load_pbp(training_seasons(cfg), cfg)
     games = games_frame(cfg)
@@ -331,18 +365,29 @@ def cmd_backtest(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def cmd_publish(args: argparse.Namespace, cfg: Config) -> int:
-    from .publish import publish
+    from .publish import publish_profiles
     from .rankings import rank_week
 
-    rankings = rank_week(args.week, args.season, cfg, allow_network=not args.offline)
-    result = publish(rankings, cfg)
+    ranked = {}
+    for bound in _selected(args, cfg):
+        print(f"  ranking {bound.profile_description}...")
+        ranked[bound.profile] = rank_week(
+            args.week, args.season, bound, allow_network=not args.offline
+        )
+    result = publish_profiles(ranked, cfg)
     print(f"  wrote {result.index_path}")
     print(f"  wrote {result.archive_path}")
-    if rankings.warnings:
-        print("  (page flags degraded lines)")
+    for rankings in ranked.values():
         for w in rankings.warnings:
             print(f"    - {w}")
     return 0
+
+
+def _selected(args: argparse.Namespace, cfg: Config) -> list[Config]:
+    """Configs for the profiles this invocation should act on."""
+    choice = getattr(args, "profile", None) or "all"
+    names = cfg.profile_names if choice == "all" else [choice]
+    return [cfg.for_profile(name) for name in names]
 
 
 def _parse_seasons(text: str) -> list[int]:
@@ -368,6 +413,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--offline", action="store_true",
         help="skip network calls; use cached data and manual CSVs only",
+    )
+    parser.add_argument(
+        "--profile", default="all",
+        help="scoring profile to run: a profile name from config.yaml, or "
+             "'all' (the default) to run every configured league",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -419,6 +469,13 @@ def main(argv: list[str] | None = None) -> int:
     if not args.verbose:
         logging.getLogger("streamer").setLevel(logging.INFO)
     cfg = get_config() if args.config is None else load_config(args.config)
+    if args.profile != "all" and args.profile not in cfg.profile_names:
+        print(
+            f"error: unknown profile {args.profile!r}; available: "
+            f"{', '.join(cfg.profile_names)}, or 'all'",
+            file=sys.stderr,
+        )
+        return 2
     try:
         return int(args.func(args, cfg))
     except KeyboardInterrupt:

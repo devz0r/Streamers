@@ -45,7 +45,7 @@ from .base import (
     sample_weights,
     top_n_probability,
 )
-from .tiers import TierModel
+from .tiers import LadderModel, TierModel
 
 #: Factors whose blended correlation collapses this far below their historical
 #: value are dropped from the tree model's design matrix entirely -- the
@@ -240,6 +240,8 @@ class DstModel:
     tier_model: TierModel
     cfg: Config
     two_stage: bool = False
+    #: ESPN also scores total yards allowed; ``None`` for profiles that do not.
+    yards_model: LadderModel | None = None
 
     FEATURES = DST_FEATURES
     TARGET = "fantasy_points"
@@ -277,15 +279,22 @@ class DstModel:
             train, list(cls.FEATURES), target, kind, cfg, current_season, multipliers,
             position=cls.POSITION, alpha=alpha, compute_weights=compute_weights,
         )
-        tier_model = TierModel.fit(train, cfg, sample_weights(train, current_season, cfg))
+        weights = sample_weights(train, current_season, cfg)
+        tier_model = TierModel.fit(train, cfg, weights)
+        yards_model = None
+        if tier_model.scoring.scores_yards_allowed and "yards_allowed" in train.columns:
+            yards_model = LadderModel.fit(train, cfg, weights, ladder="yards")
         if two_stage:
             # The residual band must describe the *total*, not the big-play part
             # alone, or the floor/ceiling and P(top-12) will be far too tight.
             total_fitted = core.predict(train) + tier_model.expected_tier_points(train)
+            if yards_model is not None:
+                total_fitted = total_fitted + yards_model.expected_tier_points(train)
             core.bands = ResidualBands.fit(
                 total_fitted, pd.to_numeric(train[cls.TARGET], errors="coerce").to_numpy(float)
             )
-        return cls(core=core, tier_model=tier_model, cfg=cfg, two_stage=two_stage)
+        return cls(core=core, tier_model=tier_model, cfg=cfg, two_stage=two_stage,
+                   yards_model=yards_model)
 
     def predict(self, slate: pd.DataFrame) -> Projection:
         cfg = self.cfg
@@ -303,11 +312,26 @@ class DstModel:
         for i, label in enumerate(self.tier_model.scoring.tier_labels):
             out[f"p_pa_{label}"] = probs[:, i]
 
+        # Yards allowed, where the profile scores it.
+        if self.yards_model is not None:
+            yards_probs = self.yards_model.tier_probabilities(slate)
+            out["expected_yards_allowed"] = self.yards_model.expected_value(slate)
+            out["expected_yards_tier_points"] = yards_probs @ self.yards_model.tier_values
+            for i, label in enumerate(self.yards_model.tier_labels):
+                out[f"p_yds_{label}"] = yards_probs[:, i]
+        else:
+            out["expected_yards_allowed"] = np.nan
+            out["expected_yards_tier_points"] = 0.0
+
+        ladder_points = (
+            out["expected_tier_points"].to_numpy()
+            + out["expected_yards_tier_points"].to_numpy()
+        )
         if self.two_stage:
             out["expected_big_play_points"] = base
-            preds = base + out["expected_tier_points"].to_numpy()
+            preds = base + ladder_points
         else:
-            out["expected_big_play_points"] = base - out["expected_tier_points"].to_numpy()
+            out["expected_big_play_points"] = base - ladder_points
             preds = base
         out["expected_points"] = preds
 

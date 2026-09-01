@@ -48,16 +48,62 @@ is the only one with a robust published effect on field goals.
 
 ## Scoring
 
-### ESPN defaults, all in `config.yaml`
-No scoring value is hard-coded anywhere in the codebase; `streamer.scoring`
-reads them and `tests/test_scoring.py` asserts that changing the config changes
-the result. The points-allowed ladder is validated on load for gaps, overlaps
-and a missing open-ended top tier.
+### Two profiles, not a scoring "mode"
+ESPN and Yahoo differ in ways that reach past arithmetic into the model, so a
+profile owns the league size *and* both scoring sheets, and each keeps its own
+trained state under `results/<profile>/`. Sharing a fitted model between them
+would be wrong: ESPN pays 2.5 for a sack against Yahoo's 1 and adds a
+yards-allowed ladder, which changes what the D/ST target *is*, not just its
+scale. The raw nflverse cache is shared, because play-by-play does not depend
+on scoring.
 
-### Missed field goals default to -1 at every distance
-ESPN's default sheet exposes a single "Total Field Goals Missed (FGM)" line at
--1 rather than per-distance penalties. Leagues that only penalise short misses
-can override per bucket (`fg_missed_50_plus: 0.0`) without touching code.
+Both profiles were re-tuned and re-validated independently after the change:
+
+| Profile | Position | Rank corr | Vegas-only | Edge |
+|---|---|---|---|---|
+| ESPN | D/ST | +0.359 | +0.344 | **+0.015** |
+| ESPN | Kicker | +0.171 | +0.122 | **+0.049** |
+| Yahoo | D/ST | +0.333 | +0.318 | **+0.015** |
+| Yahoo | Kicker | +0.178 | +0.128 | **+0.051** |
+
+### Two gaps in the supplied ESPN sheet
+Recorded because both were filled by assumption rather than instruction:
+
+- **18-27 points allowed was absent.** The sheet ran 14-17 at +1 then jumped to
+  28-34 at -1. ESPN's default for that band is **0**, which is also the only
+  value that keeps the ladder monotonic across the gap, so 0 is what is
+  configured. The ladder validator would have rejected the gap outright.
+- **"Total Fumbles Lost (FUML)" carried no value**, and is not a D/ST scoring
+  item on ESPN in any case -- fumble *recovery* is, and it is already scored at
+  2. It is ignored. If it was meant as something else, it is a one-line change
+  in `config.yaml`.
+
+The supplied sheet also listed "Fumble Return TD" and "Fumble Recovered for TD"
+separately at 6 apiece; those are the same event and are scored once.
+
+### Field-goal buckets are split from accuracy buckets
+Scoring needs 0-39 / 40-49 / 50-59 / 60+, because ESPN pays a premium for a
+60-yarder and Yahoo does not. Modelling a *kicker's* 60+ accuracy separately
+would be meaningless -- there are a handful of such attempts league-wide per
+season -- so `FG_FEATURE_BUCKETS` collapses 50-59 and 60+ back into one 50+
+accuracy rate. The registries are asserted to partition each other.
+
+### Nothing is hard-coded, and the ladders are validated on load
+No scoring value lives anywhere but `config.yaml`; `streamer.scoring` reads them
+and `tests/test_scoring.py` asserts that changing the config changes the result.
+Both ladders are validated on load for gaps, overlaps and a missing open-ended
+top tier -- which is what would have caught the missing 18-27 band above if it
+had been left out.
+
+Adding a third league (Sleeper, a custom league) is a config block: a name, a
+league size and two scoring sheets. The switch on the published page, the CLI's
+`--profile` choices and the per-profile storage all follow from
+`config.yaml`.
+
+### Missed field goals are per-bucket, even where a league is uniform
+ESPN exposes a single "Total Field Goals Missed" line at -1 and Yahoo penalises
+nothing, but both are expressed per distance bucket so a league that only
+punishes short misses needs no code change.
 
 ### Points allowed includes everything the opponent scored
 `points_allowed_excludes_opponent_dst_st: false`. The common public
@@ -128,6 +174,18 @@ better for D/ST:
 edge of the tested grid and the two are within noise of each other; 1.0 keeps a
 real (if small) prior for week-1 rows. Kickers go the other way and keep `6.0` —
 team field-goal rates are noisier than they look.
+
+### Yards allowed gets its own distribution, not a point estimate
+ESPN scores total yards allowed on a nine-step ladder, which has exactly the
+same `E[tier(x)] != tier(E[x])` problem as points allowed, so it is modelled the
+same way by the same `LadderModel`. Its mean regression leans on volume
+(opponent plays, drives, pace) and on the defence's own yards-allowed history
+rather than on the betting market -- yards accumulate with snaps, and a defence
+that concedes efficiency concedes yardage whatever the scoreboard says. It
+predicts a mean of 343 against a historical 337, and it is the main reason
+ESPN's D/ST rank correlation (+0.359) runs above Yahoo's (+0.333): yardage is a
+more predictable quantity than takeaways, so adding it to the target adds more
+signal than noise.
 
 ### Points-allowed tiers are a distribution, never a point estimate
 The ESPN ladder is a step function, so `E[tier(PA)] != tier(E[PA])`. A defence
@@ -249,6 +307,14 @@ larger and more stable than the rank-correlation edge.
 ---
 
 ## Interface
+
+### The profile switch is CSS-only
+The page carries both leagues and a segmented switch between them, built from
+one hidden radio per profile plus `:checked` sibling rules. No JavaScript, so it
+switches instantly on a phone, survives a stale cache, and keeps the page a
+single self-contained file. The rules are generated per profile, so adding a
+third league needs only config. A page rendered with one profile omits the
+switch entirely.
 
 ### Plain HTML, no framework, no JavaScript
 The published page has to render instantly on a phone over a bad connection and
