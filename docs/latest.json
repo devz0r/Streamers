@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-09-01T14:39:51.306361+00:00",
+  "generated_at": "2026-09-01T15:22:50.700408+00:00",
   "week": 1,
   "profiles": {
     "espn": {
       "label": "ESPN, 10-team",
       "season": 2026,
-      "line_source": "16 from schedule",
+      "line_source": "16 from nflverse closing lines",
       "dst": [
         {
           "rank": 1,
@@ -942,7 +942,7 @@
     "yahoo": {
       "label": "Yahoo, 14-team",
       "season": 2026,
-      "line_source": "16 from schedule",
+      "line_source": "16 from nflverse closing lines",
       "dst": [
         {
           "rank": 1,

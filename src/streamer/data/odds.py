@@ -51,6 +51,13 @@ class LinesResult:
     sources: dict[str, int]
     fetched_at: datetime
     warnings: list[str]
+    #: Games on the slate with no spread or total from any source.
+    missing: int = 0
+
+    #: Sources that carry genuine market numbers rather than a stopgap. The
+    #: nflverse schedule ships the closing spread and total, so a slate priced
+    #: from it is properly priced -- just not freshly pulled.
+    MARKET_SOURCES = ("api", "csv", "schedule")
 
     @property
     def primary_source(self) -> str:
@@ -59,15 +66,64 @@ class LinesResult:
         return max(self.sources.items(), key=lambda kv: kv[1])[0]
 
     @property
+    def status(self) -> str:
+        """``live``, ``fallback`` or ``incomplete``.
+
+        Only ``incomplete`` is a problem worth alarming about. ``fallback``
+        means every game is priced, just not from a fresh API pull -- which is
+        the normal state without an API key, and perfectly usable.
+        """
+        if self.missing or not self.sources:
+            return "incomplete"
+        if set(self.sources) <= {"api"}:
+            return "live"
+        return "fallback"
+
+    @property
     def is_degraded(self) -> bool:
         """True when anything other than a live API pull supplied lines."""
-        return any(src != "api" for src in self.sources)
+        return self.status != "live"
+
+    @property
+    def is_usable(self) -> bool:
+        """Every game on the slate has a real market spread and total."""
+        return self.status in ("live", "fallback")
+
+    #: Human-readable name per source, for the published page.
+    SOURCE_LABELS = {
+        "api": "live odds",
+        "csv": "your manual CSV",
+        "schedule": "nflverse closing lines",
+        "last": "the last cached pull",
+    }
+
+    def source_phrase(self) -> str:
+        """Just the sources, e.g. ``nflverse closing lines``."""
+        if not self.sources:
+            return "no source"
+        names = [
+            self.SOURCE_LABELS.get(src, src)
+            for src, _n in sorted(self.sources.items(), key=lambda kv: -kv[1])
+        ]
+        if len(names) == 1:
+            return names[0]
+        return ", ".join(names[:-1]) + f" and {names[-1]}"
 
     def describe(self) -> str:
         if not self.sources:
             return "no lines available"
-        parts = [f"{n} from {src}" for src, n in sorted(self.sources.items(), key=lambda kv: -kv[1])]
-        return ", ".join(parts)
+        labels = {
+            "api": "live odds",
+            "csv": "your manual CSV",
+            "schedule": "nflverse closing lines",
+            "last": "last cached pull",
+        }
+        parts = [
+            f"{n} from {labels.get(src, src)}"
+            for src, n in sorted(self.sources.items(), key=lambda kv: -kv[1])
+        ]
+        text = ", ".join(parts)
+        return text if not self.missing else f"{text}; {self.missing} game(s) unpriced"
 
 
 def _load_dotenv(root: Path) -> None:
@@ -102,7 +158,7 @@ def fetch_odds_api(cfg: Config | None = None, timeout: float = 20.0) -> pd.DataF
     cfg = cfg or get_config()
     key = odds_api_key(cfg)
     if not key:
-        raise RuntimeError("ODDS_API_KEY is not set")
+        raise RuntimeError("no ODDS_API_KEY configured")
     conf = cfg.odds
     url = f"{conf['api_base']}/sports/{conf['sport']}/odds"
     params = {
@@ -263,6 +319,7 @@ def get_lines(
         sources={str(k): int(v) for k, v in sources.items()},
         fetched_at=datetime.now(UTC),
         warnings=warnings,
+        missing=int(still_missing.sum()),
     )
 
 
@@ -278,7 +335,7 @@ def _apply_source(
     """Fill missing spread/total rows in ``slate`` from ``source``; return count."""
     if source == "api":
         if not allow_network:
-            raise RuntimeError("network disabled")
+            raise RuntimeError("--offline was set, so the API was not called")
         incoming = fetch_odds_api(cfg)
     elif source == "csv":
         incoming = read_manual_lines(week, cfg)

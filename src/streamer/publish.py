@@ -256,13 +256,24 @@ def render_page(
     return "\n".join(p for p in parts if p)
 
 
+#: Badge styling and wording per line status. Only an unpriced game is amber:
+#: nflverse ships the closing spread and total, so a slate priced from the
+#: schedule is properly priced, just not freshly pulled.
+_LINE_BADGE = {
+    "live": ("ok", "live odds"),
+    "fallback": ("", "lines"),
+    "incomplete": ("warn", "incomplete lines"),
+}
+
+
 def _badges(rankings: Rankings, cfg: Config) -> str:
     badges = []
     if rankings.context and rankings.context.lines:
         lines = rankings.context.lines
-        cls = "warn" if lines.is_degraded else "ok"
-        label = "live odds" if not lines.is_degraded else "fallback lines"
-        badges.append(f'<span class="badge {cls}">{_e(label)}: {_e(lines.describe())}</span>')
+        cls, label = _LINE_BADGE.get(lines.status, ("", "lines"))
+        badges.append(
+            f'<span class="badge {cls}">{_e(label)}: {_e(lines.describe())}</span>'
+        )
     est = rankings.dst["estimator"].iloc[0] if not rankings.dst.empty and "estimator" in rankings.dst else None
     if est:
         badges.append(f'<span class="badge">model: {_e(est)}</span>')
@@ -274,13 +285,37 @@ def _badges(rankings: Rankings, cfg: Config) -> str:
 
 
 def _notices(rankings: Rankings) -> str:
-    if not rankings.warnings:
-        return ""
-    items = "".join(f"<div>{_e(w)}</div>" for w in rankings.warnings)
-    return (
-        '<div class="notice"><strong>Heads up.</strong> The odds pull did not fully '
-        f"succeed, so some games use fallback numbers.{items}</div>"
-    )
+    """Warn only when something is actually wrong with the numbers.
+
+    A slate priced from the nflverse schedule instead of a live API pull is not
+    a problem -- those are the closing spread and total. Shouting about it every
+    week trains the reader to ignore the banner for the week it matters, which
+    is when a game has no line at all.
+    """
+    lines = rankings.context.lines if rankings.context else None
+    status = lines.status if lines else "incomplete"
+
+    if status == "incomplete":
+        items = "".join(f"<div>{_e(w)}</div>" for w in rankings.warnings)
+        detail = (
+            f"{lines.missing} game(s) on this slate have no spread or total, so "
+            "those units are projected without a market anchor."
+            if lines and lines.missing
+            else "No betting lines could be resolved for this slate."
+        )
+        return f'<div class="notice"><strong>Heads up.</strong> {detail}{items}</div>'
+
+    if status == "fallback":
+        # Quiet and factual. This is a normal, usable state, so it gets a line
+        # of prose rather than a banner -- but it still says why.
+        source = lines.source_phrase() if lines else "a fallback source"
+        why = "; ".join(w for w in rankings.warnings if w)
+        note = f" &mdash; {_e(why)}" if why else ""
+        return (
+            f'<p class="sub">Priced from {_e(source)} rather than a live pull'
+            f"{note}. Those are real closing numbers, not estimates.</p>"
+        )
+    return ""
 
 
 def _ranking_section(

@@ -230,14 +230,82 @@ def test_page_escapes_untrusted_text(tmp_cfg, slate_predictions):
     assert "&lt;img" in html
 
 
-def test_degraded_lines_are_flagged_on_the_page(tmp_cfg, slate_predictions):
+def _lines(sources, missing=0, warnings=()):
+    """A LinesResult with the given provenance, for the banner tests."""
+    from datetime import UTC, datetime
+
+    from streamer.data.odds import LinesResult
+
+    return LinesResult(
+        frame=pd.DataFrame(), sources=dict(sources),
+        fetched_at=datetime.now(UTC), warnings=list(warnings), missing=missing,
+    )
+
+
+@pytest.mark.parametrize(
+    "sources,missing,expected",
+    [
+        ({"api": 16}, 0, "live"),
+        ({"schedule": 16}, 0, "fallback"),
+        ({"api": 10, "schedule": 6}, 0, "fallback"),
+        ({"csv": 16}, 0, "fallback"),
+        ({"schedule": 14}, 2, "incomplete"),
+        ({}, 16, "incomplete"),
+    ],
+)
+def test_line_status_classification(sources, missing, expected):
+    assert _lines(sources, missing).status == expected
+
+
+def test_only_unpriced_games_raise_the_alarm(tmp_cfg, slate_predictions):
+    """A schedule-priced slate is properly priced -- it must not shout."""
+    from streamer.pipeline import SlateContext
     from streamer.publish import render_page
 
-    rankings = _rankings(tmp_cfg, slate_predictions)
-    rankings.warnings = ["The Odds API returned no usable lines"]
-    html = render_page(rankings, tmp_cfg)
-    assert "Heads up" in html
-    assert "Odds API" in html
+    def page(lines):
+        rankings = _rankings(tmp_cfg, slate_predictions)
+        rankings.context = SlateContext(
+            kicker_train=pd.DataFrame(), dst_train=pd.DataFrame(),
+            kicker_slate=pd.DataFrame(), dst_slate=pd.DataFrame(),
+            lines=lines, season=2026, week=5, games=pd.DataFrame(),
+        )
+        rankings.warnings = list(lines.warnings)
+        return render_page(rankings, tmp_cfg)
+
+    live = page(_lines({"api": 16}))
+    assert "Heads up" not in live
+    assert "live odds" in live
+
+    fallback = page(_lines({"schedule": 16}, warnings=["no ODDS_API_KEY configured"]))
+    assert "Heads up" not in fallback                  # not a problem
+    assert "nflverse closing lines" in fallback        # but it is stated
+    assert "no ODDS_API_KEY configured" in fallback    # and so is the reason
+
+    broken = page(_lines({"schedule": 14}, missing=2))
+    assert "Heads up" in broken
+    assert "no spread or total" in broken
+
+
+def test_source_phrase_reads_as_prose():
+    assert _lines({"api": 16}).source_phrase() == "live odds"
+    assert _lines({"schedule": 16}).source_phrase() == "nflverse closing lines"
+    assert _lines({"api": 10, "schedule": 6}).source_phrase() == (
+        "live odds and nflverse closing lines"
+    )
+    assert _lines({}).source_phrase() == "no source"
+
+
+def test_describe_names_sources_in_plain_english():
+    assert "live odds" in _lines({"api": 16}).describe()
+    assert "nflverse closing lines" in _lines({"schedule": 16}).describe()
+    assert "unpriced" in _lines({"schedule": 14}, missing=2).describe()
+    assert _lines({}).describe() == "no lines available"
+
+
+def test_usability_flag(tmp_cfg):
+    assert _lines({"api": 16}).is_usable
+    assert _lines({"schedule": 16}).is_usable
+    assert not _lines({"schedule": 14}, missing=2).is_usable
 
 
 # ---------------------------------------------------------------------------
