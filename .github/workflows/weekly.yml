@@ -5,6 +5,11 @@ name: weekly
 #
 # Times are UTC. 11:00 UTC is 07:00 ET during EDT and 06:00 ET during EST --
 # early enough that the refreshed page is waiting on a phone before work.
+#
+# NOTE: GitHub runs scheduled workflows only from the repository's DEFAULT
+# branch, and fails silently otherwise -- if this file lives on a non-default
+# branch the cron never fires and nothing reports an error. Keep this project's
+# branch as the default, or move the workflow when you change defaults.
 on:
   schedule:
     - cron: "0 11 * * 2"   # Tuesday — update (+ benchmark if a CSV is committed)

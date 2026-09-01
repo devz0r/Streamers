@@ -173,24 +173,38 @@ week archived at `docs/week_N.html`.
 
 ### One-time GitHub Pages setup
 
-1. **Create the repo** on GitHub (private is fine; Pages works on private repos
-   for Pro accounts, otherwise make it public).
-
-2. **Push:**
+1. **Create the repo** on GitHub and push to it:
    ```bash
-   git remote add origin https://github.com/<you>/streamer.git
-   git push -u origin main
+   git remote add origin https://github.com/<you>/<repo>.git
+   git push -u origin HEAD
    ```
 
-3. **Enable Pages:** repo → **Settings** → **Pages** → under *Build and
-   deployment* set **Source: Deploy from a branch**, **Branch: `main`**,
-   **Folder: `/docs`** → **Save**.
+2. **Enable Pages:** repo → **Settings** → **Pages** → under *Build and
+   deployment* set **Source: Deploy from a branch**, then pick **the branch you
+   pushed** and **Folder: `/docs`** → **Save**.
 
-4. **Add the odds key** (optional): repo → **Settings** → **Secrets and
-   variables** → **Actions** → **New repository secret** → name `ODDS_API_KEY`.
+   The branch dropdown lists what actually exists in your repo, which may not be
+   `main` — if you pushed a feature branch, select that one.
 
-5. Your page is live at `https://<you>.github.io/streamer/`. Add it to your
+3. **Add the odds key** (optional): repo → **Settings** → **Secrets and
+   variables** → **Actions** → **New repository secret** → name `ODDS_API_KEY`,
+   value your key from [The Odds API](https://the-odds-api.com/). The free tier
+   allows 500 requests a month; the weekly job uses about four.
+
+4. Your page is live at `https://<you>.github.io/<repo>/`. Add it to your
    iPhone home screen (Share → Add to Home Screen) and it opens like an app.
+
+**Private repos** need a paid plan for Pages. On a free plan, make the repo
+public (**Settings → General → Danger Zone → Change visibility**) or the URL
+will 404.
+
+**The branch you serve from matters more than it looks.** GitHub runs
+`on: schedule` workflows *only from the repository's default branch*, and it
+does so silently — if the workflow lives on a non-default branch it simply
+never fires, with no error anywhere. So make the branch carrying this project
+your default (**Settings → Branches**, or rename it under the pencil icon),
+and if you later switch defaults, move the workflow with it. The workflow
+itself pushes to `${GITHUB_REF_NAME}`, so it works under any branch name.
 
 ### Automation
 
