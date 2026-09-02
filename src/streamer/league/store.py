@@ -87,6 +87,11 @@ def sync(cfg: Config | None = None, week: int | None = None, season: int | None 
         snap = fetch_snapshot(season, week, cfg.profile, oauth_path=cfg.data_dir / ".yahoo_oauth.json")
 
     snap = apply_byes(snap, cfg)
+    # Snapshots are committed by the workflow, and Pages needs a public repo:
+    # the other managers' screen names have no use downstream, so they are not
+    # written to disk. Team names are what the page and the CLI show.
+    for team in snap.teams:
+        team.owner = ""
     path = snapshot_path(cfg, week)
     snap.save(path)
     log.info("synced %s league %s -> %s", platform, snap.league_id, path)
