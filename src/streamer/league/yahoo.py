@@ -73,9 +73,34 @@ def write_oauth_file(path: Path, creds: dict[str, str | None]) -> Path:
     return path
 
 
+def explain_error(exc: BaseException) -> str:
+    """Translate Yahoo's terse API errors into the thing to actually do."""
+    text = str(exc)
+    if "additional_authorization_required" in text:
+        return (
+            "Yahoo accepted the token but this app is not permitted to read Fantasy "
+            "Sports data. On developer.yahoo.com open the app, tick 'Fantasy Sports' "
+            "with 'Read' under API Permissions, then run `streamer yahoo-auth` again "
+            "and update YAHOO_REFRESH_TOKEN -- the old token keeps the old permissions."
+        )
+    if "invalid_grant" in text or "INVALID_REFRESH_TOKEN" in text.upper():
+        return (
+            "Yahoo rejected the refresh token. Run `streamer yahoo-auth` again and "
+            "update YAHOO_REFRESH_TOKEN."
+        )
+    if "invalid_client" in text:
+        return "Yahoo rejected the client id/secret; check YAHOO_CLIENT_ID and YAHOO_CLIENT_SECRET."
+    return text
+
+
 def oauth_session(oauth_path: Path):
     """An authenticated ``yahoo_oauth.OAuth2`` session, refreshing as needed."""
+    import logging as _logging
+
     from yahoo_oauth import OAuth2  # optional dependency, imported lazily
+
+    # yahoo_oauth logs every token check at DEBUG through its own handler.
+    _logging.getLogger("yahoo_oauth").setLevel(_logging.WARNING)
 
     creds = credentials()
     write_oauth_file(oauth_path, creds)
@@ -277,17 +302,22 @@ def fetch_snapshot(season: int, week: int, profile: str, oauth_path: Path) -> Le
     if not creds["league_id"]:
         raise RuntimeError("YAHOO_LEAGUE_ID is not set")
 
-    sc = oauth_session(oauth_path)
-    game = yfa.Game(sc, "nfl")
-    league_key = creds["league_id"]
-    if ".l." not in league_key:
-        # Numeric id: qualify it with this season's game id.
-        league_key = f"{game.game_id()}.l.{league_key}"
-    league = game.to_league(league_key)
+    try:
+        sc = oauth_session(oauth_path)
+        game = yfa.Game(sc, "nfl")
+        league_key = creds["league_id"]
+        if ".l." not in league_key:
+            # Numeric id: qualify it with this season's game id.
+            league_key = f"{game.game_id()}.l.{league_key}"
+        league = game.to_league(league_key)
 
-    my_team_key = league.team_key()
-    teams_meta = league.teams()
-    rosters = {key: league.to_team(key).roster(week) for key in teams_meta}
+        my_team_key = league.team_key()
+        teams_meta = league.teams()
+        rosters = {key: league.to_team(key).roster(week) for key in teams_meta}
+    except RuntimeError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(explain_error(exc)) from exc
 
     free_agents: list[dict[str, Any]] = []
     for position in YAHOO_POSITIONS:

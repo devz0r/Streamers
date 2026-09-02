@@ -117,8 +117,12 @@ jobs:
       # the page, so a missing or rate-limited key never blocks publishing.
       # Pull each league's rosters, free agents and matchup. The runner can
       # reach ESPN and Yahoo; a league whose secrets are absent is skipped.
+      # A league that fails to sync (expired cookies, a revoked token) must not
+      # stop the page: the step is marked as failed in the run summary, the
+      # other league's snapshot is kept, and rank/publish carry on.
       - name: Sync leagues
         if: steps.mode.outputs.mode == 'publish' || steps.mode.outputs.mode == 'both'
+        continue-on-error: true
         run: streamer sync --week "${{ steps.week.outputs.upcoming_week }}" --skip-missing
 
       - name: Rank and publish the upcoming week

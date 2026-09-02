@@ -232,3 +232,16 @@ def test_yahoo_oauth_file_is_built_from_env(tmp_path):
 def test_yahoo_oauth_file_names_what_is_missing(tmp_path):
     with pytest.raises(RuntimeError, match="YAHOO_REFRESH_TOKEN"):
         yahoo.write_oauth_file(tmp_path / "o.json", {"client_id": "a", "client_secret": "b"})
+
+
+def test_yahoo_errors_are_explained():
+    from streamer.league.yahoo import explain_error
+
+    scope = explain_error(RuntimeError(
+        'b\'{"error":{"description":"Please provide valid credentials. '
+        'OAuth oauth_problem=\\"additional_authorization_required\\"'))
+    assert "Fantasy Sports" in scope and "yahoo-auth" in scope
+    # Must not trip the --skip-missing heuristic, which looks for these words.
+    assert "not set" not in scope and "missing" not in scope.lower()
+    assert "yahoo-auth" in explain_error(ValueError("invalid_grant"))
+    assert explain_error(ValueError("something else")) == "something else"
