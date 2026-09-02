@@ -9,7 +9,7 @@ from __future__ import annotations
 import html
 
 from ..config import Config
-from ..league.model import LeagueSnapshot
+from ..league.model import LeagueSnapshot, short_status
 from .matchup import MatchupReport
 from .waivers import Move, drop_watch
 
@@ -59,7 +59,7 @@ def render_my_team(
         if p.player_id in changed:
             flag = ' <span class="hold-tag">start</span>'
         elif p.is_questionable:
-            flag = f' <span class="opp">{_e(p.status)}</span>'
+            flag = f' <span class="opp">{_e(short_status(p.status))}</span>'
         rows.append(
             f"<tr><td>{_e(slot)}</td><td class='unit'>{_e(p.name)}{flag}</td>"
             f"<td>{_e(p.position)}</td><td>{_e(p.team or '--')}</td>"
@@ -88,6 +88,9 @@ def render_my_team(
             f"{opt.best_ev.expected - opt.best_win.expected:.1f} points for "
             f"{(opt.best_win.win_probability - opt.best_ev.win_probability) * 100:+.0f} points of win probability.</p>"
         )
+
+    for note in report.notes:
+        parts.append(f'<p class="sub">Note: {_e(note)}.</p>')
 
     # -- waivers ---------------------------------------------------------
     parts.append("<h3>Waiver moves</h3>")

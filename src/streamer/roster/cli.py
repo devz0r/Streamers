@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass
 
 from ..config import Config
+from ..league.model import short_status
 
 log = logging.getLogger(__name__)
 
@@ -39,12 +40,12 @@ def _prepare(args: argparse.Namespace, cfg: Config) -> Prepared:
     return Prepared(snapshot, rankings, report, projection_report)
 
 
-def _fmt_player(p, width: int = 24) -> str:
+def _fmt_player(p, width: int = 26) -> str:
     tag = ""
     if p.is_out:
         tag = " (OUT)" if not p.on_bye else " (BYE)"
     elif p.is_questionable:
-        tag = f" ({p.status})"
+        tag = f" ({short_status(p.status)})"
     name = f"{p.name}{tag}"
     return f"{name:<{width}}"[:width]
 

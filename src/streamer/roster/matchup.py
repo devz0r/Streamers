@@ -58,6 +58,9 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
     )
     if result.current is None:
         notes.append("no lineup is currently set on the platform")
+    from .waivers import ir_notes
+
+    notes.extend(ir_notes(snapshot))
     return MatchupReport(
         snapshot=snapshot, optimisation=result,
         opponent_name=opp.name if opp else "", notes=notes,

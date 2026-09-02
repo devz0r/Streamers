@@ -277,6 +277,13 @@ def project_snapshot(
         ros: float | None = None
         source = ""
 
+        # ESPN reports 0.0 for players it does not project (an injured
+        # reserve stash, a practice-squad body); that is "no number", not a
+        # projection of zero, unless the player is out anyway.
+        plat = p.platform_projection
+        if plat is not None and plat <= 0 and not p.is_out:
+            plat = None
+
         if p.position in SKILL:
             nfl_id = matched.mapping.get(p.player_id)
             if nfl_id is not None and not by_id.empty and nfl_id in by_id.index:
@@ -286,8 +293,8 @@ def project_snapshot(
                 s = scale.get(p.team, 1.0) if p.team else 1.0
                 mean = blend * (s ** damping)
                 source = "model"
-            elif p.platform_projection is not None:
-                mean = float(p.platform_projection)
+            elif plat is not None:
+                mean = float(plat)
                 ros = mean
                 source = "platform"
             else:
@@ -295,8 +302,8 @@ def project_snapshot(
                 mean = 0.5 * float(pos_mean.get(p.position, 8.0)) if len(pos_mean) else 4.0
                 ros = mean
                 source = "prior"
-            if p.platform_projection is not None and source == "model" and w_platform > 0:
-                mean = (1 - w_platform) * mean + w_platform * float(p.platform_projection)
+            if plat is not None and source == "model" and w_platform > 0:
+                mean = (1 - w_platform) * mean + w_platform * float(plat)
                 source = "model+platform"
             sd = lookup_sd(sds, p.position, mean)
 
@@ -315,8 +322,8 @@ def project_snapshot(
             source = "stream/hold" if bool(getattr(r, "two_week_hold", False)) else "stream"
 
         elif p.position in ("DST", "K"):
-            if p.platform_projection is not None:
-                mean, sd, ros, source = float(p.platform_projection), 4.5, float(p.platform_projection), "platform"
+            if plat is not None:
+                mean, sd, ros, source = float(plat), 4.5, float(plat), "platform"
             else:
                 mean, sd, ros, source = 6.0, 4.5, 6.0, "prior"
 

@@ -393,13 +393,37 @@ platform is scored the same way so the panel can say what the swaps are worth.
 Injury tags shrink the mean by the chance to play (Q 0.75, D 0.25) and widen
 the spread; OUT and bye contribute zero.
 
-### Waivers price each pickup against the spot it would cost
-A pickup is only as good as the player it displaces, so every free agent is
-scored as an (add, drop) pair: `w · next-week gain + (1-w) · rest-of-season
-gain`, with `w = 0.35 + 0.5 · week/18` so stashes matter in September and only
-this week matters in December. Drops never go below one QB/TE/K/DST unless the
-pickup plays that position, and never touch the best player at a position.
-Drops are assigned greedily in score order so the list reads as a set of moves
-that can all be made together; a stash that only cleared the bar against the
-dead roster spot disappears once that spot is spent on a better pickup, which
-is the honest answer. Moves under a 1.0-point blended gain are not shown.
+### Waivers are priced by what they do to the roster, not by raw points
+The first live run against a real ten-team league recommended six backup
+quarterbacks as +10 to +15 moves: a 16-point QB "beats" a 5-point bench RB on
+raw projection, but neither would start, so the true gain was nil. A move is
+now scored by the change in **roster value**: the expected points of the best
+lineup the roster can field (greedy, dedicated slots first, exact for a
+one-flex structure) plus a small credit for bench depth -- the first and
+second bench body at RB/WR and the first at TE/QB, weighted 0.25/0.10 and
+0.10 for the chance they are needed in a given week -- measured over
+**replacement level**, the best free agent at that position other than the
+one being considered. That last part is what makes the backup QB worth almost
+nothing when a 15-point QB is always on the wire, and an RB who would start
+over your flex worth every point of the difference. The two horizons blend as
+before: `w · next-week + (1-w) · rest-of-season`, `w = 0.35 + 0.5 · week/18`.
+Drops never go below one QB/TE/K/DST unless the pickup plays that position,
+never touch the best player at another position, and are never taken from an
+IR slot (dropping an IR player frees no bench spot). Moves are assigned
+greedily and re-scored after each accepted move, so the list is a sequence
+that can all be made together, each priced on top of the last; ties between
+zero-cost drops go to the pickup's own position, so a new defence replaces the
+old one rather than a dead receiver. The bar is 0.5 points of roster value,
+lower than before because lineup-marginal gains are inherently smaller than
+raw ones.
+
+### Injured reserve is a roster state, not an injury tag
+ESPN reports `INJURY_RESERVE` and `DAY_TO_DAY`, neither of which the first
+status tables knew, so an IR stash was valued as a healthy bench body and
+offered as a drop. Long-term statuses now zero rest-of-season value; a player
+in an IR *slot* is excluded from lineup enumeration (activating them is a
+roster move that needs a free spot) and from drop candidates. When such a
+player's tag has cleared to day-to-day the report says so, because the
+platform will refuse further moves until the roster is made valid. ESPN also
+publishes a projection of 0.0 for anyone it does not project; that is treated
+as no projection unless the player is out, so it cannot halve ours.

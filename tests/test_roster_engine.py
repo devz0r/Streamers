@@ -168,9 +168,39 @@ def test_moves_use_distinct_roster_spots():
     moves = waivers.recommend(snapshot(week=3))
     drops = [m.drop.player_id for m in moves]
     assert len(drops) == len(set(drops))
-    # With the dead spot spent on the best pickup, the bye-week stash no
-    # longer clears the bar against a real contributor.
-    assert "207" not in {m.add.player_id for m in moves}
+    # Each move is priced on top of the previous ones, so the list is a
+    # sequence that can all be made together, in descending marginal value.
+    scores = [m.score for m in moves]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_backup_quarterback_is_worth_little_when_the_wire_is_deep():
+    """A 16-point QB on the bench of a one-QB league is not a +16 move."""
+    snap = snapshot(week=5)
+    extra = [p for p in snap.free_agents if p.player_id == "204"][0]
+    twin = PlayerRow(**{**extra.__dict__, "player_id": "299", "name": "QB Player 299",
+                        "projection": 15.5, "ros_value": 15.5})
+    snap.free_agents.append(twin)
+    moves = {m.add.player_id: m for m in waivers.recommend(snap)}
+    assert "204" not in moves or moves["204"].score < 2.0
+
+
+def test_ir_slot_players_are_neither_dropped_nor_started():
+    snap = snapshot(week=5)
+    stashed = PlayerRow(player_id="50", name="RB Player 50", position="RB", team="KC",
+                        status="INJURY_RESERVE", slot="IR", eligible_slots=["RB", "FLEX"],
+                        projection=14.0, projection_sd=7.0, ros_value=14.0)
+    snap.my_team.roster.append(stashed)
+    moves = waivers.recommend(snap)
+    assert all(m.drop.player_id != "50" for m in moves)
+    assert "50" not in {p.player_id for p in waivers.drop_watch(snap, n=20)}
+    opt = lineup.optimise(snap.my_team.roster, snap.starting_slots, None, n_sims=500)
+    assert "50" not in opt.best_win.player_ids
+    # A day-to-day player parked on IR needs a roster move, and says so.
+    stashed.status = "DAY_TO_DAY"
+    notes = waivers.ir_notes(snap)
+    assert len(notes) == 1 and "RB Player 50" in notes[0] and "DAY_TO_DAY" in notes[0]
+    assert stashed.is_out is False and stashed.is_questionable is True
 
 
 def test_junk_free_agents_are_not_recommended():

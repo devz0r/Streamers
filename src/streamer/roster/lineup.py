@@ -177,6 +177,11 @@ def optimise(
 ) -> Optimisation:
     """Find the lineup that maximises P(win) against the opponent."""
     rng = np.random.default_rng(seed)
+    # A player parked in an IR slot cannot be started without a roster move
+    # (activation needs a free spot), so the lineup is chosen from the rest.
+    roster = [p for p in roster if not p.in_ir_slot]
+    if opponent_roster:
+        opponent_roster = [p for p in opponent_roster if not p.in_ir_slot]
     mine = enumerate_lineups(roster, slots)
     if not mine:
         raise ValueError("no valid lineup can be built from this roster")

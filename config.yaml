@@ -272,8 +272,9 @@ roster:
   # play, and their spread widened to reflect the coin flip.
   questionable_play_probability: 0.75
   doubtful_play_probability: 0.25
-  # Waiver moves below this blended marginal gain are not shown.
-  waiver_min_gain: 1.0
+  # Waiver moves below this blended gain in roster value (best-lineup points
+  # plus replacement-level bench depth) are not shown.
+  waiver_min_gain: 0.5
   # Skill projections are computed in full-PPR points (nflverse
   # fantasy_points_ppr). Both configured leagues are full PPR.
   scoring_basis: ppr

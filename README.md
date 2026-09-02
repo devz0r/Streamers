@@ -279,7 +279,7 @@ and the free-agent pool:
 |---|---|
 | `streamer sync --week N` | Pulls both leagues (`--profile` narrows) into `data/leagues/<profile>/week_N.json`. `--skip-missing` quietly skips a league whose credentials are absent. |
 | `streamer lineup --week N` | The lineup that maximises **P(win) against this week's opponent**, with the swaps from what is currently set. |
-| `streamer waivers --week N` | Ranked add/drop pairs: each pickup priced against the cheapest roster spot you are allowed to lose, with a one-line reason. |
+| `streamer waivers --week N` | Ranked add/drop pairs, each scored by how much it raises your best lineup plus depth over what is left on the wire, with a one-line reason. |
 | `streamer matchup --week N` | The head-to-head: your P(win), both sides' expected score and spread, and the players that swing it most. |
 | `streamer yahoo-auth` | One-time browser authorisation that mints the Yahoo refresh token. |
 

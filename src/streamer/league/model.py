@@ -39,11 +39,22 @@ SLOT_ELIGIBILITY: dict[str, tuple[str, ...]] = {
 #: Slot labels that are not starting slots.
 NON_STARTING_SLOTS: tuple[str, ...] = ("BN", "BE", "IR", "IR+", "NA")
 
-#: Injury/availability statuses that mean "will not play".
-OUT_STATUSES: tuple[str, ...] = ("OUT", "O", "IR", "IR-R", "PUP", "PUP-R", "SUSP", "NA", "NFI", "COVID")
+#: Injured-reserve slots. A player here cannot be started or swapped for a
+#: free agent without first being activated, which needs a free roster spot.
+IR_SLOTS: tuple[str, ...] = ("IR", "IR+")
 
-#: Statuses that mean "probably plays, but discount".
-QUESTIONABLE_STATUSES: tuple[str, ...] = ("QUESTIONABLE", "Q", "DOUBTFUL", "D")
+#: Statuses that keep a player out for weeks, not days (zero rest-of-season
+#: value for waiver purposes). ESPN spells them INJURY_RESERVE / SUSPENSION.
+LONG_TERM_OUT_STATUSES: tuple[str, ...] = (
+    "IR", "IR-R", "INJURY_RESERVE", "PUP", "PUP-R", "NFI", "SUSP", "SUSPENSION", "SUSPENDED",
+)
+
+#: Injury/availability statuses that mean "will not play".
+OUT_STATUSES: tuple[str, ...] = LONG_TERM_OUT_STATUSES + ("OUT", "O", "NA", "COVID", "INACTIVE")
+
+#: Statuses that mean "probably plays, but discount". ESPN's DAY_TO_DAY is a
+#: minor-injury tag that usually resolves to playing.
+QUESTIONABLE_STATUSES: tuple[str, ...] = ("QUESTIONABLE", "Q", "DAY_TO_DAY", "DOUBTFUL", "D")
 
 
 @dataclass
@@ -81,6 +92,14 @@ class PlayerRow:
     @property
     def starting(self) -> bool:
         return self.slot not in NON_STARTING_SLOTS
+
+    @property
+    def in_ir_slot(self) -> bool:
+        return self.slot in IR_SLOTS
+
+    @property
+    def is_long_term_out(self) -> bool:
+        return self.status in LONG_TERM_OUT_STATUSES
 
 
 @dataclass
@@ -229,9 +248,24 @@ def canonical_slot(label: str | None) -> str:
     return _SLOT_ALIASES.get(str(label).strip().upper(), str(label).strip().upper())
 
 
+#: Short tags for display, keyed by canonical status.
+_SHORT_STATUS = {
+    "QUESTIONABLE": "Q", "DOUBTFUL": "D", "DAY_TO_DAY": "DTD", "OUT": "OUT",
+    "INJURY_RESERVE": "IR", "IR-R": "IR", "PUP-R": "PUP", "SUSPENSION": "SUSP",
+    "SUSPENDED": "SUSP", "INACTIVE": "OUT",
+}
+
+
+def short_status(status: str | None) -> str:
+    """A tag short enough for a table cell: ``QUESTIONABLE`` -> ``Q``."""
+    if not status:
+        return ""
+    return _SHORT_STATUS.get(status, status[:4])
+
+
 def canonical_status(label: str | None) -> str:
     """Upper-case a platform injury status; ``ACTIVE``/``""`` become empty."""
     if not label:
         return ""
     text = str(label).strip().upper()
-    return "" if text in ("ACTIVE", "NORMAL", "HEALTHY", "NONE") else text
+    return "" if text in ("ACTIVE", "NORMAL", "HEALTHY", "NONE", "PROBABLE") else text
