@@ -13,3 +13,6 @@ dist/
 
 # Secrets
 .env
+
+# Yahoo OAuth token file materialised at sync time; never commit it.
+data/.yahoo_oauth.json

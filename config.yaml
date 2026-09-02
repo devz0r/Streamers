@@ -36,6 +36,10 @@ profiles:
   espn:
     name: "ESPN"
     description: "ESPN, 10-team"
+    # Which platform `streamer sync` pulls this profile's league from. The
+    # league id and cookies come from the environment (see README).
+    league_sync:
+      platform: espn
     league:
       teams: 10
       # A "startable" week: roughly one D/ST and one K per team, so the number
@@ -102,6 +106,8 @@ profiles:
   yahoo:
     name: "Yahoo"
     description: "Yahoo, 14-team"
+    league_sync:
+      platform: yahoo
     league:
       teams: 14
       startable_rank: 14
@@ -245,6 +251,32 @@ paths:
   results: results
   reports: reports
   docs: docs
+
+# ---------------------------------------------------------------------------
+# In-season roster tools (lineup, waivers, matchup)
+# ---------------------------------------------------------------------------
+roster:
+  # Monte-Carlo draws per lineup evaluation. 20k keeps P(win) stable to ~0.5%.
+  sims: 20000
+  # Skill-position projection = blend of trailing production and trailing
+  # opportunity-expected points (validated walk-forward, see DECISIONS.md),
+  # scaled by the week's team implied total relative to its recent average.
+  # `vegas_damping` is the exponent on that scale: 0 = ignore Vegas, 1 = full.
+  vegas_damping: 0.5
+  trailing_games: 4
+  shrink_games: 3.0
+  # When the platform publishes its own projection, blend it with ours at this
+  # weight. 0 = ours only, 1 = platform only.
+  platform_projection_weight: 0.5
+  # A Questionable/Doubtful player's projection is scaled by the chance they
+  # play, and their spread widened to reflect the coin flip.
+  questionable_play_probability: 0.75
+  doubtful_play_probability: 0.25
+  # Waiver moves below this blended marginal gain are not shown.
+  waiver_min_gain: 1.0
+  # Skill projections are computed in full-PPR points (nflverse
+  # fantasy_points_ppr). Both configured leagues are full PPR.
+  scoring_basis: ppr
 
 publish:
   site_title: "Streamer — DST & K Rankings"

@@ -252,7 +252,8 @@ itself pushes to `${GITHUB_REF_NAME}`, so it works under any branch name.
 
 - **Tuesday** — `update` on the completed week for both leagues, plus
   `benchmark` if you committed a Subvertadown CSV
-- **Wednesday** — `rank` and `publish` the upcoming week, then commit the
+- **Wednesday** — `sync` both leagues (skipped for any league without
+  secrets), then `rank` and `publish` the upcoming week and commit the
   refreshed page
 
 Both profiles run in every step, so each league keeps its own calibration
@@ -268,6 +269,79 @@ automated run produces.
 
 ---
 
+## In-season: lineups, waivers, matchups
+
+Once the season starts the page grows a **My team** panel per league, and four
+commands work from a synced snapshot of your roster, your opponent's roster
+and the free-agent pool:
+
+| Command | What it does |
+|---|---|
+| `streamer sync --week N` | Pulls both leagues (`--profile` narrows) into `data/leagues/<profile>/week_N.json`. `--skip-missing` quietly skips a league whose credentials are absent. |
+| `streamer lineup --week N` | The lineup that maximises **P(win) against this week's opponent**, with the swaps from what is currently set. |
+| `streamer waivers --week N` | Ranked add/drop pairs: each pickup priced against the cheapest roster spot you are allowed to lose, with a one-line reason. |
+| `streamer matchup --week N` | The head-to-head: your P(win), both sides' expected score and spread, and the players that swing it most. |
+| `streamer yahoo-auth` | One-time browser authorisation that mints the Yahoo refresh token. |
+
+All four read the snapshot, so `lineup`/`waivers`/`matchup` run offline and
+instantly once `sync` has been done. The Wednesday workflow syncs both leagues
+before it ranks, so the published page carries the panel automatically.
+
+### How players are projected
+
+D/ST and K use the streaming rankings above. Every other position gets a
+skill projection: a shrunk blend of trailing production and trailing
+**opportunity-expected** points (nflverse `ff_opportunity`), scaled by this
+week's Vegas implied total relative to the team's recent average. When the
+platform publishes its own projection the two are averaged. Injuries scale the
+mean and widen the spread; a bye or an OUT tag zeroes the week. Walk-forward
+on 2021-2025 it ranks starters better than trailing average alone at every
+position (DECISIONS.md has the numbers).
+
+The lineup optimiser does not chase expected points. It draws 20,000 joint
+samples of every player on both rosters, enumerates every valid lineup and
+picks the one that wins the most draws — which is why it will start a
+high-variance receiver when you are the underdog and the steady one when you
+are not.
+
+### Syncing your leagues
+
+Credentials live in `.env` locally and in repository **Secrets** for the
+workflow. Never commit them. Each league is independent; set up whichever you
+have.
+
+**ESPN** (cookie based, no app needed):
+
+1. `ESPN_LEAGUE_ID` — the `leagueId=` number in any league URL.
+2. `ESPN_S2` and `ESPN_SWID` — while logged in to fantasy.espn.com open
+   DevTools → *Application* → *Cookies* → `espn.com`, and copy the values of
+   `espn_s2` and `SWID` (SWID includes the braces). They last about a year;
+   when a sync starts failing with a 401, refresh them.
+3. `ESPN_TEAM_ID` — optional. The SWID normally identifies your team; set this
+   (the `teamId=` in your team URL) only if the sync picks the wrong one.
+
+**Yahoo** (OAuth app):
+
+1. Create an app at <https://developer.yahoo.com/apps/> with *Fantasy Sports —
+   Read* permission and redirect URI `oob`. Put its client id and secret in
+   `.env` as `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`.
+2. `YAHOO_LEAGUE_ID` — the number at the end of your league URL
+   (`.../f1/123456` → `123456`).
+3. Run `streamer yahoo-auth` once. It opens the approval page, asks for the
+   verification code, and prints a `YAHOO_REFRESH_TOKEN` to add to `.env` and
+   to Secrets. The token file it leaves in `data/` is git-ignored.
+
+Then:
+
+```bash
+streamer sync --week 6                 # both leagues
+streamer lineup --week 6 --profile espn
+streamer waivers --week 6 --profile yahoo
+streamer matchup --week 6
+```
+
+---
+
 ## Commands
 
 | Command | What it does |
@@ -276,7 +350,8 @@ automated run produces.
 | `streamer update --week N` | Scores that week's predictions, appends to history, re-fits, rewrites the ledger, writes `reports/week_N_review.md`. |
 | `streamer benchmark --week N` | Head-to-head vs Subvertadown on rank correlation and top-5 hit rate; updates `reports/benchmark.md`. |
 | `streamer backtest --seasons 2023-2025` | Walk-forward validation against the Vegas-only baseline. `--estimator ridge` skips the slower tree candidate, `--tune` sweeps the penalty, `--save` persists the winner to `results/model_selection.json`, `--strict` exits non-zero if a position fails to beat the baseline. |
-| `streamer publish --week N` | Renders `docs/index.html` and `docs/week_N.html`. |
+| `streamer publish --week N` | Renders `docs/index.html` and `docs/week_N.html`, including the My-team panel when a league snapshot exists. |
+| `streamer sync` / `lineup` / `waivers` / `matchup` / `yahoo-auth` | The in-season suite, above. |
 
 Global flags: `--profile` (`espn`, `yahoo`, or `all` — the default),
 `--offline` (cached data and manual CSVs only), `--season`, `--verbose`,
@@ -301,6 +376,7 @@ streamer rank --week 6 --profile yahoo  # just the Yahoo one
 | `results/<profile>/factor_ledger.parquet` | Per-factor correlations and weights, by week |
 | `results/<profile>/team_adjustments.parquet` | Bayesian per-team in-season adjustments |
 | `results/<profile>/predictions.parquet` | What was published, so `update` scores the real thing |
+| `data/leagues/<profile>/week_N.json` | Synced league snapshot: rosters, matchup, free agents, projections |
 
 ---
 
@@ -319,6 +395,8 @@ src/streamer/
   rankings.py         ranking, rationales, two-week candidates
   publish.py          static page rendering
   cli.py              command line
+  league/             ESPN and Yahoo adapters -> one normalised LeagueSnapshot
+  roster/             skill projections, P(win) lineup optimiser, waivers, panel
 ```
 
 Design rationale, rejected approaches and the evidence behind every tuned

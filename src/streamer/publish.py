@@ -174,7 +174,9 @@ class PublishResult:
 
 
 def render_page(
-    ranked: dict[str, Rankings] | Rankings, cfg: Config | None = None
+    ranked: dict[str, Rankings] | Rankings,
+    cfg: Config | None = None,
+    team_panels: dict[str, str] | None = None,
 ) -> str:
     """Render the whole page to an HTML string.
 
@@ -237,6 +239,8 @@ def render_page(
         parts.append(f'<div class="profile-panel" id="panel-{_e(name)}">')
         parts.append(_badges(rankings, bound))
         parts.append(_notices(rankings))
+        if team_panels and team_panels.get(name):
+            parts.append(team_panels[name])
         parts.append(_two_week_section(rankings))
         parts.append(
             _ranking_section("Defense / Special Teams", rankings.dst, "DST",
@@ -504,7 +508,9 @@ def _footer() -> str:
 
 
 def publish_profiles(
-    ranked: dict[str, Rankings], cfg: Config | None = None
+    ranked: dict[str, Rankings],
+    cfg: Config | None = None,
+    team_panels: dict[str, str] | None = None,
 ) -> PublishResult:
     """Write ``docs/index.html`` and the week's archive copy.
 
@@ -516,13 +522,13 @@ def publish_profiles(
         raise ValueError("nothing to publish")
     docs = cfg.docs_dir
     week = next(iter(ranked.values())).week
-    html = render_page(ranked, cfg)
+    html = render_page(ranked, cfg, team_panels)
 
     archive = docs / f"week_{week}.html"
     archive.write_text(html, encoding="utf-8")
     # Re-rendered so the index's archive list includes the week just written.
     index = docs / "index.html"
-    index.write_text(render_page(ranked, cfg), encoding="utf-8")
+    index.write_text(render_page(ranked, cfg, team_panels), encoding="utf-8")
 
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
@@ -544,6 +550,43 @@ def publish_profiles(
     if not nojekyll.exists():
         nojekyll.write_text("")
     return PublishResult(index_path=index, archive_path=archive)
+
+
+def team_panels_for(
+    ranked: dict[str, Rankings], cfg: Config, allow_network: bool = True
+) -> dict[str, str]:
+    """Render a My-team panel for each profile with a league snapshot.
+
+    Anything going wrong here -- no snapshot, a projection failure -- is logged
+    and skipped, so the streaming page always publishes.
+    """
+    import logging
+
+    from .league.store import load_snapshot
+    from .roster.matchup import build_report
+    from .roster.page import render_my_team
+    from .roster.projections import project_snapshot
+    from .roster.waivers import recommend
+
+    log = logging.getLogger(__name__)
+    panels: dict[str, str] = {}
+    for name, rankings in ranked.items():
+        bound = cfg.for_profile(name)
+        try:
+            snap = load_snapshot(bound, rankings.week)
+        except FileNotFoundError:
+            try:
+                snap = load_snapshot(bound)   # newest, if this week's is absent
+            except FileNotFoundError:
+                continue
+        try:
+            project_snapshot(snap, bound, rankings, allow_network=allow_network)
+            report = build_report(snap, bound)
+            moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
+            panels[name] = render_my_team(snap, report, moves, bound)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("my-team panel for %s skipped: %s", name, exc)
+    return panels
 
 
 def publish(rankings: Rankings, cfg: Config | None = None) -> PublishResult:

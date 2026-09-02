@@ -20,6 +20,9 @@ dependencies = [
     "PyYAML>=6.0",
     "python-dotenv>=1.0",
     "requests>=2.31",
+    "espn-api>=0.46",
+    "yahoo-fantasy-api>=2.12",
+    "yahoo-oauth>=2.0",
 ]
 
 [project.optional-dependencies]

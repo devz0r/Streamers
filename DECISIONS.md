@@ -345,3 +345,61 @@ says so in the review — still out-of-sample, but labelled as a reconstruction.
 07:00 ET during EDT. Tuesday scores the completed week; Wednesday ranks and
 publishes the upcoming one. Wednesday is deliberate: waiver claims process
 Wednesday morning, and lines have settled by then.
+
+## In-season suite
+
+### One normalised snapshot, two thin adapters
+ESPN and Yahoo expose very different objects (ESPN a typed `League` with box
+scores; Yahoo nested JSON keyed by string indices). Both are flattened into one
+`LeagueSnapshot` — teams, rosters, slots, the week's matchup and the free-agent
+pool — and everything downstream (projections, optimiser, waivers, panel, CLI)
+only ever sees that. Network access is confined to the two `fetch_snapshot`
+functions, so the whole engine is testable offline from a fixture snapshot, and
+the Wednesday workflow, which is where the secrets live, is the only place the
+platforms are actually called. Adding a platform means one adapter file.
+
+### Skill projections: opportunity blended with production, damped by Vegas
+D/ST and K reuse the streaming rankings. Every other position gets a blend of
+trailing-4 actual PPR and trailing-4 nflverse *opportunity-expected* points
+(`ff_opportunity`), shrunk toward the position mean with 3 pseudo-games, then
+scaled by `(implied total / trailing implied total) ** 0.5`. Walk-forward on
+2021-2025 (13,414 startable player-weeks, trailing >= 5 PPR), rank correlation
+with the following week's actual:
+
+| | trailing avg | opportunity only | blend | blend + Vegas (d=0.5) |
+|---|---|---|---|---|
+| QB | 0.347 | 0.352 | 0.364 | 0.374 |
+| RB | 0.451 | 0.467 | 0.473 | 0.479 |
+| WR | 0.411 | 0.430 | 0.442 | 0.437 |
+| TE | 0.332 | 0.355 | 0.365 | 0.376 |
+
+The blend beats trailing average at every position; the damping exponent was
+swept (0, 0.25, 0.5, 0.75, 1.0) and 0.5 is the overall optimum — full Vegas
+scaling over-reacts. Residual spread is calibrated per (position, projection
+bucket) rather than assumed: it is 7-8 points for a mid-range starter, and on
+real 2025 week-10 rosters 73% of actuals landed within one sd and 95% within
+two. When the platform publishes its own projection it is averaged in at equal
+weight, because it carries injury and depth-chart news the trailing window
+cannot see.
+
+### The lineup objective is P(win), not expected points
+Maximising expected points is the right answer only when you are evenly
+matched. The optimiser draws a shared matrix of 20,000 joint samples for every
+player on both rosters, enumerates every valid lineup (flex included, with
+low-projection bench pruned), and picks the lineup that beats the opponent's
+best lineup in the most draws. An underdog is correctly steered toward
+high-variance plays, a favourite toward the floor. The current lineup on the
+platform is scored the same way so the panel can say what the swaps are worth.
+Injury tags shrink the mean by the chance to play (Q 0.75, D 0.25) and widen
+the spread; OUT and bye contribute zero.
+
+### Waivers price each pickup against the spot it would cost
+A pickup is only as good as the player it displaces, so every free agent is
+scored as an (add, drop) pair: `w · next-week gain + (1-w) · rest-of-season
+gain`, with `w = 0.35 + 0.5 · week/18` so stashes matter in September and only
+this week matters in December. Drops never go below one QB/TE/K/DST unless the
+pickup plays that position, and never touch the best player at a position.
+Drops are assigned greedily in score order so the list reads as a set of moves
+that can all be made together; a stash that only cleared the bar against the
+dead roster spot disappears once that spot is spent on a better pickup, which
+is the honest answer. Moves under a 1.0-point blended gain are not shown.

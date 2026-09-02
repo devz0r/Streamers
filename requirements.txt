@@ -12,3 +12,7 @@ scipy==1.17.1
 PyYAML==6.0.3
 python-dotenv==1.2.3
 requests==2.34.2
+# League sync (in-season suite). ESPN needs only cookies; Yahoo needs OAuth.
+espn-api==0.46.0
+yahoo-fantasy-api==2.12.3
+yahoo-oauth==2.1.1

@@ -6,6 +6,12 @@
     streamer backtest  --seasons A-B walk-forward validation vs a Vegas baseline
     streamer publish   --week N      render docs/index.html for phone access
 
+In-season, against your synced leagues (see ``streamer sync``):
+
+    streamer lineup                  the lineup that maximises P(win) this week
+    streamer waivers                 ranked add/drop moves from the wire
+    streamer matchup                 win probability and what would move it
+
 Every command runs against one or more **scoring profiles** (``espn``,
 ``yahoo``). ``--profile`` selects one; the default is ``all``, because the two
 leagues score the same games differently and you almost always want both.
@@ -152,8 +158,12 @@ def cmd_rank(args: argparse.Namespace, cfg: Config) -> int:
     for bound in _selected(args, cfg):
         ranked[bound.profile] = _rank_one(args, bound)
     if args.publish:
-        result = publish_profiles(ranked, cfg)
-        print(f"\n  published -> {result.index_path}")
+        from .publish import team_panels_for
+
+        panels = team_panels_for(ranked, cfg, allow_network=not args.offline)
+        result = publish_profiles(ranked, cfg, panels)
+        print(f"\n  published -> {result.index_path}"
+              + (f" (with My-team panels: {', '.join(panels)})" if panels else ""))
     return 0
 
 
@@ -374,7 +384,10 @@ def cmd_publish(args: argparse.Namespace, cfg: Config) -> int:
         ranked[bound.profile] = rank_week(
             args.week, args.season, bound, allow_network=not args.offline
         )
-    result = publish_profiles(ranked, cfg)
+    from .publish import team_panels_for
+
+    panels = team_panels_for(ranked, cfg, allow_network=not args.offline)
+    result = publish_profiles(ranked, cfg, panels)
     print(f"  wrote {result.index_path}")
     print(f"  wrote {result.archive_path}")
     for rankings in ranked.values():
@@ -457,6 +470,10 @@ def build_parser() -> argparse.ArgumentParser:
     pub = sub.add_parser("publish", help="render the static page into docs/")
     add_week(pub)
     pub.set_defaults(func=cmd_publish)
+
+    from .roster.cli import register as register_roster
+
+    register_roster(sub, add_week)
     return parser
 
 
