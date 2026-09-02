@@ -313,10 +313,15 @@ have.
 **ESPN** (cookie based, no app needed):
 
 1. `ESPN_LEAGUE_ID` — the `leagueId=` number in any league URL.
-2. `ESPN_S2` and `ESPN_SWID` — while logged in to fantasy.espn.com open
-   DevTools → *Application* → *Cookies* → `espn.com`, and copy the values of
-   `espn_s2` and `SWID` (SWID includes the braces). They last about a year;
-   when a sync starts failing with a 401, refresh them.
+2. `ESPN_S2` and `ESPN_SWID` — while logged in to fantasy.espn.com, open the
+   browser's developer tools and copy the values of the `espn_s2` and `SWID`
+   cookies (SWID includes the braces; `espn_s2` is long and contains `%`).
+   - **Chrome**: DevTools → *Application* → *Cookies* → `espn.com`.
+   - **Safari**: Settings → Advanced → *Show features for web developers*,
+     then Cmd+Option+I → *Storage* → *Cookies* → `espn.com`.
+
+   They last about a year; when a sync starts failing with a 401, refresh
+   them.
 3. `ESPN_TEAM_ID` — optional. The SWID normally identifies your team; set this
    (the `teamId=` in your team URL) only if the sync picks the wrong one.
 
