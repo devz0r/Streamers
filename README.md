@@ -322,9 +322,19 @@ have.
 
 **Yahoo** (OAuth app):
 
-1. Create an app at <https://developer.yahoo.com/apps/> with *Fantasy Sports —
-   Read* permission and redirect URI `oob`. Put its client id and secret in
-   `.env` as `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`.
+1. Create an app at <https://developer.yahoo.com/apps/>. The form wants:
+   - **Application Name** — anything, e.g. `Streamer`. Description optional.
+   - **Homepage URL** — optional; your Pages URL is fine.
+   - **Redirect URI(s)** — `https://localhost:8080`. Yahoo insists on an
+     `https` URI here, but the tool authorises out-of-band (the approval page
+     shows you a code instead of redirecting), so it is never visited.
+   - **OAuth Client Type** — *Confidential Client*. A public client gets no
+     client secret, and the tool needs one.
+   - **API Permissions** — tick *Fantasy Sports* and choose *Read*. Leave
+     OpenID Connect and anything else unticked.
+
+   After *Create App* it shows a **Client ID** and **Client Secret**. Put
+   them in `.env` as `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`.
 2. `YAHOO_LEAGUE_ID` — the number at the end of your league URL
    (`.../f1/123456` → `123456`).
 3. Run `streamer yahoo-auth` once. It opens the approval page, asks for the
