@@ -19,7 +19,7 @@
     {
       "team_id": "1",
       "name": "Let Kevin Cook",
-      "owner": "ESPNFAN76634925",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -381,7 +381,7 @@
     {
       "team_id": "2",
       "name": "St Francis Fightin Fathers",
-      "owner": "smallvillewb",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -740,7 +740,7 @@
     {
       "team_id": "3",
       "name": "Brock to the Future",
-      "owner": "devz0r",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -1146,7 +1146,7 @@
     {
       "team_id": "4",
       "name": "Farm Club Bybee",
-      "owner": "ESPNFAN4353479406",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -1503,7 +1503,7 @@
     {
       "team_id": "5",
       "name": "H-CO Hefties",
-      "owner": "espn73826628",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -1863,7 +1863,7 @@
     {
       "team_id": "7",
       "name": "Cheesehead",
-      "owner": "ESPNFAN3033029965",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -2247,7 +2247,7 @@
     {
       "team_id": "9",
       "name": "team tegan",
-      "owner": "ESPNFAN9085650262",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -2607,7 +2607,7 @@
     {
       "team_id": "10",
       "name": "The Fighting Amish",
-      "owner": "espn57404899",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -2966,7 +2966,7 @@
     {
       "team_id": "11",
       "name": "Team Morris",
-      "owner": "Gavin9174",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -3325,7 +3325,7 @@
     {
       "team_id": "12",
       "name": "Pulled Hammys",
-      "owner": "rdbrett",
+      "owner": "",
       "wins": 0,
       "losses": 0,
       "ties": 0,
@@ -20047,7 +20047,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-02T08:58:41.639819+00:00",
+  "synced_at": "2026-09-02T09:11:51.756606+00:00",
   "extra": {
     "nfl_week": 1,
     "current_week": 1
