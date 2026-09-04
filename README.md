@@ -325,26 +325,43 @@ have.
 3. `ESPN_TEAM_ID` — optional. The SWID normally identifies your team; set this
    (the `teamId=` in your team URL) only if the sync picks the wrong one.
 
-**Yahoo** (OAuth app):
+**Yahoo** (OAuth app, plus an access application):
 
-1. Create an app at <https://developer.yahoo.com/apps/>. The form wants:
-   - **Application Name** — anything, e.g. `Streamer`. Description optional.
-   - **Homepage URL** — optional; your Pages URL is fine.
-   - **Redirect URI(s)** — `https://localhost:8080`. Yahoo insists on an
+Yahoo now gates the Fantasy Sports API behind a review. Until it is granted,
+the Fantasy Sports permission does not appear on the app form at all, and any
+token you mint is refused with `additional_authorization_required`.
+
+1. Apply at <https://sports.yahoo.com/developer/access/>. The review wants the
+   product you are building (a personal lineup/waiver tool), the data you need
+   (your own leagues' rosters, matchups and free agents) and the user base
+   (personal, single-league). Incomplete applications are closed without reply.
+   Read access is all that is offered, and all this tool uses -- it never
+   writes to your league.
+2. Create an app at <https://developer.yahoo.com/apps/>:
+   - **Application Name** -- anything, e.g. `Streamer`. Description optional.
+   - **Homepage URL** -- optional; your Pages URL is fine.
+   - **Redirect URI(s)** -- `https://localhost:8080`. Yahoo insists on an
      `https` URI here, but the tool authorises out-of-band (the approval page
      shows you a code instead of redirecting), so it is never visited.
-   - **OAuth Client Type** — *Confidential Client*. A public client gets no
+   - **OAuth Client Type** -- *Confidential Client*. A public client gets no
      client secret, and the tool needs one.
-   - **API Permissions** — tick *Fantasy Sports* and choose *Read*. Leave
-     OpenID Connect and anything else unticked.
+   - **API Permissions** -- tick *Fantasy Sports* / *Read* once your access
+     application has been granted. Before then the option is absent, which is
+     expected.
 
    After *Create App* it shows a **Client ID** and **Client Secret**. Put
    them in `.env` as `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`.
-2. `YAHOO_LEAGUE_ID` — the number at the end of your league URL
-   (`.../f1/123456` → `123456`).
-3. Run `streamer yahoo-auth` once. It opens the approval page, asks for the
+3. `YAHOO_LEAGUE_ID` -- the number at the end of your league URL
+   (`.../f1/123456` -> `123456`).
+4. Run `streamer yahoo-auth` once. It opens the approval page, asks for the
    verification code, and prints a `YAHOO_REFRESH_TOKEN` to add to `.env` and
-   to Secrets. The token file it leaves in `data/` is git-ignored.
+   to Secrets. The token file it leaves in `data/` is git-ignored. A token
+   minted before the permission was granted keeps the old scopes, so re-run
+   this after approval.
+
+The Yahoo *scoring profile* does not depend on any of this: its D/ST and K
+rankings come from nflverse and the betting markets. Only the My-team panel
+for that league needs API access.
 
 Then:
 

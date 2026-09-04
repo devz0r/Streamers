@@ -79,9 +79,11 @@ def explain_error(exc: BaseException) -> str:
     if "additional_authorization_required" in text:
         return (
             "Yahoo accepted the token but this app is not permitted to read Fantasy "
-            "Sports data. On developer.yahoo.com open the app, tick 'Fantasy Sports' "
-            "with 'Read' under API Permissions, then run `streamer yahoo-auth` again "
-            "and update YAHOO_REFRESH_TOKEN -- the old token keeps the old permissions."
+            "Sports data. Yahoo now grants that permission only through an access "
+            "application (https://sports.yahoo.com/developer/access/); until it is "
+            "granted, 'Fantasy Sports' does not appear under API Permissions at all. "
+            "Once granted, tick it with 'Read', then run `streamer yahoo-auth` again "
+            "and update YAHOO_REFRESH_TOKEN -- the old token keeps the old scopes."
         )
     if "invalid_grant" in text or "INVALID_REFRESH_TOKEN" in text.upper():
         return (
