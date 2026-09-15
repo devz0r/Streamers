@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-15T13:41:26.607181+00:00",
+  "generated_at": "2026-09-15T13:45:27.382610+00:00",
   "week": 2,
   "profiles": {
     "espn": {
@@ -148,14 +148,14 @@
           "team": "GB",
           "opponent": "NYJ",
           "is_home": 0,
-          "expected_points": 11.461350076,
-          "floor": 3.66360228,
-          "ceiling": 19.973515694,
-          "p_top12": 0.05475,
-          "expected_points_allowed": 21.7578697425,
+          "expected_points": 11.6063467312,
+          "floor": 3.8085989353,
+          "ceiling": 20.1185123492,
+          "p_top12": 0.056,
+          "expected_points_allowed": 21.6388766329,
           "two_week_hold": false,
           "next_rank": 22.0,
-          "rationale": "opp implied 20.8, 22% to hold them under 14, opp sacked on 7.9% of dropbacks"
+          "rationale": "opp implied 20.5, 22% to hold them under 14, opp sacked on 7.9% of dropbacks"
         },
         {
           "rank": 11,
@@ -324,6 +324,21 @@
         },
         {
           "rank": 22,
+          "display_name": "New York Jets",
+          "team": "NYJ",
+          "opponent": "GB",
+          "is_home": 1,
+          "expected_points": 8.6384138938,
+          "floor": 0.4378988649,
+          "ceiling": 16.0847587346,
+          "p_top12": 0.026,
+          "expected_points_allowed": 23.9715444643,
+          "two_week_hold": false,
+          "next_rank": 8.0,
+          "rationale": "opp implied 24.0, 10% to hold them under 14"
+        },
+        {
+          "rank": 23,
           "display_name": "Jacksonville Jaguars",
           "team": "JAX",
           "opponent": "DEN",
@@ -336,21 +351,6 @@
           "two_week_hold": false,
           "next_rank": 4.0,
           "rationale": "opp implied 23.5, 12% to hold them under 14"
-        },
-        {
-          "rank": 23,
-          "display_name": "New York Jets",
-          "team": "NYJ",
-          "opponent": "GB",
-          "is_home": 1,
-          "expected_points": 8.4934172385,
-          "floor": 0.2929022097,
-          "ceiling": 15.9397620794,
-          "p_top12": 0.025,
-          "expected_points_allowed": 24.090537574,
-          "two_week_hold": false,
-          "next_rank": 8.0,
-          "rationale": "opp implied 24.2, 10% to hold them under 14"
         },
         {
           "rank": 24,
@@ -376,7 +376,7 @@
           "expected_points": 7.7409137388,
           "floor": 0.7295516224,
           "ceiling": 15.2299763405,
-          "p_top12": 0.018,
+          "p_top12": 0.01775,
           "expected_points_allowed": 24.5346968678,
           "two_week_hold": false,
           "next_rank": 23.0,
@@ -649,13 +649,13 @@
           "team": "GB",
           "opponent": "NYJ",
           "is_home": 0,
-          "expected_points": 8.7516131171,
-          "floor": 4.0558254762,
-          "ceiling": 13.3886840394,
+          "expected_points": 8.7502737761,
+          "floor": 4.0544861352,
+          "ceiling": 13.3873446984,
           "p_top12": 0.2045,
           "two_week_hold": true,
           "next_rank": 7.0,
-          "rationale": "implied 24.2, 39% of attempts from 50+"
+          "rationale": "implied 24.0, 39% of attempts from 50+"
         },
         {
           "rank": 13,
@@ -775,13 +775,13 @@
           "team": "NYJ",
           "opponent": "GB",
           "is_home": 1,
-          "expected_points": 8.2323742257,
-          "floor": 3.7844354912,
-          "ceiling": 13.0113376952,
+          "expected_points": 8.231063997,
+          "floor": 3.7831252625,
+          "ceiling": 13.0100274666,
           "p_top12": 0.1895,
           "two_week_hold": false,
           "next_rank": 1.0,
-          "rationale": "implied 20.8, 41% of attempts from 50+"
+          "rationale": "implied 20.5, 41% of attempts from 50+"
         },
         {
           "rank": 22,
@@ -953,7 +953,7 @@
           "expected_points": 10.6118096475,
           "floor": 4.5251520076,
           "ceiling": 17.6089097233,
-          "p_top12": 0.17625,
+          "p_top12": 0.176,
           "expected_points_allowed": 18.4013650677,
           "two_week_hold": true,
           "next_rank": 1.0,
@@ -1028,7 +1028,7 @@
           "expected_points": 8.8885814681,
           "floor": 2.8019238282,
           "ceiling": 15.8856815439,
-          "p_top12": 0.133,
+          "p_top12": 0.13275,
           "expected_points_allowed": 21.1498929207,
           "two_week_hold": false,
           "next_rank": 30.0,
@@ -1100,14 +1100,14 @@
           "team": "GB",
           "opponent": "NYJ",
           "is_home": 0,
-          "expected_points": 7.84311729,
-          "floor": 2.3434022215,
-          "ceiling": 14.4173783971,
-          "p_top12": 0.09125,
-          "expected_points_allowed": 21.7578697425,
+          "expected_points": 7.9326252925,
+          "floor": 2.4329102241,
+          "ceiling": 14.5068863996,
+          "p_top12": 0.0945,
+          "expected_points_allowed": 21.6388766329,
           "two_week_hold": false,
           "next_rank": 21.0,
-          "rationale": "opp implied 20.8, 22% to hold them under 14, opp sacked on 7.9% of dropbacks"
+          "rationale": "opp implied 20.5, 22% to hold them under 14, opp sacked on 7.9% of dropbacks"
         },
         {
           "rank": 12,
@@ -1265,14 +1265,14 @@
           "team": "NYJ",
           "opponent": "GB",
           "is_home": 1,
-          "expected_points": 5.9029725055,
-          "floor": 0.3005941277,
-          "ceiling": 11.0490352354,
-          "p_top12": 0.0475,
-          "expected_points_allowed": 24.090537574,
+          "expected_points": 5.992480508,
+          "floor": 0.3901021302,
+          "ceiling": 11.1385432379,
+          "p_top12": 0.04825,
+          "expected_points_allowed": 23.9715444643,
           "two_week_hold": false,
           "next_rank": 7.0,
-          "rationale": "opp implied 24.2, 10% to hold them under 14"
+          "rationale": "opp implied 24.0, 10% to hold them under 14"
         },
         {
           "rank": 23,
@@ -1572,13 +1572,13 @@
           "team": "GB",
           "opponent": "NYJ",
           "is_home": 0,
-          "expected_points": 9.1459818663,
-          "floor": 4.2573931953,
-          "ceiling": 13.7399686032,
+          "expected_points": 9.144971162,
+          "floor": 4.2563824909,
+          "ceiling": 13.7389578988,
           "p_top12": 0.23025,
           "two_week_hold": true,
           "next_rank": 7.0,
-          "rationale": "implied 24.2, 39% of attempts from 50+"
+          "rationale": "implied 24.0, 39% of attempts from 50+"
         },
         {
           "rank": 12,
@@ -1712,13 +1712,13 @@
           "team": "NYJ",
           "opponent": "GB",
           "is_home": 1,
-          "expected_points": 8.5725125613,
-          "floor": 4.0051377944,
-          "ceiling": 13.0708973987,
-          "p_top12": 0.207,
+          "expected_points": 8.5715178137,
+          "floor": 4.0041430469,
+          "ceiling": 13.0699026511,
+          "p_top12": 0.20675,
           "two_week_hold": false,
           "next_rank": 1.0,
-          "rationale": "implied 20.8, 41% of attempts from 50+"
+          "rationale": "implied 20.5, 41% of attempts from 50+"
         },
         {
           "rank": 22,
@@ -1813,7 +1813,7 @@
           "expected_points": 8.1769173161,
           "floor": 4.0099717295,
           "ceiling": 12.3806131385,
-          "p_top12": 0.1835,
+          "p_top12": 0.18375,
           "two_week_hold": false,
           "next_rank": 9.0,
           "rationale": "implied 16.2, 38% of attempts from 50+"

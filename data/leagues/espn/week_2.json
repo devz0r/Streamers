@@ -1265,7 +1265,7 @@
           "position": "WR",
           "team": "NE",
           "status": "INJURY_RESERVE",
-          "slot": "WR",
+          "slot": "IR",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -1606,7 +1606,7 @@
           "position": "WR",
           "team": "SF",
           "status": "",
-          "slot": "BN",
+          "slot": "WR",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -22922,7 +22922,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-15T13:40:57.325028+00:00",
+  "synced_at": "2026-09-15T13:44:58.820518+00:00",
   "extra": {
     "nfl_week": 2,
     "current_week": 2
