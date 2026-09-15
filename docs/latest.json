@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-15T11:04:57.095548+00:00",
+  "generated_at": "2026-09-15T13:27:57.870375+00:00",
   "week": 2,
   "profiles": {
     "espn": {
@@ -46,7 +46,7 @@
           "expected_points": 14.1454846819,
           "floor": 6.2189288121,
           "ceiling": 23.2061941769,
-          "p_top12": 0.0935,
+          "p_top12": 0.09375,
           "expected_points_allowed": 19.0487322371,
           "two_week_hold": false,
           "next_rank": 28.0,
@@ -73,14 +73,14 @@
           "team": "SEA",
           "opponent": "ARI",
           "is_home": 0,
-          "expected_points": 12.9724920831,
-          "floor": 5.0459362133,
-          "ceiling": 22.0332015781,
-          "p_top12": 0.068,
-          "expected_points_allowed": 21.0184004216,
+          "expected_points": 12.7998851793,
+          "floor": 4.8733293095,
+          "ceiling": 21.8605946743,
+          "p_top12": 0.066,
+          "expected_points_allowed": 21.1498929207,
           "two_week_hold": false,
           "next_rank": 27.0,
-          "rationale": "opp implied 18.5, 25% to hold them under 14"
+          "rationale": "opp implied 18.8, 24% to hold them under 14"
         },
         {
           "rank": 6,
@@ -268,14 +268,14 @@
           "team": "ARI",
           "opponent": "SEA",
           "is_home": 1,
-          "expected_points": 9.2783169814,
-          "floor": 1.0778019525,
-          "ceiling": 16.7246618222,
-          "p_top12": 0.03525,
-          "expected_points_allowed": 23.3923316676,
+          "expected_points": 9.4509238851,
+          "floor": 1.2504088563,
+          "ceiling": 16.897268726,
+          "p_top12": 0.036,
+          "expected_points_allowed": 23.2608391686,
           "two_week_hold": false,
           "next_rank": 32.0,
-          "rationale": "opp implied 23.0, 12% to hold them under 14"
+          "rationale": "opp implied 22.8, 12% to hold them under 14"
         },
         {
           "rank": 19,
@@ -540,7 +540,7 @@
           "expected_points": 9.2477561533,
           "floor": 4.5519685124,
           "ceiling": 13.8848270755,
-          "p_top12": 0.24475,
+          "p_top12": 0.2445,
           "two_week_hold": false,
           "next_rank": 13.0,
           "rationale": "implied 24.8, 37% of attempts from 50+"
@@ -554,7 +554,7 @@
           "expected_points": 9.1708607124,
           "floor": 4.4750730714,
           "ceiling": 13.8079316346,
-          "p_top12": 0.2365,
+          "p_top12": 0.23675,
           "two_week_hold": false,
           "next_rank": 28.0,
           "rationale": "implied 27.8, 31% of attempts from 50+"
@@ -582,7 +582,7 @@
           "expected_points": 8.9430064135,
           "floor": 4.2472187726,
           "ceiling": 13.5800773358,
-          "p_top12": 0.219,
+          "p_top12": 0.21925,
           "two_week_hold": false,
           "next_rank": 30.0,
           "rationale": "implied 27.0, 31% of attempts from 50+"
@@ -652,7 +652,7 @@
           "expected_points": 8.7516131171,
           "floor": 4.0558254762,
           "ceiling": 13.3886840394,
-          "p_top12": 0.20475,
+          "p_top12": 0.2045,
           "two_week_hold": true,
           "next_rank": 7.0,
           "rationale": "implied 24.2, 39% of attempts from 50+"
@@ -666,7 +666,7 @@
           "expected_points": 8.6555704828,
           "floor": 3.9597828419,
           "ceiling": 13.2926414051,
-          "p_top12": 0.19225,
+          "p_top12": 0.192,
           "two_week_hold": false,
           "next_rank": 26.0,
           "rationale": "implied 24.8, 36% of attempts from 50+"
@@ -677,13 +677,13 @@
           "team": "SEA",
           "opponent": "ARI",
           "is_home": 0,
-          "expected_points": 8.6280858009,
-          "floor": 3.93229816,
-          "ceiling": 13.2651567232,
-          "p_top12": 0.188,
+          "expected_points": 8.5800847519,
+          "floor": 3.884297111,
+          "ceiling": 13.2171556741,
+          "p_top12": 0.18625,
           "two_week_hold": false,
           "next_rank": 32.0,
-          "rationale": "implied 23.0, 29% of attempts from 50+"
+          "rationale": "implied 22.8, 29% of attempts from 50+"
         },
         {
           "rank": 15,
@@ -736,7 +736,7 @@
           "expected_points": 8.3368670479,
           "floor": 3.8889283134,
           "ceiling": 13.1158305174,
-          "p_top12": 0.19375,
+          "p_top12": 0.1935,
           "two_week_hold": false,
           "next_rank": 8.0,
           "rationale": "implied 20.8, indoors, 39% of attempts from 50+"
@@ -817,13 +817,13 @@
           "team": "ARI",
           "opponent": "SEA",
           "is_home": 1,
-          "expected_points": 7.9266829176,
-          "floor": 3.2731701078,
-          "ceiling": 12.410991348,
-          "p_top12": 0.1585,
+          "expected_points": 7.9746824186,
+          "floor": 3.3211696088,
+          "ceiling": 12.4589908491,
+          "p_top12": 0.16025,
           "two_week_hold": false,
           "next_rank": 25.0,
-          "rationale": "implied 18.5, 34% of attempts from 50+"
+          "rationale": "implied 18.8, 34% of attempts from 50+"
         },
         {
           "rank": 25,
@@ -848,7 +848,7 @@
           "expected_points": 7.8600866786,
           "floor": 3.2065738687,
           "ceiling": 12.344395109,
-          "p_top12": 0.137,
+          "p_top12": 0.13725,
           "two_week_hold": false,
           "next_rank": 4.0,
           "rationale": "implied 24.5, 33% of attempts from 50+"
@@ -968,7 +968,7 @@
           "expected_points": 10.1973680249,
           "floor": 4.1107103851,
           "ceiling": 17.1944681007,
-          "p_top12": 0.16175,
+          "p_top12": 0.162,
           "expected_points_allowed": 18.8187018277,
           "two_week_hold": false,
           "next_rank": 17.0,
@@ -998,7 +998,7 @@
           "expected_points": 9.437595791,
           "floor": 3.3509381512,
           "ceiling": 16.4346958668,
-          "p_top12": 0.136,
+          "p_top12": 0.13575,
           "expected_points_allowed": 19.5592122785,
           "two_week_hold": false,
           "next_rank": 19.0,
@@ -1006,21 +1006,6 @@
         },
         {
           "rank": 5,
-          "display_name": "Seattle Seahawks",
-          "team": "SEA",
-          "opponent": "ARI",
-          "is_home": 0,
-          "expected_points": 9.0188691537,
-          "floor": 2.9322115139,
-          "ceiling": 16.0159692295,
-          "p_top12": 0.13675,
-          "expected_points_allowed": 21.0184004216,
-          "two_week_hold": false,
-          "next_rank": 30.0,
-          "rationale": "opp implied 18.5, 25% to hold them under 14"
-        },
-        {
-          "rank": 6,
           "display_name": "Baltimore Ravens",
           "team": "BAL",
           "opponent": "NO",
@@ -1033,6 +1018,21 @@
           "two_week_hold": false,
           "next_rank": 28.0,
           "rationale": "opp implied 19.2, 29% to hold them under 14, 8.5-point favourite"
+        },
+        {
+          "rank": 6,
+          "display_name": "Seattle Seahawks",
+          "team": "SEA",
+          "opponent": "ARI",
+          "is_home": 0,
+          "expected_points": 8.8885814681,
+          "floor": 2.8019238282,
+          "ceiling": 15.8856815439,
+          "p_top12": 0.133,
+          "expected_points_allowed": 21.1498929207,
+          "two_week_hold": false,
+          "next_rank": 30.0,
+          "rationale": "opp implied 18.8, 24% to hold them under 14"
         },
         {
           "rank": 7,
@@ -1148,7 +1148,7 @@
           "expected_points": 7.3474893982,
           "floor": 1.8477743297,
           "ceiling": 13.9217505053,
-          "p_top12": 0.0825,
+          "p_top12": 0.08275,
           "expected_points_allowed": 22.4513549388,
           "two_week_hold": false,
           "next_rank": 2.0,
@@ -1186,6 +1186,21 @@
         },
         {
           "rank": 17,
+          "display_name": "Arizona Cardinals",
+          "team": "ARI",
+          "opponent": "SEA",
+          "is_home": 1,
+          "expected_points": 6.6118551811,
+          "floor": 1.0094768033,
+          "ceiling": 11.757917911,
+          "p_top12": 0.056,
+          "expected_points_allowed": 23.2608391686,
+          "two_week_hold": false,
+          "next_rank": 32.0,
+          "rationale": "opp implied 22.8, 12% to hold them under 14"
+        },
+        {
+          "rank": 18,
           "display_name": "Pittsburgh Steelers",
           "team": "PIT",
           "opponent": "NE",
@@ -1198,21 +1213,6 @@
           "two_week_hold": false,
           "next_rank": 6.0,
           "rationale": "opp implied 23.8, 10% to hold them under 14, opp sacked on 8.5% of dropbacks"
-        },
-        {
-          "rank": 18,
-          "display_name": "Arizona Cardinals",
-          "team": "ARI",
-          "opponent": "SEA",
-          "is_home": 1,
-          "expected_points": 6.4815674954,
-          "floor": 0.8791891176,
-          "ceiling": 11.6276302253,
-          "p_top12": 0.05375,
-          "expected_points_allowed": 23.3923316676,
-          "two_week_hold": false,
-          "next_rank": 32.0,
-          "rationale": "opp implied 23.0, 12% to hold them under 14"
         },
         {
           "rank": 19,
@@ -1358,7 +1358,7 @@
           "expected_points": 4.6604426081,
           "floor": -0.3462340432,
           "ceiling": 9.9964486253,
-          "p_top12": 0.043,
+          "p_top12": 0.04325,
           "expected_points_allowed": 25.9717945066,
           "two_week_hold": false,
           "next_rank": 31.0,
@@ -1435,7 +1435,7 @@
           "expected_points": 10.1205932924,
           "floor": 5.2320046213,
           "ceiling": 14.7145800293,
-          "p_top12": 0.30725,
+          "p_top12": 0.3075,
           "two_week_hold": true,
           "next_rank": 10.0,
           "rationale": "implied 29.5, 36% of attempts from 50+"
@@ -1596,20 +1596,6 @@
         },
         {
           "rank": 13,
-          "display_name": "J.Myers",
-          "team": "SEA",
-          "opponent": "ARI",
-          "is_home": 0,
-          "expected_points": 9.0050125675,
-          "floor": 4.1164238964,
-          "ceiling": 13.5989993044,
-          "p_top12": 0.23875,
-          "two_week_hold": false,
-          "next_rank": 32.0,
-          "rationale": "implied 23.0, 29% of attempts from 50+"
-        },
-        {
-          "rank": 14,
           "display_name": "K.Fairbairn",
           "team": "HOU",
           "opponent": "CIN",
@@ -1617,10 +1603,24 @@
           "expected_points": 8.9842708831,
           "floor": 4.095682212,
           "ceiling": 13.57825762,
-          "p_top12": 0.21675,
+          "p_top12": 0.217,
           "two_week_hold": false,
           "next_rank": 25.0,
           "rationale": "implied 24.8, 36% of attempts from 50+"
+        },
+        {
+          "rank": 14,
+          "display_name": "J.Myers",
+          "team": "SEA",
+          "opponent": "ARI",
+          "is_home": 0,
+          "expected_points": 8.9561358771,
+          "floor": 4.067547206,
+          "ceiling": 13.5501226139,
+          "p_top12": 0.23625,
+          "two_week_hold": false,
+          "next_rank": 32.0,
+          "rationale": "implied 22.8, 29% of attempts from 50+"
         },
         {
           "rank": 15,
@@ -1645,7 +1645,7 @@
           "expected_points": 8.7824529315,
           "floor": 4.2150781647,
           "ceiling": 13.280837769,
-          "p_top12": 0.22225,
+          "p_top12": 0.2225,
           "two_week_hold": false,
           "next_rank": 20.0,
           "rationale": "implied 22.5, 32% of attempts from 50+"
@@ -1687,7 +1687,7 @@
           "expected_points": 8.6505227378,
           "floor": 4.083147971,
           "ceiling": 13.1489075753,
-          "p_top12": 0.20725,
+          "p_top12": 0.2075,
           "two_week_hold": false,
           "next_rank": 2.0,
           "rationale": "implied 18.2, indoors, 35% of attempts from 50+"
@@ -1754,13 +1754,13 @@
           "team": "ARI",
           "opponent": "SEA",
           "is_home": 1,
-          "expected_points": 8.2607158975,
-          "floor": 4.093770311,
-          "ceiling": 12.4644117199,
-          "p_top12": 0.202,
+          "expected_points": 8.3095922706,
+          "floor": 4.1426466841,
+          "ceiling": 12.513288093,
+          "p_top12": 0.205,
           "two_week_hold": false,
           "next_rank": 21.0,
-          "rationale": "implied 18.5, 34% of attempts from 50+"
+          "rationale": "implied 18.8, 34% of attempts from 50+"
         },
         {
           "rank": 25,
@@ -1799,7 +1799,7 @@
           "expected_points": 8.1965245082,
           "floor": 4.0295789217,
           "ceiling": 12.4002203306,
-          "p_top12": 0.19275,
+          "p_top12": 0.1925,
           "two_week_hold": false,
           "next_rank": 13.0,
           "rationale": "implied 18.2, 36% of attempts from 50+"
@@ -1827,7 +1827,7 @@
           "expected_points": 8.1183517709,
           "floor": 3.9514061843,
           "ceiling": 12.3220475933,
-          "p_top12": 0.1815,
+          "p_top12": 0.18125,
           "two_week_hold": false,
           "next_rank": 11.0,
           "rationale": "implied 20.5, 36% of attempts from 50+"
