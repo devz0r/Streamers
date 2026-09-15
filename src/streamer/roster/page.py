@@ -97,7 +97,7 @@ def render_my_team(
         )
 
     if has_vegas:
-        parts.append(_vegas_section(snapshot, opt, cfg))
+        parts.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
 
     for note in report.notes:
         parts.append(f'<p class="sub">Note: {_e(note)}.</p>')
@@ -130,14 +130,24 @@ def render_my_team(
     return "".join(parts)
 
 
-def _vegas_section(snapshot, opt, cfg: Config) -> str:
+def _vegas_section(snapshot, opt, cfg: Config, report=None) -> str:
     """What the sportsbooks would start, and where they disagree with us."""
     from .vegas import disagreements, vegas_lineup
 
     market = vegas_lineup(snapshot, cfg)
     ours = opt.best_win.player_ids
     theirs = market.player_ids
+    decisive = set(ours) | set(theirs)
     bits = []
+    # Books post a game's props a day or two out, so early in the week most of
+    # the slate has no prices yet. Saying so beats a column of dashes.
+    if report is not None and report.eligible:
+        covered = report.matched_startable
+        if covered < report.eligible:
+            bits.append(
+                f"The books have priced {covered} of your {report.eligible} startable "
+                "players so far; the rest fill in as their games approach."
+            )
     swaps = [p for _s, p in market.flat() if p.player_id not in ours]
     benched = [p for _s, p in opt.best_win.flat() if p.player_id not in theirs]
     if swaps:
@@ -147,7 +157,7 @@ def _vegas_section(snapshot, opt, cfg: Config) -> str:
         bits.append(f"The sportsbook numbers would start {pairs}.")
     else:
         bits.append("The sportsbook numbers would start the same lineup.")
-    gaps = disagreements(snapshot, 3)
+    gaps = disagreements(snapshot, 3, among=decisive)
     if gaps:
         detail = ", ".join(
             f"{_e(p.name)} {'+' if d > 0 else ''}{d:.1f}" for p, d in gaps

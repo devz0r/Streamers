@@ -29,6 +29,9 @@ class VegasReport:
     """What the props pull produced, for the page and the CLI."""
 
     matched: int = 0
+    #: Players who could start and should therefore have had a price.
+    eligible: int = 0
+    matched_startable: int = 0
     unmatched: list[str] = field(default_factory=list)
     events: int = 0
     credits_remaining: int | None = None
@@ -40,19 +43,24 @@ class VegasReport:
         return self.matched > 0
 
 
-def teams_on(snapshot: LeagueSnapshot, include_opponent: bool = False) -> set[str]:
-    """NFL teams worth paying for props on.
+def teams_on(snapshot: LeagueSnapshot, include_opponent: bool = False) -> dict[str, int]:
+    """NFL teams worth paying for props on, and how many players each is worth.
 
     Only players who could start for *you*: props are billed per market per
     event, the opponent's implied points are never shown, and P(win) scores
     both sides with our own projections. Players already ruled out for the
-    week cost credits and change nothing.
+    week cost credits and change nothing. The counts let the fetch spend its
+    event budget on the games holding the most of your lineup.
     """
     rows = [p for p in snapshot.my_team.roster
             if not p.in_ir_slot and not p.on_bye and not p.is_out]
     if include_opponent and snapshot.opponent is not None:
         rows += list(snapshot.opponent.roster)
-    return {p.team for p in rows if p.team}
+    out: dict[str, int] = {}
+    for p in rows:
+        if p.team:
+            out[p.team] = out.get(p.team, 0) + 1
+    return out
 
 
 def attach(
@@ -99,10 +107,13 @@ def attach(
         p.vegas_stats = dict(row.stats)
         p.vegas_books = int(row.books)
         report.matched += 1
-    report.unmatched = sorted(
-        {p.name for p in snapshot.my_team.roster
-         if p.vegas_points is None and p.position not in ("K", "DST") and not p.on_bye}
-    )
+    startable = [p for p in snapshot.my_team.roster
+                 if p.position not in ("K", "DST") and not p.on_bye
+                 and not p.is_out and not p.in_ir_slot]
+    report.eligible = len(startable)
+    report.matched_startable = sum(1 for p in startable if p.vegas_points is not None)
+    report.unmatched = sorted(p.name for p in startable if p.vegas_points is None)
+    snapshot._vegas_report = report
     return report
 
 
@@ -127,11 +138,20 @@ def vegas_lineup(snapshot: LeagueSnapshot, cfg: Config | None = None):
     return best_by_key(roster, snapshot.starting_slots, key)
 
 
-def disagreements(snapshot: LeagueSnapshot, n: int = 3) -> list[tuple[PlayerRow, float]]:
-    """Players our projection and the market disagree about most, biggest first."""
+def disagreements(
+    snapshot: LeagueSnapshot, n: int = 3, among: set[str] | None = None
+) -> list[tuple[PlayerRow, float]]:
+    """Players our projection and the market disagree about most, biggest first.
+
+    ``among`` restricts to decision-relevant players -- the ones either lineup
+    would start. A three-point disagreement about the last man on the bench is
+    not a thing anyone needs to read.
+    """
     gaps = []
     for p in snapshot.my_team.roster:
         if p.vegas_points is None or p.projection is None or p.in_ir_slot or p.is_out:
+            continue
+        if among is not None and p.player_id not in among:
             continue
         gaps.append((p, float(p.vegas_points) - float(p.projection)))
     gaps.sort(key=lambda g: -abs(g[1]))

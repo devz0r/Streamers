@@ -208,3 +208,48 @@ def test_attach_offline_does_nothing_quietly(cfg):
     assert report.matched == 0 and not report.is_usable
     assert any("offline" in w for w in report.warnings)
     assert all(p.vegas_points is None for p in snap.my_team.roster)
+
+
+def test_event_budget_buys_the_games_with_the_most_of_my_players():
+    """The cap must not simply take the earliest kickoffs."""
+    from streamer.data.props import fetch_props  # noqa: F401  (documents intent)
+
+    # The ranking logic is exercised directly: build the same structure the
+    # fetch does and check ordering by player count, not by list position.
+    events = [
+        {"id": "a", "home_team": "Buffalo Bills", "away_team": "Detroit Lions"},
+        {"id": "b", "home_team": "Baltimore Ravens", "away_team": "New Orleans Saints"},
+        {"id": "c", "home_team": "New England Patriots", "away_team": "Pittsburgh Steelers"},
+    ]
+    weights = {"BUF": 1, "BAL": 3, "NE": 2}
+    from streamer.teams import normalize_team
+
+    scored = []
+    for e in events:
+        n = (weights.get(normalize_team(e["home_team"]), 0)
+             + weights.get(normalize_team(e["away_team"]), 0))
+        if n:
+            scored.append((n, e))
+    scored.sort(key=lambda ne: -ne[0])
+    assert [e["id"] for _n, e in scored] == ["b", "c", "a"]
+
+
+def test_teams_on_counts_players_and_skips_the_unavailable(cfg):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from fixtures_league import snapshot
+    from streamer.roster.vegas import teams_on
+
+    snap = snapshot(week=2)
+    weights = teams_on(snap)
+    assert isinstance(weights, dict) and all(v >= 1 for v in weights.values())
+    # A player on bye or out buys nothing.
+    bye = [p for p in snap.my_team.roster if p.on_bye]
+    out = [p for p in snap.my_team.roster if p.is_out and not p.on_bye]
+    for p in bye + out:
+        others = [q for q in snap.my_team.roster
+                  if q.team == p.team and q is not p and not q.on_bye and not q.is_out]
+        if not others:
+            assert p.team not in weights

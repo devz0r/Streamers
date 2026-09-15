@@ -322,10 +322,20 @@ def fetch_props(
     except Exception as exc:  # noqa: BLE001
         return PropsResult(pd.DataFrame(), now, warnings=[f"event list unavailable: {exc}"])
 
+    # Spend the cap where it buys the most: rank events by how many of the
+    # players we care about are in them, not by kickoff time. Taking the
+    # earliest games instead would buy Thursday night and miss the lineup.
     if teams:
-        events = [e for e in events
-                  if normalize_team(e.get("home_team")) in teams
-                  or normalize_team(e.get("away_team")) in teams]
+        weights = teams if isinstance(teams, dict) else {t: 1 for t in teams}
+        scored = []
+        for e in events:
+            home = normalize_team(e.get("home_team"))
+            away = normalize_team(e.get("away_team"))
+            n = weights.get(home, 0) + weights.get(away, 0)
+            if n:
+                scored.append((n, e))
+        scored.sort(key=lambda ne: -ne[0])
+        events = [e for _n, e in scored]
     cap = int(pconf.get("max_events") or 0)
     if cap > 0:
         events = events[:cap]

@@ -134,7 +134,11 @@ def cmd_lineup(args: argparse.Namespace, cfg: Config) -> int:
                     print(f"    the market would start {a.name} over {b.name}")
             else:
                 print("    the market would start the same lineup")
-            gaps = disagreements(prep.snapshot, 3)
+            decisive = set(opt.best_win.player_ids) | set(market.player_ids)
+            if prep.vegas.eligible and prep.vegas.matched_startable < prep.vegas.eligible:
+                print(f"    priced {prep.vegas.matched_startable} of "
+                      f"{prep.vegas.eligible} startable players so far")
+            gaps = disagreements(prep.snapshot, 3, among=decisive)
             if gaps:
                 detail = ", ".join(f"{p.name} {d:+.1f}" for p, d in gaps)
                 print(f"    biggest disagreements (market minus ours): {detail}")
