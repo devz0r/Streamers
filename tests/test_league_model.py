@@ -244,7 +244,7 @@ def test_yahoo_errors_are_explained():
     # removed from the app form in 2026.
     assert "sports.yahoo.com/developer/access" in scope
     assert "Client ID" in scope
-    assert "tick" not in scope.lower()
+    assert "no box to tick" in scope.lower()      # says so, rather than telling you to
     # Must not trip the --skip-missing heuristic, which looks for these words.
     assert "not set" not in scope and "missing" not in scope.lower()
     assert "yahoo-auth" in explain_error(ValueError("invalid_grant"))
