@@ -287,6 +287,11 @@ odds:
       - player_anytime_td
     # Only pull events with at least one startable player; 0 = the whole slate.
     max_events: 8
+    # Books post props a day or two out, so a midweek request about Sunday
+    # comes back empty. Events further away than this are not requested at
+    # all, which is what keeps the midweek runs nearly free and concentrates
+    # the spend on the Sunday-morning run, when the lineup is actually set.
+    window_hours: 72
     # A prop line is the market's median. Converting it to a mean needs the
     # spread of that stat at that level: sd = intercept + slope x line,
     # floored. Fitted on 2021-2025 nflverse weekly stats, bucketing players by

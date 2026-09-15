@@ -507,6 +507,19 @@ Capped at eight events, that is ~56 credits a run and ~480 a month across the
 two weekly publishes. The reported balance is printed on the page, because a
 quota that runs out silently in week 11 is worse than one you can watch.
 
+### Do not buy props nobody has posted yet
+The first live pull spent its budget on a Tuesday and came back with two
+Buffalo bench players. The event cap was taking the earliest kickoffs, which
+that far out means Thursday night football -- but fixing the ranking barely
+helped, because the real cause is that books post a game's props a day or two
+before kickoff. A midweek request about Sunday is not just wasteful, it
+returns nothing. Events further out than `window_hours` (72) are now not
+requested at all, which makes the Tuesday and Wednesday runs nearly free and
+concentrates the spend on a new Sunday 07:00 ET publish -- the run where the
+props exist, the inactives are known, and the lineup is actually being set.
+Coverage is reported on the page ("priced 6 of your 14 startable players"), so
+a column of dashes is explained rather than mysterious.
+
 ### The market gets a column, not the last word
 The Vegas number sits beside ours rather than replacing it, and the panel
 names the players they disagree about. The books know things the trailing

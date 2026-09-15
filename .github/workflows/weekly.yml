@@ -4,6 +4,9 @@ name: weekly
 #   the moment a week is over its recommendations are worthless, so the page
 #   must not sit on them until Wednesday.
 # Wednesday: publish again, once waivers have processed and lines have settled.
+# Sunday 07:00 ET: publish once more, a few hours before the early kickoffs --
+#   this is the run where sportsbook player props actually exist and the
+#   inactives are known, so it is the one the lineup should be read from.
 #
 # Every step runs BOTH scoring profiles (ESPN and Yahoo) -- the CLI defaults to
 # --profile all -- so each league gets its own calibration and both land on the
@@ -20,6 +23,7 @@ on:
   schedule:
     - cron: "0 11 * * 2"   # Tuesday — update (+ benchmark if a CSV is committed)
     - cron: "0 11 * * 3"   # Wednesday — rank + publish
+    - cron: "0 11 * * 0"   # Sunday — republish with props and final injuries
   workflow_dispatch:
     inputs:
       week:
@@ -92,6 +96,7 @@ jobs:
             case "${{ github.event.schedule }}" in
               "0 11 * * 2") MODE=both ;;
               "0 11 * * 3") MODE=publish ;;
+              "0 11 * * 0") MODE=publish ;;
               *)            MODE=both ;;
             esac
           fi

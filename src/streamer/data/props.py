@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -322,6 +322,29 @@ def fetch_props(
     except Exception as exc:  # noqa: BLE001
         return PropsResult(pd.DataFrame(), now, warnings=[f"event list unavailable: {exc}"])
 
+    # Books post a game's props a day or two before kickoff, so asking on a
+    # Tuesday about Sunday buys nothing -- the request either comes back empty
+    # or errors. Events beyond the window are skipped, which is why a midweek
+    # run costs almost nothing and the Sunday-morning run pays for real
+    # coverage exactly when the lineup is being set.
+    window = float(pconf.get("window_hours") or 0)
+    if window > 0:
+        cutoff = now + timedelta(hours=window)
+        kept = []
+        for e in events:
+            ts = e.get("commence_time")
+            if not ts:
+                kept.append(e)
+                continue
+            try:
+                start = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            except ValueError:
+                kept.append(e)
+                continue
+            if start <= cutoff:
+                kept.append(e)
+        events = kept
+
     # Spend the cap where it buys the most: rank events by how many of the
     # players we care about are in them, not by kickoff time. Taking the
     # earliest games instead would buy Thursday night and miss the lineup.
@@ -359,6 +382,10 @@ def fetch_props(
             warnings.append(f"props for {event.get('away_team')} @ {event.get('home_team')}: {exc}")
     frame = parse_props_payload(payloads, cfg)
     if frame.empty and not warnings:
-        warnings.append("the books returned no player props for these games")
+        if window > 0 and not events:
+            warnings.append(
+                f"no games kick off within {window:.0f}h, so no props are posted yet")
+        else:
+            warnings.append("the books returned no player props for these games")
     return PropsResult(frame, now, events=len(payloads),
                        credits_remaining=remaining, warnings=warnings)

@@ -255,6 +255,8 @@ itself pushes to `${GITHUB_REF_NAME}`, so it works under any branch name.
 - **Wednesday** — `sync` both leagues (skipped for any league without
   secrets), then `rank` and `publish` the upcoming week and commit the
   refreshed page
+- **Sunday, 07:00 ET** — publish once more before the early kickoffs, when
+  the sportsbook player props are posted and the inactives are known
 
 Both profiles run in every step, so each league keeps its own calibration
 history and both appear on the one published page.
@@ -300,11 +302,19 @@ players the two projections disagree about most. Disagreement is the useful
 part: the market sees beat-reporter news about a snap count days before it
 reaches a box score, so a large gap is worth a look before you set the lineup.
 
-Props are billed per market per event, so only games with a startable player
-of yours are pulled, capped at eight. That is about 480 credits a month
-against the free tier's 500; the panel prints the balance the API reports.
-Lower `odds.props.max_events`, drop a market, or set `odds.props.enabled` to
-`false` in config.yaml to spend less.
+Props are billed per market per event, so the pull is deliberately frugal:
+only games with a startable player of yours, only games kicking off within 72
+hours (books do not post Sunday's props on a Tuesday, so asking buys nothing),
+and at most eight games. In practice the midweek runs cost a handful of
+credits and the Sunday-morning run pays for real coverage -- roughly 330 a
+month against the free tier's 500. The panel prints the balance the API
+reports. Lower `odds.props.max_events` or `window_hours`, drop a market, or
+set `odds.props.enabled` to `false` in config.yaml to spend less.
+
+**Read the lineup on Sunday morning.** The page is published Tuesday and
+Wednesday for waivers, and again at 07:00 ET Sunday. Only that last one has
+the props posted and the inactives known, so it is the one to set a lineup
+from.
 
 ### How players are projected
 

@@ -253,3 +253,51 @@ def test_teams_on_counts_players_and_skips_the_unavailable(cfg):
                   if q.team == p.team and q is not p and not q.on_bye and not q.is_out]
         if not others:
             assert p.team not in weights
+
+
+def test_events_outside_the_window_are_not_requested(monkeypatch, cfg):
+    """A Tuesday request about Sunday must not be made at all."""
+    from datetime import UTC, datetime, timedelta
+
+    import streamer.data.props as props_mod
+
+    now = datetime.now(UTC)
+    soon = (now + timedelta(hours=20)).isoformat()
+    far = (now + timedelta(hours=120)).isoformat()
+    events = [
+        {"id": "thu", "home_team": "Buffalo Bills", "away_team": "Detroit Lions",
+         "commence_time": soon},
+        {"id": "sun", "home_team": "Baltimore Ravens", "away_team": "New Orleans Saints",
+         "commence_time": far},
+    ]
+    asked: list[str] = []
+
+    class FakeResp:
+        headers = {"x-requests-remaining": "400"}
+
+        def __init__(self, data):
+            self._data = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, params=None, timeout=None):
+        if url.endswith("/events"):
+            return FakeResp(events)
+        asked.append(url.rsplit("/events/", 1)[1].split("/")[0])
+        return FakeResp({"id": "x", "bookmakers": []})
+
+    monkeypatch.setattr(props_mod, "odds_api_key", lambda c: "key", raising=False)
+    import streamer.data.odds as odds_mod
+    monkeypatch.setattr(odds_mod, "odds_api_key", lambda c=None: "key")
+
+    import requests
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    bound = cfg.for_profile("espn")
+    result = props_mod.fetch_props(bound, teams={"BUF": 1, "BAL": 3})
+    assert asked == ["thu"], "only the game inside the window should be requested"
+    assert result.credits_remaining == 400
