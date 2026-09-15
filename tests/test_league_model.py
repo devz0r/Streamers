@@ -245,3 +245,23 @@ def test_yahoo_errors_are_explained():
     assert "not set" not in scope and "missing" not in scope.lower()
     assert "yahoo-auth" in explain_error(ValueError("invalid_grant"))
     assert explain_error(ValueError("something else")) == "something else"
+
+
+def test_ir_slot_eligibility_gives_the_roster_the_benefit_of_the_doubt():
+    """An OUT player may sit on IR; a day-to-day one may not."""
+    from streamer.league.model import PlayerRow
+
+    def row(status, slot="IR"):
+        return PlayerRow(player_id="x", name="x", position="RB", status=status, slot=slot)
+
+    assert row("OUT").ir_slot_is_valid
+    assert row("INJURY_RESERVE").ir_slot_is_valid
+    assert row("SUSPENSION").ir_slot_is_valid
+    assert not row("DAY_TO_DAY").ir_slot_is_valid
+    assert not row("QUESTIONABLE").ir_slot_is_valid
+    assert not row("").ir_slot_is_valid
+    # Not in an IR slot at all: nothing to complain about.
+    assert row("DAY_TO_DAY", slot="BN").ir_slot_is_valid
+    # OUT is week-to-week, so it must not zero rest-of-season value.
+    assert not row("OUT").is_long_term_out
+    assert row("INJURY_RESERVE").is_long_term_out

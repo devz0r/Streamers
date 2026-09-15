@@ -118,3 +118,26 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def render_sync_failure(status: dict, cfg: Config, stale_week: int | None = None) -> str:
+    """A short note for a league whose sync did not succeed.
+
+    Silence reads as "nothing to report"; a league that could not be reached
+    has plenty to report, and the reason is what tells you how to fix it.
+    """
+    platform = str(status.get("platform") or cfg.profile).upper()
+    when = str(status.get("at") or "")[:16].replace("T", " ")
+    reason = str(status.get("error") or "no reason recorded")
+    if stale_week is not None:
+        lead = (f"Your {platform} league could not be synced for week "
+                f"{status.get('week')}, so the panel below is week {stale_week}.")
+    else:
+        lead = f"Your {platform} league could not be synced, so there is no team panel."
+    return (
+        '<h2>My team</h2>'
+        f'<div class="card"><div class="row"><div class="rank">!</div>'
+        f'<div><span class="name">{_e(platform)} sync failed</span></div></div>'
+        f'<div class="why">{_e(lead)} {_e(reason)}'
+        f'{(" Last attempt " + _e(when) + " UTC.") if when else ""}</div></div>'
+    )

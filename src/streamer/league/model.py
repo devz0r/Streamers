@@ -49,6 +49,13 @@ LONG_TERM_OUT_STATUSES: tuple[str, ...] = (
     "IR", "IR-R", "INJURY_RESERVE", "PUP", "PUP-R", "NFI", "SUSP", "SUSPENSION", "SUSPENDED",
 )
 
+#: Statuses a platform will accept in an IR slot. ESPN's own rule varies by
+#: league setting -- some allow any OUT designation, some only a true IR tag --
+#: so the benefit of the doubt goes to the roster: a player is only called out
+#: as misfiled when no common rule would let them sit there, which means they
+#: are healthy, questionable or day-to-day.
+IR_ELIGIBLE_STATUSES: tuple[str, ...] = LONG_TERM_OUT_STATUSES + ("OUT", "O", "INACTIVE")
+
 #: Injury/availability statuses that mean "will not play".
 OUT_STATUSES: tuple[str, ...] = LONG_TERM_OUT_STATUSES + ("OUT", "O", "NA", "COVID", "INACTIVE")
 
@@ -100,6 +107,11 @@ class PlayerRow:
     @property
     def is_long_term_out(self) -> bool:
         return self.status in LONG_TERM_OUT_STATUSES
+
+    @property
+    def ir_slot_is_valid(self) -> bool:
+        """Whether this player may occupy an IR slot. True if not in one."""
+        return (not self.in_ir_slot) or self.status in IR_ELIGIBLE_STATUSES
 
 
 @dataclass

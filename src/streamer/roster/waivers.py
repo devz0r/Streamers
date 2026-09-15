@@ -305,10 +305,14 @@ def drop_watch(snapshot: LeagueSnapshot, n: int = 4, max_week: int = 18) -> list
 
 
 def ir_notes(snapshot: LeagueSnapshot) -> list[str]:
-    """Players in an IR slot who are no longer long-term out and need a roster move."""
+    """Players filling an IR slot that their status does not entitle them to.
+
+    An OUT designation is enough for the IR slot in most leagues, so only a
+    player who is active, questionable or day-to-day is flagged.
+    """
     notes = []
     for p in snapshot.my_team.roster:
-        if p.in_ir_slot and not p.is_long_term_out:
+        if not p.ir_slot_is_valid:
             notes.append(
                 f"{p.name} is in your IR slot but listed {p.status or 'healthy'}; the "
                 "platform treats the roster as invalid until they are moved to the bench "

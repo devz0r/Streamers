@@ -562,9 +562,9 @@ def team_panels_for(
     """
     import logging
 
-    from .league.store import load_snapshot
+    from .league.store import load_snapshot, read_status
     from .roster.matchup import build_report
-    from .roster.page import render_my_team
+    from .roster.page import render_my_team, render_sync_failure
     from .roster.projections import project_snapshot
     from .roster.waivers import recommend
 
@@ -572,18 +572,26 @@ def team_panels_for(
     panels: dict[str, str] = {}
     for name, rankings in ranked.items():
         bound = cfg.for_profile(name)
+        status = read_status(bound)
         try:
             snap = load_snapshot(bound, rankings.week)
         except FileNotFoundError:
             try:
                 snap = load_snapshot(bound)   # newest, if this week's is absent
             except FileNotFoundError:
+                # No snapshot at all. If a sync was attempted and failed, say
+                # so on the page rather than leaving a silent gap.
+                if status and not status.get("ok"):
+                    panels[name] = render_sync_failure(status, bound)
                 continue
         try:
             project_snapshot(snap, bound, rankings, allow_network=allow_network)
             report = build_report(snap, bound)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
-            panels[name] = render_my_team(snap, report, moves, bound)
+            panel = render_my_team(snap, report, moves, bound)
+            if status and not status.get("ok") and snap.week != rankings.week:
+                panel = render_sync_failure(status, bound, stale_week=snap.week) + panel
+            panels[name] = panel
         except Exception as exc:  # noqa: BLE001
             log.warning("my-team panel for %s skipped: %s", name, exc)
     return panels

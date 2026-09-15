@@ -249,3 +249,18 @@ def test_my_team_panel_renders(cfg):
     # The best pickup and the dead roster spot both appear in the waiver list.
     assert moves and moves[0].add.name in html
     assert "<script" not in html
+
+
+def test_sync_failure_panel_says_what_went_wrong(cfg):
+    from streamer.roster.page import render_sync_failure
+
+    status = {"platform": "yahoo", "week": 2, "ok": False,
+              "at": "2026-09-15T13:27:31+00:00",
+              "error": "Yahoo rejected the refresh token. Run `streamer yahoo-auth` again"}
+    html = render_sync_failure(status, cfg)
+    assert "YAHOO sync failed" in html
+    assert "refresh token" in html
+    assert "no team panel" in html
+    # A stale snapshot is a different message: there IS a panel, just an old one.
+    stale = render_sync_failure(status, cfg, stale_week=1)
+    assert "week 1" in stale and "no team panel" not in stale

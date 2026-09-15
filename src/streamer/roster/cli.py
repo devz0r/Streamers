@@ -62,7 +62,7 @@ def _print_lineup_block(title: str, lineup, cfg: Config, changes=None) -> None:
 
 
 def cmd_sync(args: argparse.Namespace, cfg: Config) -> int:
-    from ..league.store import platform_for, sync
+    from ..league.store import platform_for, record_sync, sync
 
     codes = []
     for bound in _selected(args, cfg):
@@ -74,16 +74,20 @@ def cmd_sync(args: argparse.Namespace, cfg: Config) -> int:
         try:
             path = sync(bound, week=args.week, season=args.season)
             print(f"  {bound.profile_description}: synced {platform} league -> {path}")
+            record_sync(bound, args.week, ok=True)
             codes.append(0)
         except RuntimeError as exc:
             msg = str(exc)
             if args.skip_missing and ("not set" in msg or "missing" in msg.lower()):
                 print(f"  {bound.profile_description}: skipped ({msg})")
+                record_sync(bound, args.week, ok=False, error=msg)
                 continue
             print(f"  {bound.profile_description}: sync failed: {msg}", file=sys.stderr)
+            record_sync(bound, args.week, ok=False, error=msg)
             codes.append(1)
         except Exception as exc:  # noqa: BLE001
             print(f"  {bound.profile_description}: sync failed: {exc}", file=sys.stderr)
+            record_sync(bound, args.week, ok=False, error=str(exc))
             codes.append(1)
     return max(codes) if codes else 0
 

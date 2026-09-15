@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ..config import Config, get_config
@@ -38,6 +40,39 @@ def load_snapshot(cfg: Config, week: int | None = None) -> LeagueSnapshot:
             + " -- run `streamer sync` first"
         )
     return LeagueSnapshot.load(path)
+
+
+def status_path(cfg: Config) -> Path:
+    return snapshot_dir(cfg) / "sync_status.json"
+
+
+def record_sync(cfg: Config, week: int, ok: bool, error: str = "") -> Path:
+    """Write what the last sync attempt did, so a failure is visible.
+
+    A league that fails to sync used to vanish silently: no snapshot, no
+    panel, and the reason buried in a workflow log that scrolls past. The
+    status file is committed alongside the snapshots and read by the page.
+    """
+    path = status_path(cfg)
+    path.write_text(json.dumps({
+        "profile": cfg.profile,
+        "platform": platform_for(cfg),
+        "week": week,
+        "ok": bool(ok),
+        "error": error,
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+    }, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def read_status(cfg: Config) -> dict | None:
+    path = status_path(cfg)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def platform_for(cfg: Config) -> str:
