@@ -1,7 +1,9 @@
 name: weekly
 
-# Tuesday: score the completed week and recalibrate.
-# Wednesday: rank the upcoming week and publish the page.
+# Tuesday: score the completed week, recalibrate, AND publish the next one --
+#   the moment a week is over its recommendations are worthless, so the page
+#   must not sit on them until Wednesday.
+# Wednesday: publish again, once waivers have processed and lines have settled.
 #
 # Every step runs BOTH scoring profiles (ESPN and Yahoo) -- the CLI defaults to
 # --profile all -- so each league gets its own calibration and both land on the
@@ -88,7 +90,7 @@ jobs:
           MODE="${{ inputs.job }}"
           if [ -z "$MODE" ] || [ "$MODE" = "both" ]; then
             case "${{ github.event.schedule }}" in
-              "0 11 * * 2") MODE=update ;;
+              "0 11 * * 2") MODE=both ;;
               "0 11 * * 3") MODE=publish ;;
               *)            MODE=both ;;
             esac
@@ -96,12 +98,18 @@ jobs:
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
 
       # --- Tuesday ---------------------------------------------------------
+      # completed_week is 0 before any week has finished; there is nothing to
+      # score then, and week 1 must not be scored before it is played.
       - name: Score last week and recalibrate
-        if: steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both'
+        if: |
+          (steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both')
+          && steps.week.outputs.completed_week != '0'
         run: streamer update --week "${{ steps.week.outputs.completed_week }}"
 
       - name: Benchmark against Subvertadown
-        if: steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both'
+        if: |
+          (steps.mode.outputs.mode == 'update' || steps.mode.outputs.mode == 'both')
+          && steps.week.outputs.completed_week != '0'
         run: |
           WEEK="${{ steps.week.outputs.completed_week }}"
           # Either a shared file or a per-profile one is enough to run.

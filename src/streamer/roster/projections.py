@@ -30,7 +30,12 @@ import pandas as pd
 
 from ..config import Config, get_config
 from ..data.cache import cached_frame
-from ..data.nflverse import _to_pandas, games_frame, latest_available_season
+from ..data.nflverse import (
+    _to_pandas,
+    games_frame,
+    latest_available_season,
+    live_max_age,
+)
 from ..data.odds import get_lines, lines_to_team_rows
 from ..league.model import LeagueSnapshot, PlayerRow
 from .players import build_index, match_players
@@ -74,13 +79,18 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
         if season > newest and not stats_path.exists():
             continue
         try:
+            # The season being played grows every week, so its cache expires;
+            # completed seasons are immutable and keep theirs.
+            ttl = live_max_age(season, cfg)
             stats = cached_frame(
                 stats_path,
                 lambda s=season: _to_pandas(_nflreadpy().load_player_stats(seasons=[s])),
+                max_age_hours=ttl,
             )
             opp = cached_frame(
                 opp_path,
                 lambda s=season: _to_pandas(_nflreadpy().load_ff_opportunity(seasons=[s])),
+                max_age_hours=ttl,
             )
         except Exception as exc:  # noqa: BLE001
             log.warning("player history for %s unavailable: %s", season, exc)

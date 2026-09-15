@@ -204,3 +204,69 @@ def test_cache_reraises_when_there_is_nothing_to_fall_back_to(tmp_path):
 
     with pytest.raises(RuntimeError):
         cached_frame(tmp_path / "missing.parquet", boom)
+
+
+# ---------------------------------------------------------------------------
+# Cache freshness
+#
+# The weekly job restores data/raw between runs, so a cache with no expiry
+# pins live feeds to whatever the first run of the season pulled.
+# ---------------------------------------------------------------------------
+def test_live_cache_expires_and_refetches(tmp_path):
+    import os
+    import time
+
+    import pandas as pd
+
+    from streamer.data.cache import cached_frame
+
+    path = tmp_path / "live.parquet"
+    calls = []
+
+    def build():
+        calls.append(1)
+        return pd.DataFrame({"n": [len(calls)]})
+
+    assert cached_frame(path, build, max_age_hours=6)["n"].iloc[0] == 1
+    # Still fresh: served from disk, no second fetch.
+    assert cached_frame(path, build, max_age_hours=6)["n"].iloc[0] == 1
+    assert len(calls) == 1
+
+    # Age it past the window.
+    old = time.time() - 7 * 3600
+    os.utime(path, (old, old))
+    assert cached_frame(path, build, max_age_hours=6)["n"].iloc[0] == 2
+    assert len(calls) == 2
+
+    # No max age: a completed season stays cached however old it gets.
+    os.utime(path, (old, old))
+    assert cached_frame(path, build)["n"].iloc[0] == 2
+    assert len(calls) == 2
+
+
+def test_stale_cache_is_served_when_the_refetch_fails(tmp_path):
+    """An upstream outage degrades to stale data, never to a failed run."""
+    import os
+    import time
+
+    import pandas as pd
+
+    from streamer.data.cache import cached_frame
+
+    path = tmp_path / "live.parquet"
+    cached_frame(path, lambda: pd.DataFrame({"n": [1]}), max_age_hours=6)
+    old = time.time() - 7 * 3600
+    os.utime(path, (old, old))
+
+    def explode():
+        raise RuntimeError("nflverse unreachable")
+
+    assert cached_frame(path, explode, max_age_hours=6)["n"].iloc[0] == 1
+
+
+def test_only_the_current_season_expires(cfg):
+    from streamer.data.nflverse import LIVE_MAX_AGE_HOURS, live_max_age
+
+    season = cfg.current_season
+    assert live_max_age(season, cfg) == LIVE_MAX_AGE_HOURS
+    assert live_max_age(season - 1, cfg) is None

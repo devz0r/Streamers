@@ -22,6 +22,18 @@ from .cache import cached_frame
 
 log = logging.getLogger(__name__)
 
+#: How long a live feed may sit in the cache before it is re-pulled. The
+#: schedule carries final scores and closing lines, and the current season's
+#: play-by-play and rosters grow every week, so a cache that never expires
+#: would pin the whole pipeline to whatever the first run of the season saw.
+#: Completed seasons are immutable and keep their cache indefinitely.
+LIVE_MAX_AGE_HOURS: float = 6.0
+
+
+def live_max_age(season: int, cfg: Config) -> float | None:
+    """TTL for ``season``'s cache: finite while it is being played, else None."""
+    return LIVE_MAX_AGE_HOURS if int(season) >= int(cfg.current_season) else None
+
 #: pbp columns the feature builders actually need. Loading a subset keeps the
 #: 50k-row-per-season frames manageable.
 PBP_COLUMNS: tuple[str, ...] = (
@@ -91,9 +103,9 @@ def load_schedules(cfg: Config | None = None, refresh: bool = False) -> pd.DataF
             df[col] = normalize_team_series(df[col])
         return df
 
-    # Schedules carry live results, so they are refreshed whenever the caller
-    # asks; the cache exists so backtests do not re-download on every run.
-    df = cached_frame(path, build, refresh=refresh)
+    # Schedules carry live results -- final scores and closing lines -- so the
+    # cache is time-boxed; it exists so backtests do not re-download per run.
+    df = cached_frame(path, build, refresh=refresh, max_age_hours=LIVE_MAX_AGE_HOURS)
     df["season"] = df["season"].astype(int)
     df["week"] = df["week"].astype(int)
     return df
@@ -118,7 +130,8 @@ def load_pbp(seasons: list[int], cfg: Config | None = None, refresh: bool = Fals
             return _to_pandas(_nflreadpy().load_pbp(seasons=[season]))
 
         try:
-            df = cached_frame(path, build, refresh=refresh)
+            df = cached_frame(path, build, refresh=refresh,
+                              max_age_hours=live_max_age(season, cfg))
         except Exception as exc:  # noqa: BLE001
             log.warning("could not load play-by-play for %s: %s", season, exc)
             continue
@@ -152,7 +165,8 @@ def load_rosters(seasons: list[int], cfg: Config | None = None, refresh: bool = 
             return _to_pandas(_nflreadpy().load_rosters(seasons=[season]))
 
         try:
-            df = cached_frame(path, build, refresh=refresh)
+            df = cached_frame(path, build, refresh=refresh,
+                              max_age_hours=live_max_age(season, cfg))
         except Exception as exc:  # noqa: BLE001
             log.warning("could not load rosters for %s: %s", season, exc)
             continue

@@ -427,3 +427,40 @@ player's tag has cleared to day-to-day the report says so, because the
 platform will refuse further moves until the roster is made valid. ESPN also
 publishes a projection of 0.0 for anyone it does not project; that is treated
 as no projection unless the player is out, so it cannot halve ours.
+
+## Staying current during the season
+
+### The week is decided by the calendar, not by whether scores have landed
+The first in-season bug: the published page sat on Week 1 after Week 1 had
+been played. The detector asked "what is the highest week with a final
+score?", which is a question about the *data feed*, not about the season. Two
+things then went wrong at once. nflverse had not yet posted results, so the
+answer was "none", and a `max(1, completed)` floor dressed that zero up as
+"week 1 is complete" -- so the job both republished week 1 and tried to score
+a week that had not been played. Weeks are now read off the schedule's
+kickoff dates: a week is complete when its last kickoff is in the past, and
+the upcoming week is the first whose last game has not started. Scores are
+still consulted, but only to move the week *forward* (a feed ahead of the
+calendar, or a rescheduled game), never to hold it back. `completed_week=0`
+is now reported honestly and the scoring step is skipped, rather than being
+rounded up to a week that never happened.
+
+### Live feeds get a cache TTL; completed seasons keep their cache forever
+The same bug had a second cause that the calendar fix alone would have
+hidden. Every raw pull is memoised to `data/raw/` for reproducible backtests,
+`load_schedules` was documented as refreshing "whenever the caller asks", and
+no caller ever asked. Because the weekly job restores `data/raw` from the
+previous run, `schedules.parquet` was still the copy fetched before the
+season opened -- no scores, and stale closing lines feeding every projection.
+`cached_frame` now takes `max_age_hours`: the schedule and the current
+season's play-by-play, rosters, player stats and opportunity data expire
+after six hours, while finished seasons are immutable and cached
+indefinitely. A failed re-fetch still falls back to the cached copy, so an
+upstream outage degrades to stale rather than breaking the run.
+
+### Tuesday publishes too
+Publishing only on Wednesday meant that from Monday night until Wednesday
+morning the page showed recommendations for a week that was already over --
+the window where a manager is actually setting up the next week. The Tuesday
+run now scores the finished week *and* publishes the next one; Wednesday
+publishes again once waivers have processed and the lines have settled.
