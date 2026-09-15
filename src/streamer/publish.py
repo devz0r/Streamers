@@ -566,6 +566,7 @@ def team_panels_for(
     from .roster.matchup import build_report
     from .roster.page import render_my_team, render_sync_failure
     from .roster.projections import project_snapshot
+    from .roster.vegas import attach as attach_vegas
     from .roster.waivers import recommend
 
     log = logging.getLogger(__name__)
@@ -586,6 +587,10 @@ def team_panels_for(
                 continue
         try:
             project_snapshot(snap, bound, rankings, allow_network=allow_network)
+            try:
+                attach_vegas(snap, bound, allow_network=allow_network)
+            except Exception as exc:  # noqa: BLE001 - props are a bonus column
+                log.warning("player props for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
             panel = render_my_team(snap, report, moves, bound)

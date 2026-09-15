@@ -46,6 +46,20 @@ profiles:
       # of managers who need a usable one each week.
       startable_rank: 12
 
+    # Offensive scoring, used to turn sportsbook player props into fantasy
+    # points. Both configured leagues are full PPR on the platform defaults.
+    offense_scoring:
+      pass_yards: 0.04          # 1 point per 25 yards
+      pass_td: 4.0
+      interception: -2.0
+      rush_yards: 0.1          # 1 point per 10 yards
+      rush_td: 6.0
+      reception: 1.0
+      reception_yards: 0.1
+      reception_td: 6.0
+      fumble_lost: -2.0
+      two_point: 2.0
+
     kicker_scoring:
       fg_0_39: 3.0
       fg_40_49: 4.0
@@ -111,6 +125,20 @@ profiles:
     league:
       teams: 14
       startable_rank: 14
+
+    # Offensive scoring, used to turn sportsbook player props into fantasy
+    # points. Both configured leagues are full PPR on the platform defaults.
+    offense_scoring:
+      pass_yards: 0.04          # 1 point per 25 yards
+      pass_td: 4.0
+      interception: -2.0
+      rush_yards: 0.1          # 1 point per 10 yards
+      rush_td: 6.0
+      reception: 1.0
+      reception_yards: 0.1
+      reception_td: 6.0
+      fumble_lost: -2.0
+      two_point: 2.0
 
     kicker_scoring:
       fg_0_39: 3.0
@@ -231,6 +259,47 @@ odds:
   odds_format: "american"
   # Books to average, in preference order. Empty list = average all returned.
   bookmakers: []
+  # Sportsbook player props -> implied fantasy points per player.
+  #
+  # COST, because this one bites: props are billed per market per region PER
+  # EVENT. Only events with a startable player of yours are fetched, and
+  # `max_events` caps it, so a run costs at most len(markets) x max_events =
+  # 7 x 8 = 56 credits. The weekly job publishes twice a week, so about 480
+  # credits a month -- just inside the 500 the free tier allows, and the page
+  # prints the balance the API reports so it is not a guess. Lower
+  # `max_events`, drop a market, or set `enabled: false` to spend less; a paid
+  # plan makes the whole question go away.
+  props:
+    enabled: true
+    # Books to average, in preference order. Pinnacle is the sharpest and is
+    # weighted accordingly; the others fill in players Pinnacle does not post.
+    # Caesars has appeared under both keys, so both are accepted.
+    bookmakers: [pinnacle, fanduel, williamhill_us, caesars]
+    bookmaker_weights:
+      pinnacle: 2.0
+    markets:
+      - player_pass_yds
+      - player_pass_tds
+      - player_pass_interceptions
+      - player_rush_yds
+      - player_receptions
+      - player_reception_yds
+      - player_anytime_td
+    # Only pull events with at least one startable player; 0 = the whole slate.
+    max_events: 8
+    # A prop line is the market's median. Converting it to a mean needs the
+    # spread of that stat at that level: sd = intercept + slope x line,
+    # floored. Fitted on 2021-2025 nflverse weekly stats, bucketing players by
+    # their trailing-4 average (the level a book would be pricing) and taking
+    # the sd of the actual result within each bucket. See DECISIONS.md.
+    spread:
+      passing_yards:         {intercept: 112.3, slope: -0.128, floor: 60.0}
+      passing_tds:           {intercept: 1.01,  slope: 0.084,  floor: 0.8}
+      passing_interceptions: {intercept: 0.80,  slope: 0.029,  floor: 0.7}
+      rushing_yards:         {intercept: 15.3,  slope: 0.335,  floor: 8.0}
+      receiving_yards:       {intercept: 15.1,  slope: 0.357,  floor: 8.0}
+      receptions:            {intercept: 1.15,  slope: 0.277,  floor: 0.8}
+
   # Fallback chain, tried in order, first success wins:
   #   api      -> The Odds API (needs ODDS_API_KEY)
   #   csv      -> data/lines_week_N.csv (manual entry, see README)

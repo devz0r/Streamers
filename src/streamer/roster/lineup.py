@@ -140,6 +140,36 @@ def enumerate_lineups(
     return results
 
 
+def best_by_key(
+    roster: list[PlayerRow], slots: dict[str, int], key
+) -> LineupResult:
+    """The lineup that maximises ``sum(key(player))``, filled greedily.
+
+    Dedicated slots are filled before flex ones, so a flex-eligible player is
+    only spent on the flex when nothing else wants them. Exact for the usual
+    one-flex structure. Used for "what would the market start?", where there
+    is a single number per player and no distribution to simulate.
+    """
+    ordered = sorted(slots.items(),
+                     key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]))
+    ranked = sorted(roster, key=key, reverse=True)
+    used: set[str] = set()
+    starters: dict[str, list[PlayerRow]] = {}
+    total = 0.0
+    for slot, count in ordered:
+        picked: list[PlayerRow] = []
+        for p in ranked:
+            if len(picked) >= count:
+                break
+            if p.player_id in used or not _eligible(p, slot):
+                continue
+            picked.append(p)
+            used.add(p.player_id)
+            total += float(key(p))
+        starters[slot] = picked
+    return LineupResult(starters=starters, expected=round(total, 2), sd=0.0, win_probability=0.0)
+
+
 def current_lineup(roster: list[PlayerRow], slots: dict[str, int]) -> dict[str, list[PlayerRow]] | None:
     """The lineup as currently set on the platform, if it is complete enough to score."""
     out: dict[str, list[PlayerRow]] = {s: [] for s in slots}

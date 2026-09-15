@@ -464,3 +464,53 @@ morning the page showed recommendations for a week that was already over --
 the window where a manager is actually setting up the next week. The Tuesday
 run now scores the finished week *and* publishes the next one; Wednesday
 publishes again once waivers have processed and the lines have settled.
+
+
+## Sportsbook player props
+
+### A prop line is a median, and fantasy scoring wants a mean
+The naive reading of "over 84.5 rushing yards" is 84.5 expected yards. That is
+the *median*, and using it as the mean throws away everything the price says.
+Given de-vigged P(X > L) = p and a normal approximation, the mean is
+`L + sd * z(p)`: the line, plus however far the market leans. So the spread of
+each stat has to come from somewhere, and it is fitted rather than guessed --
+2021-2025 nflverse weekly stats, players bucketed by their trailing-4 average
+(the level a book would be pricing), sd of the actual result taken within each
+bucket, then a line through the buckets. Receiving yards run
+`sd ~ 15.1 + 0.357 x line` (so ~37 at a 60-yard line), receptions
+`1.15 + 0.277 x line`, passing yards flatten out near 80 because the low end
+is backups playing partial games. The fits live in `odds.props.spread`.
+
+### Touchdown markets are Poisson, and anytime-TD is a rate
+`player_pass_tds` is a count with a half-point line, so the rate is solved by
+bisection on the Poisson survival function -- exact, and it inverts back to
+the price it came from (a test asserts that). Anytime-TD is the one that
+invites a real error: the price gives P(scores at least one), and using it as
+an expected touchdown count silently deletes every multi-touchdown game. The
+rate is `-ln(1 - p)`, which at p = 0.45 is 0.598 touchdowns rather than 0.45 --
+a third of a touchdown, or two fantasy points, per player.
+
+### De-vig before anything else
+Two -110 prices are not a 52.4% chance each; they are a coin flip with the
+book's margin on top. Normalising the pair back to 1 recovers the market's
+actual view, and the test asserts a de-vigged pair sums to exactly 1. Pinnacle
+carries double weight in the consensus because its margin is the thinnest of
+the three books; the others are there to cover players Pinnacle has not posted.
+
+### Only pay for players who could start
+Props are billed per market per *event*, so a full slate at seven markets is
+~112 credits and the free tier is 500 a month. Only games featuring a player
+who could actually start for you are fetched -- not the opponent's roster,
+whose implied points are never displayed and whose contribution to P(win) is
+scored with our own projections, and not players already out, on bye or on IR.
+Capped at eight events, that is ~56 credits a run and ~480 a month across the
+two weekly publishes. The reported balance is printed on the page, because a
+quota that runs out silently in week 11 is worse than one you can watch.
+
+### The market gets a column, not the last word
+The Vegas number sits beside ours rather than replacing it, and the panel
+names the players they disagree about. The books know things the trailing
+window cannot -- a snap count from Thursday practice -- but they are pricing a
+betting market, not a fantasy lineup: no prop exists for most kickers and
+defences, and a blank is shown as a blank rather than a zero so a missing
+market never quietly benches anyone.

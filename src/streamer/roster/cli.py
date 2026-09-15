@@ -23,6 +23,7 @@ class Prepared:
     rankings: object
     report: object
     projection_report: object
+    vegas: object = None
 
 
 def _prepare(args: argparse.Namespace, cfg: Config) -> Prepared:
@@ -31,13 +32,15 @@ def _prepare(args: argparse.Namespace, cfg: Config) -> Prepared:
     from ..rankings import rank_week
     from .matchup import build_report
     from .projections import project_snapshot
+    from .vegas import attach as attach_vegas
 
     week = getattr(args, "week", None)
     snapshot = load_snapshot(cfg, week)
     rankings = rank_week(snapshot.week, snapshot.season, cfg, allow_network=not args.offline)
     projection_report = project_snapshot(snapshot, cfg, rankings, allow_network=not args.offline)
+    vegas = attach_vegas(snapshot, cfg, allow_network=not args.offline)
     report = build_report(snapshot, cfg)
-    return Prepared(snapshot, rankings, report, projection_report)
+    return Prepared(snapshot, rankings, report, projection_report, vegas)
 
 
 def _fmt_player(p, width: int = 26) -> str:
@@ -50,15 +53,23 @@ def _fmt_player(p, width: int = 26) -> str:
     return f"{name:<{width}}"[:width]
 
 
-def _print_lineup_block(title: str, lineup, cfg: Config, changes=None) -> None:
+def _print_lineup_block(title: str, lineup, cfg: Config, changes=None, vegas: bool = False) -> None:
     print(f"\n{title}")
-    print(f"  {'Slot':<6} {'Player':<24} {'Pos':<4} {'Tm':<4} {'Proj':>6} {'±':>5}")
+    head = f"  {'Slot':<6} {'Player':<24} {'Pos':<4} {'Tm':<4} {'Proj':>6}"
+    print(head + (f" {'Vegas':>6}" if vegas else "") + f" {'±':>5}")
     changed = {p.player_id for _s, _b, p in (changes or [])}
     for slot, p in lineup.flat():
         mark = " *" if p.player_id in changed else ""
+        col = ""
+        if vegas:
+            col = f" {p.vegas_points:>6.1f}" if p.vegas_points is not None else f" {'--':>6}"
         print(f"  {slot:<6} {_fmt_player(p)} {p.position:<4} {p.team or '--':<4} "
-              f"{(p.projection or 0):>6.1f} {(p.projection_sd or 0):>5.1f}{mark}")
-    print(f"  {'':<6} {'expected':<24} {'':<4} {'':<4} {lineup.expected:>6.1f} {lineup.sd:>5.1f}")
+              f"{(p.projection or 0):>6.1f}{col} {(p.projection_sd or 0):>5.1f}{mark}")
+    tail = f"  {'':<6} {'expected':<24} {'':<4} {'':<4} {lineup.expected:>6.1f}"
+    if vegas:
+        total = sum(p.vegas_points for _s, p in lineup.flat() if p.vegas_points is not None)
+        tail += f" {total:>6.1f}"
+    print(tail + f" {lineup.sd:>5.1f}")
 
 
 def cmd_sync(args: argparse.Namespace, cfg: Config) -> int:
@@ -108,7 +119,29 @@ def cmd_lineup(args: argparse.Namespace, cfg: Config) -> int:
             print(f"  current lineup P(win) {rep.current_win_probability:.0%} -> "
                   f"recommended {opt.best_win.win_probability:.0%} "
                   f"({opt.win_gain:+.1%}), {opt.n_lineups} lineups evaluated")
-        _print_lineup_block("  Recommended (max P(win)):", opt.best_win, bound, opt.changes)
+        has_vegas = bool(prep.vegas and prep.vegas.is_usable)
+        _print_lineup_block("  Recommended (max P(win)):", opt.best_win, bound,
+                            opt.changes, vegas=has_vegas)
+        if has_vegas:
+            from .vegas import disagreements, vegas_lineup
+
+            market = vegas_lineup(prep.snapshot, bound)
+            swaps = [p for _s, p in market.flat() if p.player_id not in opt.best_win.player_ids]
+            benched = [p for _s, p in opt.best_win.flat() if p.player_id not in market.player_ids]
+            print(f"\n  Sportsbook props: {prep.vegas.description}")
+            if swaps:
+                for a, b in zip(swaps, benched):
+                    print(f"    the market would start {a.name} over {b.name}")
+            else:
+                print("    the market would start the same lineup")
+            gaps = disagreements(prep.snapshot, 3)
+            if gaps:
+                detail = ", ".join(f"{p.name} {d:+.1f}" for p, d in gaps)
+                print(f"    biggest disagreements (market minus ours): {detail}")
+            if prep.vegas.credits_remaining is not None:
+                print(f"    odds API credits remaining: {prep.vegas.credits_remaining}")
+        for w in (prep.vegas.warnings if prep.vegas else []):
+            print(f"    - {w}")
         if opt.best_ev.player_ids != opt.best_win.player_ids:
             print(f"\n  Note: the max-expected-points lineup differs "
                   f"(EV {opt.best_ev.expected:.1f}, P(win) {opt.best_ev.win_probability:.0%}); "

@@ -287,6 +287,25 @@ All four read the snapshot, so `lineup`/`waivers`/`matchup` run offline and
 instantly once `sync` has been done. The Wednesday workflow syncs both leagues
 before it ranks, so the published page carries the panel automatically.
 
+### The Vegas column
+
+Where the sportsbooks post player props, the lineup table carries a second
+number: the fantasy points those props imply. It is built from Pinnacle,
+FanDuel and Caesars, weighted toward Pinnacle because its margin is thinnest.
+A blank means no book posted that player, which is not the same as zero --
+kickers, defences and deep bench players are rarely priced.
+
+The panel also says what lineup the market's numbers would start and which
+players the two projections disagree about most. Disagreement is the useful
+part: the market sees beat-reporter news about a snap count days before it
+reaches a box score, so a large gap is worth a look before you set the lineup.
+
+Props are billed per market per event, so only games with a startable player
+of yours are pulled, capped at eight. That is about 480 credits a month
+against the free tier's 500; the panel prints the balance the API reports.
+Lower `odds.props.max_events`, drop a market, or set `odds.props.enabled` to
+`false` in config.yaml to spend less.
+
 ### How players are projected
 
 D/ST and K use the streaming rankings above. Every other position gets a

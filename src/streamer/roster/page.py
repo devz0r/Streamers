@@ -53,6 +53,7 @@ def render_my_team(
 
     # -- lineup ----------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
+    has_vegas = any(p.vegas_points is not None for p in snapshot.my_team.roster)
     rows = []
     for slot, p in opt.best_win.flat():
         flag = ""
@@ -60,15 +61,21 @@ def render_my_team(
             flag = ' <span class="hold-tag">start</span>'
         elif p.is_questionable:
             flag = f' <span class="opp">{_e(short_status(p.status))}</span>'
+        vegas = ""
+        if has_vegas:
+            vegas = (f"<td>{p.vegas_points:.1f}</td>" if p.vegas_points is not None
+                     else '<td class="opp">--</td>')
         rows.append(
             f"<tr><td>{_e(slot)}</td><td class='unit'>{_e(p.name)}{flag}</td>"
             f"<td>{_e(p.position)}</td><td>{_e(p.team or '--')}</td>"
-            f"<td>{(p.projection or 0):.1f}</td><td>&plusmn;{(p.projection_sd or 0):.0f}</td></tr>"
+            f"<td>{(p.projection or 0):.1f}</td>{vegas}"
+            f"<td>&plusmn;{(p.projection_sd or 0):.0f}</td></tr>"
         )
+    vegas_head = "<th>Vegas</th>" if has_vegas else ""
     parts.append(
         "<h3>Recommended lineup</h3>"
         '<div class="scroll"><table><thead><tr><th>Slot</th><th class="unit">Player</th>'
-        "<th>Pos</th><th>Tm</th><th>Proj</th><th>Range</th></tr></thead>"
+        f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>"
     )
     if opt.changes:
@@ -88,6 +95,9 @@ def render_my_team(
             f"{opt.best_ev.expected - opt.best_win.expected:.1f} points for "
             f"{(opt.best_win.win_probability - opt.best_ev.win_probability) * 100:+.0f} points of win probability.</p>"
         )
+
+    if has_vegas:
+        parts.append(_vegas_section(snapshot, opt, cfg))
 
     for note in report.notes:
         parts.append(f'<p class="sub">Note: {_e(note)}.</p>')
@@ -118,6 +128,35 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def _vegas_section(snapshot, opt, cfg: Config) -> str:
+    """What the sportsbooks would start, and where they disagree with us."""
+    from .vegas import disagreements, vegas_lineup
+
+    market = vegas_lineup(snapshot, cfg)
+    ours = opt.best_win.player_ids
+    theirs = market.player_ids
+    bits = []
+    swaps = [p for _s, p in market.flat() if p.player_id not in ours]
+    benched = [p for _s, p in opt.best_win.flat() if p.player_id not in theirs]
+    if swaps:
+        pairs = ", ".join(
+            f"{_e(a.name)} over {_e(b.name)}" for a, b in zip(swaps, benched)
+        )
+        bits.append(f"The sportsbook numbers would start {pairs}.")
+    else:
+        bits.append("The sportsbook numbers would start the same lineup.")
+    gaps = disagreements(snapshot, 3)
+    if gaps:
+        detail = ", ".join(
+            f"{_e(p.name)} {'+' if d > 0 else ''}{d:.1f}" for p, d in gaps
+        )
+        bits.append(f"Biggest disagreements (market minus ours): {detail}.")
+    credits = getattr(snapshot, "_vegas_credits", None)
+    if credits is not None:
+        bits.append(f"Odds API credits left: {credits}.")
+    return f'<p class="sub">{" ".join(bits)}</p>'
 
 
 def render_sync_failure(status: dict, cfg: Config, stale_week: int | None = None) -> str:
