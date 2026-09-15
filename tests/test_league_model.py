@@ -240,7 +240,11 @@ def test_yahoo_errors_are_explained():
     scope = explain_error(RuntimeError(
         'b\'{"error":{"description":"Please provide valid credentials. '
         'OAuth oauth_problem=\\"additional_authorization_required\\"'))
-    assert "Fantasy Sports" in scope and "yahoo-auth" in scope
+    # It must point at the access programme, not at a checkbox that Yahoo
+    # removed from the app form in 2026.
+    assert "sports.yahoo.com/developer/access" in scope
+    assert "Client ID" in scope
+    assert "tick" not in scope.lower()
     # Must not trip the --skip-missing heuristic, which looks for these words.
     assert "not set" not in scope and "missing" not in scope.lower()
     assert "yahoo-auth" in explain_error(ValueError("invalid_grant"))

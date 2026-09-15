@@ -354,39 +354,40 @@ have.
 3. `ESPN_TEAM_ID` — optional. The SWID normally identifies your team; set this
    (the `teamId=` in your team URL) only if the sync picks the wrong one.
 
-**Yahoo** (OAuth app, plus an access application):
+**Yahoo** (OAuth app, plus an access grant Yahoo controls):
 
-Yahoo now gates the Fantasy Sports API behind a review. Until it is granted,
-the Fantasy Sports permission does not appear on the app form at all, and any
-token you mint is refused with `additional_authorization_required`.
+> **Read this before spending time on it.** Since mid-2026 Yahoo no longer
+> self-serve provisions the Fantasy Sports API. The "Fantasy Sports"
+> permission was removed from the app creation form *for everyone* -- if you
+> cannot find it, nothing is wrong with your account. Entitlement is now
+> granted server-side against a specific Client ID after a manual review, and
+> existing apps that used to work were de-provisioned too. OAuth still works
+> throughout: tokens mint and refresh normally and then every fantasy call
+> returns `additional_authorization_required` or a 403, which makes it look
+> like a credential problem when it is an entitlement one. There is no
+> published turnaround time.
 
-1. Apply at <https://sports.yahoo.com/developer/access/>. The review wants the
-   product you are building (a personal lineup/waiver tool), the data you need
-   (your own leagues' rosters, matchups and free agents) and the user base
-   (personal, single-league). Incomplete applications are closed without reply.
-   Read access is all that is offered, and all this tool uses -- it never
-   writes to your league.
-2. Create an app at <https://developer.yahoo.com/apps/>:
-   - **Application Name** -- anything, e.g. `Streamer`. Description optional.
-   - **Homepage URL** -- optional; your Pages URL is fine.
-   - **Redirect URI(s)** -- `https://localhost:8080`. Yahoo insists on an
-     `https` URI here, but the tool authorises out-of-band (the approval page
-     shows you a code instead of redirecting), so it is never visited.
-   - **OAuth Client Type** -- *Confidential Client*. A public client gets no
-     client secret, and the tool needs one.
-   - **API Permissions** -- tick *Fantasy Sports* / *Read* once your access
-     application has been granted. Before then the option is absent, which is
-     expected.
-
-   After *Create App* it shows a **Client ID** and **Client Secret**. Put
-   them in `.env` as `YAHOO_CLIENT_ID` / `YAHOO_CLIENT_SECRET`.
-3. `YAHOO_LEAGUE_ID` -- the number at the end of your league URL
+1. Apply at <https://sports.yahoo.com/developer/access/>, **quoting the Client
+   ID of the app you intend to use**, so the grant attaches to that app rather
+   than to nothing. The review wants the product (a personal lineup/waiver
+   tool), the data (your own leagues' rosters, matchups and free agents) and
+   the user base (personal, single-league). Incomplete applications are closed
+   without reply. Read access is all that is offered, and all this tool uses.
+2. Complete the confirmation step at
+   <https://sports.yahoo.com/developer/application-confirmation/> with the
+   email address on your Yahoo developer account.
+3. Create the app at <https://developer.yahoo.com/apps/> if you have not
+   already: any name, **Redirect URI** `https://localhost:8080` (Yahoo insists
+   on an https URI, but the tool authorises out-of-band so it is never
+   visited), and **Confidential Client** so you are issued a client secret.
+   Put its Client ID and Secret in `.env` as `YAHOO_CLIENT_ID` /
+   `YAHOO_CLIENT_SECRET`. Do not go looking for API Permissions to tick.
+4. `YAHOO_LEAGUE_ID` -- the number at the end of your league URL
    (`.../f1/123456` -> `123456`).
-4. Run `streamer yahoo-auth` once. It opens the approval page, asks for the
-   verification code, and prints a `YAHOO_REFRESH_TOKEN` to add to `.env` and
-   to Secrets. The token file it leaves in `data/` is git-ignored. A token
-   minted before the permission was granted keeps the old scopes, so re-run
-   this after approval.
+5. Once the grant lands, run `streamer yahoo-auth`. It authorises, then makes
+   one real fantasy call and tells you whether it worked, so you find out
+   immediately rather than at the next scheduled run. Put the refresh token it
+   prints in `.env` and in the `YAHOO_REFRESH_TOKEN` secret.
 
 The Yahoo *scoring profile* does not depend on any of this: its D/ST and K
 rankings come from nflverse and the betting markets. Only the My-team panel
