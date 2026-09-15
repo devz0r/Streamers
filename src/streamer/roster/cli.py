@@ -246,7 +246,24 @@ def cmd_yahoo_auth(args: argparse.Namespace, cfg: Config) -> int:
     if not token:
         print("Authorisation did not produce a refresh token.", file=sys.stderr)
         return 1
-    print("\nAdd this as the YAHOO_REFRESH_TOKEN secret (and to .env for local runs):\n")
+    # Minting a token says nothing about what it is allowed to read. Yahoo
+    # grants Fantasy Sports access through a review, and a token minted from
+    # an app without that permission authenticates happily and then fails on
+    # every fantasy call -- so check now, while the person is still here.
+    print("\nChecking the token can actually read Fantasy Sports...")
+    try:
+        import yahoo_fantasy_api as yfa
+
+        yfa.Game(session, "nfl").game_id()
+        print("  OK -- Fantasy Sports access confirmed.\n")
+    except Exception as exc:  # noqa: BLE001
+        from ..league.yahoo import explain_error
+
+        print(f"  FAILED -- {explain_error(exc)}\n", file=sys.stderr)
+        print("The token below is still the newest one, but it will not work "
+              "until that is resolved.\n", file=sys.stderr)
+
+    print("Add this as the YAHOO_REFRESH_TOKEN secret (and to .env for local runs):\n")
     print(f"  {token}\n")
     print(f"The token file at {path} is git-ignored; it will be refreshed automatically.")
     return 0
