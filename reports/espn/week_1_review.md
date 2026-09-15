@@ -1,6 +1,6 @@
 # Week 1 review (2026)
 
-_Generated 2026-09-15 11:04 UTC._
+_Generated 2026-09-15 15:27 UTC._
 
 ## How the model did
 
@@ -65,18 +65,18 @@ Each factor's correlation with actual fantasy points, over the full historical w
 
 | Factor | Historical r | Season r | Last 4wk r | Blended r | Weight | Moved |
 |---|---|---|---|---|---|---|
-| Opponent implied total | -0.316 | -0.384 | -0.384 | -0.324 | -1.301 | - |
-| Point spread | 0.273 | 0.367 | 0.367 | 0.284 | 1.178 | - |
-| Opp points per drive | -0.219 | -0.342 | -0.342 | -0.233 | 0.090 | - |
-| Opp sack rate allowed (O-line) | 0.210 | 0.037 | 0.037 | 0.190 | 0.163 | - |
-| Sack opportunity (def x O-line x volume) | 0.204 | -0.159 | -0.159 | 0.163 | 0.100 | - |
-| Opp pressure rate allowed | 0.191 | -0.086 | -0.086 | 0.159 | 0.239 | - |
-| Game total | -0.161 | -0.148 | -0.148 | -0.159 | -0.582 | - |
-| Takeaway opportunity | 0.119 | -0.021 | -0.021 | 0.103 | 0.077 | - |
-| Opp INT rate | 0.109 | 0.117 | 0.117 | 0.110 | 0.068 | - |
-| Defense points allowed per drive | -0.108 | 0.043 | 0.043 | -0.091 | -0.008 | - |
-| Opp turnover-worthy play rate | 0.096 | 0.104 | 0.104 | 0.097 | -0.052 | - |
-| Opp drives per game | 0.092 | 0.333 | 0.333 | 0.119 | 0.109 | - |
+| Opponent implied total | -0.316 | -0.384 | -0.384 | -0.324 | -1.301 | -0.000 |
+| Point spread | 0.273 | 0.367 | 0.367 | 0.284 | 1.178 | -0.000 |
+| Opp points per drive | -0.219 | -0.342 | -0.342 | -0.233 | 0.090 | -0.000 |
+| Opp sack rate allowed (O-line) | 0.210 | 0.037 | 0.037 | 0.190 | 0.163 | -0.000 |
+| Sack opportunity (def x O-line x volume) | 0.204 | -0.159 | -0.159 | 0.163 | 0.100 | +0.000 |
+| Opp pressure rate allowed | 0.191 | -0.086 | -0.086 | 0.159 | 0.239 | -0.000 |
+| Game total | -0.161 | -0.148 | -0.148 | -0.159 | -0.582 | +0.000 |
+| Takeaway opportunity | 0.119 | -0.021 | -0.021 | 0.103 | 0.077 | -0.000 |
+| Opp INT rate | 0.109 | 0.117 | 0.117 | 0.110 | 0.068 | -0.000 |
+| Defense points allowed per drive | -0.108 | 0.043 | 0.043 | -0.091 | -0.008 | +0.000 |
+| Opp turnover-worthy play rate | 0.096 | 0.104 | 0.104 | 0.097 | -0.052 | +0.000 |
+| Opp drives per game | 0.092 | 0.333 | 0.333 | 0.119 | 0.109 | -0.000 |
 
 **Biggest divergences from the historical prior:**
 
@@ -88,18 +88,18 @@ Each factor's correlation with actual fantasy points, over the full historical w
 
 | Factor | Historical r | Season r | Last 4wk r | Blended r | Weight | Moved |
 |---|---|---|---|---|---|---|
-| Point spread | 0.128 | 0.015 | 0.015 | 0.115 | 0.394 | - |
-| Team implied total | 0.117 | 0.077 | 0.077 | 0.113 | 0.253 | - |
-| Implied total x FG rate | 0.105 | -0.079 | -0.079 | 0.084 | -0.002 | - |
-| Implied total x red-zone stall | 0.101 | -0.053 | -0.053 | 0.084 | -0.004 | - |
-| Dome / indoors | 0.095 | 0.083 | 0.083 | 0.094 | 0.272 | - |
-| Opponent implied total | -0.094 | 0.053 | 0.053 | -0.077 | -0.000 | - |
-| Wind (mph) | -0.092 | -0.191 | -0.191 | -0.103 | -0.318 | - |
-| Wind x 50+ attempt share | -0.079 | -0.163 | -0.163 | -0.089 | 0.006 | - |
-| Kicker 50+ attempt share | 0.054 | 0.135 | 0.135 | 0.063 | 0.056 | - |
-| Home field | 0.046 | -0.176 | -0.176 | 0.021 | 0.040 | - |
-| TDs per drive | 0.037 | 0.060 | 0.060 | 0.040 | -0.006 | - |
-| Red-zone trips per drive | 0.035 | 0.003 | 0.003 | 0.032 | -0.011 | - |
+| Point spread | 0.128 | 0.015 | 0.015 | 0.115 | 0.394 | -0.000 |
+| Team implied total | 0.117 | 0.077 | 0.077 | 0.113 | 0.253 | +0.000 |
+| Implied total x FG rate | 0.105 | -0.079 | -0.079 | 0.084 | -0.002 | -0.000 |
+| Implied total x red-zone stall | 0.101 | -0.053 | -0.053 | 0.084 | -0.004 | +0.000 |
+| Dome / indoors | 0.095 | 0.083 | 0.083 | 0.094 | 0.272 | +0.000 |
+| Opponent implied total | -0.094 | 0.053 | 0.053 | -0.077 | -0.000 | -0.000 |
+| Wind (mph) | -0.092 | -0.191 | -0.191 | -0.103 | -0.318 | +0.000 |
+| Wind x 50+ attempt share | -0.079 | -0.163 | -0.163 | -0.089 | 0.006 | -0.000 |
+| Kicker 50+ attempt share | 0.054 | 0.135 | 0.135 | 0.063 | 0.056 | -0.000 |
+| Home field | 0.046 | -0.176 | -0.176 | 0.021 | 0.040 | +0.000 |
+| TDs per drive | 0.037 | 0.060 | 0.060 | 0.040 | -0.006 | -0.000 |
+| Red-zone trips per drive | 0.035 | 0.003 | 0.003 | 0.032 | -0.011 | +0.000 |
 
 **Biggest divergences from the historical prior:**
 
