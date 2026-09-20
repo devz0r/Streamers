@@ -315,3 +315,44 @@ def test_unknown_embedded_shape_is_none_not_an_error():
 
     assert embedded_json("<html>nothing here</html>") is None
     assert embedded_json("root.App.main = {not json};") is None
+
+
+def test_cookie_paste_formats_all_normalise():
+    """Browsers offer cookies in several shapes; none is the one HTTP wants."""
+    from streamer.league.yahoo_web import cookie_names, normalize_cookie
+
+    header = "A1=d=AQABxyz; T=z=abc&sk=DA ; SSL=1"
+    table = (
+        "_ygpc\tVALUE1\t.yahoo.com\t/\t9/15/2027, 10:35:45 AM\t85 B\t✓\n"
+        "A1\td=AQABxyz\t.yahoo.com\t/\t9/15/2027\t120 B\t✓\n"
+        "T\tz=abc&sk=DA\t.yahoo.com\t/\tSession\t60 B\t✓"
+    )
+    per_line = "A1=d=AQABxyz\nT=z=abc&sk=DA\nSSL=1"
+
+    assert normalize_cookie(header) == "A1=d=AQABxyz; T=z=abc&sk=DA; SSL=1"
+    assert normalize_cookie(per_line) == "A1=d=AQABxyz; T=z=abc&sk=DA; SSL=1"
+    # The storage-table paste keeps names and values, drops the metadata columns.
+    out = normalize_cookie(table)
+    assert cookie_names(out) == ["_ygpc", "A1", "T"]
+    assert "yahoo.com" not in out and "85 B" not in out and "2027" not in out
+    # Values containing '=' survive intact.
+    assert "T=z=abc&sk=DA" in out
+
+
+def test_cookie_normalisation_edge_cases():
+    from streamer.league.yahoo_web import normalize_cookie
+
+    assert normalize_cookie("") == ""
+    assert normalize_cookie("   ") == ""
+    assert normalize_cookie("garbage with no pairs") == ""
+    # A repeated name keeps the last value, as a browser would.
+    assert normalize_cookie("A=1; A=2") == "A=2"
+    # Trailing semicolons and blank lines are tolerated.
+    assert normalize_cookie("A=1;\n\nB=2;") == "A=1; B=2"
+
+
+def test_analytics_cookies_can_be_dropped():
+    from streamer.league.yahoo_web import cookie_names, normalize_cookie
+
+    raw = "A1=d=x; _ga=GA1.2.3; _gid=GA1.2.4; T=z=y; __gads=abc"
+    assert cookie_names(normalize_cookie(raw, drop_junk=True)) == ["A1", "T"]

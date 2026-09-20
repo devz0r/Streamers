@@ -292,8 +292,17 @@ def cmd_yahoo_probe(args: argparse.Namespace, cfg: Config) -> int:
     if not creds["league_id"]:
         print("YAHOO_LEAGUE_ID is not set.", file=sys.stderr)
         return 2
-    print(f"Probing Yahoo with a {len(creds['cookie'])}-char cookie header "
-          f"(value not shown).\n")
+    from ..league.yahoo_web import cookie_names
+
+    names = cookie_names(creds["cookie"])
+    print(f"Probing Yahoo with {len(names)} cookies, {len(creds['cookie'])} chars "
+          f"(values not shown).")
+    print(f"  cookie names: {', '.join(names) or '(none parsed -- check the paste)'}")
+    session_like = [n for n in names if n.upper() in ("A1", "A3", "T", "Y", "SSL", "A1S", "B")]
+    if not session_like:
+        print("  WARNING: none of Yahoo's session cookies (A1, A3, T, Y, SSL) are "
+              "present, so this will almost certainly read as logged out.")
+    print()
     bad = 0
     for res in probe(creds["league_id"], creds["team_id"], creds["cookie"], args.week):
         for line in res.lines():

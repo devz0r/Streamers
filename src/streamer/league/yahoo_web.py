@@ -38,10 +38,75 @@ USER_AGENT = (
 )
 
 
+#: Cookies that are noise for our purposes -- analytics, ad and consent
+#: trackers. Dropping them shortens the header and narrows what is stored.
+_JUNK_PREFIXES = ("_ga", "_gid", "_gcl", "_fbp", "_uetsid", "_uetvid", "fpc",
+                  "gpp", "cmp", "axids", "tbla_id", "_cb", "__gads", "__gpi")
+
+
+def normalize_cookie(raw: str, drop_junk: bool = False) -> str:
+    """Turn whatever the person pasted into a Cookie header.
+
+    Browsers offer cookies in several shapes and none of them is the one an
+    HTTP client wants. Accepted here:
+
+    * an actual ``Cookie:`` header -- ``a=1; b=2`` -- used as-is;
+    * rows copied out of the DevTools storage table, where each line is
+      ``name<TAB>value<TAB>domain<TAB>path<TAB>expiry...``;
+    * one ``name=value`` per line.
+
+    Asking someone to hand-assemble twenty pairs into one line is asking for a
+    silent typo, and a malformed cookie fails as "logged out", which looks
+    like the wrong problem entirely.
+    """
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    pairs: list[tuple[str, str]] = []
+
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    tabular = any("\t" in ln for ln in lines)
+    if tabular or len(lines) > 1:
+        for line in lines:
+            line = line.rstrip(";").strip()
+            if "\t" in line:
+                cells = [c.strip() for c in line.split("\t") if c.strip()]
+                if len(cells) >= 2 and "=" not in cells[0]:
+                    pairs.append((cells[0], cells[1]))
+                    continue
+                line = cells[0] if cells else ""
+            # A line that is itself a header fragment, or one pair.
+            for chunk in line.split(";"):
+                chunk = chunk.strip()
+                if "=" in chunk:
+                    name, _, value = chunk.partition("=")
+                    if name.strip():
+                        pairs.append((name.strip(), value.strip()))
+    else:
+        for chunk in text.split(";"):
+            chunk = chunk.strip()
+            if "=" in chunk:
+                name, _, value = chunk.partition("=")
+                if name.strip():
+                    pairs.append((name.strip(), value.strip()))
+
+    seen: dict[str, str] = {}
+    for name, value in pairs:
+        if drop_junk and name.lower().startswith(_JUNK_PREFIXES):
+            continue
+        seen[name] = value            # last one wins, as a browser would
+    return "; ".join(f"{k}={v}" for k, v in seen.items())
+
+
+def cookie_names(cookie: str) -> list[str]:
+    """Just the names, for diagnostics that must not echo values."""
+    return [c.partition("=")[0].strip() for c in (cookie or "").split(";") if "=" in c]
+
+
 def credentials() -> dict[str, str | None]:
     """Cookie header and league identifiers from the environment."""
     return {
-        "cookie": os.environ.get("YAHOO_COOKIE", "").strip() or None,
+        "cookie": normalize_cookie(os.environ.get("YAHOO_COOKIE", "")) or None,
         "league_id": os.environ.get("YAHOO_LEAGUE_ID", "").strip() or None,
         "team_id": os.environ.get("YAHOO_TEAM_ID", "").strip() or None,
     }
