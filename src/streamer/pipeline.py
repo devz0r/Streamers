@@ -100,9 +100,14 @@ def build_slate(
     games = games_frame(cfg)
 
     target_weeks = list(range(week, week + max(1, weeks_ahead)))
-    played_keys = set(
-        zip(pbp["season"].astype(int), pbp["week"].astype(int))
-    ) if not pbp.empty else set()
+
+    completed_ids = completed_game_ids(games)
+
+    # A game in progress has partial play-by-play and no final score. Feeding
+    # those half-counts into the priors would be worse than ignoring them, and
+    # would also collide with the placeholder row built for the same game.
+    if not pbp.empty and "game_id" in pbp.columns:
+        pbp = pbp[pbp["game_id"].isin(completed_ids)].copy()
 
     slate_games = games[
         (games["season"] == season) & (games["week"].isin(target_weeks))
@@ -110,9 +115,7 @@ def build_slate(
     if slate_games.empty:
         raise ValueError(f"no scheduled games for {season} week {week}")
 
-    future_games = slate_games[
-        [(season, int(w)) not in played_keys for w in slate_games["week"]]
-    ][["season", "week", "game_id", "team", "opponent"]].copy()
+    future_games = unplayed_games(slate_games, completed_ids)
 
     kickers = resolve_starting_kickers(pbp, list(CURRENT_TEAMS), cfg)
     future_kickers = pd.DataFrame()
@@ -155,6 +158,31 @@ def build_slate(
         week=week,
         games=slate_games,
     )
+
+
+def completed_game_ids(games: pd.DataFrame) -> set:
+    """Game ids with a final score. A game with no score has not been played."""
+    if games.empty or "team_score" not in games.columns:
+        return set()
+    return set(games.loc[games["team_score"].notna(), "game_id"])
+
+
+def unplayed_games(slate_games: pd.DataFrame, completed_ids: set) -> pd.DataFrame:
+    """The slate rows still to be played, as placeholder-row input.
+
+    Whether a game has been played is a fact about that GAME, not about the
+    week it sits in. This used to be asked per (season, week), so from
+    Thursday night onwards an entire week counted as played: no placeholder
+    rows were built for the thirty teams still to kick off, and the inner join
+    against play-by-play left the slate showing only the two teams who had.
+    The rankings collapsed to the Thursday game every week, from Thursday
+    evening until the following Tuesday -- which is exactly the window they
+    exist for.
+    """
+    cols = ["season", "week", "game_id", "team", "opponent"]
+    if slate_games.empty:
+        return slate_games.reindex(columns=cols)
+    return slate_games[~slate_games["game_id"].isin(completed_ids)][cols].copy()
 
 
 def _completed_only(frame: pd.DataFrame) -> pd.DataFrame:

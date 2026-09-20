@@ -527,3 +527,25 @@ window cannot -- a snap count from Thursday practice -- but they are pricing a
 betting market, not a fantasy lineup: no prop exists for most kickers and
 defences, and a blank is shown as a blank rather than a zero so a missing
 market never quietly benches anyone.
+
+
+### Whether a game has been played is a fact about the game, not the week
+From Thursday evening until the following Tuesday, the published rankings
+showed two teams. The slate builder asked "has this week been played?" by
+checking whether any play-by-play existed for that `(season, week)` -- and
+Thursday Night Football answered yes for the whole week. No placeholder rows
+were built for the thirty teams still to kick off, so the inner join against
+play-by-play kept only the two teams who had. The window the bug covered is
+precisely the window the tool exists for: Sunday morning, setting a lineup.
+
+The question is now asked per `game_id`, against the schedule's final scores
+rather than the presence of play-by-play. A game in progress has partial
+counts and no final score, so it is treated as unplayed and its half-finished
+play-by-play is dropped before the priors are built -- feeding a first quarter
+into a team's season rates would be worse than ignoring it, and would also
+collide with the placeholder row for the same game.
+
+Worth noting what made this hard to see: nothing failed. No error, no warning,
+no empty frame -- just a shorter table, on a page that legitimately varies in
+length. The regression tests now pin the partly-played week directly, because
+the failure mode is silence.
