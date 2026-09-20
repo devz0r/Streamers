@@ -269,3 +269,49 @@ def test_ir_slot_eligibility_gives_the_roster_the_benefit_of_the_doubt():
     # OUT is week-to-week, so it must not zero rest-of-season value.
     assert not row("OUT").is_long_term_out
     assert row("INJURY_RESERVE").is_long_term_out
+
+
+# ---------------------------------------------------------------------------
+# Yahoo browser-session reader
+# ---------------------------------------------------------------------------
+def test_probe_describes_shape_without_leaking_content():
+    """The probe reports structure; it must not echo cookies or page text."""
+    from streamer.league.yahoo_web import ProbeResult, _describe_tables, embedded_json
+
+    html = """
+    <html><head><title>My Team - Yahoo Fantasy</title></head><body>
+    <script>root.App.main = {"context":{"a":1},"league":{"b":2}};</script>
+    <table id="statTable0" class="Table"><tr><th>Player</th><th>Proj</th></tr>
+    <tr><td>Secret Player</td><td>12.3</td></tr></table>
+    </body></html>"""
+    blob = embedded_json(html)
+    assert blob is not None and sorted(blob) == ["context", "league"]
+
+    tables = _describe_tables(html)
+    assert len(tables) == 1
+    assert "statTable0" in tables[0] and "rows=2" in tables[0]
+    assert "Player" in tables[0]                     # headers are structure
+    assert "Secret Player" not in tables[0]          # cell values are not
+
+    res = ProbeResult(url="u", status=200, title="t", tables=tables)
+    rendered = "\n".join(res.lines())
+    assert "Secret Player" not in rendered
+
+
+def test_logged_out_detection():
+    from types import SimpleNamespace
+
+    from streamer.league.yahoo_web import looks_logged_out
+
+    assert looks_logged_out(SimpleNamespace(
+        url="https://login.yahoo.com/?done=x", text=""))
+    assert not looks_logged_out(SimpleNamespace(
+        url="https://football.fantasysports.yahoo.com/f1/123/4",
+        text="<html>fantasy roster</html>"))
+
+
+def test_unknown_embedded_shape_is_none_not_an_error():
+    from streamer.league.yahoo_web import embedded_json
+
+    assert embedded_json("<html>nothing here</html>") is None
+    assert embedded_json("root.App.main = {not json};") is None

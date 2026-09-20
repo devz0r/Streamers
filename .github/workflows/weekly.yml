@@ -35,7 +35,7 @@ on:
         required: false
         default: both
         type: choice
-        options: [both, update, publish]
+        options: [both, update, publish, yahoo-probe]
 
 permissions:
   contents: write
@@ -61,6 +61,10 @@ jobs:
       YAHOO_CLIENT_ID: ${{ secrets.YAHOO_CLIENT_ID }}
       YAHOO_CLIENT_SECRET: ${{ secrets.YAHOO_CLIENT_SECRET }}
       YAHOO_REFRESH_TOKEN: ${{ secrets.YAHOO_REFRESH_TOKEN }}
+      # Browser session for the Yahoo website, used because Yahoo no longer
+      # provisions the developer API. The whole Cookie request header.
+      YAHOO_COOKIE: ${{ secrets.YAHOO_COOKIE }}
+      YAHOO_TEAM_ID: ${{ secrets.YAHOO_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -101,6 +105,12 @@ jobs:
             esac
           fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+
+      # Diagnostic: describe Yahoo's pages so the cookie reader can be built
+      # against their real structure. Prints no secrets and no page content.
+      - name: Probe Yahoo pages
+        if: steps.mode.outputs.mode == 'yahoo-probe'
+        run: streamer yahoo-probe --week "${{ steps.week.outputs.upcoming_week }}"
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

@@ -273,6 +273,39 @@ def cmd_yahoo_auth(args: argparse.Namespace, cfg: Config) -> int:
     return 0
 
 
+def cmd_yahoo_probe(args: argparse.Namespace, cfg: Config) -> int:
+    """Describe Yahoo's fantasy pages so the reader can be written against them.
+
+    Prints shape only -- status, session state, embedded JSON keys, table
+    structure -- never cookies and never page content.
+    """
+    from ..data.odds import _load_dotenv
+    from ..league.yahoo_web import credentials, probe
+
+    _load_dotenv(cfg.root)
+    creds = credentials()
+    if not creds["cookie"]:
+        print("Set YAHOO_COOKIE first: copy the whole Cookie request header from a "
+              "logged-in fantasy page (DevTools -> Network -> any request to "
+              "fantasysports.yahoo.com -> Request Headers -> Cookie).", file=sys.stderr)
+        return 2
+    if not creds["league_id"]:
+        print("YAHOO_LEAGUE_ID is not set.", file=sys.stderr)
+        return 2
+    print(f"Probing Yahoo with a {len(creds['cookie'])}-char cookie header "
+          f"(value not shown).\n")
+    bad = 0
+    for res in probe(creds["league_id"], creds["team_id"], creds["cookie"], args.week):
+        for line in res.lines():
+            print(line)
+        print()
+        if res.error or res.logged_out or res.status >= 400:
+            bad += 1
+    if bad:
+        print(f"{bad} page(s) did not come back usable.", file=sys.stderr)
+    return 1 if bad else 0
+
+
 def _selected(args: argparse.Namespace, cfg: Config) -> list[Config]:
     choice = getattr(args, "profile", None) or "all"
     names = cfg.profile_names if choice == "all" else [choice]
@@ -301,6 +334,12 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
     p.add_argument("--week", type=int, default=None, help="snapshot week (default: newest)")
     p.add_argument("--season", type=int, default=None)
     p.set_defaults(func=cmd_matchup)
+
+    p = sub.add_parser("yahoo-probe",
+                       help="describe Yahoo's fantasy pages (diagnostic, prints no secrets)")
+    p.add_argument("--week", type=int, default=None)
+    p.add_argument("--season", type=int, default=None)
+    p.set_defaults(func=cmd_yahoo_probe)
 
     p = sub.add_parser("yahoo-auth", help="one-time Yahoo OAuth; prints the refresh token")
     p.set_defaults(func=cmd_yahoo_auth)
