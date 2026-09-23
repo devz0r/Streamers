@@ -54,6 +54,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -77,6 +78,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -100,6 +102,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -123,6 +126,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -146,6 +150,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -169,6 +174,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -192,6 +198,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -215,6 +222,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -238,6 +246,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -261,6 +270,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -284,6 +294,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -307,6 +318,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -330,6 +342,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -352,6 +365,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -374,6 +388,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -430,6 +445,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -453,6 +469,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -476,6 +493,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -499,6 +517,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -522,6 +541,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -545,6 +565,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -568,6 +589,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -591,6 +613,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -614,6 +637,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -637,6 +661,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -660,6 +685,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -683,6 +709,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -706,6 +733,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -729,6 +757,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -751,6 +780,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -773,6 +803,7 @@
           "projection_sd": null,
           "projection_source": "",
           "ros_value": null,
+          "model_projection": null,
           "vegas_points": null,
           "vegas_stats": {},
           "vegas_books": 0
@@ -899,6 +930,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -921,6 +953,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -943,6 +976,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -965,6 +999,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -987,6 +1022,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1009,6 +1045,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1031,6 +1068,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1053,6 +1091,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1075,6 +1114,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1097,6 +1137,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1119,6 +1160,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1141,6 +1183,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1163,6 +1206,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1185,6 +1229,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1203,11 +1248,12 @@
       "on_bye": false,
       "platform_projection": null,
       "season_avg": null,
-      "percent_owned": 8.0,
+      "percent_owned": 9.0,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1231,6 +1277,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1254,6 +1301,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1277,6 +1325,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1300,6 +1349,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1323,6 +1373,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1346,6 +1397,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1369,6 +1421,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1392,6 +1445,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1415,6 +1469,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1438,6 +1493,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1461,6 +1517,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1484,6 +1541,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1507,6 +1565,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1530,6 +1589,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1553,6 +1613,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1576,6 +1637,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1599,6 +1661,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1622,6 +1685,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1645,6 +1709,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1668,6 +1733,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1691,6 +1757,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1714,6 +1781,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1737,6 +1805,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1760,6 +1829,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1783,6 +1853,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1806,6 +1877,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1829,6 +1901,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1852,6 +1925,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1875,6 +1949,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1898,6 +1973,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1921,6 +1997,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1944,6 +2021,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1967,6 +2045,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -1990,6 +2069,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2013,6 +2093,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2035,6 +2116,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2057,6 +2139,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2079,6 +2162,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2101,6 +2185,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2123,6 +2208,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2145,6 +2231,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2167,6 +2254,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2189,6 +2277,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2211,6 +2300,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2233,6 +2323,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2255,6 +2346,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2277,6 +2369,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2299,6 +2392,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2321,6 +2415,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2343,6 +2438,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2365,6 +2461,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2387,6 +2484,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2409,6 +2507,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2431,6 +2530,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2453,6 +2553,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2475,6 +2576,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2497,6 +2599,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2519,6 +2622,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2541,6 +2645,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2563,6 +2668,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2585,6 +2691,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2602,11 +2709,12 @@
       "on_bye": false,
       "platform_projection": null,
       "season_avg": null,
-      "percent_owned": 15.0,
+      "percent_owned": 16.0,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2629,6 +2737,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2651,6 +2760,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2673,6 +2783,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2695,6 +2806,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2717,6 +2829,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2739,6 +2852,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2761,6 +2875,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2783,6 +2898,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2805,6 +2921,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2827,6 +2944,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2849,6 +2967,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2871,6 +2990,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2893,6 +3013,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2915,6 +3036,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2937,6 +3059,7 @@
       "projection_sd": null,
       "projection_source": "",
       "ros_value": null,
+      "model_projection": null,
       "vegas_points": null,
       "vegas_stats": {},
       "vegas_books": 0
@@ -2951,7 +3074,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-23T08:53:53.466498+00:00",
+  "synced_at": "2026-09-23T09:10:07.554319+00:00",
   "extra": {
     "source": "yahoo-web"
   }
