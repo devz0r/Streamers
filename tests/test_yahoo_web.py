@@ -162,3 +162,38 @@ def test_expired_cookie_fails_loudly_with_the_fix(monkeypatch):
     monkeypatch.setenv("YAHOO_LEAGUE_ID", LEAGUE)
     with pytest.raises(RuntimeError, match="YAHOO_COOKIE"):
         yw.fetch_snapshot(2026, 3, "yahoo", pause=0)
+
+
+
+def test_pup_tag_is_not_read_as_team_and_position():
+    """Live regression: 'PUP-R' parsed as team PUP, position R."""
+    from fixtures_yahoo_web import _roster_row, _roster_table
+
+    html = "<html><body>" + _roster_table(
+        "statTable0", "Offense",
+        _roster_row("IR", "777", "Zed Stash", "Sea", "RB", "0", injury="PUP-R")) + "</body></html>"
+    players, _slots, _bench = parse_roster(html)
+    zed = players[0]
+    assert (zed.position, zed.team) == ("RB", "SEA")
+    assert zed.status == "PUP-R" and zed.is_long_term_out and zed.in_ir_slot
+
+
+def test_free_agents_survive_the_projected_column_rename():
+    """Live regression: asking for projections renames 'Fan Pts' to 'Proj Pts',
+    and keying the table on 'Fan Pts' dropped every free agent."""
+    renamed = _by_name(parse_free_agents(
+        free_agent_page(projected=True, week=3, points_label="Proj Pts"), 3))
+    assert set(renamed) == {"Fay Agent", "Walt Wire"}
+    assert renamed["Fay Agent"].platform_projection == pytest.approx(16.4)
+
+    # A column literally labelled as a projection is trusted even without the selector.
+    no_selector = free_agent_page(projected=False, week=3, points_label="Proj Pts")
+    assert _by_name(parse_free_agents(no_selector, 3))["Fay Agent"].platform_projection == pytest.approx(16.4)
+
+
+def test_empty_free_agent_page_logs_its_shape(caplog):
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        assert parse_free_agents("<html><table><tr><th>Rank</th></tr></table></html>", 3) == []
+    assert "parsed to no players" in caplog.text

@@ -294,7 +294,7 @@ def probe(league_id: str, team_id: str | None, cookie: str, week: int | None = N
             results[0].hints.append(f"auto-detected your team id: {team_id}")
     if team_id:
         results.append(probe_page(f"{BASE}/f1/{league_id}/{team_id}{wk}", cookie, league_id, detail))
-    results.append(probe_page(f"{BASE}/f1/{league_id}/players?status=A&pos=O&sort=PR&count=0",
+    results.append(probe_page(f"{BASE}{free_agent_path(league_id, 'O', week or 1, 0)}",
                               cookie, league_id, detail))
     results.append(probe_page(f"{BASE}/f1/{league_id}/matchup{wk}", cookie, league_id, detail))
     return results
@@ -509,6 +509,9 @@ _STATUS_CODES = re.compile(
 )
 
 
+_REAL_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF", "D", "DST", "D/ST"}
+
+
 def _num(text: str) -> float | None:
     t = (text or "").strip().replace("%", "").replace(",", "")
     try:
@@ -558,11 +561,21 @@ def parse_player_cell(td) -> dict | None:
     pid = str(link.get("data-ys-playerid") or "").strip()
     name = link.get_text(" ", strip=True)
     team, positions = None, []
-    for span in td.select("span.Fz-xxs"):
-        m = re.fullmatch(r"\s*([A-Za-z]{2,4})\s*-\s*([A-Za-z/,\s]+?)\s*", span.get_text(" ", strip=True))
-        if m:
-            team = m.group(1)
-            positions = [p.strip().upper() for p in m.group(2).split(",") if p.strip()]
+    # "LAR - QB" normally sits in span.D-b > span.Fz-xxs. Injury tags can share
+    # the Fz-xxs styling -- "PUP-R" once parsed as team PUP, position R -- so the
+    # D-b span is tried first, status codes are skipped, and a match only counts
+    # if every position is a real one.
+    candidates = td.select("span.D-b span.Fz-xxs") + td.select("span.Fz-xxs")
+    for span in candidates:
+        text = span.get_text(" ", strip=True)
+        if _STATUS_CODES.match(text):
+            continue
+        m = re.fullmatch(r"\s*([A-Za-z]{2,4})\s+-\s+([A-Za-z/,\s]+?)\s*", text)
+        if not m:
+            continue
+        found = [p.strip().upper() for p in m.group(2).split(",") if p.strip()]
+        if found and all(p in _REAL_POSITIONS for p in found):
+            team, positions = m.group(1), found
             break
     status = ""
     for el in td.find_all(True):
@@ -677,6 +690,16 @@ def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
     return sorted(ids, key=int)[0] if len(ids) == 1 else None
 
 
+def free_agent_path(league_id: str, pos: str, week: int, offset: int) -> str:
+    """The player-list URL: available players, this week's projection, best first.
+
+    One definition shared by the sync and the probe, so the probe always
+    describes the page the sync actually parses.
+    """
+    return (f"/f1/{league_id}/players?status=A&pos={pos}&cut_type=9"
+            f"&stat1=S_PW_{week}&myteam=0&sort=PTS&sdir=1&count={offset}")
+
+
 def projected_stat_label(soup) -> str:
     """The stat type the player list is showing, e.g. 'Projected Stats (Week 3)'."""
     for sel in ("select[name=stat1] option[selected]", "select#statselect option[selected]"):
@@ -698,24 +721,40 @@ def parse_free_agents(html: str, week: int) -> list:
 
     soup = BeautifulSoup(html, "html.parser")
     label = projected_stat_label(soup).lower()
-    weekly_projection = "proj" in label and (f"week {week}" in label or "week" in label)
+    selector_says_projection = "proj" in label and "week" in label
     out = []
+    # The player list is whichever table has player cells in its rows. Asking
+    # for projections renames the points column ("Proj Pts" rather than "Fan
+    # Pts"), and keying the table on one label dropped every free agent.
     for table in soup.find_all("table"):
-        headers = leaf_headers(table)
-        if column(headers, "Fan Pts") is None:
+        rows = [tr for tr in data_rows(table) if tr.select_one("td.player")]
+        if not rows:
             continue
-        c_pts = column(headers, "Fan Pts")
+        headers = leaf_headers(table)
+        c_proj = column(headers, "Proj Pts", "Proj", "Projected Pts")
+        c_fan = column(headers, "Fan Pts")
         c_ros = column(headers, "% Ros", "% Rost")
-        for tr in data_rows(table):
-            td = tr.select_one("td.player")
-            info = parse_player_cell(td) if td is not None else None
+        # A column labelled as a projection is one; "Fan Pts" only counts when
+        # the stat selector confirms it is showing this week's projection.
+        c_pts = c_proj if c_proj is not None else (c_fan if selector_says_projection else None)
+        for tr in rows:
+            info = parse_player_cell(tr.select_one("td.player"))
             if info is None:
                 continue
             cells = direct_cells(tr)
-            pts = _num(cells[c_pts].get_text(strip=True)) if c_pts < len(cells) else None
+            pts = _num(cells[c_pts].get_text(strip=True)) if c_pts is not None and c_pts < len(cells) else None
             ros = _num(cells[c_ros].get_text(strip=True)) if c_ros is not None and c_ros < len(cells) else None
-            out.append(_player_row(info, "FA", pts if weekly_projection else None, ros))
+            out.append(_player_row(info, "FA", pts, ros))
         break
+    if not out:
+        # Say what the page looked like -- structure only -- so a layout
+        # change explains itself in the log instead of just emptying the wire.
+        shapes = []
+        for table in soup.find_all("table")[:6]:
+            heads = [_scrub_header(h) for h in leaf_headers(table)][:12]
+            shapes.append(f"{len(data_rows(table))} rows {heads}")
+        log.warning("Yahoo free-agent page parsed to no players; tables: %s; stat label: %s",
+                    "; ".join(shapes) or "none", _scrub_header(label) if label else "none")
     return out
 
 
@@ -771,8 +810,7 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6):
     free_agents: list = []
     for pos, pages in (("O", (0, 25)), ("K", (0,)), ("DEF", (0,))):
         for offset in pages:
-            path = (f"/f1/{league}/players?status=A&pos={pos}&cut_type=9"
-                    f"&stat1=S_PW_{week}&myteam=0&sort=PTS&sdir=1&count={offset}")
+            path = free_agent_path(league, pos, week, offset)
             try:
                 free_agents.extend(parse_free_agents(get(path), week))
             except RuntimeError:

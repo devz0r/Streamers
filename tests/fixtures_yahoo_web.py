@@ -9,6 +9,9 @@ LEAGUE = "123456"
 def _player_cell(pid: str, name: str, code: str, pos: str, injury: str = "", defense: bool = False) -> str:
     href = "/nfl/teams/tampa-bay/" if defense else f"/nfl/players/{pid}"
     tag = f'<span class="F-injury Fz-xxs Mstart-xs">{injury}</span>' if injury else ""
+    if injury and injury.upper().startswith("PUP"):
+        # As seen live: the tag carries the same Fz-xxs styling as the detail.
+        tag = f'<span class="Fz-xxs F-injury">{injury}</span>'
     return f"""
     <td class="Alt Ta-start player Bdrstart"><div class="Ov-h"><div class="D-f Jc-sb Ai-c">
       <div class="Ta-start Truncate">
@@ -114,7 +117,7 @@ def matchup_page(mine: str = "5", theirs: str = "6") -> str:
       <a href="/f1/{LEAGUE}/{mine}?week=3">Mine again</a></body></html>"""
 
 
-def free_agent_page(projected: bool = True, week: int = 3) -> str:
+def free_agent_page(projected: bool = True, week: int = 3, points_label: str = "Fan Pts") -> str:
     label = f"Projected Stats (Week {week})" if projected else "Season (2026)"
     rows = ""
     for pid, name, code, pos, pts, ros in (("901", "Fay Agent", "Min", "QB", "16.4", "41%"),
@@ -138,5 +141,5 @@ def free_agent_page(projected: bool = True, week: int = 3) -> str:
         <tr><th colspan="3" class="Alt"></th><th></th><th></th><th></th><th class="Alt">Fantasy</th>
             <th colspan="2">Rankings</th><th></th></tr>
         <tr><th class="Alt"></th><th></th><th class="Alt player">Offense</th><th>Owner</th><th>GP*</th>
-            <th>Bye</th><th class="Alt Nowrap pts">Fan Pts</th><th>Pre-Season</th><th>Current</th><th>% Ros</th></tr>
+            <th>Bye</th><th class="Alt Nowrap pts">{points_label}</th><th>Pre-Season</th><th>Current</th><th>% Ros</th></tr>
       </thead><tbody>{rows}</tbody></table></body></html>"""
