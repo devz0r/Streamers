@@ -328,10 +328,17 @@ def _scrub_text(text: str) -> str:
         return "«n»"
     if re.fullmatch(r"\d+-\d+(?:-\d+)?", t):
         return "«rec»"
-    # "BUF - QB" style: team code and position, both structural.
-    m = re.fullmatch(r"([A-Z]{2,4})\s*-\s*([A-Z/,\s]{1,20})", t)
+    # "BUF - QB" / "Buf - QB" style: team code and position, both structural.
+    m = re.fullmatch(r"([A-Za-z]{2,4})\s*-\s*([A-Z/,\s]{1,20})", t)
     if m:
         return f"{m.group(1)} - {m.group(2).strip()}"
+    # Game status: "Sun 1:00 pm vs NYJ", "Final W 24-17 @ Buf", "Bye".
+    g = re.fullmatch(r"((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}:\d{2}\s*[ap]m)\s+(vs|@)\s+([A-Za-z]{2,4})", t)
+    if g:
+        return f"«day time» {g.group(2)} {g.group(3)}"
+    g = re.fullmatch(r"(Final|Bye|Live|Halftime|Q\d)\b.*", t)
+    if g:
+        return f"{g.group(1)}…"
     return f"«t{len(t)}»"
 
 
@@ -345,6 +352,8 @@ def _scrub_attr(name: str, value) -> str | None:
         return re.sub(r"\d+", "«n»", path)[:70]
     if name in ("data-ys-playerid", "data-player-id"):
         return "«n»" if value.strip() else ""
+    if name == "id":
+        return re.sub(r"\d+", "«n»", value)[:80]
     if name in _KEEP_ATTRS:
         return value[:80]
     if name.startswith("data-") and len(value) <= 24 and not re.search(r"@|\d{6,}", value):
@@ -375,6 +384,32 @@ def skeleton(node, depth: int = 0, max_depth: int = 9, budget: list | None = Non
         budget[0] -= 1
         out.extend(skeleton(child, depth + 1, max_depth, budget))
     return out
+
+
+_HEADER_WORDS = {
+    "pos", "player", "fan", "pts", "proj", "projected", "%", "start", "started", "ros",
+    "rost", "rostered", "opp", "opponent", "bye", "status", "action", "stats", "rank",
+    "yds", "td", "int", "att", "rec", "tgt", "ret", "2pt", "fum", "lost", "fg", "pat",
+    "made", "miss", "sack", "safe", "pa", "ya", "allow", "allowed", "passing", "rushing",
+    "receiving", "returns", "misc", "fumbles", "kicking", "defense", "team", "owner",
+    "waivers", "waiver", "forecast", "game", "gp", "pre-season", "current", "o-rank",
+    "pct", "avg", "total", "points", "fantasy", "rankings", "trends", "edit", "comp",
+    "cmp", "ints", "tds", "tack", "solo", "blk", "kick", "punt", "xpm", "fgm", "time",
+}
+
+
+def _scrub_header(text: str) -> str:
+    t = re.sub(r"\s+", " ", text or "").strip()
+    if not t:
+        return ""
+    ok = True
+    for tok in re.split(r"[\s/]+", t):
+        low = tok.lower().strip(".:*")
+        if not low or low in _HEADER_WORDS or re.fullmatch(r"\d{1,2}(-\d{1,2}|\+)?|[%#+]+|w\d+|wk\d+", low):
+            continue
+        ok = False
+        break
+    return t if ok else f"«t{len(t)}»"
 
 
 def _tag_line(tag, depth: int) -> str:
@@ -430,9 +465,25 @@ def detail_page(html: str, league_id: str) -> list[str]:
             continue
         label = table.get("id") or " ".join(table.get("class", [])[:3]) or f"table#{i}"
         lines.append(f"    --- table [{label}] data rows={len(rows)}")
-        for row in rows[:2]:
+        # Header rows, with spans, so columns can be mapped by name.
+        for hr in [tr for tr in table.find_all("tr") if tr.find_parent("table") is table
+                   and tr.find("th") and not tr.find("td")]:
+            cells = []
+            for th in hr.find_all("th"):
+                if th.find_parent("tr") is not hr:
+                    continue
+                span = ""
+                if th.get("colspan") not in (None, "1"):
+                    span += f"c{th.get('colspan')}"
+                if th.get("rowspan") not in (None, "1"):
+                    span += f"r{th.get('rowspan')}"
+                cls = " ".join(c for c in th.get("class", []) if not c.startswith(("Ta-", "Px-", "Fz-")))[:30]
+                cells.append(f"{_scrub_header(th.get_text(' ', strip=True))}"
+                             f"{'{' + span + '}' if span else ''}{'[' + cls + ']' if cls else ''}")
+            lines.append("      th: " + " | ".join(cells))
+        for row in rows[:1]:
             lines.append(_tag_line(row, 3))
-            for ln in skeleton(row, depth=4):
+            for ln in skeleton(row, depth=4, max_depth=18, budget=[260]):
                 lines.append(ln)
         if i >= 6:
             lines.append("    (further tables omitted)")

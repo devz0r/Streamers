@@ -367,11 +367,14 @@ def test_detail_skeleton_publishes_nothing_identifying():
     <html><body>
     <a href="/f1/555/4">My Team</a>
     <script>var crumbData = {"crumb": "aB3xQ9zLmN0pRsT"};</script>
-    <table id="statTable0"><tbody>
+    <table id="statTable0"><thead>
+      <tr><th rowspan="2">Pos</th><th colspan="2">Fantasy</th><th>Devon's Team</th></tr>
+      <tr><th>Proj</th><th>% Start</th></tr></thead><tbody>
       <tr data-tst="row">
         <td class="pos-label" data-pos="QB"><span>QB</span></td>
         <td class="player">
           <a class="name" href="https://sports.yahoo.com/nfl/players/30123/news?x=1"
+             id="playernote-9265"
              data-ys-playerid="30123" title="Joshua Allenby - Player Notes">Joshua Allenby</a>
           <span class="Fz-xxs">BUF - QB</span>
           <abbr class="F-injury" title="Questionable">Q</abbr>
@@ -382,10 +385,11 @@ def test_detail_skeleton_publishes_nothing_identifying():
     </tbody></table></body></html>"""
     out = "\n".join(detail_page(html, "555"))
 
+    assert "Devon" not in out           # a team name in a header is scrubbed
     for leaked in ("Joshua", "Allenby", "example.com", "owner.person", "aB3xQ9zLmN0pRsT",
-                   "30123", "Player Notes"):
+                   "30123", "Player Notes", "9265"):
         assert leaked not in out, leaked
     for kept in ('"QB"', "BUF - QB", '"Q"', 'title="Questionable"', "F-injury",
                  'data-tst="row"', 'data-pos="QB"', "/nfl/players/«n»/news", "«n»",
-                 "team id 4", "crumbData"):
+                 "team id 4", "crumbData", "Pos{r2}", "% Start", "Proj"):
         assert kept in out, kept
