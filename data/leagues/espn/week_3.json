@@ -1271,28 +1271,6 @@
           "vegas_books": 0
         },
         {
-          "player_id": "3150744",
-          "name": "Chase McLaughlin",
-          "position": "K",
-          "team": "TB",
-          "status": "",
-          "slot": "K",
-          "eligible_slots": [
-            "K"
-          ],
-          "on_bye": false,
-          "platform_projection": 8.38,
-          "season_avg": 0.0,
-          "percent_owned": null,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_books": 0
-        },
-        {
           "player_id": "-16029",
           "name": "Panthers D/ST",
           "position": "DST",
@@ -1304,6 +1282,28 @@
           ],
           "on_bye": false,
           "platform_projection": 10.95,
+          "season_avg": 0.0,
+          "percent_owned": null,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_books": 0
+        },
+        {
+          "player_id": "4689936",
+          "name": "Jake Bates",
+          "position": "K",
+          "team": "DET",
+          "status": "",
+          "slot": "K",
+          "eligible_slots": [
+            "K"
+          ],
+          "on_bye": false,
+          "platform_projection": 8.74,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -21491,28 +21491,6 @@
       "vegas_books": 0
     },
     {
-      "player_id": "4689936",
-      "name": "Jake Bates",
-      "position": "K",
-      "team": "DET",
-      "status": "",
-      "slot": "FA",
-      "eligible_slots": [
-        "K"
-      ],
-      "on_bye": false,
-      "platform_projection": 8.74,
-      "season_avg": 7.0,
-      "percent_owned": 66.73,
-      "projection": null,
-      "projection_sd": null,
-      "projection_source": "",
-      "ros_value": null,
-      "vegas_points": null,
-      "vegas_stats": {},
-      "vegas_books": 0
-    },
-    {
       "player_id": "4697745",
       "name": "Tyler Loop",
       "position": "K",
@@ -21570,6 +21548,28 @@
       "platform_projection": 8.44,
       "season_avg": 6.0,
       "percent_owned": 33.52,
+      "projection": null,
+      "projection_sd": null,
+      "projection_source": "",
+      "ros_value": null,
+      "vegas_points": null,
+      "vegas_stats": {},
+      "vegas_books": 0
+    },
+    {
+      "player_id": "3150744",
+      "name": "Chase McLaughlin",
+      "position": "K",
+      "team": "TB",
+      "status": "",
+      "slot": "FA",
+      "eligible_slots": [
+        "K"
+      ],
+      "on_bye": false,
+      "platform_projection": 8.38,
+      "season_avg": 13.5,
+      "percent_owned": 23.31,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -22969,12 +22969,12 @@
     "week": 3,
     "my_team_id": "3",
     "opponent_team_id": "2",
-    "my_platform_projection": 129.64,
+    "my_platform_projection": 130.0,
     "opp_platform_projection": 128.37,
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-23T08:48:29.407120+00:00",
+  "synced_at": "2026-09-23T08:53:42.380982+00:00",
   "extra": {
     "nfl_week": 3,
     "current_week": 3
