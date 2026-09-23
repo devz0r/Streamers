@@ -118,23 +118,50 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # The formula
 # ---------------------------------------------------------------------------
-def _trailing_features(history: pd.DataFrame, n_games: int) -> pd.DataFrame:
-    """Leak-free trailing means: each row sees only the rows before it."""
+def _trailing_features(history: pd.DataFrame, n_games: int, long_games: int = 17) -> pd.DataFrame:
+    """Leak-free trailing means: each row sees only the rows before it.
+
+    Two windows: the last ``n_games`` (current role and form) and the last
+    ``long_games`` (who the player has been over roughly a season).
+    """
     h = history.copy()
     grp = h.groupby("player_id", group_keys=False)
-    h["t_act"] = grp["fantasy_points_ppr"].transform(
-        lambda s: s.shift(1).rolling(n_games, min_periods=2).mean()
-    )
-    h["t_exp"] = grp["total_fantasy_points_exp"].transform(
-        lambda s: s.shift(1).rolling(n_games, min_periods=2).mean()
-    )
+
+    def mean(col: str, n: int, min_periods: int) -> pd.Series:
+        return grp[col].transform(lambda s: s.shift(1).rolling(n, min_periods=min_periods).mean())
+
+    def count(n: int) -> pd.Series:
+        return grp["fantasy_points_ppr"].transform(lambda s: s.shift(1).rolling(n, min_periods=1).count())
+
+    h["t_act"] = mean("fantasy_points_ppr", n_games, 2)
+    h["t_exp"] = mean("total_fantasy_points_exp", n_games, 2)
+    h["l_act"] = mean("fantasy_points_ppr", long_games, 1)
+    h["l_exp"] = mean("total_fantasy_points_exp", long_games, 1)
+    h["c_short"] = count(n_games)
+    h["c_long"] = count(long_games)
     h["n"] = grp["fantasy_points_ppr"].transform(lambda s: s.shift(1).expanding().count())
     return h
 
 
-def _blend(frame: pd.DataFrame, pos_mean: pd.Series, k: float) -> pd.Series:
-    raw = 0.5 * frame["t_act"] + 0.5 * frame["t_exp"].fillna(frame["t_act"])
-    return (frame["n"] * raw + k * pos_mean) / (frame["n"] + k)
+def _blend(frame: pd.DataFrame, pos_mean: pd.Series, k: float, k_long: float = 6.0) -> pd.Series:
+    """Recent form, anchored to the player's own longer record.
+
+    The earlier version shrank a four-game average toward the league mean
+    using career game count, so a veteran was barely shrunk at all and a
+    four-game streak drove the number outright. Walk-forward that made it
+    overreact -- calibration slope 0.89, top projections 1.5 points too high
+    -- which is how a quarterback with two big games out-projected an
+    established starter, and a WR1 in a cold spell fell level with a bench
+    back. Now the recent average is shrunk toward the player's own ~17-game
+    average (itself shrunk toward the league mean when it is thin), with
+    ``k_long`` games of weight: slope 1.01, better pairwise accuracy in every
+    season 2022-2025. See DECISIONS.md.
+    """
+    short = 0.5 * frame["t_act"] + 0.5 * frame["t_exp"].fillna(frame["t_act"])
+    long_raw = 0.5 * frame["l_act"] + 0.5 * frame["l_exp"].fillna(frame["l_act"])
+    long_ = (frame["c_long"] * long_raw + k * pos_mean) / (frame["c_long"] + k)
+    est = (frame["c_short"] * short + k_long * long_) / (frame["c_short"] + k_long)
+    return est.where(short.notna(), long_)
 
 
 def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> pd.DataFrame:
@@ -142,6 +169,8 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     conf = cfg.raw["roster"]
     n_games = int(conf["trailing_games"])
     k = float(conf["shrink_games"])
+    long_games = int(conf.get("long_games", 17))
+    k_long = float(conf.get("long_prior_games", 6.0))
     if history.empty:
         return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n"])
 
@@ -163,10 +192,10 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     placeholder["total_fantasy_points_exp"] = np.nan
     stacked = pd.concat([prior, placeholder], ignore_index=True)
     stacked = stacked.sort_values(["player_id", "season", "week"]).reset_index(drop=True)
-    feats = _trailing_features(stacked, n_games)
+    feats = _trailing_features(stacked, n_games, long_games)
     target = feats[(feats["season"] == season) & (feats["week"] == week)].copy()
     target["pos_mean"] = target["position"].map(pos_mean_all)
-    target["blend"] = _blend(target, target["pos_mean"], k)
+    target["blend"] = _blend(target, target["pos_mean"], k, k_long)
     target = target[target["blend"].notna()]
     return target[["player_id", "player_display_name", "position", "team", "blend", "n"]]
 
@@ -176,9 +205,10 @@ def sd_table(history: pd.DataFrame, cfg: Config) -> dict[tuple[str, int], float]
     conf = cfg.raw["roster"]
     if history.empty:
         return {}
-    feats = _trailing_features(history, int(conf["trailing_games"]))
+    feats = _trailing_features(history, int(conf["trailing_games"]), int(conf.get("long_games", 17)))
     pos_mean = feats.groupby("position")["fantasy_points_ppr"].transform("mean")
-    feats["blend"] = _blend(feats, pos_mean, float(conf["shrink_games"]))
+    feats["blend"] = _blend(feats, pos_mean, float(conf["shrink_games"]),
+                            float(conf.get("long_prior_games", 6.0)))
     feats = feats[feats["blend"].notna()]
     feats["resid"] = feats["fantasy_points_ppr"] - feats["blend"]
     feats["bucket"] = np.digitize(feats["blend"], SD_BUCKETS[1:-1])

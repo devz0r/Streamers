@@ -118,3 +118,28 @@ def test_load_history_returns_the_expected_columns(cfg):
     for col in ("player_id", "player_display_name", "position", "season", "week",
                 "team", "fantasy_points_ppr", "total_fantasy_points_exp"):
         assert col in hist.columns
+
+
+def test_long_record_tempers_a_four_game_streak(cfg):
+    """A proven player in a cold spell stays above his slump; a journeyman on
+    a hot streak stays below his peak. The old four-game window did neither."""
+    rows = []
+    for season in (2024, 2025):
+        for week in range(1, 18):
+            recent = season == 2025 and week >= 13
+            # Veteran: 18-point player, cold for his last four games.
+            rows.append({"player_id": "vet", "player_display_name": "Vet", "position": "WR",
+                         "season": season, "week": week, "team": "ATL",
+                         "fantasy_points_ppr": 6.0 if recent else 18.0,
+                         "total_fantasy_points_exp": 7.0 if recent else 17.0})
+            # Journeyman: 8-point player, hot for his last four.
+            rows.append({"player_id": "hot", "player_display_name": "Hot", "position": "WR",
+                         "season": season, "week": week, "team": "CAR",
+                         "fantasy_points_ppr": 24.0 if recent else 8.0,
+                         "total_fantasy_points_exp": 22.0 if recent else 8.5})
+    hist = pd.DataFrame(rows)
+    table = player_table(hist, 2025, 18, cfg).set_index("player_id")["blend"]
+    vet, hot = table["vet"], table["hot"]
+    assert 6.5 < vet < 18.0 and vet > 10.0        # anchored well above the slump
+    assert 8.5 < hot < 23.0 and hot < 17.0        # anchored well below the streak
+    assert vet > hot - 6.0                         # no longer a coin flip the wrong way

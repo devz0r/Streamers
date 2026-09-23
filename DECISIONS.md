@@ -596,3 +596,44 @@ free-agent list, with a short pause between each. Your team and opponent are
 found from the "My Team" link and the matchup page, so no team-id secret is
 needed. An expired session fails with an error that says to re-copy the
 cookie, which lands in `sync_status.json` and on the page.
+
+
+### Recent form, anchored to the player's own record
+The first real Yahoo waiver list recommended picking up Bryce Young to start
+over Matthew Stafford, and rated Drake London (a WR1) level with Ray Davis (a
+bench back). Neither was a parsing error. The skill model averaged the last
+four games and shrank toward the league mean by *career* game count -- so a
+veteran was barely shrunk at all, and four games drove the number outright.
+Young had two big games; London a cold spell; Davis one garbage-time week-18
+game.
+
+The original validation measured within-position ranking, which a streaky
+model can still do passably. Lineups and waivers make a different decision:
+*of these two players, who scores more?*, across positions, on absolute
+numbers. So the test was rebuilt around that -- pairwise start/sit accuracy on
+identical random pairs, calibration slope, top-tier bias -- against an exact
+replica of production, walk-forward 2022-2025, 18.5k player-weeks:
+
+| | production | + own 17-game prior (k=6) |
+|---|---|---|
+| picks the higher scorer (any two players, same week) | 70.4% | **71.1%**, better in all 4 seasons |
+| calibration slope (1.0 = right) | 0.89 | **1.01** |
+| bias on the top 15% of projections | -1.48 | **-0.37** |
+| MAE | 5.15 | **5.10** |
+| within-position rank corr QB / RB / WR / TE | .427 / .590 / .536 / .475 | **.451 / .601 / .558 / .504** |
+
+The fix: shrink the four-game average toward the player's own ~17-game average
+(itself shrunk toward the league mean when thin), with six games of weight.
+k=4 and k=8 were within noise of k=6; six is the one that lands the slope at
+1.0. Excluding week 18 from the windows made no consistent difference and was
+not adopted. The slope of 0.89 is worth dwelling on: the earlier diagnosis in
+conversation was "compression toward the middle", which is what the London
+example looked like, but measured against production the error ran the other
+way -- overreaction -- and the fix corrects both ends at once.
+
+### Waivers compare like with like
+Yahoo's player list does not reliably say which stat its points column shows,
+so free agents carry no Yahoo projection while rostered players carry one
+blended into ours. When that happens, waiver moves value every player on the
+model alone (`model_projection`) rather than pitting a blended number against
+a model-only one. Rest-of-season value was already model-only for everyone.
