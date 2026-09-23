@@ -26,6 +26,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from .model import PlayerRow
+
 log = logging.getLogger(__name__)
 
 BASE = "https://football.fantasysports.yahoo.com"
@@ -489,3 +491,315 @@ def detail_page(html: str, league_id: str) -> list[str]:
             lines.append("    (further tables omitted)")
             break
     return lines
+
+
+# ---------------------------------------------------------------------------
+# Parsing
+#
+# Anchors, all confirmed against live pages by `yahoo-probe --detail`:
+#   * lineup slot        span.pos-label[data-pos]            ("QB", "W/R/T", "BN")
+#   * player id and name a.name[data-ys-playerid]            (DEFs link to /nfl/teams/)
+#   * NFL team, position span.D-b span.Fz-xxs                ("LAR - QB", "TB - DEF")
+#   * columns            the table's last header row, by label ("Proj Pts", "% Ros")
+# Columns are looked up by header label, never by position, so Yahoo adding or
+# reordering a column moves nothing.
+# ---------------------------------------------------------------------------
+_STATUS_CODES = re.compile(
+    r"^(Q|D|O|P|IR|IR-R|IR-NR|PUP|PUP-P|PUP-R|NFI|NFI-R|SUSP|NA|DTD|COVID-19|INJ)$", re.I
+)
+
+
+def _num(text: str) -> float | None:
+    t = (text or "").strip().replace("%", "").replace(",", "")
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def leaf_headers(table) -> list[str]:
+    """Labels of the table's last header row, one per data column."""
+    rows = [tr for tr in table.find_all("tr")
+            if tr.find_parent("table") is table and tr.find("th") and not tr.find("td")]
+    if not rows:
+        return []
+    out = []
+    for th in rows[-1].find_all("th"):
+        if th.find_parent("tr") is not rows[-1]:
+            continue
+        span = int(th.get("colspan") or 1)
+        out.extend([th.get_text(" ", strip=True)] * max(span, 1))
+    return out
+
+
+def column(headers: list[str], *labels: str) -> int | None:
+    """Index of the first header matching any of ``labels`` (case-insensitive)."""
+    wanted = [lab.lower() for lab in labels]
+    for i, h in enumerate(headers):
+        if h.strip().lower() in wanted:
+            return i
+    return None
+
+
+def data_rows(table) -> list:
+    return [tr for tr in table.find_all("tr")
+            if tr.find_parent("table") is table and tr.find("td")]
+
+
+def direct_cells(tr) -> list:
+    return [td for td in tr.find_all("td") if td.find_parent("tr") is tr]
+
+
+def parse_player_cell(td) -> dict | None:
+    """Player id, name, NFL team, positions and injury tag from a player cell."""
+    link = td.select_one("a.name[data-ys-playerid]") or td.select_one("a[data-ys-playerid]")
+    if link is None:
+        return None
+    pid = str(link.get("data-ys-playerid") or "").strip()
+    name = link.get_text(" ", strip=True)
+    team, positions = None, []
+    for span in td.select("span.Fz-xxs"):
+        m = re.fullmatch(r"\s*([A-Za-z]{2,4})\s*-\s*([A-Za-z/,\s]+?)\s*", span.get_text(" ", strip=True))
+        if m:
+            team = m.group(1)
+            positions = [p.strip().upper() for p in m.group(2).split(",") if p.strip()]
+            break
+    status = ""
+    for el in td.find_all(True):
+        classes = " ".join(el.get("class", [])).lower()
+        if "injury" in classes or "status-tag" in classes:
+            text = el.get_text(strip=True)
+            if text and _STATUS_CODES.match(text):
+                status = text.upper()
+                break
+    if not status:
+        # Fall back to a bare status code sitting in the name block.
+        block = td.select_one(".ysf-player-name") or td
+        for el in block.find_all(["span", "abbr"]):
+            own = "".join(t for t in el.find_all(string=True, recursive=False)).strip()
+            if own and _STATUS_CODES.match(own):
+                status = own.upper()
+                break
+    return {"player_id": pid, "name": name, "team": team, "positions": positions, "status": status}
+
+
+def _player_row(cell: dict, slot: str, projection: float | None = None,
+                pct_owned: float | None = None) -> PlayerRow:
+    from ..teams import normalize_team
+    from .model import canonical_position, canonical_slot, canonical_status
+
+    positions = [canonical_position(p) for p in cell["positions"]] or [""]
+    position = positions[0]
+    try:
+        team = normalize_team(cell["team"]) if cell["team"] else None
+    except Exception:  # noqa: BLE001 - an unknown code is not worth failing on
+        team = None
+    eligible = sorted({canonical_position(p) for p in cell["positions"]})
+    if position in ("RB", "WR", "TE"):
+        eligible.append("FLEX")
+    return PlayerRow(
+        player_id=cell["player_id"], name=cell["name"], position=position, team=team,
+        status=canonical_status(cell["status"]), slot=canonical_slot(slot),
+        eligible_slots=eligible, platform_projection=projection, percent_owned=pct_owned,
+    )
+
+
+def parse_roster(html: str) -> tuple[list, dict[str, int], int]:
+    """A team page: players, starting-slot counts, bench size."""
+    from bs4 import BeautifulSoup
+
+    from .model import NON_STARTING_SLOTS, canonical_slot
+
+    soup = BeautifulSoup(html, "html.parser")
+    players, slots, bench = [], {}, 0
+    for table in soup.select("table[id^=statTable]"):
+        headers = leaf_headers(table)
+        c_player = column(headers, "Offense", "Kickers", "Defense/Special Teams", "Player") or 2
+        c_proj = column(headers, "Proj Pts", "Proj")
+        c_ros = column(headers, "% Ros", "% Rost")
+        for tr in data_rows(table):
+            label = tr.select_one("span.pos-label[data-pos]")
+            if label is None:
+                continue
+            slot_raw = label.get("data-pos")
+            slot = canonical_slot(slot_raw)
+            if slot == "BN":
+                bench += 1
+            elif slot not in NON_STARTING_SLOTS:
+                slots[slot] = slots.get(slot, 0) + 1
+            cells = direct_cells(tr)
+            cell_td = tr.select_one("td.player") or (cells[c_player] if c_player < len(cells) else None)
+            info = parse_player_cell(cell_td) if cell_td is not None else None
+            if info is None:
+                continue                              # an empty slot
+            proj = _num(cells[c_proj].get_text(strip=True)) if c_proj is not None and c_proj < len(cells) else None
+            ros = _num(cells[c_ros].get_text(strip=True)) if c_ros is not None and c_ros < len(cells) else None
+            players.append(_player_row(info, slot_raw, proj, ros))
+    return players, slots, bench
+
+
+def parse_standings(html: str, league_id: str) -> tuple[str, list[dict]]:
+    """League name and one dict per team: id, name, wins, losses, ties, points_for."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    title = soup.title.get_text(strip=True) if soup.title else ""
+    league_name = title.split("|")[0].strip()
+    table = soup.select_one("table#standingstable")
+    teams = []
+    if table is None:
+        return league_name, teams
+    headers = leaf_headers(table)
+    c_pf = column(headers, "PF", "Pts For", "Points For")
+    for tr in data_rows(table):
+        target = tr.get("data-target") or ""
+        m = re.search(rf"/f1/{re.escape(league_id)}/(\d+)", target)
+        if not m:
+            a = tr.select_one(f'a[href*="/f1/{league_id}/"]')
+            m = re.search(rf"/f1/{re.escape(league_id)}/(\d+)", a.get("href", "")) if a else None
+        if not m:
+            continue
+        names = [a.get_text(strip=True) for a in tr.select("td.Tst-manager a") if a.get_text(strip=True)]
+        wlt = (tr.select_one("td.Tst-wlt").get_text(strip=True) if tr.select_one("td.Tst-wlt") else "")
+        parts = [int(x) for x in re.findall(r"\d+", wlt)] + [0, 0, 0]
+        cells = direct_cells(tr)
+        pf = _num(cells[c_pf].get_text(strip=True)) if c_pf is not None and c_pf < len(cells) else None
+        teams.append({"team_id": m.group(1), "name": names[-1] if names else f"Team {m.group(1)}",
+                      "wins": parts[0], "losses": parts[1], "ties": parts[2],
+                      "points_for": pf or 0.0})
+    return league_name, teams
+
+
+def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
+    """The other team linked from your matchup page."""
+    ids = {i for i in re.findall(rf"/f1/{re.escape(league_id)}/(\d+)(?=[\"'?#/]|$)", html)}
+    ids.discard(str(my_id))
+    return sorted(ids, key=int)[0] if len(ids) == 1 else None
+
+
+def projected_stat_label(soup) -> str:
+    """The stat type the player list is showing, e.g. 'Projected Stats (Week 3)'."""
+    for sel in ("select[name=stat1] option[selected]", "select#statselect option[selected]"):
+        opt = soup.select_one(sel)
+        if opt is not None:
+            return opt.get_text(" ", strip=True)
+    return ""
+
+
+def parse_free_agents(html: str, week: int) -> list:
+    """One page of the player list.
+
+    The Fan Pts column holds whatever stat type the page was asked for. It is
+    only recorded as Yahoo's weekly projection when the page confirms that is
+    what it shows -- a season total mistaken for a weekly projection would
+    quietly corrupt the blend.
+    """
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    label = projected_stat_label(soup).lower()
+    weekly_projection = "proj" in label and (f"week {week}" in label or "week" in label)
+    out = []
+    for table in soup.find_all("table"):
+        headers = leaf_headers(table)
+        if column(headers, "Fan Pts") is None:
+            continue
+        c_pts = column(headers, "Fan Pts")
+        c_ros = column(headers, "% Ros", "% Rost")
+        for tr in data_rows(table):
+            td = tr.select_one("td.player")
+            info = parse_player_cell(td) if td is not None else None
+            if info is None:
+                continue
+            cells = direct_cells(tr)
+            pts = _num(cells[c_pts].get_text(strip=True)) if c_pts < len(cells) else None
+            ros = _num(cells[c_ros].get_text(strip=True)) if c_ros is not None and c_ros < len(cells) else None
+            out.append(_player_row(info, "FA", pts if weekly_projection else None, ros))
+        break
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Snapshot
+# ---------------------------------------------------------------------------
+def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6):
+    """Read the league from Yahoo's website with the browser session.
+
+    About eight page loads: the league, your team, your matchup, your
+    opponent's team, and a few pages of the free-agent list. A short pause
+    between them keeps this at the pace of a person clicking around.
+    """
+    import time
+    from datetime import UTC, datetime
+
+    from .model import LeagueSnapshot, Matchup, TeamRow
+
+    creds = credentials()
+    if not creds["cookie"]:
+        raise RuntimeError("YAHOO_COOKIE is not set")
+    if not creds["league_id"]:
+        raise RuntimeError("YAHOO_LEAGUE_ID is not set")
+    league, cookie = creds["league_id"], creds["cookie"]
+    session = _session(cookie)
+
+    def get(path: str) -> str:
+        resp = session.get(f"{BASE}{path}", timeout=25)
+        if looks_logged_out(resp):
+            raise RuntimeError(
+                "Yahoo session has expired or was signed out: re-copy the Cookie header "
+                "from a logged-in fantasy page into the YAHOO_COOKIE secret")
+        resp.raise_for_status()
+        time.sleep(pause)
+        return resp.text
+
+    league_html = get(f"/f1/{league}")
+    league_name, standings = parse_standings(league_html, league)
+    my_id = creds["team_id"] or my_team_id(league_html, league)
+    if not my_id:
+        raise RuntimeError("could not find your team on the league page; set YAHOO_TEAM_ID")
+
+    my_players, slots, bench = parse_roster(get(f"/f1/{league}/{my_id}?week={week}"))
+    if not my_players:
+        raise RuntimeError("your Yahoo team page parsed to no players; the page layout may "
+                           "have changed (run `streamer yahoo-probe --detail`)")
+
+    opp_id = opponent_id(get(f"/f1/{league}/matchup?week={week}"), league, my_id)
+    opp_players: list = []
+    if opp_id:
+        opp_players, _s, _b = parse_roster(get(f"/f1/{league}/{opp_id}?week={week}"))
+
+    free_agents: list = []
+    for pos, pages in (("O", (0, 25)), ("K", (0,)), ("DEF", (0,))):
+        for offset in pages:
+            path = (f"/f1/{league}/players?status=A&pos={pos}&cut_type=9"
+                    f"&stat1=S_PW_{week}&myteam=0&sort=PTS&sdir=1&count={offset}")
+            try:
+                free_agents.extend(parse_free_agents(get(path), week))
+            except RuntimeError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - a thin wire beats no snapshot
+                log.warning("Yahoo free agents %s@%s failed: %s", pos, offset, exc)
+
+    teams = []
+    for row in standings or [{"team_id": my_id, "name": "My team", "wins": 0,
+                              "losses": 0, "ties": 0, "points_for": 0.0}]:
+        tid = row["team_id"]
+        roster = my_players if tid == str(my_id) else opp_players if tid == str(opp_id) else []
+        teams.append(TeamRow(team_id=tid, name=row["name"], wins=row["wins"],
+                             losses=row["losses"], ties=row["ties"],
+                             points_for=float(row["points_for"] or 0.0),
+                             roster=roster, is_mine=(tid == str(my_id))))
+    if not any(t.is_mine for t in teams):
+        teams.append(TeamRow(team_id=str(my_id), name="My team", roster=my_players, is_mine=True))
+    if opp_id and not any(t.team_id == str(opp_id) for t in teams):
+        teams.append(TeamRow(team_id=str(opp_id), name="Opponent", roster=opp_players))
+
+    return LeagueSnapshot(
+        platform="yahoo", profile=profile, league_id=str(league), league_name=league_name,
+        season=season, week=week, slots=slots, bench_size=bench, teams=teams,
+        free_agents=free_agents,
+        matchup=Matchup(week=week, my_team_id=str(my_id), opponent_team_id=str(opp_id))
+        if opp_id else None,
+        synced_at=datetime.now(UTC).isoformat(),
+        extra={"source": "yahoo-web"},
+    )

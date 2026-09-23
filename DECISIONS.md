@@ -549,3 +549,50 @@ Worth noting what made this hard to see: nothing failed. No error, no warning,
 no empty frame -- just a shorter table, on a page that legitimately varies in
 length. The regression tests now pin the partly-played week directly, because
 the failure mode is silence.
+
+
+## Reading Yahoo through the website
+
+### The developer API is closed, the website is not
+Yahoo stopped provisioning its Fantasy Sports API in 2026: the permission was
+removed from the app form and entitlement moved to a manual review with no
+published turnaround. The fantasy website still serves every manager their own
+roster, to their own logged-in session, which is exactly how the ESPN adapter
+has always worked (with `espn_s2`/`SWID`). So Yahoo is read the same way: the
+Cookie header copied from a browser, stored as the `YAHOO_COOKIE` secret. The
+OAuth adapter is kept for anyone whose Client ID has been granted access; when
+a cookie is configured it takes precedence.
+
+The trade is stated plainly in the README: Yahoo's session cookies are scoped
+to all of yahoo.com, so the secret is equivalent to being signed in; they
+expire every few months; and a markup change can break the parser. Signing out
+of Yahoo invalidates the secret.
+
+### Parsed against probed structure, looked up by header
+The parser was not written from memory of what Yahoo's pages used to look
+like. `streamer yahoo-probe --detail` fetched the real pages from the workflow
+runner and printed their structure -- tag and class outlines, Yahoo's
+`data-tst` hooks, header rows with spans -- with all identifying text scrubbed,
+since workflow logs on a public repository are public. A test asserts a name,
+an email, a crumb token and a player id cannot survive into that output.
+
+The anchors it found: the lineup slot in `span.pos-label[data-pos]`, the
+player id and name on `a.name[data-ys-playerid]`, team and position as
+`LAR - QB` in the detail span. Every numeric column (projection, % rostered,
+points for) is located by its header label rather than its position, so Yahoo
+adding or reordering a column does not silently shift values.
+
+### Only trust a projection the page says is a projection
+The free-agent list shows whatever stat type it was asked for in its Fan Pts
+column. It is asked for the weekly projection, but the value is only recorded
+as one when the page's stat selector confirms "Projected ... Week N" -- a
+season total read as a weekly projection would quietly skew the blend with
+our own model. When the label is missing, free agents simply carry no Yahoo
+projection and are projected by our model alone.
+
+### Eight page loads, at a person's pace
+League, your team, your matchup, your opponent's team, and four pages of the
+free-agent list, with a short pause between each. Your team and opponent are
+found from the "My Team" link and the matchup page, so no team-id secret is
+needed. An expired session fails with an error that says to re-copy the
+cookie, which lands in `sync_status.json` and on the page.

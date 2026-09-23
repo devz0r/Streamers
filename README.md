@@ -354,7 +354,30 @@ have.
 3. `ESPN_TEAM_ID` — optional. The SWID normally identifies your team; set this
    (the `teamId=` in your team URL) only if the sync picks the wrong one.
 
-**Yahoo** (OAuth app, plus an access grant Yahoo controls):
+**Yahoo, the working route: your browser session.** Yahoo no longer gives
+out API access freely, so the league is read from the fantasy website with
+your own logged-in session -- the same way ESPN works. In Safari (or any
+browser), logged in to your league:
+
+1. Open DevTools (Cmd+Option+I) -> **Storage** -> **Cookies** -> the
+   `yahoo.com` entry, click a row, **Cmd+A**, **Cmd+C**. (Or: **Network** ->
+   reload -> filter **Document** -> the page request -> Request Headers ->
+   **Cookie**.)
+2. Paste the whole thing into a `YAHOO_COOKIE` repository secret. Any of
+   those formats works; it is normalised on read.
+3. `YAHOO_LEAGUE_ID` as below. Your team and opponent are found
+   automatically.
+
+Know what you are storing: those cookies are your whole Yahoo sign-in, not
+just fantasy -- the secret is encrypted and only your own workflows can read
+it, and signing out of Yahoo invalidates it. They expire every few months; the
+page will say so when a sync fails, and you re-copy them.
+
+`streamer yahoo-probe --detail` describes what Yahoo's pages look like
+(structure only, all text scrubbed) -- run it from the Actions tab with the
+`yahoo-probe` job if Yahoo changes their layout and the sync starts failing.
+
+**Yahoo, the official route** (only if Yahoo grants your app access):
 
 > **Read this before spending time on it.** Since mid-2026 Yahoo no longer
 > self-serve provisions the Fantasy Sports API. The "Fantasy Sports"

@@ -117,9 +117,19 @@ def sync(cfg: Config | None = None, week: int | None = None, season: int | None 
 
         snap = fetch_snapshot(season, week, cfg.profile)
     else:
-        from .yahoo import fetch_snapshot
+        import os
 
-        snap = fetch_snapshot(season, week, cfg.profile, oauth_path=cfg.data_dir / ".yahoo_oauth.json")
+        if os.environ.get("YAHOO_COOKIE", "").strip():
+            # Yahoo stopped provisioning the developer API, so the website --
+            # read with the user's own browser session -- is the working route.
+            from .yahoo_web import fetch_snapshot as fetch_web
+
+            snap = fetch_web(season, week, cfg.profile)
+        else:
+            from .yahoo import fetch_snapshot
+
+            snap = fetch_snapshot(season, week, cfg.profile,
+                                  oauth_path=cfg.data_dir / ".yahoo_oauth.json")
 
     snap = apply_byes(snap, cfg)
     # Snapshots are committed by the workflow, and Pages needs a public repo:
