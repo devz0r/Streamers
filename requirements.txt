@@ -16,3 +16,4 @@ requests==2.34.2
 espn-api==0.46.0
 yahoo-fantasy-api==2.12.3
 yahoo-oauth==2.1.1
+beautifulsoup4==4.13.4

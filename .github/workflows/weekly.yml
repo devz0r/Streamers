@@ -110,7 +110,7 @@ jobs:
       # against their real structure. Prints no secrets and no page content.
       - name: Probe Yahoo pages
         if: steps.mode.outputs.mode == 'yahoo-probe'
-        run: streamer yahoo-probe --week "${{ steps.week.outputs.upcoming_week }}"
+        run: streamer yahoo-probe --detail --week "${{ steps.week.outputs.upcoming_week }}"
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

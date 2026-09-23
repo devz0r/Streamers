@@ -23,6 +23,7 @@ dependencies = [
     "espn-api>=0.46",
     "yahoo-fantasy-api>=2.12",
     "yahoo-oauth>=2.0",
+    "beautifulsoup4>=4.12",
 ]
 
 [project.optional-dependencies]

@@ -223,7 +223,7 @@ def _describe_tables(html: str) -> list[str]:
     return out
 
 
-def probe_page(url: str, cookie: str) -> ProbeResult:
+def probe_page(url: str, cookie: str, league_id: str = "", detail: bool = False) -> ProbeResult:
     """Fetch one page and describe its shape."""
     res = ProbeResult(url=url)
     try:
@@ -257,15 +257,184 @@ def probe_page(url: str, cookie: str) -> ProbeResult:
     ):
         if needle in html:
             res.hints.append(note)
+    if detail and not res.logged_out and res.status < 400:
+        try:
+            res.hints.extend(["detail:"] + detail_page(html, league_id))
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not crash
+            res.hints.append(f"detail failed: {type(exc).__name__}: {exc}")
     return res
 
 
-def probe(league_id: str, team_id: str | None, cookie: str, week: int | None = None) -> list[ProbeResult]:
+def my_team_id(html: str, league_id: str) -> str | None:
+    """The logged-in manager's team id, from the 'My Team' navigation link."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    for a in soup.find_all("a"):
+        if a.get_text(strip=True).lower() in ("my team", "my roster"):
+            m = re.search(rf"/f1/{re.escape(league_id)}/(\d+)", a.get("href", ""))
+            if m:
+                return m.group(1)
+    return None
+
+
+def probe(league_id: str, team_id: str | None, cookie: str, week: int | None = None,
+          detail: bool = False) -> list[ProbeResult]:
     """Describe the handful of pages a snapshot would need."""
     wk = f"?week={week}" if week else ""
-    urls = [f"{BASE}/f1/{league_id}"]
+    results = [probe_page(f"{BASE}/f1/{league_id}", cookie, league_id, detail)]
+    if not team_id:
+        try:
+            team_id = my_team_id(fetch(f"{BASE}/f1/{league_id}", cookie).text, league_id)
+        except Exception:  # noqa: BLE001
+            team_id = None
+        if team_id:
+            results[0].hints.append(f"auto-detected your team id: {team_id}")
     if team_id:
-        urls.append(f"{BASE}/f1/{league_id}/{team_id}{wk}")
-    urls.append(f"{BASE}/f1/{league_id}/players?status=A&pos=O&sort=AR&count=0")
-    urls.append(f"{BASE}/f1/{league_id}/matchup{wk}")
-    return [probe_page(u, cookie) for u in urls]
+        results.append(probe_page(f"{BASE}/f1/{league_id}/{team_id}{wk}", cookie, league_id, detail))
+    results.append(probe_page(f"{BASE}/f1/{league_id}/players?status=A&pos=O&sort=PR&count=0",
+                              cookie, league_id, detail))
+    results.append(probe_page(f"{BASE}/f1/{league_id}/matchup{wk}", cookie, league_id, detail))
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Detailed structure (for writing the parser)
+#
+# Workflow logs on a public repository are publicly readable, so everything
+# printed here must be safe to publish: tag names, class names and Yahoo's
+# data-tst test hooks are the same for every user and are kept; any text
+# that could be a name, an email or a token is replaced by a placeholder.
+# Short structural codes -- positions, slots, injury tags, team codes -- are
+# kept, because they are what the parser has to recognise and they identify
+# nobody.
+# ---------------------------------------------------------------------------
+_KEEP_TEXT = re.compile(
+    r"^(?:[A-Z]{1,4}|W/R/T|W/R|W/T|Q/W/R/T|IR-R|IR-NR|PUP-R|NFI-R|DEF|FLEX|BN|IR|"
+    r"Proj|Fan Pts|Pos|Stats|Player|Bye|Opp|Status|Rank|Team|Owner|Waivers?|FA|"
+    r"Questionable|Doubtful|Out|Probable|Injured Reserve|Suspended)$"
+)
+_KEEP_ATTRS = ("class", "id", "data-tst", "data-pos", "data-ys-playerid", "data-player-id",
+               "data-target", "role", "scope", "colspan")
+
+
+def _scrub_text(text: str) -> str:
+    t = re.sub(r"\s+", " ", text or "").strip()
+    if not t:
+        return ""
+    if _KEEP_TEXT.match(t):
+        return t
+    if re.fullmatch(r"[-+]?\d+(?:\.\d+)?%?", t):
+        return "«n»"
+    if re.fullmatch(r"\d+-\d+(?:-\d+)?", t):
+        return "«rec»"
+    # "BUF - QB" style: team code and position, both structural.
+    m = re.fullmatch(r"([A-Z]{2,4})\s*-\s*([A-Z/,\s]{1,20})", t)
+    if m:
+        return f"{m.group(1)} - {m.group(2).strip()}"
+    return f"«t{len(t)}»"
+
+
+def _scrub_attr(name: str, value) -> str | None:
+    if isinstance(value, list):
+        value = " ".join(value)
+    value = str(value)
+    if name == "href":
+        path = value.split("?")[0].split("#")[0]
+        path = re.sub(r"https?://[^/]+", "", path)
+        return re.sub(r"\d+", "«n»", path)[:70]
+    if name in ("data-ys-playerid", "data-player-id"):
+        return "«n»" if value.strip() else ""
+    if name in _KEEP_ATTRS:
+        return value[:80]
+    if name.startswith("data-") and len(value) <= 24 and not re.search(r"@|\d{6,}", value):
+        return value
+    return None
+
+
+def skeleton(node, depth: int = 0, max_depth: int = 9, budget: list | None = None) -> list[str]:
+    """Indented tag/attribute outline of ``node`` with text scrubbed."""
+    from bs4 import NavigableString, Tag
+
+    budget = budget if budget is not None else [120]
+    out: list[str] = []
+    if budget[0] <= 0 or depth > max_depth:
+        return out
+    for child in node.children:
+        if budget[0] <= 0:
+            break
+        if isinstance(child, NavigableString):
+            t = _scrub_text(str(child))
+            if t:
+                out.append("  " * depth + f'"{t}"')
+                budget[0] -= 1
+            continue
+        if not isinstance(child, Tag) or child.name in ("script", "style", "svg", "path"):
+            continue
+        out.append(_tag_line(child, depth))
+        budget[0] -= 1
+        out.extend(skeleton(child, depth + 1, max_depth, budget))
+    return out
+
+
+def _tag_line(tag, depth: int) -> str:
+    """``<name attr="scrubbed"...>`` for one element."""
+    attrs = []
+    for k, v in tag.attrs.items():
+        if k in ("href", *_KEEP_ATTRS) or k.startswith("data-") or k == "title":
+            if k == "title":
+                attrs.append(f'title="{_scrub_text(str(v))}"')
+                continue
+            sv = _scrub_attr(k, v)
+            if sv is not None:
+                attrs.append(f'{k}="{sv}"')
+    return "  " * depth + f"<{tag.name}{(' ' + ' '.join(attrs)) if attrs else ''}>"
+
+
+def detail_page(html: str, league_id: str) -> list[str]:
+    """Structure worth seeing before writing a parser for this page."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    lines: list[str] = []
+
+    # Script-assigned state objects, by name and size only.
+    names = []
+    for sc in soup.find_all("script"):
+        body = sc.string or sc.get_text() or ""
+        for m in re.finditer(r"(?:window\.|var |let |const )([A-Za-z_$][\w$.]{2,40})\s*=\s*[\[{]", body):
+            names.append(f"{m.group(1)}({len(body) // 1024}KB)")
+        if sc.get("type") == "application/json" or sc.get("id", "").lower().endswith("data"):
+            names.append(f"<script type={sc.get('type')} id={sc.get('id')}>({len(body) // 1024}KB)")
+    if names:
+        lines.append("    script state: " + ", ".join(sorted(set(names))[:12]))
+
+    # Team ids linked from this page -- small integers, safe.
+    ids = re.findall(rf"/f1/{re.escape(league_id)}/(\d+)(?=[\"'?#/]|$)", html)
+    if ids:
+        uniq = sorted({int(i) for i in ids})
+        lines.append(f"    team ids linked: {uniq}")
+    for a in soup.find_all("a"):
+        if a.get_text(strip=True).lower() in ("my team", "my roster"):
+            m = re.search(rf"/f1/{re.escape(league_id)}/(\d+)", a.get("href", ""))
+            if m:
+                lines.append(f"    'My Team' nav link -> team id {m.group(1)}")
+                break
+
+    # Every table's first data rows, outlined. Nested tables are handled by
+    # the real parser, so direct rows only.
+    for i, table in enumerate(soup.find_all("table")):
+        rows = [tr for tr in table.find_all("tr", recursive=True)
+                if tr.find_parent("table") is table and tr.find("td")]
+        if not rows:
+            continue
+        label = table.get("id") or " ".join(table.get("class", [])[:3]) or f"table#{i}"
+        lines.append(f"    --- table [{label}] data rows={len(rows)}")
+        for row in rows[:2]:
+            lines.append(_tag_line(row, 3))
+            for ln in skeleton(row, depth=4):
+                lines.append(ln)
+        if i >= 6:
+            lines.append("    (further tables omitted)")
+            break
+    return lines

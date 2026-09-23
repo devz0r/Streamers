@@ -304,7 +304,8 @@ def cmd_yahoo_probe(args: argparse.Namespace, cfg: Config) -> int:
               "present, so this will almost certainly read as logged out.")
     print()
     bad = 0
-    for res in probe(creds["league_id"], creds["team_id"], creds["cookie"], args.week):
+    for res in probe(creds["league_id"], creds["team_id"], creds["cookie"], args.week,
+                     detail=getattr(args, "detail", False)):
         for line in res.lines():
             print(line)
         print()
@@ -348,6 +349,8 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
                        help="describe Yahoo's fantasy pages (diagnostic, prints no secrets)")
     p.add_argument("--week", type=int, default=None)
     p.add_argument("--season", type=int, default=None)
+    p.add_argument("--detail", action="store_true",
+                   help="also outline table rows, with all text scrubbed")
     p.set_defaults(func=cmd_yahoo_probe)
 
     p = sub.add_parser("yahoo-auth", help="one-time Yahoo OAuth; prints the refresh token")

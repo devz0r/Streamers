@@ -356,3 +356,36 @@ def test_analytics_cookies_can_be_dropped():
 
     raw = "A1=d=x; _ga=GA1.2.3; _gid=GA1.2.4; T=z=y; __gads=abc"
     assert cookie_names(normalize_cookie(raw, drop_junk=True)) == ["A1", "T"]
+
+
+def test_detail_skeleton_publishes_nothing_identifying():
+    """Workflow logs on a public repo are public: names, emails and tokens
+    must not survive; structural codes the parser needs must."""
+    from streamer.league.yahoo_web import detail_page
+
+    html = """
+    <html><body>
+    <a href="/f1/555/4">My Team</a>
+    <script>var crumbData = {"crumb": "aB3xQ9zLmN0pRsT"};</script>
+    <table id="statTable0"><tbody>
+      <tr data-tst="row">
+        <td class="pos-label" data-pos="QB"><span>QB</span></td>
+        <td class="player">
+          <a class="name" href="https://sports.yahoo.com/nfl/players/30123/news?x=1"
+             data-ys-playerid="30123" title="Joshua Allenby - Player Notes">Joshua Allenby</a>
+          <span class="Fz-xxs">BUF - QB</span>
+          <abbr class="F-injury" title="Questionable">Q</abbr>
+        </td>
+        <td>owner.person@example.com</td>
+        <td>23.45</td>
+      </tr>
+    </tbody></table></body></html>"""
+    out = "\n".join(detail_page(html, "555"))
+
+    for leaked in ("Joshua", "Allenby", "example.com", "owner.person", "aB3xQ9zLmN0pRsT",
+                   "30123", "Player Notes"):
+        assert leaked not in out, leaked
+    for kept in ('"QB"', "BUF - QB", '"Q"', 'title="Questionable"', "F-injury",
+                 'data-tst="row"', 'data-pos="QB"', "/nfl/players/«n»/news", "«n»",
+                 "team id 4", "crumbData"):
+        assert kept in out, kept
