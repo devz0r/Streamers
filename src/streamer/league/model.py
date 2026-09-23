@@ -87,6 +87,10 @@ class PlayerRow:
     projection_source: str = ""
     #: A rest-of-season value proxy (per-game), for waiver decisions.
     ros_value: float | None = None
+    #: This week's projection from our model alone, before any platform
+    #: projection is blended in. Waivers fall back to it when the free agents
+    #: carry no platform number, so both sides of a move are priced alike.
+    model_projection: float | None = None
     #: Fantasy points implied by sportsbook player props for this week, and
     #: the implied stat line behind them. None when no book posted the player.
     vegas_points: float | None = None

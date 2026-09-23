@@ -264,3 +264,58 @@ def test_sync_failure_panel_says_what_went_wrong(cfg):
     # A stale snapshot is a different message: there IS a panel, just an old one.
     stale = render_sync_failure(status, cfg, stale_week=1)
     assert "week 1" in stale and "no team panel" not in stale
+
+
+# ---------------------------------------------------------------------------
+# Like-for-like waiver pricing
+# ---------------------------------------------------------------------------
+def test_waivers_use_model_basis_when_the_wire_has_no_platform_projection():
+    """Roster blended with Yahoo, wire model-only: compare on the model for both."""
+    snap = snapshot(week=5)
+    for p in snap.my_team.roster:
+        p.platform_projection = (p.projection or 0) + 5.0
+        p.model_projection = p.projection
+        p.projection = (p.projection or 0) + 2.5            # the blend is inflated
+    for p in snap.free_agents:
+        p.platform_projection = None
+        p.model_projection = p.projection
+    assert waivers.next_week_basis(snap) is waivers._next_week_model
+
+    # With every side on the model, the moves are exactly the unblended ones.
+    fair = {(m.add.player_id, m.drop.player_id): round(m.score, 6) for m in waivers.recommend(snap)}
+    for p in snap.my_team.roster:
+        p.projection = p.model_projection
+    base = {(m.add.player_id, m.drop.player_id): round(m.score, 6) for m in waivers.recommend(snap)}
+    assert fair == base
+
+
+def test_waivers_keep_the_blend_when_both_sides_have_it():
+    snap = snapshot(week=5)
+    for p in [*snap.my_team.roster, *snap.free_agents]:
+        p.platform_projection = p.projection
+    assert waivers.next_week_basis(snap) is waivers._next_week
+
+
+def test_model_projection_falls_back_to_projection():
+    from streamer.league.model import PlayerRow
+
+    p = PlayerRow(player_id="1", name="x", position="WR", projection=9.0)
+    assert waivers._next_week_model(p) == 9.0
+    p.model_projection = 7.0
+    assert waivers._next_week_model(p) == 7.0
+
+
+def test_a_pickup_that_would_start_names_who_it_benches():
+    """'+3.5 this week' for a second QB is baffling until it says whose job it takes."""
+    snap = snapshot(week=5)
+    hot = [p for p in snap.free_agents if p.player_id == "204"][0]     # the FA QB
+    hot.projection = hot.ros_value = 25.0                               # now beats QB1 (19.0)
+    moves = {m.add.player_id: m for m in waivers.recommend(snap)}
+    assert "204" in moves
+    assert "would start over QB Player 1" in moves["204"].reason
+    assert "25.0 vs 19.0" in moves["204"].reason
+
+    # A pickup that only adds depth says nothing about starting.
+    for m in moves.values():
+        if m.add.player_id != "204" and m.tag == "stash":
+            assert "would start over" not in m.reason

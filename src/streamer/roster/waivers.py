@@ -81,6 +81,36 @@ def _next_week(p: PlayerRow) -> float:
     return float(p.projection or 0.0)
 
 
+def _next_week_model(p: PlayerRow) -> float:
+    """This week, on our model alone -- the basis both sides of a move share
+    when the free agents carry no platform projection."""
+    if p.is_out:
+        return 0.0
+    own = p.model_projection if p.model_projection is not None else p.projection
+    return float(own or 0.0)
+
+
+def next_week_basis(snapshot: LeagueSnapshot):
+    """The next-week valuation that prices roster and wire on the same footing.
+
+    Rostered players carry the platform's projection blended into ours; if the
+    free agents do not (Yahoo's player list does not reliably say which stat
+    its points column shows, so it is not trusted), a waiver move would be
+    comparing a blended number against a model-only one. In that case every
+    player is valued on the model alone. Rest-of-season value is model-only
+    already, for everyone.
+    """
+    roster = [p for p in snapshot.my_team.roster if p.projection is not None]
+    wire = [p for p in snapshot.free_agents if p.projection is not None]
+    if not roster or not wire:
+        return _next_week
+    roster_cover = sum(p.platform_projection is not None for p in roster) / len(roster)
+    wire_cover = sum(p.platform_projection is not None for p in wire) / len(wire)
+    if roster_cover >= 0.5 and wire_cover < 0.5:
+        return _next_week_model
+    return _next_week
+
+
 def _ros(p: PlayerRow) -> float:
     if p.is_long_term_out:
         return 0.0
@@ -202,6 +232,7 @@ def recommend(
     me = snapshot.my_team
     slots = snapshot.starting_slots
     w_next = horizon_weight(snapshot.week, max_week)
+    nxt = next_week_basis(snapshot)
     roster = [p for p in me.roster if _has_value(p) and not p.in_ir_slot]
     if not roster:
         return []
@@ -212,29 +243,37 @@ def recommend(
         by_pos.setdefault(fa.position, []).append(fa)
     pool: list[PlayerRow] = []
     for fas in by_pos.values():
-        fas.sort(key=lambda p: -max(_next_week(p), _ros(p)))
+        fas.sort(key=lambda p: -max(nxt(p), _ros(p)))
         pool.extend(fas[:POOL_PER_POSITION])
-    lv_next = _replacement_levels(pool_all, _next_week)
+    lv_next = _replacement_levels(pool_all, nxt)
     lv_ros = _replacement_levels(pool_all, _ros)
 
     def score_add(state: list[PlayerRow], fa: PlayerRow) -> Move | None:
-        rep_next = _level_excluding(lv_next, fa, _next_week)
+        rep_next = _level_excluding(lv_next, fa, nxt)
         rep_ros = _level_excluding(lv_ros, fa, _ros)
-        base_next = roster_value(state, slots, _next_week, rep_next)
+        base_next = roster_value(state, slots, nxt, rep_next)
         base_ros = roster_value(state, slots, _ros, rep_ros)
         best: Move | None = None
+        starting_now, _ = best_lineup(state, slots, nxt)
         for drop in droppable(state, w_next, fa.position):
             trial = [p for p in state if p.player_id != drop.player_id] + [fa]
-            next_gain = roster_value(trial, slots, _next_week, rep_next) - base_next
+            next_gain = roster_value(trial, slots, nxt, rep_next) - base_next
             ros_gain = roster_value(trial, slots, _ros, rep_ros) - base_ros
             score = w_next * next_gain + (1.0 - w_next) * ros_gain
+            # Who the pickup would actually start over this week, if anyone:
+            # "add a QB, drop a WR, +3.5" is baffling until it says the QB is
+            # taking the starting quarterback's job.
+            starting_after, _ = best_lineup(trial, slots, nxt)
+            benched = [p for p in state if p.player_id in starting_now
+                       and p.player_id not in starting_after and p.player_id != drop.player_id]
+            starts_over = benched[0] if fa.player_id in starting_after and benched else None
             # On a tie, prefer dropping at the pickup's own position (the old
             # defence for the new one) over some other zero-value body.
             better = best is None or score > best.score + 1e-9
             tie_same_pos = (best is not None and abs(score - best.score) <= 1e-9
                             and drop.position == fa.position and best.drop.position != fa.position)
             if better or tie_same_pos:
-                tag, reason = _explain(fa, drop, next_gain, ros_gain)
+                tag, reason = _explain(fa, drop, next_gain, ros_gain, nxt, starts_over)
                 best = Move(add=fa, drop=drop, next_week_gain=next_gain,
                             ros_gain=ros_gain, score=score, tag=tag, reason=reason)
         return best
@@ -255,11 +294,12 @@ def recommend(
     return out
 
 
-def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float) -> tuple[str, str]:
+def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float,
+             nxt=_next_week, starts_over: PlayerRow | None = None) -> tuple[str, str]:
     bits = []
     if fa.position in ("DST", "K"):
         tag = "stream"
-        bits.append(f"{fa.position} streamer, {_next_week(fa):.1f} projected this week")
+        bits.append(f"{fa.position} streamer, {nxt(fa):.1f} projected this week")
         if fa.projection_source and "hold" in fa.projection_source:
             bits.append("favourable next week too")
     elif next_gain > 0 and ros_gain > 0:
@@ -271,6 +311,9 @@ def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float) 
     else:
         tag = "stash"
         bits.append(f"+{ros_gain:.1f}/game rest of season; worth holding through this week")
+    if starts_over is not None:
+        bits.append(f"would start over {starts_over.name} "
+                    f"({nxt(fa):.1f} vs {nxt(starts_over):.1f} projected)")
     if fa.on_bye:
         bits.append("on bye this week")
     if drop.on_bye:
@@ -287,16 +330,17 @@ def drop_watch(snapshot: LeagueSnapshot, n: int = 4, max_week: int = 18) -> list
     me = snapshot.my_team
     slots = snapshot.starting_slots
     w_next = horizon_weight(snapshot.week, max_week)
+    nxt = next_week_basis(snapshot)
     roster = [p for p in me.roster if _has_value(p) and not p.in_ir_slot]
     pool = [fa for fa in snapshot.free_agents if _has_value(fa)]
-    rep_next = {pos: (v[0] if v else 0.0) for pos, v in _replacement_levels(pool, _next_week).items()}
+    rep_next = {pos: (v[0] if v else 0.0) for pos, v in _replacement_levels(pool, nxt).items()}
     rep_ros = {pos: (v[0] if v else 0.0) for pos, v in _replacement_levels(pool, _ros).items()}
-    base_next = roster_value(roster, slots, _next_week, rep_next)
+    base_next = roster_value(roster, slots, nxt, rep_next)
     base_ros = roster_value(roster, slots, _ros, rep_ros)
 
     def loss(p: PlayerRow) -> float:
         rest = [q for q in roster if q.player_id != p.player_id]
-        d_next = base_next - roster_value(rest, slots, _next_week, rep_next)
+        d_next = base_next - roster_value(rest, slots, nxt, rep_next)
         d_ros = base_ros - roster_value(rest, slots, _ros, rep_ros)
         return w_next * d_next + (1.0 - w_next) * d_ros
 

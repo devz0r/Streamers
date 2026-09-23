@@ -283,6 +283,7 @@ def project_snapshot(
 
     for p in players:
         mean: float | None = None
+        model_mean: float | None = None
         sd: float | None = None
         ros: float | None = None
         source = ""
@@ -312,6 +313,7 @@ def project_snapshot(
                 mean = 0.5 * float(pos_mean.get(p.position, 8.0)) if len(pos_mean) else 4.0
                 ros = mean
                 source = "prior"
+            model_mean = mean
             if plat is not None and source == "model" and w_platform > 0:
                 mean = (1 - w_platform) * mean + w_platform * float(plat)
                 source = "model+platform"
@@ -339,7 +341,10 @@ def project_snapshot(
 
         if mean is None:
             continue
+        own = model_mean if model_mean is not None else mean
+        own, _own_sd = _status_adjust(own, sd or 0.0, p, cfg)
         mean, sd = _status_adjust(mean, sd or 0.0, p, cfg)
+        p.model_projection = round(own, 2)
         p.projection = round(mean, 2)
         p.projection_sd = round(sd, 2)
         p.ros_value = round(ros, 2) if ros is not None else None
