@@ -637,3 +637,20 @@ so free agents carry no Yahoo projection while rostered players carry one
 blended into ours. When that happens, waiver moves value every player on the
 model alone (`model_projection`) rather than pitting a blended number against
 a model-only one. Rest-of-season value was already model-only for everyone.
+
+
+### A projection needs evidence the player is playing
+The ESPN waiver list recommended Amari Cooper, 0% rostered, to start over a
+current receiver. He had not played an NFL game since 2024. History windows
+count games played, not time elapsed, so a player out of the league keeps his
+old average indefinitely -- a flaw that predated the long-run prior, which
+would only have made it worse. Joe Mixon, with no NFL team, came through the
+same way under an injury tag.
+
+The rule: a player's history only counts if something current backs it. If
+his last game is more than `inactive_weeks` (4) back, the platform's
+projection is used when there is one -- a return from injury -- and otherwise
+he is treated as inactive. An injured player *on an NFL roster* keeps his
+history for rest-of-season value, since his tag already zeroes this week. A
+player with no NFL team is inactive unless the platform projects him: ESPN's
+free-agent pool carries 242 unsigned skill players, and projects one.

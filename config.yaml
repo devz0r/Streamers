@@ -345,6 +345,11 @@ roster:
   # with it, slope 1.01 and better start/sit accuracy every season 2022-25.
   long_games: 17
   long_prior_games: 6.0
+  # A player whose last game is more than this many weeks back is only
+  # projected if the platform projects him (a return from injury); otherwise
+  # he is treated as inactive. History windows count games, not time, so
+  # without this a player out of the league since 2024 kept his 2024 average.
+  inactive_weeks: 4
   # When the platform publishes its own projection, blend it with ours at this
   # weight. 0 = ours only, 1 = platform only.
   platform_projection_weight: 0.5

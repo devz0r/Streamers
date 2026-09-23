@@ -143,3 +143,51 @@ def test_long_record_tempers_a_four_game_streak(cfg):
     assert 6.5 < vet < 18.0 and vet > 10.0        # anchored well above the slump
     assert 8.5 < hot < 23.0 and hot < 17.0        # anchored well below the streak
     assert vet > hot - 6.0                         # no longer a coin flip the wrong way
+
+
+def _stale_snapshot(status: str = "", platform=None, team: str | None = "LV"):
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+
+    ghost = PlayerRow(player_id="g1", name="Gone Guy", position="WR", team=team,
+                      slot="FA", status=status, platform_projection=platform)
+    me = TeamRow(team_id="1", name="Me", roster=[], is_mine=True)
+    return LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L",
+                          season=2026, week=3, slots={"WR": 2}, bench_size=5, teams=[me],
+                          free_agents=[ghost], matchup=None, synced_at="2026-09-23T00:00:00+00:00")
+
+
+def _stale_history():
+    rows = [{"player_id": "nfl-g1", "player_display_name": "Gone Guy", "position": "WR",
+             "season": 2024, "week": w, "team": "BUF", "fantasy_points_ppr": 15.0,
+             "total_fantasy_points_exp": 14.0} for w in range(1, 18)]
+    # Plenty of other receivers so the league has a history at all.
+    for i in range(30):
+        for season in (2025, 2026):
+            for w in range(1, 3 if season == 2026 else 18):
+                rows.append({"player_id": f"nfl-o{i}", "player_display_name": f"Other {i}",
+                             "position": "WR", "season": season, "week": w, "team": "KC",
+                             "fantasy_points_ppr": 8.0, "total_fantasy_points_exp": 8.0})
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.parametrize("status,platform,team,expect", [
+    ("", None, "LV", "inactive"),     # out of the league since 2024: not projected
+    ("", 11.0, "LV", "platform"),     # returning, and the platform confirms it
+    ("OUT", None, "LV", "model"),     # on a roster but hurt: history still counts
+    ("OUT", None, None, "inactive"),  # unsigned, whatever tag he still carries
+])
+def test_stale_history_needs_something_current(cfg, monkeypatch, status, platform, team, expect):
+    import streamer.roster.projections as pj
+
+    snap = _stale_snapshot(status, platform, team)
+    monkeypatch.setattr(pj, "_implied_scale", lambda *a, **k: ({}, "test"))
+    monkeypatch.setattr(pj, "match_players",
+                        lambda rows, index: type("M", (), {"mapping": {"g1": "nfl-g1"}, "unmatched": []})())
+    pj.project_snapshot(snap, cfg.for_profile("espn"), rankings=None, allow_network=False,
+                        history=_stale_history())
+    ghost = snap.free_agents[0]
+    assert ghost.projection_source.startswith(expect), ghost.projection_source
+    if expect == "inactive":
+        assert ghost.projection == 0.0 and ghost.ros_value == 0.0
+    if expect == "model":
+        assert ghost.ros_value and ghost.ros_value > 5.0 and ghost.projection == 0.0

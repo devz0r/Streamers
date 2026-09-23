@@ -172,13 +172,15 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     long_games = int(conf.get("long_games", 17))
     k_long = float(conf.get("long_prior_games", 6.0))
     if history.empty:
-        return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n"])
+        return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n",
+                                     "last_season", "last_week"])
 
     prior = history[
         (history["season"] < season) | ((history["season"] == season) & (history["week"] < week))
     ]
     if prior.empty:
-        return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n"])
+        return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n",
+                                     "last_season", "last_week"])
     # Shrinkage target from completed games only: the target week must not
     # inform its own projection.
     pos_mean_all = prior.groupby("position")["fantasy_points_ppr"].mean()
@@ -197,7 +199,21 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     target["pos_mean"] = target["position"].map(pos_mean_all)
     target["blend"] = _blend(target, target["pos_mean"], k, k_long)
     target = target[target["blend"].notna()]
-    return target[["player_id", "player_display_name", "position", "team", "blend", "n"]]
+    target = target.merge(
+        last[["player_id", "season", "week"]].rename(columns={"season": "last_season", "week": "last_week"}),
+        on="player_id", how="left",
+    )
+    return target[["player_id", "player_display_name", "position", "team", "blend", "n",
+                   "last_season", "last_week"]]
+
+
+def weeks_since(row, season: int, week: int, weeks_per_season: int = 18) -> int:
+    """Calendar weeks between a player's last game and the target week."""
+    try:
+        ls, lw = int(row["last_season"]), int(row["last_week"])
+    except (KeyError, TypeError, ValueError):
+        return 0
+    return (int(season) - ls) * weeks_per_season + (int(week) - lw)
 
 
 def sd_table(history: pd.DataFrame, cfg: Config) -> dict[tuple[str, int], float]:
@@ -292,6 +308,7 @@ def project_snapshot(
     scale, report.line_source = _implied_scale(snapshot, cfg, allow_network)
     damping = float(conf["vegas_damping"])
     w_platform = float(conf["platform_projection_weight"])
+    inactive_weeks = int(conf.get("inactive_weeks", 4))
 
     # nflverse index for name matching: newest team per player.
     latest = history.sort_values(["season", "week"]).groupby("player_id").tail(1)
@@ -327,13 +344,29 @@ def project_snapshot(
 
         if p.position in SKILL:
             nfl_id = matched.mapping.get(p.player_id)
-            if nfl_id is not None and not by_id.empty and nfl_id in by_id.index:
-                row = by_id.loc[nfl_id]
+            row = by_id.loc[nfl_id] if (nfl_id is not None and not by_id.empty
+                                        and nfl_id in by_id.index) else None
+            stale = row is not None and weeks_since(row, snapshot.season, snapshot.week) > inactive_weeks
+            # No NFL team means not on an NFL roster: an unsigned or retired
+            # player cannot play, whatever injury tag he still carries. ESPN
+            # lists 240-odd of them in a free-agent pool and projects one.
+            unsigned = not p.team
+            # An injured player on a roster carries a status: he is real and
+            # his history still speaks to rest-of-season value (this week is
+            # zeroed by the status adjustment). A stale player with no status,
+            # or any unsigned one, needs a platform projection to count.
+            if row is not None and not unsigned and (not stale or p.status):
                 blend = float(row["blend"])
                 ros = blend
                 s = scale.get(p.team, 1.0) if p.team else 1.0
                 mean = blend * (s ** damping)
                 source = "model"
+            elif (stale or unsigned) and plat is None:
+                # History windows count games played, not time elapsed, so a
+                # player who has not taken a snap in two seasons would keep his
+                # old average. With nothing current -- no recent game and no
+                # platform projection -- he is not playing.
+                mean, ros, source = 0.0, 0.0, "inactive"
             elif plat is not None:
                 mean = float(plat)
                 ros = mean
