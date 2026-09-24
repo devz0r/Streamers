@@ -654,3 +654,21 @@ he is treated as inactive. An injured player *on an NFL roster* keeps his
 history for rest-of-season value, since his tag already zeroes this week. A
 player with no NFL team is inactive unless the platform projects him: ESPN's
 free-agent pool carries 242 unsigned skill players, and projects one.
+
+
+### A platform's zero is a statement about this week
+The ESPN lineup recommended starting Josh Jacobs while he was on the
+commissioner's exempt list. ESPN has no status for that and listed him as
+DAY_TO_DAY, which reads as "probably plays". ESPN *did* project him for 0.0 --
+but an earlier rule treated ESPN's 0.0 as "no projection", to stop injured
+stashes losing their rest-of-season value, and so discarded the one signal
+that was right.
+
+Those were two different questions run together. A zero from a platform that
+projects nearly everyone is a statement about *this week*: on the live league
+ESPN projected 154 of 160 active rostered players, and the six zeros were
+Jacobs and five Doubtful players it had already ruled out. So a platform zero,
+for a player on an NFL team and not on bye, now sets this week's projection to
+zero -- and says so on the page -- while rest-of-season value is untouched. It
+is only trusted when the platform covers at least 80% of active rostered
+players, so a feed that has not populated yet cannot bench a whole roster.

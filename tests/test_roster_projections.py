@@ -191,3 +191,66 @@ def test_stale_history_needs_something_current(cfg, monkeypatch, status, platfor
         assert ghost.projection == 0.0 and ghost.ros_value == 0.0
     if expect == "model":
         assert ghost.ros_value and ghost.ros_value > 5.0 and ghost.projection == 0.0
+
+
+def _coverage_snapshot(jacobs_proj, others_proj=15.0, n_others=24):
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+
+    roster = [PlayerRow(player_id="jj", name="Josh Jacobs", position="RB", team="GB",
+                        slot="RB", status="DAY_TO_DAY", platform_projection=jacobs_proj)]
+    roster += [PlayerRow(player_id=f"o{i}", name=f"Other {i}", position="WR", team="KC",
+                         slot="BN", platform_projection=others_proj) for i in range(n_others)]
+    me = TeamRow(team_id="1", name="Me", roster=roster, is_mine=True)
+    return LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L",
+                          season=2026, week=3, slots={"RB": 2, "WR": 2}, bench_size=6, teams=[me],
+                          free_agents=[], matchup=None, synced_at="2026-09-24T00:00:00+00:00")
+
+
+def _history_with_jacobs():
+    rows = []
+    for pid, name, pos, pts in (("nfl-jj", "Josh Jacobs", "RB", 18.0),) + tuple(
+            (f"nfl-o{i}", f"Other {i}", "WR", 10.0) for i in range(24)):
+        for season in (2025, 2026):
+            for w in range(1, 18 if season == 2025 else 3):
+                rows.append({"player_id": pid, "player_display_name": name, "position": pos,
+                             "season": season, "week": w, "team": "GB" if pid == "nfl-jj" else "KC",
+                             "fantasy_points_ppr": pts, "total_fantasy_points_exp": pts})
+    return pd.DataFrame(rows)
+
+
+def _project(snap, cfg, monkeypatch):
+    import streamer.roster.projections as pj
+
+    monkeypatch.setattr(pj, "_implied_scale", lambda *a, **k: ({}, "test"))
+    mapping = {p.player_id: f"nfl-{p.player_id}" for p in snap.my_team.roster}
+    monkeypatch.setattr(pj, "match_players",
+                        lambda rows, index: type("M", (), {"mapping": mapping, "unmatched": []})())
+    return pj.project_snapshot(snap, cfg.for_profile("espn"), rankings=None,
+                               allow_network=False, history=_history_with_jacobs())
+
+
+def test_platform_zero_means_not_playing_this_week(cfg, monkeypatch):
+    """Josh Jacobs, commissioner-exempt: ESPN says DAY_TO_DAY and projects 0.0."""
+    snap = _coverage_snapshot(jacobs_proj=0.0)
+    rep = _project(snap, cfg, monkeypatch)
+    jj = snap.my_team.roster[0]
+    assert jj.projection == 0.0 and jj.model_projection == 0.0
+    assert jj.ros_value and jj.ros_value > 10.0          # still a real player going forward
+    assert "sits" in jj.projection_source
+    assert any("Josh Jacobs" in n and "not playing" in n for n in rep.notes)
+
+    # And the optimiser starts a healthy backup over him.
+    from streamer.league.model import PlayerRow
+    from streamer.roster.lineup import optimise
+    backup = PlayerRow(player_id="bk", name="Backup Back", position="RB", team="GB",
+                       slot="BN", eligible_slots=["RB", "FLEX"], projection=5.0, projection_sd=3.0)
+    opt = optimise(snap.my_team.roster + [backup], {"RB": 1, "WR": 2}, None, n_sims=300)
+    assert "jj" not in opt.best_win.player_ids and "bk" in opt.best_win.player_ids
+
+
+def test_platform_zero_ignored_when_the_feed_is_not_populated(cfg, monkeypatch):
+    """If the platform has projected almost nobody yet, a zero means nothing."""
+    snap = _coverage_snapshot(jacobs_proj=0.0, others_proj=0.0)
+    _project(snap, cfg, monkeypatch)
+    jj = snap.my_team.roster[0]
+    assert jj.projection and jj.projection > 5.0

@@ -56,6 +56,8 @@ class ProjectionReport:
     unmatched: list[str] = field(default_factory=list)
     line_source: str = ""
     notes: list[str] = field(default_factory=list)
+    #: Players the platform projects for zero this week (not playing).
+    sitting: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +330,11 @@ def project_snapshot(
         if rankings.kicker is not None and not rankings.kicker.empty:
             k_rows = {r.team: r for r in rankings.kicker.itertuples()}
 
+    active = [p for t in snapshot.teams for p in t.roster
+              if p.team and not p.on_bye and not p.in_ir_slot and p.position in SKILL]
+    projected = [p for p in active if (p.platform_projection or 0) > 0]
+    platform_covers = len(active) >= 20 and len(projected) / len(active) >= 0.8
+
     for p in players:
         mean: float | None = None
         model_mean: float | None = None
@@ -335,11 +342,20 @@ def project_snapshot(
         ros: float | None = None
         source = ""
 
-        # ESPN reports 0.0 for players it does not project (an injured
-        # reserve stash, a practice-squad body); that is "no number", not a
-        # projection of zero, unless the player is out anyway.
+        # A platform projection of exactly zero, for a player on an NFL team
+        # and not on bye, is the platform saying he will not play THIS week --
+        # suspended, on the commissioner's exempt list, a doubtful tag it has
+        # already resolved. ESPN has no status for some of these (it listed
+        # Josh Jacobs, exempt, as DAY_TO_DAY), so the zero is the signal. It
+        # is trusted only when the platform projects nearly everyone, so an
+        # unpopulated feed cannot bench a whole roster. It says nothing about
+        # the rest of the season, so rest-of-season value is kept.
         plat = p.platform_projection
-        if plat is not None and plat <= 0 and not p.is_out:
+        platform_says_sits = (
+            plat is not None and plat <= 0 and platform_covers
+            and bool(p.team) and not p.on_bye and not p.in_ir_slot
+        )
+        if plat is not None and plat <= 0:
             plat = None
 
         if p.position in SKILL:
@@ -407,6 +423,10 @@ def project_snapshot(
         own = model_mean if model_mean is not None else mean
         own, _own_sd = _status_adjust(own, sd or 0.0, p, cfg)
         mean, sd = _status_adjust(mean, sd or 0.0, p, cfg)
+        if platform_says_sits and p.position not in ("DST", "K"):
+            own = mean = sd = 0.0
+            source = f"{source}/sits"
+            report.sitting.append(p.name)
         p.model_projection = round(own, 2)
         p.projection = round(mean, 2)
         p.projection_sd = round(sd, 2)
@@ -416,4 +436,10 @@ def project_snapshot(
 
     if report.unmatched:
         report.notes.append(f"{len(report.unmatched)} player(s) could not be matched to nflverse history")
+    mine = {p.name for p in snapshot.my_team.roster}
+    sitting = [n for n in report.sitting if n in mine]
+    if sitting:
+        report.notes.append(
+            f"{snapshot.platform.upper()} projects {', '.join(sitting)} for 0 this week, "
+            "so they are treated as not playing")
     return report

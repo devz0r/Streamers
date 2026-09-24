@@ -586,12 +586,13 @@ def team_panels_for(
                     panels[name] = render_sync_failure(status, bound)
                 continue
         try:
-            project_snapshot(snap, bound, rankings, allow_network=allow_network)
+            projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
             try:
                 attach_vegas(snap, bound, allow_network=allow_network)
             except Exception as exc:  # noqa: BLE001 - props are a bonus column
                 log.warning("player props for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
+            report.notes.extend(n for n in projected.notes if "not playing" in n)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
             panel = render_my_team(snap, report, moves, bound)
             if status and not status.get("ok") and snap.week != rankings.week:
