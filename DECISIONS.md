@@ -672,3 +672,21 @@ for a player on an NFL team and not on bye, now sets this week's projection to
 zero -- and says so on the page -- while rest-of-season value is untouched. It
 is only trusted when the platform covers at least 80% of active rostered
 players, so a feed that has not populated yet cannot bench a whole roster.
+
+
+### Buy each game's props once
+By late September the Odds API balance had fallen from 398 to 134 in eight
+days. Most of that was manual runs during development, but part was
+structural: each league pulled its own props, so a game holding players from
+both leagues was bought twice, and a re-run an hour after a scheduled run
+bought everything again.
+
+Now the publish step loads every league first and makes one pull, with the
+event budget going to the games that hold the most of your players across both
+leagues (kickers and defences excluded, since books do not post props for
+them). Each game's payload is cached in memory and under `data/raw/props` for
+`cache_minutes` (180); the weekly job restores `data/raw` between runs, so a
+manual re-run shortly after a scheduled one pays nothing, while scheduled runs,
+a day or more apart, always fetch fresh. A run is capped at 56 credits
+whatever the number of leagues. The page says how many games were bought
+versus reused.

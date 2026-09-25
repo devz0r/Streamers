@@ -75,6 +75,9 @@ class PropsResult:
     events: int = 0
     credits_remaining: int | None = None
     warnings: list[str] = field(default_factory=list)
+    #: Of ``events``, how many were paid for now versus reused from the cache.
+    requested: int = 0
+    reused: int = 0
 
     @property
     def is_usable(self) -> bool:
@@ -84,8 +87,9 @@ class PropsResult:
         if self.frame.empty:
             return "no player props"
         books = sorted(self.frame["bookmaker"].unique())
+        paid = f", {self.requested} bought and {self.reused} reused" if self.reused else ""
         return (f"{self.frame['player'].nunique()} players across {self.events} games "
-                f"from {', '.join(books)}")
+                f"from {', '.join(books)}{paid}")
 
 
 # ---------------------------------------------------------------------------
@@ -289,15 +293,70 @@ def props_to_points(payload, cfg: Config) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Network
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Per-event cache
+#
+# Props are billed per market per event, and both leagues -- and any re-run
+# shortly after a scheduled one -- want largely the same games. Each event's
+# payload is kept in memory for the life of the process and on disk under
+# data/raw/props for ``odds.props.cache_minutes``; the weekly job restores
+# data/raw between runs, so a manual re-run an hour later pays nothing.
+# ---------------------------------------------------------------------------
+_MEMORY: dict[str, tuple[datetime, dict]] = {}
+
+
+def _cache_dir(cfg: Config):
+    path = cfg.raw_dir / "props"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def cached_event(cfg: Config, event_id: str, max_age_minutes: float) -> dict | None:
+    """A payload for ``event_id`` younger than ``max_age_minutes``, if one exists."""
+    import json
+
+    now = datetime.now(UTC)
+    hit = _MEMORY.get(event_id)
+    if hit and (now - hit[0]).total_seconds() <= max_age_minutes * 60:
+        return hit[1]
+    if max_age_minutes <= 0:
+        return None
+    path = _cache_dir(cfg) / f"{event_id}.json"
+    if not path.exists():
+        return None
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        at = datetime.fromisoformat(blob["fetched_at"])
+    except (OSError, ValueError, KeyError):
+        return None
+    if (now - at).total_seconds() > max_age_minutes * 60:
+        return None
+    _MEMORY[event_id] = (at, blob["payload"])
+    return blob["payload"]
+
+
+def store_event(cfg: Config, event_id: str, payload: dict) -> None:
+    import json
+
+    now = datetime.now(UTC)
+    _MEMORY[event_id] = (now, payload)
+    try:
+        (_cache_dir(cfg) / f"{event_id}.json").write_text(
+            json.dumps({"fetched_at": now.isoformat(), "payload": payload}), encoding="utf-8")
+    except OSError as exc:  # a cache that cannot be written is just a cache miss
+        log.debug("could not cache props for %s: %s", event_id, exc)
+
+
 def fetch_props(
     cfg: Config | None = None,
-    teams: set[str] | None = None,
+    teams: set[str] | dict[str, int] | None = None,
     timeout: float = 20.0,
 ) -> PropsResult:
     """Pull player props for this week's events.
 
     Props are billed per market per event, so ``teams`` narrows the pull to
     games involving players that matter and ``odds.props.max_events`` caps it.
+    A game already fetched recently is served from the cache for free.
     """
     import requests
 
@@ -366,7 +425,14 @@ def fetch_props(
     markets = ",".join(pconf.get("markets") or [])
     books = ",".join(pconf.get("bookmakers") or [])
     payloads, warnings, remaining = [], [], None
+    max_age = float(pconf.get("cache_minutes", 180))
+    requested = reused = 0
     for event in events:
+        hit = cached_event(cfg, str(event["id"]), max_age)
+        if hit is not None:
+            payloads.append(hit)
+            reused += 1
+            continue
         params = {"apiKey": key, "regions": conf["regions"], "markets": markets,
                   "oddsFormat": conf["odds_format"]}
         if books:
@@ -374,7 +440,10 @@ def fetch_props(
         try:
             r = requests.get(f"{base}/events/{event['id']}/odds", params=params, timeout=timeout)
             r.raise_for_status()
-            payloads.append(r.json())
+            payload = r.json()
+            payloads.append(payload)
+            store_event(cfg, str(event["id"]), payload)
+            requested += 1
             left = r.headers.get("x-requests-remaining")
             if left is not None:
                 remaining = int(float(left))
@@ -387,5 +456,5 @@ def fetch_props(
                 f"no games kick off within {window:.0f}h, so no props are posted yet")
         else:
             warnings.append("the books returned no player props for these games")
-    return PropsResult(frame, now, events=len(payloads),
-                       credits_remaining=remaining, warnings=warnings)
+    return PropsResult(frame, now, events=len(payloads), credits_remaining=remaining,
+                       warnings=warnings, requested=requested, reused=reused)

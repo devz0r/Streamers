@@ -255,7 +255,7 @@ def test_teams_on_counts_players_and_skips_the_unavailable(cfg):
             assert p.team not in weights
 
 
-def test_events_outside_the_window_are_not_requested(monkeypatch, cfg):
+def test_events_outside_the_window_are_not_requested(monkeypatch, tmp_cfg):
     """A Tuesday request about Sunday must not be made at all."""
     from datetime import UTC, datetime, timedelta
 
@@ -297,7 +297,135 @@ def test_events_outside_the_window_are_not_requested(monkeypatch, cfg):
     import requests
     monkeypatch.setattr(requests, "get", fake_get)
 
-    bound = cfg.for_profile("espn")
+    props_mod._MEMORY.clear()
+    bound = tmp_cfg.for_profile("espn")
     result = props_mod.fetch_props(bound, teams={"BUF": 1, "BAL": 3})
     assert asked == ["thu"], "only the game inside the window should be requested"
     assert result.credits_remaining == 400
+
+
+# ---------------------------------------------------------------------------
+# Paying for each game once
+# ---------------------------------------------------------------------------
+def _fake_api(monkeypatch, events, credits=400):
+    """Stub the Odds API; returns the list of event ids whose odds were bought."""
+    import requests
+
+    import streamer.data.odds as odds_mod
+    import streamer.data.props as props_mod
+
+    bought: list[str] = []
+
+    class Resp:
+        def __init__(self, data):
+            self._data = data
+            self.headers = {"x-requests-remaining": str(credits - len(bought))}
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._data
+
+    def fake_get(url, params=None, timeout=None):
+        if url.endswith("/events"):
+            return Resp(events)
+        eid = url.rsplit("/events/", 1)[1].split("/")[0]
+        bought.append(eid)
+        return Resp(payload()[0] | {"id": eid})
+
+    monkeypatch.setattr(odds_mod, "odds_api_key", lambda c=None: "key")
+    monkeypatch.setattr(requests, "get", fake_get)
+    props_mod._MEMORY.clear()
+    return bought
+
+
+def _soon_events():
+    from datetime import UTC, datetime, timedelta
+
+    soon = (datetime.now(UTC) + timedelta(hours=20)).isoformat()
+    return [{"id": "e1", "home_team": "Baltimore Ravens", "away_team": "New Orleans Saints",
+             "commence_time": soon},
+            {"id": "e2", "home_team": "Kansas City Chiefs", "away_team": "Denver Broncos",
+             "commence_time": soon}]
+
+
+def test_a_game_is_bought_once_then_reused(monkeypatch, tmp_cfg):
+    from streamer.data.props import fetch_props
+
+    bought = _fake_api(monkeypatch, _soon_events())
+    cfg = tmp_cfg.for_profile("espn")
+    first = fetch_props(cfg, teams={"BAL": 2, "KC": 1})
+    assert sorted(bought) == ["e1", "e2"] and (first.requested, first.reused) == (2, 0)
+
+    second = fetch_props(cfg, teams={"BAL": 1, "KC": 3})       # the other league
+    assert sorted(bought) == ["e1", "e2"], "nothing new should have been bought"
+    assert (second.requested, second.reused) == (0, 2)
+    assert not second.frame.empty
+
+
+def test_the_disk_cache_survives_a_new_process_and_expires(monkeypatch, tmp_cfg):
+    import json
+    from datetime import UTC, datetime, timedelta
+
+    import streamer.data.props as props_mod
+
+    bought = _fake_api(monkeypatch, _soon_events())
+    cfg = tmp_cfg.for_profile("espn")
+    props_mod.fetch_props(cfg, teams={"BAL": 1})
+    assert bought == ["e1"]
+
+    props_mod._MEMORY.clear()                 # a fresh run, restored data/raw
+    props_mod.fetch_props(cfg, teams={"BAL": 1})
+    assert bought == ["e1"], "a re-run within the window should pay nothing"
+
+    # Age the cached game past the window: the next run buys it again.
+    path = cfg.raw_dir / "props" / "e1.json"
+    blob = json.loads(path.read_text())
+    blob["fetched_at"] = (datetime.now(UTC) - timedelta(hours=4)).isoformat()
+    path.write_text(json.dumps(blob))
+    props_mod._MEMORY.clear()
+    props_mod.fetch_props(cfg, teams={"BAL": 1})
+    assert bought == ["e1", "e1"]
+
+
+def test_leagues_share_one_budget_weighted_by_both():
+    from streamer.roster.vegas import teams_for_all
+
+    class Snap:
+        def __init__(self, weights):
+            self.w = weights
+
+    import streamer.roster.vegas as vegas
+
+    original = vegas.teams_on
+    try:
+        vegas.teams_on = lambda snap: snap.w
+        combined = teams_for_all([Snap({"BAL": 2, "KC": 1}), Snap({"KC": 3, "DET": 1})])
+    finally:
+        vegas.teams_on = original
+    assert combined == {"BAL": 2, "KC": 4, "DET": 1}
+
+
+def test_attach_with_a_shared_pull_makes_no_request(monkeypatch, cfg):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    import streamer.data.props as props_mod
+    from fixtures_league import snapshot
+    from streamer.data.props import PropsResult, parse_props_payload
+    from streamer.roster.vegas import attach
+
+    def boom(*a, **k):
+        raise AssertionError("attach must not fetch when handed a shared pull")
+
+    monkeypatch.setattr(props_mod, "fetch_props", boom)
+    snap = snapshot(week=2)
+    snap.my_team.roster[0].name = "Derrick Henry"
+    bound = cfg.for_profile("espn")
+    from datetime import UTC, datetime
+    shared = PropsResult(parse_props_payload(payload(), bound), datetime.now(UTC), events=1,
+                         credits_remaining=300, requested=0, reused=1)
+    report = attach(snap, bound, prefetched=shared)
+    assert report.matched == 1 and snap.my_team.roster[0].vegas_points is not None

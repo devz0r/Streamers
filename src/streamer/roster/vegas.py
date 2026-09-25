@@ -52,8 +52,10 @@ def teams_on(snapshot: LeagueSnapshot, include_opponent: bool = False) -> dict[s
     week cost credits and change nothing. The counts let the fetch spend its
     event budget on the games holding the most of your lineup.
     """
+    # Kickers and defences have no player props, so they buy nothing.
     rows = [p for p in snapshot.my_team.roster
-            if not p.in_ir_slot and not p.on_bye and not p.is_out]
+            if not p.in_ir_slot and not p.on_bye and not p.is_out
+            and p.position not in ("K", "DST")]
     if include_opponent and snapshot.opponent is not None:
         rows += list(snapshot.opponent.roster)
     out: dict[str, int] = {}
@@ -68,10 +70,13 @@ def attach(
     cfg: Config | None = None,
     allow_network: bool = True,
     payload=None,
+    prefetched=None,
 ) -> VegasReport:
     """Fetch props for the matchup's teams and attach them to the players.
 
-    ``payload`` injects a payload instead of calling out, for tests.
+    ``prefetched`` is a :class:`~streamer.data.props.PropsResult` pulled once
+    for several leagues (see :func:`teams_for_all`); ``payload`` injects a raw
+    payload instead of calling out, for tests.
     """
     from ..data.props import fetch_props, props_to_points
 
@@ -83,7 +88,7 @@ def attach(
         report.warnings.append("player props skipped: --offline")
         return report
     else:
-        result = fetch_props(cfg, teams=teams_on(snapshot))
+        result = prefetched if prefetched is not None else fetch_props(cfg, teams=teams_on(snapshot))
         report.events = result.events
         report.credits_remaining = result.credits_remaining
         report.warnings.extend(result.warnings)
@@ -115,6 +120,20 @@ def attach(
     report.unmatched = sorted(p.name for p in startable if p.vegas_points is None)
     snapshot._vegas_report = report
     return report
+
+
+def teams_for_all(snapshots: list[LeagueSnapshot]) -> dict[str, int]:
+    """Combined team weights across leagues, for one shared props pull.
+
+    Pulling per league bought the same games twice. Summing the weights means
+    the event budget goes to the games holding the most of your players
+    across every league you play in.
+    """
+    out: dict[str, int] = {}
+    for snap in snapshots:
+        for team, n in teams_on(snap).items():
+            out[team] = out.get(team, 0) + n
+    return out
 
 
 def vegas_lineup(snapshot: LeagueSnapshot, cfg: Config | None = None):

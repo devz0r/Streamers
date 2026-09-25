@@ -262,9 +262,9 @@ odds:
   # Sportsbook player props -> implied fantasy points per player.
   #
   # COST, because this one bites: props are billed per market per region PER
-  # EVENT. Only events with a startable player of yours are fetched, and
-  # `max_events` caps it, so a run costs at most len(markets) x max_events =
-  # 7 x 8 = 56 credits. The weekly job publishes twice a week, so about 480
+  # EVENT. Only events with a startable player of yours -- in either league,
+  # pulled once for both -- are fetched, and `max_events` caps it, so a run
+  # costs at most len(markets) x max_events = 7 x 8 = 56 credits. The weekly job publishes twice a week, so about 480
   # credits a month -- just inside the 500 the free tier allows, and the page
   # prints the balance the API reports so it is not a guess. Lower
   # `max_events`, drop a market, or set `enabled: false` to spend less; a paid
@@ -292,6 +292,10 @@ odds:
     # all, which is what keeps the midweek runs nearly free and concentrates
     # the spend on the Sunday-morning run, when the lineup is actually set.
     window_hours: 72
+    # A game's props, once bought, are reused for this long -- by the other
+    # league in the same run, and by any re-run soon after. Scheduled runs are
+    # at least a day apart, so they always fetch fresh.
+    cache_minutes: 180
     # A prop line is the market's median. Converting it to a mean needs the
     # spread of that stat at that level: sd = intercept + slope x line,
     # floored. Fitted on 2021-2025 nflverse weekly stats, bucketing players by

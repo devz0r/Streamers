@@ -1,5 +1,7 @@
 # Raw nflverse pulls are large and fully reproducible from the loaders.
 data/raw/*.parquet
+# Cached sportsbook props: short-lived, and re-fetchable.
+data/raw/props/
 !data/raw/.gitkeep
 
 .venv/

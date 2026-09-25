@@ -571,6 +571,10 @@ def team_panels_for(
 
     log = logging.getLogger(__name__)
     panels: dict[str, str] = {}
+
+    # Load every league first, so the sportsbook props can be pulled once for
+    # all of them: pulling per league bought the same games twice.
+    loaded: list[tuple[str, Config, object, dict | None, Rankings]] = []
     for name, rankings in ranked.items():
         bound = cfg.for_profile(name)
         status = read_status(bound)
@@ -585,10 +589,26 @@ def team_panels_for(
                 if status and not status.get("ok"):
                     panels[name] = render_sync_failure(status, bound)
                 continue
+        loaded.append((name, bound, snap, status, rankings))
+
+    shared = None
+    if loaded and allow_network:
+        try:
+            from .data.props import fetch_props
+            from .roster.vegas import teams_for_all
+
+            shared = fetch_props(loaded[0][1], teams=teams_for_all([s for _n, _b, s, _st, _r in loaded]))
+            log.info("player props: %d games (%d fetched, %d reused from cache)",
+                     shared.events, shared.requested, shared.reused)
+        except Exception as exc:  # noqa: BLE001 - props are a bonus column
+            log.warning("player props skipped: %s", exc)
+
+    for name, bound, snap, status, rankings in loaded:
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
             try:
-                attach_vegas(snap, bound, allow_network=allow_network)
+                attach_vegas(snap, bound, allow_network=allow_network and shared is not None,
+                             prefetched=shared)
             except Exception as exc:  # noqa: BLE001 - props are a bonus column
                 log.warning("player props for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
