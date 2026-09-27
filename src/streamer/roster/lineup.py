@@ -121,7 +121,7 @@ def pair_correlation(a: PlayerRow, b: PlayerRow) -> float:
         return 0.0
     if a.team == b.team:
         return outcome.correlation(True, a.role, b.role)
-    if a.nfl_opponent and a.nfl_opponent == b.team:
+    if (a.nfl_opponent and a.nfl_opponent == b.team) or (b.nfl_opponent and b.nfl_opponent == a.team):
         return outcome.correlation(False, a.role, b.role)
     return 0.0
 
@@ -518,6 +518,72 @@ def explain(
             f"{b.week_value - s.week_value:.1f} more): {lead}, and {why}. "
             f"P(win) {by_points.win_probability:.1%} -> {p_swap:.1%}."
         )
+    return out
+
+
+@dataclass
+class StreamOption:
+    """One D/ST or kicker scored in your lineup against this week's opponent."""
+
+    player: PlayerRow
+    win_probability: float
+    current: bool
+    links: list[str] = field(default_factory=list)
+
+
+def _links(p: PlayerRow, mine: list[PlayerRow], theirs: list[PlayerRow]) -> list[str]:
+    """How a unit's score ties to players in this matchup, strongest first."""
+    out = []
+    for pool, whose in ((mine, "your"), (theirs, "their")):
+        for q in pool:
+            r = pair_correlation(p, q)
+            if abs(r) >= NOTABLE_CORR:
+                verb = "moves with" if r > 0 else "works against"
+                out.append((abs(r), f"{verb} {whose} {q.name} ({r:+.2f})"))
+    return [t for _r, t in sorted(out, reverse=True)]
+
+
+def stream_options(
+    opt: Optimisation,
+    position: str,
+    candidates: list[PlayerRow],
+    n_sims: int = 20000,
+    seed: int = 11,
+) -> list[StreamOption]:
+    """P(win) with each candidate D/ST or kicker in place of the current one.
+
+    The rest of the recommended lineup and the opponent's stay fixed, and all
+    candidates are scored on the same correlated draws, so the ranking
+    carries the matchup. A defence facing your own quarterback (-0.44) is a
+    hedge -- it damps your total's swings, which an underdog does not want
+    and a favourite does; one facing theirs works the other way round. A
+    kicker tied to your stack adds variance.
+    """
+    slot_players = [(slot, p) for slot, p in opt.best_win.flat() if p.position == position]
+    if not slot_players or opt.opponent is None:
+        return []
+    _slot, current = slot_players[0]
+    if current.locked:
+        return []
+    mine = [p for _s, p in opt.best_win.flat()]
+    theirs = [p for _s, p in opt.opponent.flat()]
+    pool = [current] + [c for c in candidates
+                        if c.player_id != current.player_id and not c.locked and not c.is_out
+                        and c.position == position and c.projection is not None]
+    everyone = mine + theirs + [c for c in pool if c.player_id != current.player_id]
+    index = {p.player_id: i for i, p in enumerate(everyone)}
+    rng = np.random.default_rng(seed)
+    samples = sample_points(everyone, n_sims, rng)
+    base = sum(samples[:, index[p.player_id]] for p in mine) - samples[:, index[current.player_id]]
+    opp = sum(samples[:, index[p.player_id]] for p in theirs)
+    out = []
+    for c in pool:
+        t = base + samples[:, index[c.player_id]]
+        pw = float((t > opp).mean() + 0.5 * (t == opp).mean())
+        others = [m for m in mine if m.player_id != current.player_id]
+        out.append(StreamOption(player=c, win_probability=pw, current=c.player_id == current.player_id,
+                                links=_links(c, others, theirs)))
+    out.sort(key=lambda o: -o.win_probability)
     return out
 
 

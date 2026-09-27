@@ -127,6 +127,9 @@ def render_my_team(
         cards = []
         for m in moves[:6]:
             drop = f" &middot; drop {_e(m.drop.name)}" if m.drop else ""
+            note = _stream_note(report, m.add)
+            if note:
+                m.reason = f"{m.reason}; {note}"
             cards.append(
                 '<div class="card"><div class="row">'
                 f'<div class="rank">{_e(m.tag[:1].upper())}</div>'
@@ -136,6 +139,8 @@ def render_my_team(
                 f'<div class="why">{_e(m.reason)}</div></div>'
             )
         parts.append("".join(cards))
+
+    parts.append(_streams(report))
 
     tickets = stashes(snapshot, moves, n=3)
     if tickets:
@@ -168,6 +173,48 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def _stream_note(report: MatchupReport, player) -> str:
+    """This week's P(win) with a D/ST or kicker pickup, against the current one."""
+    opts = report.streams.get(player.position) or []
+    mine = next((o for o in opts if o.current), None)
+    this = next((o for o in opts if o.player.player_id == player.player_id), None)
+    if mine is None or this is None:
+        return ""
+    return (f"P(win) this week {this.win_probability:.1%} against {mine.win_probability:.1%} "
+            f"with {mine.player.name}")
+
+
+def _streams(report: MatchupReport) -> str:
+    """D/ST and kickers ranked by what they do to *this* week's P(win)."""
+    blocks = []
+    for pos, label in (("DST", "Defence"), ("K", "Kicker")):
+        opts = report.streams.get(pos) or []
+        if len(opts) < 2:
+            continue
+        mine = next((o for o in opts if o.current), None)
+        shown = opts[:5] + ([mine] if mine is not None and mine not in opts[:5] else [])
+        rows = []
+        for o in shown:
+            delta = (o.win_probability - mine.win_probability) * 100 if mine else 0.0
+            vs = "yours" if o.current else ("&asymp; same" if abs(delta) < 0.5 else f"{delta:+.1f}")
+            links = f"<tr><td class='why' colspan='5'>&#8627; {_e('; '.join(o.links[:2]))}</td></tr>" if o.links else ""
+            rows.append(
+                f"<tr><td class='unit'>{_e(o.player.name)}</td><td>{_e(o.player.nfl_opponent or '')}</td>"
+                f"<td>{(o.player.projection or 0):.1f}</td><td>{o.win_probability:.1%}</td><td>{vs}</td></tr>{links}")
+        blocks.append(
+            f"<p class='sub'><strong>{label}</strong></p>"
+            '<div class="scroll"><table><thead><tr><th class="unit">Unit</th><th>Opp</th><th>Proj</th>'
+            f"<th>P(win)</th><th>vs yours</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
+    if not blocks:
+        return ""
+    return ("<h3>Best D/ST and K for this matchup</h3>"
+            '<p class="sub">Free agents and your own, each swapped into your recommended lineup and '
+            "scored against your opponent on the same correlated simulations. A defence facing your own "
+            "quarterback hedges him: that steadies your score, which helps when you are favoured and "
+            "hurts when you are not. Gaps under half a point are noise.</p>"
+            + "".join(blocks))
 
 
 def _lottery(snapshot: LeagueSnapshot, cfg: Config) -> str:

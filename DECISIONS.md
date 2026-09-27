@@ -1026,3 +1026,27 @@ and right to shrink. Expected touchdowns a game now appear in the usage
 line beside waiver, stash and lottery picks, so the red-zone role is
 visible.
 
+### Streams are ranked by this week's P(win), not projection alone
+The D/ST and kicker rankings are league-wide; which one to stream is a
+question about *your* matchup. The panel now swaps each free-agent unit
+(and your own) into the recommended lineup and scores it against the
+opponent on the same correlated simulations. That carries the correlations
+the ranking cannot: a defence facing your own quarterback (-0.44) or a
+kicker whose offence your defence faces is a hedge -- it narrows your
+total's spread, which helps a favourite and hurts an underdog -- and a
+defence facing *their* quarterback works the other way. Gaps under half a
+point of P(win) are shown as ties, because that is what they are; the
+effect is real but usually tenths of a point, so projection still leads.
+Waiver D/ST and K moves quote the same P(win) figures. Found while testing:
+the same-game check only matched one direction (a's opponent is b's team);
+it is now symmetric.
+
+### Which units are actually available
+Each tab's D/ST and kicker rankings mark every unit as yours, available or
+taken in that league, and dim the taken ones, so the top overall stays
+visible and the streamable ones stand out. ESPN syncs every roster, so taken
+is explicit. Yahoo syncs only yours and your opponent's; but when its
+free-agent list for a position is shorter than a page (25) it is the whole
+pool, so a unit missing from it is taken. A full page (kickers, usually)
+leaves unlisted units unlabelled rather than guessed.
+

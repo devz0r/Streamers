@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from ..config import Config, get_config
 from ..league.model import LeagueSnapshot, PlayerRow
-from .lineup import Optimisation, optimise
+from .lineup import Optimisation, StreamOption, optimise, stream_options
 
 
 @dataclass
@@ -15,6 +15,8 @@ class MatchupReport:
     optimisation: Optimisation
     opponent_name: str = ""
     notes: list[str] = field(default_factory=list)
+    #: D/ST and kicker options ranked by this week's P(win) (position -> list).
+    streams: dict[str, list[StreamOption]] = field(default_factory=dict)
 
     @property
     def win_probability(self) -> float:
@@ -61,7 +63,16 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
     from .waivers import ir_notes
 
     notes.extend(ir_notes(snapshot))
+    streams: dict[str, list[StreamOption]] = {}
+    for pos in ("DST", "K"):
+        pool = [p for p in snapshot.free_agents if p.position == pos and p.projection is not None]
+        pool += [p for p in me.roster if p.position == pos and not p.in_ir_slot]
+        pool = sorted(pool, key=lambda p: -(p.projection or 0.0))[:12]
+        try:
+            streams[pos] = stream_options(result, pos, pool, n_sims=int(cfg.raw["roster"]["sims"]))
+        except Exception:  # noqa: BLE001 - a bonus table never blocks the report
+            streams[pos] = []
     return MatchupReport(
         snapshot=snapshot, optimisation=result,
-        opponent_name=opp.name if opp else "", notes=notes,
+        opponent_name=opp.name if opp else "", notes=notes, streams=streams,
     )

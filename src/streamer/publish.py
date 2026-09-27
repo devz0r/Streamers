@@ -95,6 +95,10 @@ p { margin: .5rem 0; }
 .meta > span { background: var(--panel-2); border-radius: 6px; padding: .1rem .4rem; }
 .why { padding: 0 .85rem .75rem 3.65rem; color: var(--muted); font-size: .82rem; }
 .hold { border-left: 3px solid var(--good); }
+.meta > span.avail-open { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good); font-weight: 600; }
+.meta > span.avail-yours { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-weight: 600; }
+.meta > span.avail-taken { color: var(--muted); }
+.card.taken { opacity: .55; }
 .hold-tag { color: var(--good); font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
 .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { border-collapse: collapse; width: 100%; font-size: .8rem; }
@@ -246,13 +250,16 @@ def render_page(
         parts.append(_notices(rankings))
         if team_panels and team_panels.get(name):
             parts.append(team_panels[name])
-        parts.append(_two_week_section(rankings))
+        units = {pos: [str(t) for t in frame["team"]] for pos, frame in (("DST", rankings.dst), ("K", rankings.kicker))
+                 if frame is not None and not frame.empty and "team" in frame}
+        avail = unit_availability(bound, rankings.week, units) if team_panels else {}
+        parts.append(_two_week_section(rankings, avail))
         parts.append(
             _ranking_section("Defense / Special Teams", rankings.dst, "DST",
-                             int(conf["top_n"]), bound)
+                             int(conf["top_n"]), bound, avail)
         )
         parts.append(
-            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound)
+            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound, avail)
         )
         parts.append(_benchmark_section(bound))
         parts.append(_calibration_section(bound, rankings))
@@ -330,8 +337,54 @@ def _notices(rankings: Rankings) -> str:
     return ""
 
 
+#: Yahoo's free-agent pages hold 25 players; a shorter list is the whole pool.
+YAHOO_PAGE = 25
+
+
+def unit_availability(cfg: Config, week: int | None = None,
+                      ranked_units: dict[str, list[str]] | None = None) -> dict[tuple[str, str], tuple[str, str]]:
+    """(position, NFL team) -> (status, whose) for every D/ST and kicker in the
+    league's snapshot: "yours", "available", or "taken" with the fantasy team
+    that has him. Empty when there is no snapshot, so the rankings still
+    render without a league."""
+    from .league.store import load_snapshot
+
+    try:
+        snap = load_snapshot(cfg, week)
+    except FileNotFoundError:
+        try:
+            snap = load_snapshot(cfg)
+        except FileNotFoundError:
+            return {}
+    except Exception:  # noqa: BLE001 - a label must never block the page
+        return {}
+    out: dict[tuple[str, str], tuple[str, str]] = {}
+    for p in snap.free_agents:
+        if p.position in ("DST", "K") and p.team:
+            out.setdefault((p.position, p.team), ("available", ""))
+    for team in snap.teams:
+        for p in team.roster:
+            if p.position in ("DST", "K") and p.team:
+                out[(p.position, p.team)] = ("yours", team.name) if team.is_mine else ("taken", team.name)
+    # ESPN syncs every roster, so anything unlisted is simply unknown. Yahoo
+    # syncs only yours and your opponent's; but when its free-agent list for a
+    # position is shorter than a page it is the complete pool, so a unit not
+    # in it is on somebody's roster.
+    for pos, teams in (ranked_units or {}).items():
+        n_free = sum(1 for p in snap.free_agents if p.position == pos)
+        if snap.platform == "yahoo" and 0 < n_free < YAHOO_PAGE:
+            for t in teams:
+                out.setdefault((pos, t), ("taken", ""))
+    return out
+
+
+_AVAIL_CHIP = {"yours": ("avail-yours", "yours"), "available": ("avail-open", "available"),
+               "taken": ("avail-taken", "taken")}
+
+
 def _ranking_section(
-    title: str, frame: pd.DataFrame, position: str, top_n: int, cfg: Config
+    title: str, frame: pd.DataFrame, position: str, top_n: int, cfg: Config,
+    availability: dict | None = None,
 ) -> str:
     if frame is None or frame.empty:
         return f"<h2>{_e(title)}</h2><p class='sub'>No projections available.</p>"
@@ -346,12 +399,20 @@ def _ranking_section(
         if position == "DST":
             meta.append(f"proj allowed {_num(getattr(row, 'expected_points_allowed', np.nan), 0)}")
         chips = "".join(f"<span>{m}</span>" for m in meta)
+        status, whose = (availability or {}).get((position, str(getattr(row, "team", ""))), ("", ""))
+        card_class = ""
+        if status in _AVAIL_CHIP:
+            css, label = _AVAIL_CHIP[status]
+            title_attr = f' title="{_e(whose)}"' if whose else ""
+            chips = f'<span class="{css}"{title_attr}>{label}</span>' + chips
+            if status == "taken":
+                card_class = " taken"
         if hold:
             chips += (
                 f'<span class="hold-tag">hold thru wk {int(getattr(row, "week", 0)) + 1}</span>'
             )
         out.append(
-            f'<div class="card{" hold" if hold else ""}">'
+            f'<div class="card{" hold" if hold else ""}{card_class}">'
             f'<div class="row"><div class="rank">{int(row.rank)}</div>'
             f'<div><span class="name">{_e(row.display_name)}</span> '
             f'<span class="opp">{venue} {_e(getattr(row, "opponent", ""))}</span></div>'
@@ -363,15 +424,17 @@ def _ranking_section(
     return "".join(out)
 
 
-def _two_week_section(rankings: Rankings) -> str:
+def _two_week_section(rankings: Rankings, availability: dict | None = None) -> str:
     candidates = two_week_candidates(rankings)
     rows = []
     for position, frame in candidates.items():
         if frame is None or frame.empty:
             continue
         for row in frame.head(6).itertuples():
+            status, _whose = (availability or {}).get((position, str(getattr(row, "team", ""))), ("", ""))
+            tag = f' <span class="opp">{status}</span>' if status else ""
             rows.append(
-                f"<tr><td>{_e(position)}</td><td class='unit'>{_e(row.display_name)}</td>"
+                f"<tr><td>{_e(position)}</td><td class='unit'>{_e(row.display_name)}{tag}</td>"
                 f"<td>{int(row.rank)}</td><td>{_e(getattr(row, 'opponent', ''))}</td>"
                 f"<td>{int(row.next_rank) if np.isfinite(row.next_rank) else '--'}</td>"
                 f"<td>{_e(getattr(row, 'next_opponent', '') or '')}</td></tr>"
