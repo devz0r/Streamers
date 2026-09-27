@@ -959,3 +959,26 @@ blends in the platform and the market, whose spread has no history yet (the
 projection log will provide it), and kicker/defence ranges come from the
 streaming models' own error bands.
 
+### Game-time lottery tickets (Yahoo)
+Yahoo lets a bench player be dropped once his game has started, so a spare
+roster spot can be rotated: a free agent before each kickoff window
+(Thursday, Sunday 1 PM, Sunday 4 PM, Sunday night, Monday), kept if the game
+changes his value, otherwise dropped for the next window's ticket. The Yahoo
+panel lists the best tickets per window still to come, ranked by the chance
+he gives a reason to keep him:
+
+- a **top-N week at his position**, N the number of teams (in a 14-team
+  league: QB 17+, RB 16+, WR 18+, TE 10+, measured 2021-2025), read off the
+  same outcome distribution as the lineup simulator, injury tag included;
+- or, for a back next in line behind a lead back, the job opening up (lead
+  backs miss the next game 8.5% of the time).
+
+Only positions where such a week would beat the weakest starter he could
+replace are considered, so a backup quarterback behind an established
+starter is never a ticket. A merely "startable" week was tried as the bar
+and rejected: with two flex spots in a 14-team league it is 6 points for a
+back, which is not a reason to keep anyone. The section also names the
+cheapest roster spots to open for the rotation. Shown for platforms listed
+in `roster.lottery_tickets.platforms` (Yahoo only; ESPN locks players at
+kickoff).
+

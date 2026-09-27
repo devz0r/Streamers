@@ -336,6 +336,13 @@ projection, goes into P(win).
 as set, the best-P(win) lineup and the most-points lineup, and *Try a lineup*
 lets you pick any starters and see P(win) and the projection move.
 
+**Game-time lottery tickets (Yahoo).** Yahoo lets you drop a bench player
+after his game starts, so the Yahoo panel suggests a free agent to grab
+before each kickoff window still to come -- keep him if his game makes him
+worth keeping, otherwise drop him for the next window -- ranked by the chance
+he has a top-14 week at his position or inherits a lead back's job, and
+names your cheapest roster spots to open for it.
+
 **Read the lineup on Sunday morning.** The page is published Tuesday and
 Wednesday for waivers, and again early Sunday. Only that last one has the
 props posted and the week's injury designations in, so it is the one to set a

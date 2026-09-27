@@ -386,6 +386,14 @@ roster:
     QB: 0.42
     default: 0.72
   doubtful_play_probability: 0.02
+  # Game-time lottery tickets: a rotating roster spot filled before each
+  # kickoff window and dropped if nothing happened (Yahoo allows dropping a
+  # bench player after his game starts). Shown for these platforms only.
+  lottery_tickets:
+    platforms: [yahoo]
+    per_window: 3
+    # Tickets with less chance than this of being worth keeping are not shown.
+    min_keep: 0.03
   # Waiver moves below this blended gain in roster value (best-lineup points
   # plus replacement-level bench depth) are not shown.
   waiver_min_gain: 0.5

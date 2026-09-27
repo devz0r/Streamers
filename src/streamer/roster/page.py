@@ -158,6 +158,8 @@ def render_my_team(
             "otherwise waste.</p>" + "".join(cards)
         )
 
+    parts.append(_lottery(snapshot, cfg))
+
     watch = drop_watch(snapshot, n=3)
     if watch:
         parts.append(
@@ -166,6 +168,47 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def _lottery(snapshot: LeagueSnapshot, cfg: Config) -> str:
+    """Tickets for each kickoff window still to come, and what to drop."""
+    from .lottery import enabled, lottery_tickets
+
+    if not enabled(snapshot, cfg):
+        return ""
+    try:
+        windows = lottery_tickets(snapshot, cfg)
+    except Exception:  # noqa: BLE001 - a bonus section never blocks the page
+        return ""
+    if not windows:
+        return ""
+    blocks = []
+    for w in windows:
+        rows = "".join(
+            f"<tr><td class='unit'>{_e(t.player.name)}</td><td>{_e(t.player.position)}</td>"
+            f"<td>{_e(t.player.team or '')}</td><td>{(t.player.projection or 0):.1f}</td>"
+            f"<td>{t.p_keep:.0%}</td></tr>"
+            f"<tr><td class='why' colspan='5'>&#8627; {_e('; '.join(t.reasons))}</td></tr>"
+            for t in w.tickets)
+        blocks.append(
+            f"<p class='sub'><strong>{_e(w.label)}</strong></p>"
+            '<div class="scroll"><table><thead><tr><th class="unit">Player</th><th>Pos</th><th>Tm</th>'
+            f"<th>Proj</th><th>Keep?</th></tr></thead><tbody>{rows}</tbody></table></div>")
+    watch = drop_watch(snapshot, n=3)
+    drops = ""
+    if watch:
+        drops = ('<p class="sub">Cheapest spots to open for the rotation: '
+                 + ", ".join(f"{_e(p.name)} ({(p.ros_value or 0):.1f} a game rest of season)" for p in watch)
+                 + ".</p>")
+    return (
+        "<h3>Game-time lottery tickets</h3>"
+        '<p class="sub">Pick one up before each kickoff; keep him if the game changes his value, '
+        "otherwise drop him once his game has started and grab the next window's ticket. "
+        f"<em>Keep?</em> is the chance he gives you a reason to hold him: a top-{len(snapshot.teams)} week "
+        "at his position (the bar measured from 2021-2025), "
+        "or the lead back ahead of him going down (they miss the next game 8.5% of the time). "
+        "A big game without more opportunity behind it often fades, so treat it as a look, not a lock.</p>"
+        + "".join(blocks) + drops)
 
 
 def _proj_cell(p) -> str:
