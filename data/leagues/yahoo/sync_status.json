@@ -2,7 +2,7 @@
   "profile": "yahoo",
   "platform": "yahoo",
   "week": 3,
-  "ok": true,
-  "error": "",
-  "at": "2026-09-24T08:26:47+00:00"
+  "ok": false,
+  "error": "Yahoo session has expired or was signed out: re-copy the Cookie header from a logged-in fantasy page into the YAHOO_COOKIE secret",
+  "at": "2026-09-27T13:48:33+00:00"
 }
