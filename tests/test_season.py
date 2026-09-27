@@ -80,3 +80,23 @@ def test_espn_tiebreak_key_in_rules(cfg):
                                       playoff_seed_tie_rule="H2H_RECORD", median_scoring=False,
                                       faab=False, acquisition_budget=0))
     assert espn.league_rules(league)["tiebreak"] == "h2h"
+
+
+def test_reseeding_pairs_the_best_seed_left_with_the_worst(cfg):
+    import numpy as np
+
+    snap = _league([1.0, 1.1, 1.0, 1.0, 0.9, 0.95])
+    snap.rules.update(playoff_teams=6, reseed=True)
+    model = SeasonModel(snap, cfg, n_sims=4)
+    # After round one of a six-team bracket: seeds 1 and 2 had byes; in sim 0
+    # seeds 4 and 3 won, in sim 1 seeds 5 and 6 did (team index = seed * 10).
+    alive = [np.array([10, 10, 10, 10]), np.array([40, 50, 40, 50]),
+             np.array([30, 60, 60, 30]), np.array([20, 20, 20, 20])]
+    seeds = [1, np.array([4, 5, 4, 5]), np.array([3, 6, 6, 3]), 2]
+    teams, s = model._reseeded(alive, seeds)
+    pairs = [sorted((int(s[i][k]), int(s[i + 1][k]))) for k in range(4) for i in (0, 2)]
+    assert pairs[:2] == [[1, 4], [2, 3]]          # 1 meets the worst seed left
+    assert pairs[2:4] == [[1, 6], [2, 5]]
+    assert all(int(t[k]) == int(sd[k]) * 10 for t, sd in zip(teams, s) for k in range(4))
+    odds = model.odds()
+    assert odds.p_title.sum() == pytest.approx(1.0) and odds.p_playoffs.sum() == pytest.approx(6.0)

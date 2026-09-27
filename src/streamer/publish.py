@@ -366,10 +366,10 @@ def unit_availability(cfg: Config, week: int | None = None,
         for p in team.roster:
             if p.position in ("DST", "K") and p.team:
                 out[(p.position, p.team)] = ("yours", team.name) if team.is_mine else ("taken", team.name)
-    # ESPN syncs every roster, so anything unlisted is simply unknown. Yahoo
-    # syncs only yours and your opponent's; but when its free-agent list for a
-    # position is shorter than a page it is the complete pool, so a unit not
-    # in it is on somebody's roster.
+    # Both platforms now sync every roster, so anything unlisted is simply
+    # unknown. Older Yahoo snapshots held only yours and your opponent's; for
+    # those, a free-agent list shorter than a page is the complete pool, so a
+    # unit not in it is on somebody's roster.
     for pos, teams in (ranked_units or {}).items():
         n_free = sum(1 for p in snap.free_agents if p.position == pos)
         if snap.platform == "yahoo" and 0 < n_free < YAHOO_PAGE:

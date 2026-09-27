@@ -91,8 +91,9 @@ def team_page(prefix: str = "1") -> str:
 
 def league_page() -> str:
     rows = ""
-    for tid, name, wlt, pf in ((2, "Alpha Squad", "2-0-0", "251.4"), (5, "My Team Name", "1-1-0", "230.1"),
-                               (6, "The Rival", "1-1-0", "219.9")):
+    for tid, name, wlt, pf, waiver, moves in ((2, "Alpha Squad", "2-0-0", "251.4", 3, 0),
+                                              (5, "My Team Name", "1-1-0", "230.1", 1, 4),
+                                              (6, "The Rival", "1-1-0", "219.9", 2, 7)):
         rows += f"""
         <tr class="Linkable" data-linkable="true" data-target="/f1/{LEAGUE}/{tid}">
           <td class="First Ta-c Px-sm Tst-rank Relative"><span>{tid}</span></td>
@@ -101,7 +102,7 @@ def league_page() -> str:
             <a class="Grid-u F-reset Ell Mawpx-250" href="/f1/{LEAGUE}/{tid}">{name}</a></td>
           <td class="Nowrap Ta-c Px-sm Tst-wlt">{wlt}</td>
           <td class="Ta-c Px-sm">{pf}</td><td class="Ta-c Px-sm">200.0</td><td class="Ta-c Px-sm">W-1</td>
-          <td class="Ta-c Px-sm"><span>3</span></td><td class="Ta-c Px-sm last"><span>4</span></td>
+          <td class="Ta-c Px-sm"><span>{waiver}</span></td><td class="Ta-c Px-sm last"><span>{moves}</span></td>
         </tr>"""
     return f"""<html><head><title>Test League | Fantasy Football | Yahoo! Sports</title></head><body>
       <nav><a href="/f1/{LEAGUE}/5">My Team</a></nav>
@@ -143,3 +144,28 @@ def free_agent_page(projected: bool = True, week: int = 3, points_label: str = "
         <tr><th class="Alt"></th><th></th><th class="Alt player">Offense</th><th>Owner</th><th>GP*</th>
             <th>Bye</th><th class="Alt Nowrap pts">{points_label}</th><th>Pre-Season</th><th>Current</th><th>% Ros</th></tr>
       </thead><tbody>{rows}</tbody></table></body></html>"""
+
+
+def settings_page(playoffs: str = "4 teams - Week 5 and 6 (ends Monday, Oct 19)",
+                  waiver: str = "Continual rolling list", reseed: str = "Yes",
+                  median: str = "No") -> str:
+    rows = "".join(
+        f"<tr><td>{k}</td><td><b>{v}</b></td></tr>"
+        for k, v in (("League Name:", "Private Name"), ("Max Teams:", "14"),
+                     ("Scoring Type:", "Head-to-Head"), ("Waiver Time:", "2 days"),
+                     ("Waiver Type:", waiver), ("Weekly Waivers", "Game Time - Tuesday"),
+                     ("Playoffs:", playoffs), ("Playoff Tie-Breaker:", "Higher seed wins"),
+                     ("Playoff Reseeding:", reseed), ("Play Against Median Score:", median)))
+    return f"""<html><head><title>Scoring &amp; Settings | Fantasy Football | Yahoo! Sports</title></head>
+      <body><table class="Table Table-subtle-border" id="settings-table">
+      <thead><tr><th class="first">Setting</th><th>Value</th></tr></thead><tbody>{rows}</tbody></table>
+      </body></html>"""
+
+
+def league_week_page(pairs: list[tuple[int, str, str]]) -> str:
+    """The league page's matchup list: one linked item per game."""
+    items = "".join(
+        f'<li class="Linkable Listitem" data-target="/f1/{LEAGUE}/matchup?week={w}&amp;mid1={a}&amp;mid2={b}">'
+        f'<a href="/f1/{LEAGUE}/matchup?week={w}&amp;mid1={a}&amp;mid2={b}">View</a></li>'
+        for w, a, b in pairs)
+    return league_page().replace("</body>", f'<ul class="List">{items}</ul></body>')

@@ -8,15 +8,21 @@ from fixtures_yahoo_web import (
     LEAGUE,
     free_agent_page,
     league_page,
+    league_week_page,
     matchup_page,
+    settings_page,
     team_page,
 )
 from streamer.league.yahoo_web import (
+    _describe_tables,
+    matchup_pairs,
     my_team_id,
     opponent_id,
     parse_free_agents,
     parse_roster,
+    parse_settings,
     parse_standings,
+    scrub_title,
 )
 
 
@@ -66,6 +72,42 @@ def test_standings_and_league_name():
     assert by_id["2"]["name"] == "Alpha Squad"
     assert (by_id["2"]["wins"], by_id["2"]["losses"], by_id["2"]["ties"]) == (2, 0, 0)
     assert by_id["5"]["points_for"] == pytest.approx(230.1)
+    # The Waiver and Moves columns: claim order and pickups so far.
+    assert [by_id[t]["waiver_rank"] for t in ("2", "5", "6")] == [3, 1, 2]
+    assert [by_id[t]["moves"] for t in ("2", "5", "6")] == [0, 4, 7]
+
+
+def test_settings_give_the_season_structure():
+    rules = parse_settings(settings_page("6 teams - Week 15, 16 and 17 (ends Monday, Jan 4)"))
+    assert rules["playoff_teams"] == 6 and rules["regular_season_weeks"] == 14
+    assert rules["playoff_round_weeks"] == 1
+    assert rules["waiver"] == "priority" and rules["waiver_order"] == "rolling"
+    assert rules["reseed"] is True and rules["median_game"] is False
+    assert rules["playoff_tiebreak"] == "higher seed"
+    # Two-week rounds: four teams over weeks 14-17.
+    two = parse_settings(settings_page("4 teams - Week 14, 15, 16 and 17", waiver="FAAB", reseed="No"))
+    assert two["regular_season_weeks"] == 13 and two["playoff_round_weeks"] == 2
+    assert two["waiver"] == "faab" and two["reseed"] is False
+    assert parse_settings("<html>Sign in</html>") == {}
+
+
+def test_matchup_links_give_the_schedule():
+    html = league_week_page([(5, "6", "2"), (5, "5", "9"), (5, "2", "6")])
+    assert matchup_pairs(html, LEAGUE) == {(5, "2", "6"), (5, "5", "9")}
+    assert matchup_pairs(html, "999") == set()
+
+
+def test_probe_output_never_prints_names():
+    """Workflow logs are public: table headers can be managers' names (the
+    matchup table's columns are the two teams) and the league page's title
+    is the league's name."""
+    html = ('<table class="Tst-table"><tr><th>Devon Somebody</th><th>Category</th>'
+            '<th>Pts</th></tr></table>')
+    line = _describe_tables(html)[0]
+    assert "Devon" not in line and "Pts" in line
+    assert scrub_title("Lab Rats + Fam | Fantasy Football | Yahoo! Sports") == \
+        "«t14» | Fantasy Football | Yahoo! Sports"
+    assert scrub_title("Scoring &amp; Settings | Fantasy Football | Yahoo! Sports").startswith("Scoring")
 
 
 def test_my_team_and_opponent_are_found_without_extra_secrets():
@@ -121,9 +163,12 @@ def _pages():
     return [
         (f"/f1/{LEAGUE}/players", free_agent_page(True, 3)),
         (f"/f1/{LEAGUE}/matchup", matchup_page("5", "6")),
+        (f"/f1/{LEAGUE}/settings", settings_page()),
         (f"/f1/{LEAGUE}/5?", team_page("1")),
         (f"/f1/{LEAGUE}/6?", team_page("2")),
-        (f"/f1/{LEAGUE}", league_page()),
+        (f"/f1/{LEAGUE}/2?", team_page("3")),
+        (f"/f1/{LEAGUE}?matchup_week=4&", league_week_page([(4, "2", "5")])),
+        (f"/f1/{LEAGUE}", league_week_page([(3, "5", "6")])),
     ]
 
 
@@ -152,6 +197,39 @@ def test_snapshot_assembles_from_the_website(monkeypatch):
 
     again = LeagueSnapshot.from_dict(__import__("json").loads(snap.to_json()))
     assert again.my_team.team_id == "5" and len(again.free_agents) == 8
+    # Every team's roster, waiver order and pickups, for the season simulator.
+    by_id = {t.team_id: t for t in snap.teams}
+    assert len(by_id["2"].roster) == 11
+    assert (by_id["5"].waiver_rank, by_id["5"].acquisitions) == (1, 4)
+    # Settings and the rest of the regular season (weeks 3-4 of 4).
+    assert snap.rules["playoff_teams"] == 4 and snap.rules["regular_season_weeks"] == 4
+    assert snap.rules["schedule"] == [[3, "5", "6"], [4, "2", "5"]]
+    assert again.rules["schedule"] == snap.rules["schedule"]
+
+
+def test_a_known_schedule_is_not_read_again(monkeypatch):
+    import streamer.league.yahoo_web as yw
+
+    fake = _FakeSession(_pages())
+    monkeypatch.setattr(yw, "_session", lambda cookie: fake)
+    monkeypatch.setenv("YAHOO_COOKIE", "A1=x; T=y; Y=z")
+    monkeypatch.setenv("YAHOO_LEAGUE_ID", LEAGUE)
+    snap = yw.fetch_snapshot(2026, 3, "yahoo", pause=0, known=[[4, "2", "5"]])
+    assert not any("matchup_week" in u for u in fake.asked)
+    assert snap.rules["schedule"] == [[3, "5", "6"], [4, "2", "5"]]
+
+
+def test_an_unreadable_schedule_is_left_out(monkeypatch):
+    """A schedule with a week missing would hand out too few wins; the
+    season odds wait until it can be read whole."""
+    import streamer.league.yahoo_web as yw
+
+    pages = [p for p in _pages() if "matchup_week" not in p[0]]
+    monkeypatch.setattr(yw, "_session", lambda cookie: _FakeSession(pages))
+    monkeypatch.setenv("YAHOO_COOKIE", "A1=x; T=y; Y=z")
+    monkeypatch.setenv("YAHOO_LEAGUE_ID", LEAGUE)
+    snap = yw.fetch_snapshot(2026, 3, "yahoo", pause=0)
+    assert "schedule" not in snap.rules and snap.rules["playoff_teams"] == 4
 
 
 def test_expired_cookie_fails_loudly_with_the_fix(monkeypatch):

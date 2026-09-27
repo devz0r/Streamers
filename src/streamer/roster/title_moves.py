@@ -139,7 +139,11 @@ class TitleEngine:
         self.n_teams = len(snapshot.teams)
         self.rank = int(me.waiver_rank or self.n_teams)
         self.activity = league_activity(snapshot)
-        self.priority_waivers = (snapshot.rules or {}).get("waiver", "priority") == "priority"
+        rules = snapshot.rules or {}
+        # Only a rolling list charges for a claim (you go to the back); an
+        # order reset by standings each week, or FAAB, does not.
+        self.priority_waivers = (rules.get("waiver", "priority") == "priority"
+                                 and rules.get("waiver_order", "rolling") == "rolling")
         # One set of claim-success draws for every candidate: common random
         # numbers, so candidates differ by who they are, not by luck.
         self.u = np.random.default_rng(seed + 1).random(n_sims)

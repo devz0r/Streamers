@@ -26,6 +26,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from .model import PlayerRow
 
 log = logging.getLogger(__name__)
@@ -210,6 +212,27 @@ class ProbeResult:
         return out
 
 
+#: Words a page title may keep in the log. The league page's title is the
+#: league's own name, which is not for a public log.
+_TITLE_WORDS = {
+    "fantasy", "football", "yahoo!", "sports", "player", "players", "list", "scoring", "&",
+    "&amp;", "settings", "the", "document", "you", "requested", "was", "not", "found",
+    "matchup", "matchups", "schedule", "roster", "team", "league", "standings", "transactions",
+}
+
+
+def scrub_title(title: str) -> str:
+    """Keep the generic '|'-separated parts of a page title; hide the rest."""
+    parts = []
+    for seg in (title or "").split("|"):
+        seg = seg.strip()
+        if not seg:
+            continue
+        words = seg.lower().split()
+        parts.append(seg if all(w in _TITLE_WORDS for w in words) else f"«t{len(seg)}»")
+    return " | ".join(parts)
+
+
 def _describe_tables(html: str) -> list[str]:
     """id/class of each table, plus its header cells -- structure, not data."""
     out = []
@@ -219,7 +242,9 @@ def _describe_tables(html: str) -> list[str]:
             f"{k}={v}" for k, v in re.findall(r'\b(id|class)="([^"]{0,70})"', attrs)
         ) or "(no id/class)"
         heads = re.findall(r"<th\b[^>]*>(.*?)</th>", body, re.S | re.I)[:9]
-        heads = [re.sub(r"<[^>]+>", "", h).strip()[:16] for h in heads]
+        # Header cells can be manager names (the matchup table's columns
+        # are the two teams), so they pass the same whitelist as the detail.
+        heads = [_scrub_header(re.sub(r"<[^>]+>", "", h))[:16] for h in heads]
         rows = len(re.findall(r"<tr\b", body, re.I))
         out.append(f"[{ident}] rows={rows} th={heads}")
     return out
@@ -240,7 +265,7 @@ def probe_page(url: str, cookie: str, league_id: str = "", detail: bool = False)
     res.logged_out = looks_logged_out(resp)
     m = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
     if m:
-        res.title = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(1))).strip()
+        res.title = scrub_title(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(1))).strip())
     for pattern in _JSON_PATTERNS:
         hit = pattern.search(html)
         if hit:
@@ -305,16 +330,49 @@ def probe(league_id: str, team_id: str | None, cookie: str, week: int | None = N
         settings.hints.append(f"settings read failed: {type(exc).__name__}")
     results.append(settings)
     if team_id:
-        results.append(probe_page(f"{BASE}/f1/{league_id}/{team_id}/schedule", cookie, league_id, detail))
         try:
             team_html = fetch(f"{BASE}/f1/{league_id}/{team_id}{wk}", cookie).text
             results[1].hints.extend(waiver_hints(team_html))
         except Exception:  # noqa: BLE001
             pass
-    later = (week or 1) + 2
-    results.append(probe_page(f"{BASE}/f1/{league_id}?matchup_week={later}&module=matchups",
-                              cookie, league_id, detail))
+    results.append(schedule_probe(league_id, team_id, cookie, week or 1))
     return results
+
+
+def schedule_probe(league_id: str, team_id: str | None, cookie: str, week: int) -> ProbeResult:
+    """Which pages list a week's games: counts of (week, team, team) links
+    found on each candidate -- numbers only."""
+    later = week + 2
+    res = ProbeResult(url="schedule sources (matchup links found per page)")
+    candidates = [
+        ("league page", f"/f1/{league_id}", {}),
+        (f"league page, week {later}", f"/f1/{league_id}?matchup_week={later}&module=matchups", {}),
+        (f"league page, week {later}, lhst", f"/f1/{league_id}?matchup_week={later}&module=matchups"
+                                             f"&lhst=matchups", {}),
+        (f"league page, week {later}, xhr", f"/f1/{league_id}?matchup_week={later}&module=matchups",
+         {"X-Requested-With": "XMLHttpRequest"}),
+    ]
+    if team_id:
+        candidates += [
+            (f"team page, week {later}", f"/f1/{league_id}/{team_id}?week={later}", {}),
+            (f"matchup page, week {later}", f"/f1/{league_id}/matchup?week={later}&mid1={team_id}", {}),
+        ]
+    session = _session(cookie)
+    for label, path, headers in candidates:
+        try:
+            resp = session.get(f"{BASE}{path}", timeout=25, headers=headers)
+            html = resp.text or ""
+            pairs = matchup_pairs(html, league_id)
+            weeks = sorted({w for w, _a, _b in pairs})
+            teams = {t for _w, a, b in pairs for t in (a, b)}
+            links = len(re.findall(rf"/f1/{re.escape(league_id)}/matchup\?", html))
+            kind = "json" if html.lstrip().startswith("{") else "html"
+            res.hints.append(f"{label}: status {resp.status_code} {kind} {len(html)} bytes, "
+                             f"{links} matchup links, {len(pairs)} pairs, weeks {weeks}, "
+                             f"{len(teams)} teams")
+        except Exception as exc:  # noqa: BLE001
+            res.hints.append(f"{label}: {type(exc).__name__}")
+    return res
 
 
 #: Settings rows worth printing: generic league rules, never names.
@@ -701,6 +759,10 @@ def parse_roster(html: str) -> tuple[list, dict[str, int], int]:
     return players, slots, bench
 
 
+def _cell_num(cells: list, c: int | None) -> float | None:
+    return _num(cells[c].get_text(strip=True)) if c is not None and c < len(cells) else None
+
+
 def parse_standings(html: str, league_id: str) -> tuple[str, list[dict]]:
     """League name and one dict per team: id, name, wins, losses, ties, points_for."""
     from bs4 import BeautifulSoup
@@ -714,6 +776,8 @@ def parse_standings(html: str, league_id: str) -> tuple[str, list[dict]]:
         return league_name, teams
     headers = leaf_headers(table)
     c_pf = column(headers, "PF", "Pts For", "Points For")
+    c_waiver = column(headers, "Waiver")
+    c_moves = column(headers, "Moves")
     for tr in data_rows(table):
         target = tr.get("data-target") or ""
         m = re.search(rf"/f1/{re.escape(league_id)}/(\d+)", target)
@@ -726,11 +790,97 @@ def parse_standings(html: str, league_id: str) -> tuple[str, list[dict]]:
         wlt = (tr.select_one("td.Tst-wlt").get_text(strip=True) if tr.select_one("td.Tst-wlt") else "")
         parts = [int(x) for x in re.findall(r"\d+", wlt)] + [0, 0, 0]
         cells = direct_cells(tr)
-        pf = _num(cells[c_pf].get_text(strip=True)) if c_pf is not None and c_pf < len(cells) else None
+        pf, waiver, moves = (_cell_num(cells, c) for c in (c_pf, c_waiver, c_moves))
         teams.append({"team_id": m.group(1), "name": names[-1] if names else f"Team {m.group(1)}",
                       "wins": parts[0], "losses": parts[1], "ties": parts[2],
-                      "points_for": pf or 0.0})
+                      "points_for": pf or 0.0,
+                      # Waiver priority (1 = first claim) and pickups so far.
+                      "waiver_rank": int(waiver) if waiver else None,
+                      "moves": int(moves) if moves is not None else None})
     return league_name, teams
+
+
+def _settings_rows(html: str) -> dict[str, str]:
+    """``label -> value`` from the settings page's rule table."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.select_one("table#settings-table") or soup
+    rows = {}
+    for tr in table.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
+        if len(cells) >= 2:
+            rows[cells[0].rstrip(":").strip().lower()] = cells[1]
+    return rows
+
+
+def parse_settings(html: str) -> dict[str, Any]:
+    """The season structure from the league's settings page.
+
+    Yahoo states the playoffs in one line -- "6 teams - Week 15, 16 and 17
+    (ends Monday, Jan 4)" -- which gives the field, the first playoff week
+    (so the regular season is everything before it) and the round length.
+    Returns only what the page stated; an unreadable page returns {}.
+    """
+    rows = _settings_rows(html)
+    out: dict[str, Any] = {}
+    playoffs = rows.get("playoffs", "")
+    m = re.search(r"(\d+)\s*teams?", playoffs, re.I)
+    wk = re.search(r"weeks?\s+([\d,\sand&]+)", playoffs, re.I)
+    if m and wk:
+        teams = int(m.group(1))
+        weeks = [int(x) for x in re.findall(r"\d+", wk.group(1))]
+        if teams >= 2 and weeks:
+            rounds = max(int(np.ceil(np.log2(teams))), 1)
+            out["playoff_teams"] = teams
+            out["regular_season_weeks"] = min(weeks) - 1
+            out["playoff_round_weeks"] = max(len(weeks) // rounds, 1)
+    waiver = rows.get("waiver type", "")
+    if waiver:
+        low = waiver.lower()
+        out["waiver"] = "faab" if "faab" in low or "budget" in low else "priority"
+        # A continual rolling list sends a successful claimant to the back;
+        # the alternative resets the order by standings every week.
+        out["waiver_order"] = "rolling" if "rolling" in low else "standings" if "standing" in low else low
+    budget = next((v for k, v in rows.items() if "faab" in k and "budget" in k or k == "waiver budget"), None)
+    if budget and _num(budget):
+        out["faab_budget"] = float(_num(budget))
+    if "play against median score" in rows:
+        out["median_game"] = rows["play against median score"].strip().lower().startswith("y")
+    if "playoff reseeding" in rows:
+        out["reseed"] = rows["playoff reseeding"].strip().lower().startswith("y")
+    if "playoff tie-breaker" in rows:
+        out["playoff_tiebreak"] = "higher seed" if "seed" in rows["playoff tie-breaker"].lower() else "points"
+    if out:
+        # Yahoo breaks ties in the standings on points scored.
+        out.setdefault("tiebreak", "points")
+    return out
+
+
+_MATCHUP_LINK = r"/f1/{league}/matchup\?([^\"'<>\s]+)"
+
+
+def matchup_pairs(html: str, league_id: str) -> set[tuple[int, str, str]]:
+    """Every (week, team, team) pairing linked from a page.
+
+    The league page's matchup list links each game as
+    ``/f1/<league>/matchup?week=W&mid1=A&mid2=B``; any page that links a
+    game this way contributes it.
+    """
+    from html import unescape
+    from urllib.parse import parse_qs
+
+    out = set()
+    for q in re.findall(_MATCHUP_LINK.format(league=re.escape(league_id)), html or ""):
+        args = parse_qs(unescape(q))
+        try:
+            week, a, b = int(args["week"][0]), str(int(args["mid1"][0])), str(int(args["mid2"][0]))
+        except (KeyError, ValueError, IndexError):
+            continue
+        if a != b:
+            lo, hi = sorted((a, b), key=int)
+            out.add((week, lo, hi))
+    return out
 
 
 def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
@@ -811,12 +961,15 @@ def parse_free_agents(html: str, week: int) -> list:
 # ---------------------------------------------------------------------------
 # Snapshot
 # ---------------------------------------------------------------------------
-def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6):
+def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
+                   known: list | None = None):
     """Read the league from Yahoo's website with the browser session.
 
-    About eight page loads: the league, your team, your matchup, your
-    opponent's team, and a few pages of the free-agent list. A short pause
-    between them keeps this at the pace of a person clicking around.
+    The league page, the settings page, every team's roster, your matchup,
+    a few pages of the free-agent list, and -- the first time -- one league
+    page per remaining regular-season week for the schedule (``known`` is the
+    schedule already read, so later syncs skip it). About twenty page loads,
+    with a short pause between them: the pace of a person clicking around.
     """
     import time
     from datetime import UTC, datetime
@@ -853,9 +1006,23 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6):
                            "have changed (run `streamer yahoo-probe --detail`)")
 
     opp_id = opponent_id(get(f"/f1/{league}/matchup?week={week}"), league, my_id)
-    opp_players: list = []
-    if opp_id:
-        opp_players, _s, _b = parse_roster(get(f"/f1/{league}/{opp_id}?week={week}"))
+    rosters: dict[str, list] = {str(my_id): my_players}
+    # Every team's roster: the season simulator plays out the whole league.
+    for row in standings:
+        tid = row["team_id"]
+        if tid in rosters:
+            continue
+        try:
+            rosters[tid], _s, _b = parse_roster(get(f"/f1/{league}/{tid}?week={week}"))
+        except RuntimeError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - one unreadable team should not sink the sync
+            log.warning("Yahoo roster for team %s failed: %s", tid, type(exc).__name__)
+    if opp_id and str(opp_id) not in rosters:
+        rosters[str(opp_id)], _s, _b = parse_roster(get(f"/f1/{league}/{opp_id}?week={week}"))
+    opp_players = rosters.get(str(opp_id), []) if opp_id else []
+
+    rules = _league_rules(get, league, week, len(standings), league_html, known or [])
 
     free_agents: list = []
     for pos, pages in (("O", (0, 25)), ("K", (0,)), ("DEF", (0,))):
@@ -872,11 +1039,11 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6):
     for row in standings or [{"team_id": my_id, "name": "My team", "wins": 0,
                               "losses": 0, "ties": 0, "points_for": 0.0}]:
         tid = row["team_id"]
-        roster = my_players if tid == str(my_id) else opp_players if tid == str(opp_id) else []
         teams.append(TeamRow(team_id=tid, name=row["name"], wins=row["wins"],
                              losses=row["losses"], ties=row["ties"],
                              points_for=float(row["points_for"] or 0.0),
-                             roster=roster, is_mine=(tid == str(my_id))))
+                             roster=rosters.get(tid, []), is_mine=(tid == str(my_id)),
+                             waiver_rank=row.get("waiver_rank"), acquisitions=row.get("moves")))
     if not any(t.is_mine for t in teams):
         teams.append(TeamRow(team_id=str(my_id), name="My team", roster=my_players, is_mine=True))
     if opp_id and not any(t.team_id == str(opp_id) for t in teams):
@@ -890,4 +1057,52 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6):
         if opp_id else None,
         synced_at=datetime.now(UTC).isoformat(),
         extra={"source": "yahoo-web"},
+        rules=rules,
     )
+
+
+def _league_rules(get, league: str, week: int, n_teams: int, league_html: str,
+                  known: list) -> dict[str, Any]:
+    """Settings plus the rest of the regular-season schedule.
+
+    The schedule is only kept when every remaining week is complete (all
+    teams paired): a season simulated with weeks missing would hand out
+    too few wins and skew every team's odds.
+    """
+    try:
+        rules = parse_settings(get(f"/f1/{league}/settings"))
+    except RuntimeError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - the week's lineup does not need the rules
+        log.warning("Yahoo settings page failed: %s", type(exc).__name__)
+        return {}
+    reg = rules.get("regular_season_weeks")
+    if not reg or n_teams < 2:
+        return rules
+    per_week = n_teams // 2
+    pairs = {(int(w), str(a), str(b)) for w, a, b in known}
+    pairs |= matchup_pairs(league_html, league)
+
+    def have(w: int) -> int:
+        return sum(1 for p in pairs if p[0] == w)
+
+    for w in range(week, reg + 1):
+        if have(w) >= per_week:
+            continue
+        try:
+            found = matchup_pairs(get(f"/f1/{league}?matchup_week={w}&module=matchups"), league)
+        except RuntimeError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Yahoo schedule week %s failed: %s", w, type(exc).__name__)
+            break
+        pairs |= found
+        if not any(p[0] == w for p in found):
+            break                               # this page does not list that week's games
+    missing = [w for w in range(week, reg + 1) if have(w) < per_week]
+    if missing:
+        log.warning("Yahoo schedule incomplete: weeks %s have fewer than %d games; "
+                    "season odds are skipped until it can be read", missing, per_week)
+        return rules
+    rules["schedule"] = sorted([w, a, b] for w, a, b in pairs if w <= reg)
+    return rules

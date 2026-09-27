@@ -11,8 +11,10 @@ each simulated season:
   against the median if the league plays one), on top of the current
   records and points;
 * seeds go by record, ties broken by points scored;
-* the playoffs are a fixed bracket (byes for the top seeds when the field is
-  not a power of two), each round as many weeks as the league plays.
+* the playoffs are a bracket (byes for the top seeds when the field is not
+  a power of two), each round as many weeks as the league plays; a league
+  that reseeds pairs the best seed left with the worst after every round,
+  otherwise the bracket is fixed.
 
 P(title) is the share of seasons a team wins it all. Moves are valued by
 re-running only the changed team's lineups on the same simulated futures
@@ -126,6 +128,7 @@ class SeasonModel:
         self.playoff_teams = int(rules.get("playoff_teams") or 4)
         self.round_weeks = max(int(rules.get("playoff_round_weeks") or 1), 1)
         self.median = bool(rules.get("median_game"))
+        self.reseed = bool(rules.get("reseed"))
         self.rounds = max(math.ceil(math.log2(max(self.playoff_teams, 2))), 1)
         start = int(snapshot.week)
         self.last_week = self.reg_weeks + self.rounds * self.round_weeks
@@ -252,6 +255,8 @@ class SeasonModel:
             nxt, nxt_seed = [], []
             if first_playoff is None:
                 break
+            if self.reseed and r > 0 and len(alive) > 2:
+                alive, seed_of = self._reseeded(alive, seed_of)
             ks = [first_playoff + r * self.round_weeks + i for i in range(self.round_weeks)]
             ks = [k for k in ks if k < len(self.weeks)]
             for i in range(0, len(alive), 2):
@@ -278,6 +283,19 @@ class SeasonModel:
             p_playoffs=made.mean(axis=1), p_bye=byes.mean(axis=1), p_title=title,
             exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
             champion=np.asarray(champ) if champ is not None else None)
+
+
+    def _reseeded(self, alive: list, seed_of: list) -> tuple[list, list]:
+        """Survivors re-paired by seed in every simulation: best left against
+        worst left, second-best against second-worst, and so on."""
+        teams = np.stack([np.broadcast_to(np.asarray(a), (self.n,)) for a in alive])
+        seeds = np.stack([np.broadcast_to(np.asarray(s), (self.n,)) for s in seed_of])
+        order = np.argsort(seeds, axis=0, kind="stable")
+        teams = np.take_along_axis(teams, order, axis=0)
+        seeds = np.take_along_axis(seeds, order, axis=0)
+        m = len(alive)
+        pairing = [x for i in range(m // 2) for x in (i, m - 1 - i)]
+        return [teams[i] for i in pairing], [seeds[i] for i in pairing]
 
 
 def season_odds(snapshot: LeagueSnapshot, cfg: Config, n_sims: int = 2000) -> SeasonOdds | None:

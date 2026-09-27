@@ -42,6 +42,23 @@ def load_snapshot(cfg: Config, week: int | None = None) -> LeagueSnapshot:
     return LeagueSnapshot.load(path)
 
 
+def known_schedule(cfg: Config, season: int) -> list[list]:
+    """Every [week, team, team] pairing already read into this season's
+    snapshots. A league's schedule is fixed once the season starts, so a
+    platform that has to page through it week by week reads it once."""
+    pairs: set[tuple[int, str, str]] = set()
+    for path in snapshot_dir(cfg).glob("week_*.json"):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if int(raw.get("season") or 0) != int(season):
+            continue
+        for w, a, b in (raw.get("rules") or {}).get("schedule") or []:
+            pairs.add((int(w), str(a), str(b)))
+    return [list(p) for p in sorted(pairs)]
+
+
 def status_path(cfg: Config) -> Path:
     return snapshot_dir(cfg) / "sync_status.json"
 
@@ -124,7 +141,7 @@ def sync(cfg: Config | None = None, week: int | None = None, season: int | None 
             # read with the user's own browser session -- is the working route.
             from .yahoo_web import fetch_snapshot as fetch_web
 
-            snap = fetch_web(season, week, cfg.profile)
+            snap = fetch_web(season, week, cfg.profile, known=known_schedule(cfg, season))
         else:
             from .yahoo import fetch_snapshot
 
