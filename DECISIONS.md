@@ -1090,3 +1090,58 @@ man up inheriting part of a missing lead's job; the parameters are refit by
 porting: the first fit counted weeks a player played below 5 projected
 points as missed games; the played-week set now includes every game.
 
+### The season simulator
+Every rostered player (and the top free agents) gets simulated futures;
+each simulated season, every team starts the best lineup it could *see*
+that week, the regular season is played on the league's real schedule on
+top of current records (median game if played), seeds go by record with
+the league's tiebreak, and the playoffs are the fixed bracket with byes and
+multi-week rounds. On the real ESPN league (10 teams, 14-week season, 6-team
+playoffs) 6,000 seasons take about 6 seconds; simulated weekly team scores
+average 122 against 124 in real games so far.
+
+Three corrections found by running it on the real league, each of which
+would have made depth look far more valuable than it is:
+
+- **Replacement level.** With rosters frozen, a team whose only QB was on
+  bye or hurt scored zero at QB, so every backup QB looked like +2 points
+  of title odds. Real managers pick up a replacement. A slot whose best
+  rostered option falls below the second-best free agent at the position
+  (the best D/ST or kicker) is now filled at that level.
+- **What managers can see.** The first version let every manager know each
+  player's true level from week 1, so they always started the right one.
+  The simulation now keeps a visible level -- the projection plus what the
+  games have revealed, learning half of its error in ~4 games -- and
+  lineups and claims are made on that, while scores come from the truth.
+  The six-game calibration (82% in the 80% band) is of scores, so it is
+  unchanged.
+- **Locks are about this week.** Players whose game had kicked off were
+  excluded as drops; waivers process after the games, so they are not.
+
+### Waiver moves in title odds
+For each top free agent (per-position quotas, so backup quarterbacks cannot
+crowd out backs and receivers) and each plausible drop, on the same
+simulated seasons:
+
+- **now**: P(title) adding him and dropping the other from now on;
+- **wait**: P(title) holding, and claiming him the week after he breaks out
+  (his visible level beats the drop's by 2 and his own start by 2) -- won
+  only if your priority beats every rival who also claims;
+- **priority cost**: on a rolling waiver order, claiming sends you to the
+  back; the cost is the most valuable future wait-and-claim among the other
+  top free agents, at your rank against last.
+
+Rival claims: each rival claims a breakout with probability (share of teams
+averaging a pickup a week) x 0.35 -- about 2-3 claims per breakout in an
+active ten-team league. The 0.35 is an assumption, stated on the page:
+failed claims are not published, so it cannot be fitted. Verdicts: **claim
+now** when now beats max(wait, standing pat) by more than the priority cost
+and by twice the paired simulation noise; **close call** when the edge is
+positive but inside the noise; **worth adding, but wait** when waiting is as
+good. On the real league at week 3 the best move was Hunter Henry for
+Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
+0.3 -- an edge of +0.35 against noise of +-0.40, a close call.
+
+Not yet modelled: rivals getting stronger when they land a breakout you
+passed on; FAAB bidding (neither league uses it); trades.
+

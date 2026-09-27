@@ -36,6 +36,11 @@ from . import outcome
 
 SKILL = ("QB", "RB", "WR", "TE")
 
+#: Games of evidence at which a manager has learned half of how wrong the
+#: preseason-style projection was about a player (the production projection
+#: moves volume on a 2.5-game half-life and anchors to ~17 games).
+LEARN_GAMES = 4.0
+
 #: Share of a missing lead's opportunity gap the next man up inherits.
 TAKEOVER = {"RB": 0.35, "QB": 0.30, "TE": 0.10}
 
@@ -43,7 +48,8 @@ TAKEOVER = {"RB": 0.35, "QB": 0.30, "TE": 0.10}
 @dataclass
 class Futures:
     """Simulated weekly scores: ``scores[sim, player, week]``, plus the
-    per-game level path the lineup decisions would see each week."""
+    per-game level a manager would *see* each week (0 when out) -- what
+    lineup and claim decisions are made on, which lags the true level."""
 
     player_ids: list[str]
     weeks: list[int]
@@ -112,10 +118,18 @@ def simulate(
 
     base = np.array([max(float(p.ros_value if p.ros_value is not None else (p.projection or 0.0)), 0.0)
                      for p in players])
-    level = np.maximum(base[None, :] + c * np.sqrt(base)[None, :] * rng.standard_normal((n_sims, n_p)), 0.0)
+    # Two parts to a player's level: ``walk`` -- where his projection is and
+    # will move to, visible to everyone as it happens -- and ``err``, how
+    # wrong today's projection is about him, which nobody sees at first and
+    # which games reveal (a manager's read after k games carries
+    # k / (k + LEARN_GAMES) of it). Scores come from the true level; lineups
+    # and claims can only use the visible one.
+    walk = np.repeat(base[None, :], n_sims, axis=0)
+    err = c * np.sqrt(base)[None, :] * rng.standard_normal((n_sims, n_p))
     for j, p in enumerate(players):
         if p.position not in SKILL:
-            level[:, j] = base[j]                       # D/ST and K are streamed, not held
+            err[:, j] = 0.0                             # D/ST and K are streamed, not held
+    seen = np.zeros((n_sims, n_p))
     out_left = np.stack([_initial_absence(p, n_sims, rng, conf) for p in players], axis=1) \
         if players else np.zeros((n_sims, 0), int)
     heir_of = {players.index(next(q for q in players if q.player_id == h)): players.index(
@@ -127,6 +141,8 @@ def simulate(
     for k, week in enumerate(weeks):
         on_bye = np.array([bool(p.team) and week in byes.get(p.team, set()) for p in players])
         # New absences (not on bye, not already out).
+        level = np.maximum(walk + err, 0.0)
+        visible = np.maximum(walk + err * seen / (seen + LEARN_GAMES), 0.0)
         for j, p in enumerate(players):
             if p.position not in SKILL or on_bye[j]:
                 continue
@@ -134,13 +150,15 @@ def simulate(
             if fresh.any():
                 out_left[fresh, j] = _durations(p.position, int(fresh.sum()), rng, conf)
         playing = (out_left == 0) & ~on_bye[None, :]
-        eff = level.copy()
+        eff, eff_vis = level.copy(), visible.copy()
         for h, lead in heir_of.items():
-            pos = players[h].position
-            gap = np.maximum(level[:, lead] - level[:, h], 0.0)
+            share = TAKEOVER.get(players[h].position, 0.0)
             lead_out = out_left[:, lead] > 0
-            eff[:, h] = np.where(lead_out, level[:, h] + TAKEOVER.get(pos, 0.0) * gap, level[:, h])
-        levels[:, :, k] = np.where(playing, eff, 0.0)
+            eff[:, h] = np.where(lead_out, level[:, h] + share * np.maximum(level[:, lead] - level[:, h], 0.0),
+                                 level[:, h])
+            eff_vis[:, h] = np.where(lead_out, visible[:, h] + share * np.maximum(visible[:, lead] - visible[:, h], 0.0),
+                                     visible[:, h])
+        levels[:, :, k] = np.where(playing, eff_vis, 0.0)
         finals = [j for j, p in enumerate(players) if k == 0 and p.actual_points is not None]
         for j, p in enumerate(players):
             probs, zq = outcome.shape(p.position, float(base[j]))
@@ -156,8 +174,8 @@ def simulate(
         # A game passes: absences tick down (a bye does not use one up), and
         # the true level drifts.
         out_left = np.where(on_bye[None, :], out_left, np.maximum(out_left - 1, 0))
+        seen += playing
         for j, p in enumerate(players):
             if p.position in SKILL:
-                level[:, j] = np.maximum(level[:, j] + float(step_sd.get(p.position, 0.95))
-                                         * rng.standard_normal(n_sims), 0.0)
+                walk[:, j] = walk[:, j] + float(step_sd.get(p.position, 0.95)) * rng.standard_normal(n_sims)
     return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks), scores=scores, levels=levels)

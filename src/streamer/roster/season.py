@@ -44,6 +44,8 @@ class SeasonOdds:
     exp_wins: np.ndarray
     n_sims: int
     mine: int | None = None
+    #: Champion's team index in each simulated season (for paired comparisons).
+    champion: np.ndarray | None = None
     notes: list[str] = field(default_factory=list)
 
     def of(self, team_id: str) -> dict:
@@ -90,6 +92,23 @@ def heirs_for(players: list[PlayerRow]) -> list[tuple[str, str]]:
     return out
 
 
+#: Weekly spread of a replacement-level pickup's score.
+REPLACEMENT_SD = 6.0
+
+
+def replacement_levels(snapshot: LeagueSnapshot) -> dict[str, float]:
+    """Per position: the second-best free agent's per-game value (D/ST and
+    K: the best, since they are streamed weekly)."""
+    out = {}
+    for pos in ("QB", "RB", "WR", "TE", "K", "DST"):
+        vals = sorted((float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+                       for p in snapshot.free_agents if p.position == pos and not p.is_long_term_out
+                       and p.team), reverse=True)
+        if vals:
+            out[pos] = vals[0] if pos in ("K", "DST") else vals[min(1, len(vals) - 1)]
+    return out
+
+
 def _eligible(p: PlayerRow, slot: str) -> bool:
     if p.eligible_slots and slot in p.eligible_slots:
         return True
@@ -129,6 +148,15 @@ class SeasonModel:
                                     heirs=heirs_for(everyone))
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),
                       key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]))]
+        # Replacement level: what any team can pick up off the wire in a
+        # given week -- the second-best free agent at each position. A slot
+        # whose best rostered option is worse (a bye, an injury, no backup)
+        # is filled at that level instead of scoring zero, which is what a
+        # real manager does and what stops a frozen roster from overvaluing
+        # bench depth.
+        self.replacement = replacement_levels(snapshot)
+        noise_rng = np.random.default_rng(seed + 7)
+        self.rep_noise = {slot: noise_rng.standard_normal((n_sims, len(self.weeks))) for slot, _c in self.slots}
         self.base_scores = np.stack([self.team_scores([p.player_id for p in t.roster]) for t in self.teams])
 
     # -- lineups ---------------------------------------------------------
@@ -160,17 +188,25 @@ class SeasonModel:
         total = np.zeros((self.n, len(self.weeks)))
         for slot, count in self.slots:
             elig = np.array([_eligible(p, slot) for p in players])
-            if not elig.any():
-                continue
+            rep = self.slot_replacement(slot)
+            rep_score = np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0) if rep > 0 else 0.0
             for _ in range(count):
+                if not elig.any():
+                    total += rep_score
+                    continue
                 masked = np.where(elig[None, :, None] & ~used, lv, -2.0)
                 pick = masked.argmax(axis=1)                                  # (n, k)
                 best = np.take_along_axis(masked, pick[:, None, :], axis=1)[:, 0, :]
-                ok = best > -0.5                                              # someone rostered
+                ok = best >= max(rep, 0.0) + 1e-9                             # beats the wire
+                ok &= best > -0.5
                 gained = np.take_along_axis(sc, pick[:, None, :], axis=1)[:, 0, :]
-                total += np.where(ok, gained, 0.0)
+                total += np.where(ok, gained, rep_score)
                 used |= (np.arange(len(players))[None, :, None] == pick[:, None, :]) & ok[:, None, :]
         return total
+
+    def slot_replacement(self, slot: str) -> float:
+        positions = SLOT_ELIGIBILITY.get(slot, (slot,))
+        return max((self.replacement.get(pos, 0.0) for pos in positions), default=0.0)
 
     # -- the season ------------------------------------------------------
     def odds(self, override: dict[str, np.ndarray] | None = None) -> SeasonOdds:
@@ -240,7 +276,8 @@ class SeasonModel:
             team_ids=[t.team_id for t in self.teams], names=[t.name for t in self.teams],
             records=[f"{t.wins}-{t.losses}" + (f"-{t.ties}" if t.ties else "") for t in self.teams],
             p_playoffs=made.mean(axis=1), p_bye=byes.mean(axis=1), p_title=title,
-            exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine)
+            exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
+            champion=np.asarray(champ) if champ is not None else None)
 
 
 def season_odds(snapshot: LeagueSnapshot, cfg: Config, n_sims: int = 2000) -> SeasonOdds | None:

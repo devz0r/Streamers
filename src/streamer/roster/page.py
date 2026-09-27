@@ -122,7 +122,10 @@ def render_my_team(
         parts.append(f'<p class="sub">Note: {_e(note)}.</p>')
 
     # -- waivers ---------------------------------------------------------
-    parts.append("<h3>Waiver moves</h3>")
+    if report.title_moves is not None:
+        parts.append(_title_moves(report))
+        moves = [m for m in moves if m.add.position in ("DST", "K")]
+    parts.append("<h3>Waiver moves</h3>" if report.title_moves is None else "<h3>D/ST and K streams</h3>")
     if not moves:
         parts.append('<p class="sub">Nothing on the wire clears the bar this week.</p>')
     else:
@@ -175,6 +178,36 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+_VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Close call: lean claim", "opp"),
+            "wait": ("Worth adding, but wait", "opp")}
+
+
+def _title_moves(report: MatchupReport) -> str:
+    """Pickups valued by what they do to your title odds."""
+    moves = report.title_moves or []
+    head = ("<h3>Waiver moves, by title odds</h3>"
+            '<p class="sub">Each pickup is priced in P(win the title) on the same simulated seasons: '
+            "claiming now, against waiting and claiming only if he breaks out (you win that claim when "
+            "your priority beats the other managers who also want him), less what your waiver priority "
+            "is worth on future claims. Each move is priced on its own; make one, then refresh. "
+            "Assumes about a third of active managers chase any one breakout.</p>")
+    if not moves:
+        return head + '<p class="sub">No free agent raises your title odds enough to be worth a move.</p>'
+    cards = []
+    for m in moves:
+        label, css = _VERDICT[m.verdict]
+        cards.append(
+            '<div class="card"><div class="row">'
+            f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
+            f'<div><span class="name">{_e(m.add.name)}</span> '
+            f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")} &middot; drop {_e(m.drop.name)}</span></div>'
+            f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
+            f'<div class="meta"><span class="{css}">{label}</span>'
+            f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span></div>"
+            f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
+    return head + "".join(cards)
 
 
 def _season(report: MatchupReport) -> str:

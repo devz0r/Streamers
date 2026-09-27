@@ -20,6 +20,10 @@ class MatchupReport:
     #: Rest-of-season odds for every team (None until the league's schedule
     #: and playoff format have been read).
     season: object | None = None
+    #: Waiver moves valued by title odds (None when the league structure
+    #: has not been read, and the roster-value engine is used instead).
+    title_moves: list | None = None
+    waiver_rank: int | None = None
 
     @property
     def win_probability(self) -> float:
