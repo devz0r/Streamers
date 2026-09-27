@@ -41,11 +41,11 @@ on:
         required: false
         type: string
       job:
-        description: "Which half to run"
+        description: "refresh = re-sync leagues and rebuild the page, spending no Odds API credits"
         required: false
-        default: both
+        default: refresh
         type: choice
-        options: [both, update, publish, yahoo-probe]
+        options: [refresh, both, update, publish, yahoo-probe]
 
 permissions:
   contents: write
@@ -153,13 +153,19 @@ jobs:
       # A league that fails to sync (expired cookies, a revoked token) must not
       # stop the page: the step is marked as failed in the run summary, the
       # other league's snapshot is kept, and rank/publish carry on.
+      # `refresh` (the default for a manual run, and what the page's Refresh
+      # link starts) re-syncs rosters, lineups and the wire and rebuilds the
+      # page without spending Odds API credits: game lines come from the last
+      # pull and player props only from what earlier runs already bought.
       - name: Sync leagues
-        if: steps.mode.outputs.mode == 'publish' || steps.mode.outputs.mode == 'both'
+        if: contains(fromJSON('["publish", "both", "refresh"]'), steps.mode.outputs.mode)
         continue-on-error: true
         run: streamer sync --week "${{ steps.week.outputs.upcoming_week }}" --skip-missing
 
       - name: Rank and publish the upcoming week
-        if: steps.mode.outputs.mode == 'publish' || steps.mode.outputs.mode == 'both'
+        if: contains(fromJSON('["publish", "both", "refresh"]'), steps.mode.outputs.mode)
+        env:
+          STREAMER_CREDIT_FREE: ${{ steps.mode.outputs.mode == 'refresh' && '1' || '' }}
         run: |
           WEEK="${{ steps.week.outputs.upcoming_week }}"
           streamer rank --week "$WEEK" --publish

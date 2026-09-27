@@ -140,6 +140,16 @@ def _load_dotenv(root: Path) -> None:
         load_dotenv(env_path, override=False)
 
 
+def credit_free() -> bool:
+    """True for a refresh that must not spend Odds API credits.
+
+    Set ``STREAMER_CREDIT_FREE=1`` (the workflow's ``refresh`` job does): game
+    lines fall back to the last pull, and player props are served only from
+    what earlier runs already bought. The event list is free and still read.
+    """
+    return os.environ.get("STREAMER_CREDIT_FREE", "").strip().lower() in ("1", "true", "yes")
+
+
 def odds_api_key(cfg: Config | None = None) -> str | None:
     cfg = cfg or get_config()
     _load_dotenv(cfg.root)
@@ -160,6 +170,8 @@ def fetch_odds_api(cfg: Config | None = None, timeout: float = 20.0) -> pd.DataF
     import requests
 
     cfg = cfg or get_config()
+    if credit_free():
+        raise RuntimeError("credit-free refresh: using the last pull instead")
     key = odds_api_key(cfg)
     if not key:
         raise RuntimeError("no ODDS_API_KEY configured")

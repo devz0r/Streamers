@@ -329,6 +329,8 @@ third league needs only config. A page rendered with one profile omits the
 switch entirely.
 
 ### Plain HTML, no framework, no JavaScript
+*(Amended: the My-team lineup editor is the one piece of script -- see "Try a lineup" below. Everything else,
+including the three-lineup comparison, still renders without it.)*
 The published page has to render instantly on a phone over a bad connection and
 still work in five years. It is a single self-contained file with inline CSS,
 system fonts, and `prefers-color-scheme` for dark mode. Card layout rather than
@@ -848,4 +850,54 @@ surname, for "DJ" vs "D.J." -- had matched him uniquely to Jayden Daniels,
 and he inherited Jayden's history. The fallback exists for spelling
 variants of one player, and one player is on one team. It now requires the
 same NFL team; a real spelling variant still matches.
+
+
+## Sunday, live
+
+### A played game is a fact
+Once a player's game kicks off, his lineup spot is frozen; once it is final,
+his score is known. The simulator used to draw Drake London's Thursday game
+like any other, so on Sunday morning his 28.4 counted as "13.8 plus noise"
+and the Yahoo P(win) read 62% where it was really 79%. Now every player on
+either roster whose game has started is **locked**: a locked starter keeps
+his slot in every candidate lineup and a locked bench player cannot come
+in. A player whose game is final plays in every draw at his actual score.
+Finals come from nflverse -- weekly player stats for skill players (full PPR),
+play-by-play through the training-label scoring code for kickers and
+defences, per league. nflverse posts a game some hours after it ends; until
+then a finished game's players stay simulated and the panel says so. Kickoff
+times come from the schedule in Eastern time.
+
+### Try a lineup
+The panel shows the lineup as set, the best-P(win) lineup and the most-points
+lineup side by side, and a small editor to pick any starters and watch P(win)
+and the projection move. It computes in the browser from 5,000 of the very
+draws the optimiser used (the user's players and the opponent's total,
+stored as int16 tenths of a point, ~200KB a league), so a hand-built lineup is
+scored exactly as the optimiser scores one, to about +-0.7 points of P(win).
+Locked players cannot be moved in the editor either. It is the one piece of
+script on the page; without it the comparison table still shows.
+
+### A refresh that costs nothing
+A static page cannot start a workflow without carrying a GitHub token, and
+this repository is public, so the "refresh" link opens the workflow's Run
+button instead (one more tap, already signed in on the phone). Its default
+job, `refresh`, re-syncs both leagues -- rosters, set lineups, the wire, the
+opponent -- and rebuilds the page with `STREAMER_CREDIT_FREE=1`: game lines
+fall back to the last pull, and props are served only from what earlier runs
+bought (any age within the week); the events list, which is free, is the
+only Odds API call. Manual runs default to it, so a stray tap cannot spend
+credits; `publish` and `both` still buy what they need.
+
+### Ours, the platform's, or the market's?
+Today the lineup maths (correlations, favourite/underdog, P(win)) runs on our
+projection blended 50/50 with the platform's; the sportsbook number is shown
+beside it and drives the "market would start" line, but does not enter the
+simulation. Which deserves more weight cannot be measured yet: there is no
+free archive of player props, so there is no history to backtest. From this
+week every publish records ours, the platform's and the market's number for
+every priced or rostered player before kickoff
+(`results/<profile>/skill_log.parquet`). After four or five weeks that is
+~1,000 player-games with actuals, enough to fit blend weights the same way
+the rest of the model was fit.
 

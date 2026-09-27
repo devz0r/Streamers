@@ -161,7 +161,7 @@ def cmd_lineup(args: argparse.Namespace, cfg: Config) -> int:
             print("\n  Your current lineup is already optimal.")
         if opt.opponent is not None:
             print(f"\n  Opponent projected {opt.opponent.expected:.1f} ± {opt.opponent.sd:.1f}")
-        for n in rep.notes + prep.projection_report.notes:
+        for n in rep.notes + prep.projection_report.notes + prep.projection_report.lock_notes:
             print(f"  note: {n}")
     return 0
 

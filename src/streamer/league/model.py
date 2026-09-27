@@ -112,6 +112,20 @@ class PlayerRow:
     #: Short, human reasons the projection moved: a starter ahead of him is
     #: out, his opportunity has changed.
     signals: list[str] = field(default_factory=list)
+    #: His game has kicked off, so his lineup spot can no longer change; and,
+    #: once the game is final, the points he actually scored.
+    locked: bool = False
+    actual_points: float | None = None
+    #: nflverse player id, where matched.
+    nfl_id: str | None = None
+
+    @property
+    def week_value(self) -> float:
+        """This week's number for lineup maths: the final score once there is
+        one, the projection until then."""
+        if self.actual_points is not None:
+            return float(self.actual_points)
+        return float(self.projection or 0.0)
 
     @property
     def is_out(self) -> bool:

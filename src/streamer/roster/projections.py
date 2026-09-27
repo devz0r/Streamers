@@ -66,6 +66,8 @@ class ProjectionReport:
     notes: list[str] = field(default_factory=list)
     #: Players the platform projects for zero this week (not playing).
     sitting: list[str] = field(default_factory=list)
+    #: What was locked in from games already played.
+    lock_notes: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -512,8 +514,10 @@ def project_snapshot(
     rankings=None,
     allow_network: bool = True,
     history: pd.DataFrame | None = None,
+    now=None,
 ) -> ProjectionReport:
-    """Fill ``projection``/``projection_sd``/``ros_value`` on every player in place."""
+    """Fill ``projection``/``projection_sd``/``ros_value`` on every player in
+    place, and lock in the scores of games already played."""
     cfg = cfg or get_config()
     conf = cfg.raw["roster"]
     report = ProjectionReport()
@@ -670,7 +674,12 @@ def project_snapshot(
         p.projection_source = source
         report.projected += 1
 
+    for p in players:
+        p.nfl_id = matched.mapping.get(p.player_id)
     assign_roles(players)
+    from .locked import lock_played
+
+    report.lock_notes = lock_played(snapshot, cfg, history, now=now)
     opponents = _opponents(snapshot, cfg)
     for p in players:
         p.nfl_opponent = opponents.get(p.team) if p.team else None

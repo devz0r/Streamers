@@ -106,6 +106,11 @@ td { font-variant-numeric: tabular-nums; }
 .pos { color: var(--good); } .neg { color: var(--bad); }
 footer { color: var(--muted); font-size: .8rem; margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 a { color: var(--accent); }
+.ed-buttons { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0; }
+.ed-buttons button, .ed-rows select { font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem; max-width: 100%; }
+.ed-rows select { width: 100%; }
+.ed-out { font-weight: 600; color: var(--text); }
 details { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem .9rem; margin: .6rem 0; }
 summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 .archive { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
@@ -611,8 +616,15 @@ def team_panels_for(
                              prefetched=shared)
             except Exception as exc:  # noqa: BLE001 - props are a bonus column
                 log.warning("player props for %s skipped: %s", name, exc)
+            try:
+                from .roster.vegas import log_projections
+
+                log_projections(snap, bound)
+            except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                log.warning("projection log for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
             report.notes.extend(n for n in projected.notes if "not playing" in n)
+            report.notes.extend(projected.lock_notes)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
             panel = render_my_team(snap, report, moves, bound)
             if status and not status.get("ok") and snap.week != rankings.week:

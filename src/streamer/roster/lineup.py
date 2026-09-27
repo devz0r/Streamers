@@ -55,6 +55,10 @@ CONFIRM_TOP = 30
 #: the higher-projected lineup is recommended.
 MIN_WIN_EDGE = 0.005
 
+#: Draws shipped to the page for the lineup editor (5,000 keeps P(win) to
+#: about +-0.7 points while the page stays small).
+EDITOR_SIMS = 5000
+
 #: Correlation beyond which a pair is worth naming in an explanation.
 NOTABLE_CORR = 0.15
 
@@ -91,6 +95,12 @@ class Optimisation:
     reasons: list[str] = field(default_factory=list)
     #: Player id -> (15th, 85th percentile) of his simulated score.
     ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
+    #: A slice of the confirmation draws, for trying lineups by hand on the
+    #: page: my non-IR players' scores (columns in ``sample_ids`` order) and
+    #: the opponent's total, draw by draw.
+    sample_ids: list[str] = field(default_factory=list)
+    samples: np.ndarray | None = None
+    opp_samples: np.ndarray | None = None
 
     @property
     def win_gain(self) -> float:
@@ -171,6 +181,9 @@ def sample_points(players: list[PlayerRow], n_sims: int, rng: np.random.Generato
     u = norm.cdf(z)
     out = np.empty((n_sims, n))
     for j, p in enumerate(players):
+        if p.actual_points is not None:
+            out[:, j] = float(p.actual_points)      # the game is over
+            continue
         mean, sd, q = _if_plays(p)
         if q <= 0.0:
             out[:, j] = 0.0
@@ -207,7 +220,7 @@ def enumerate_lineups(
         slots.items(),
         key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]),
     )
-    ranked = sorted(roster, key=lambda p: -(p.projection or 0.0))
+    ranked = sorted(roster, key=lambda p: -p.week_value)
 
     results: list[dict[str, list[PlayerRow]]] = []
     seen: set[frozenset[str]] = set()
@@ -306,7 +319,26 @@ def _win_rates(lineups, samples, index, opp_total, chunk: int = 256) -> np.ndarr
 
 
 def _projected(lineup: dict[str, list[PlayerRow]]) -> float:
-    return float(sum(p.projection or 0.0 for ps in lineup.values() for p in ps))
+    """Projected total, with final scores in place of projections."""
+    return float(sum(p.week_value for ps in lineup.values() for p in ps))
+
+
+def _with_locks(roster: list[PlayerRow], slots: dict[str, int]) -> list[dict[str, list[PlayerRow]]]:
+    """Every valid lineup that respects kickoffs: a starter whose game has
+    begun keeps his slot, and a benched one cannot come in."""
+    fixed: dict[str, list[PlayerRow]] = {}
+    for p in roster:
+        if p.locked and p.starting and p.slot in slots:
+            fixed.setdefault(p.slot, []).append(p)
+    free_slots = {s: n - len(fixed.get(s, [])) for s, n in slots.items()}
+    free_slots = {s: n for s, n in free_slots.items() if n > 0}
+    free = [p for p in roster if not p.locked]
+    lineups = enumerate_lineups(free, free_slots) if free_slots else [{}]
+    out = []
+    for lu in lineups:
+        merged = {s: list(fixed.get(s, [])) + list(lu.get(s, [])) for s in slots}
+        out.append(merged)
+    return out
 
 
 def optimise(
@@ -324,7 +356,7 @@ def optimise(
     roster = [p for p in roster if not p.in_ir_slot]
     if opponent_roster:
         opponent_roster = [p for p in opponent_roster if not p.in_ir_slot]
-    mine = enumerate_lineups(roster, slots)
+    mine = _with_locks(roster, slots)
     if not mine:
         raise ValueError("no valid lineup can be built from this roster")
 
@@ -396,10 +428,14 @@ def optimise(
               for p in everyone}
     reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges)
 
+    keep = min(EDITOR_SIMS, n_sims)
+    ids = [p.player_id for p in roster]
     return Optimisation(
         best_win=best_win, best_ev=best_ev, current=current, opponent=opponent,
         changes=diff_lineups(current.starters if current else None, best_win.starters),
         n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges,
+        sample_ids=ids, samples=confirm[:keep, [index[i] for i in ids]],
+        opp_samples=opp_total[:keep],
     )
 
 
@@ -468,7 +504,7 @@ def explain(
         lead = "you are the underdog" if underdog else "you are favoured"
         out.append(
             f"Start {s.name} over {b.name} ({b.name} projects "
-            f"{(b.projection or 0) - (s.projection or 0):.1f} more): {lead}, and {why}. "
+            f"{b.week_value - s.week_value:.1f} more): {lead}, and {why}. "
             f"P(win) {by_points.win_probability:.1%} -> {p_swap:.1%}."
         )
     return out

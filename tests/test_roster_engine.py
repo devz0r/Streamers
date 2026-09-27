@@ -320,7 +320,9 @@ def test_my_team_panel_renders(cfg):
     assert "P(win)" in html
     # The best pickup and the dead roster spot both appear in the waiver list.
     assert moves and moves[0].add.name in html
-    assert "<script" not in html
+    # The comparison works without script; only the lineup editor uses it.
+    assert "Best P(win)" in html and "Most points" in html
+    assert html.count("<script") == 2 and 'class="ed-data"' in html
 
 
 def test_sync_failure_panel_says_what_went_wrong(cfg):

@@ -136,3 +136,14 @@ def toy_games() -> pd.DataFrame:
     frame["wind"] = 5.0
     frame["gameday"] = "2024-09-08"
     return frame
+
+
+@pytest.fixture(autouse=True)
+def _before_any_kickoff(monkeypatch):
+    """Tests run against fixed data, not today's scoreboard: unless a test
+    says otherwise, no game has kicked off."""
+    from datetime import UTC, datetime
+
+    import streamer.roster.locked as locked
+
+    monkeypatch.setattr(locked, "_now", lambda: datetime(2000, 1, 1, tzinfo=UTC))

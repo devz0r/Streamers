@@ -175,3 +175,46 @@ def disagreements(
         gaps.append((p, float(p.vegas_points) - float(p.projection)))
     gaps.sort(key=lambda g: -abs(g[1]))
     return gaps[:n]
+
+
+def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
+    """Record ours, the platform's and the market's number for every skill
+    player the market priced (plus everyone rostered), before kickoff.
+
+    There is no free history of player props, so whether the market beats
+    our model -- and by how much to blend them -- can only be measured going
+    forward. ``results/<profile>/skill_log.parquet`` accumulates one row per
+    (season, week, player), overwritten until his game kicks off; actual
+    points join on later from nflverse by ``nfl_id``.
+    """
+    import pandas as pd
+
+    rostered = {p.player_id for t in snapshot.teams for p in t.roster}
+    rows = []
+    stamp = pd.Timestamp.now(tz="UTC").isoformat()
+    for p in snapshot.all_players():
+        if p.position not in ("QB", "RB", "WR", "TE") or p.locked or p.projection is None:
+            continue
+        if p.vegas_points is None and p.player_id not in rostered:
+            continue
+        rows.append({
+            "season": snapshot.season, "week": snapshot.week, "player_id": p.player_id,
+            "nfl_id": p.nfl_id, "name": p.name, "position": p.position, "team": p.team,
+            "status": p.status, "projection": p.projection, "model_projection": p.model_projection,
+            "platform_projection": p.platform_projection, "vegas_points": p.vegas_points,
+            "vegas_books": p.vegas_books, "logged_at": stamp,
+        })
+    if not rows:
+        return 0
+    path = cfg.results_dir / "skill_log.parquet"
+    new = pd.DataFrame(rows)
+    if path.exists():
+        old = pd.read_parquet(path)
+        key = ["season", "week", "player_id"]
+        # Keep rows for players now locked (their pre-kickoff numbers stand).
+        old = old.merge(new[key], on=key, how="left", indicator=True)
+        old = old[old["_merge"] == "left_only"].drop(columns="_merge")
+        new = pd.concat([old, new], ignore_index=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new.to_parquet(path, index=False)
+    return len(rows)

@@ -429,3 +429,45 @@ def test_attach_with_a_shared_pull_makes_no_request(monkeypatch, cfg):
                          credits_remaining=300, requested=0, reused=1)
     report = attach(snap, bound, prefetched=shared)
     assert report.matched == 1 and snap.my_team.roster[0].vegas_points is not None
+
+
+def test_a_credit_free_refresh_buys_nothing(tmp_cfg, monkeypatch):
+    """Only the free event list is read; uncached games are skipped."""
+    import streamer.data.props as props
+
+    monkeypatch.setenv("STREAMER_CREDIT_FREE", "1")
+    monkeypatch.setenv("ODDS_API_KEY", "test-key")
+    calls = []
+
+    class Resp:
+        headers = {}
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return [{"id": "e1", "home_team": "Kansas City Chiefs", "away_team": "Miami Dolphins",
+                     "commence_time": "2099-01-01T00:00:00Z"}]
+
+    def fake_get(url, params=None, timeout=None):
+        calls.append(url)
+        return Resp()
+
+    import requests
+    monkeypatch.setattr(requests, "get", fake_get)
+    monkeypatch.setitem(tmp_cfg.raw["odds"]["props"], "window_hours", 0)
+    props._MEMORY.clear()
+    result = props.fetch_props(tmp_cfg, teams={"KC"})
+    assert all(u.endswith("/events") for u in calls)
+    assert result.requested == 0
+
+
+def test_a_credit_free_refresh_does_not_pull_game_lines(tmp_cfg, monkeypatch):
+    import pytest
+
+    from streamer.data.odds import fetch_odds_api
+
+    monkeypatch.setenv("STREAMER_CREDIT_FREE", "1")
+    monkeypatch.setenv("ODDS_API_KEY", "test-key")
+    with pytest.raises(RuntimeError, match="credit-free"):
+        fetch_odds_api(tmp_cfg)

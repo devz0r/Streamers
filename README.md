@@ -318,6 +318,20 @@ month against the free tier's 500. The panel prints the balance the API
 reports. Lower `odds.props.max_events` or `window_hours`, drop a market, or
 set `odds.props.enabled` to `false` in config.yaml to spend less.
 
+**Refreshing by hand.** Each panel has a "refresh" link. It opens the
+workflow on GitHub; tap *Run workflow* and leave the job on `refresh`. In
+about two minutes the page is rebuilt from a fresh sync of both leagues --
+your lineup, your opponent's, the wire -- without spending any Odds API
+credits (it reuses the lines and props earlier runs bought).
+
+**Games already played** are locked: a starter whose game has kicked off
+keeps his spot, and once the game is final his actual score, not his
+projection, goes into P(win).
+
+**Try a lineup.** Under the recommended lineup, a table compares your lineup
+as set, the best-P(win) lineup and the most-points lineup, and *Try a lineup*
+lets you pick any starters and see P(win) and the projection move.
+
 **Read the lineup on Sunday morning.** The page is published Tuesday and
 Wednesday for waivers, and again early Sunday. Only that last one has the
 props posted and the week's injury designations in, so it is the one to set a

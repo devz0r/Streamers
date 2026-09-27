@@ -6,7 +6,12 @@ does not, so the streaming page never depends on a sync having run.
 
 from __future__ import annotations
 
+import base64
 import html
+import json
+import os
+
+import numpy as np
 
 from ..config import Config
 from ..league.model import LeagueSnapshot, short_status
@@ -32,7 +37,7 @@ def render_my_team(
         "<h2>My team</h2>",
         f'<p class="sub">{_e(snapshot.league_name or snapshot.platform.upper())} &middot; '
         f"{_e(me.name)} ({me.wins}-{me.losses}) &middot; synced "
-        f"{_e(snapshot.synced_at[:16].replace('T', ' '))} UTC</p>",
+        f"{_e(snapshot.synced_at[:16].replace('T', ' '))} UTC{_refresh_link()}</p>",
     ]
 
     # -- matchup ---------------------------------------------------------
@@ -57,7 +62,11 @@ def render_my_team(
     rows = []
     for slot, p in opt.best_win.flat():
         flag = ""
-        if p.player_id in changed:
+        if p.actual_points is not None:
+            flag = ' <span class="opp">final</span>'
+        elif p.locked:
+            flag = ' <span class="opp">locked</span>'
+        elif p.player_id in changed:
             flag = ' <span class="hold-tag">start</span>'
         elif p.is_questionable:
             flag = f' <span class="opp">{_e(short_status(p.status))}</span>'
@@ -68,10 +77,12 @@ def render_my_team(
         lo, hi = opt.ranges.get(p.player_id, (None, None))
         spread = (f"{lo:.0f}&ndash;{hi:.0f}" if lo is not None
                   else f"&plusmn;{(p.projection_sd or 0):.0f}")
+        if p.actual_points is not None:
+            spread = "scored"
         rows.append(
             f"<tr><td>{_e(slot)}</td><td class='unit'>{_e(p.name)}{flag}</td>"
             f"<td>{_e(p.position)}</td><td>{_e(p.team or '--')}</td>"
-            f"<td>{(p.projection or 0):.1f}</td>{vegas}"
+            f"<td>{p.week_value:.1f}</td>{vegas}"
             f"<td>{spread}</td></tr>"
         )
     vegas_head = "<th>Vegas</th>" if has_vegas else ""
@@ -95,6 +106,8 @@ def render_my_team(
         '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
         "percentile), with teammates and opponents correlated as they are on the field.</p>"
     )
+    parts.append(_compare_lineups(opt))
+    parts.append(_editor(snapshot, opt))
     if opt.reasons:
         items = "".join(f"<li>{_e(r)}</li>" for r in opt.reasons)
         parts.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
@@ -152,6 +165,127 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def _refresh_link() -> str:
+    """A link to the workflow's Run button. A static page cannot start a
+    workflow itself without shipping a token, so it opens GitHub, where the
+    default job, ``refresh``, re-syncs both leagues without spending Odds API
+    credits."""
+    repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+    if not repo:
+        return ""
+    url = f"https://github.com/{repo}/actions/workflows/weekly.yml"
+    return (f' &middot; <a href="{_e(url)}" title="Opens GitHub: tap Run workflow, job refresh '
+            '(no Odds API credits). Takes about two minutes.">&#8635; refresh</a>')
+
+
+def _compare_lineups(opt) -> str:
+    """As set, best P(win) and most points, side by side (no script needed)."""
+    rows = []
+    options = [("As set", opt.current), ("Best P(win)", opt.best_win), ("Most points", opt.best_ev)]
+    for label, lu in options:
+        if lu is None:
+            continue
+        rows.append(f"<tr><td class='unit'>{label}</td><td>{_pct(lu.win_probability)}</td>"
+                    f"<td>{lu.expected:.1f}</td></tr>")
+    return ('<div class="scroll"><table><thead><tr><th class="unit">Lineup</th><th>P(win)</th>'
+            f"<th>Projected</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
+
+
+def _b64(values: np.ndarray) -> str:
+    """Scores in tenths of a point as little-endian int16, base64."""
+    return base64.b64encode(np.round(values * 10).clip(-32000, 32000).astype("<i2").tobytes()).decode()
+
+
+def _editor(snapshot: LeagueSnapshot, opt) -> str:
+    """Try any lineup by hand and see P(win) and the projection move.
+
+    The page carries a slice of the same simulation that chose the lineup
+    (5,000 draws of your players and your opponent's total), so a lineup
+    scored here is scored exactly as the optimiser scored it, just with
+    fewer draws. Players whose game has kicked off cannot be moved.
+    """
+    from .lineup import _eligible
+
+    if opt.samples is None or not opt.sample_ids or opt.opp_samples is None:
+        return ""
+    by_id = {p.player_id: p for p in snapshot.my_team.roster}
+    players = [by_id[i] for i in opt.sample_ids if i in by_id]
+    if len(players) != len(opt.sample_ids):
+        return ""
+    idx = {p.player_id: k for k, p in enumerate(players)}
+    slots = [slot for slot, n in snapshot.starting_slots.items() for _ in range(n)]
+
+    def preset(lu) -> list[int]:
+        if lu is None:
+            return []
+        pools = {slot: [idx[p.player_id] for p in ps if p.player_id in idx] for slot, ps in lu.starters.items()}
+        return [pools.get(slot, []).pop(0) if pools.get(slot) else -1 for slot in slots]
+
+    data = {
+        "slots": slots,
+        "players": [{
+            "n": p.name, "pos": p.position, "tm": p.team or "", "p": round(p.week_value, 1),
+            "el": [s for s in dict.fromkeys(slots) if _eligible(p, s)],
+            "l": bool(p.locked), "f": p.actual_points is not None,
+            "st": p.slot if p.starting else "",
+        } for p in players],
+        "presets": {"set": preset(opt.current), "win": preset(opt.best_win), "pts": preset(opt.best_ev)},
+        "m": len(players), "n": int(opt.samples.shape[0]),
+        "s": _b64(np.asarray(opt.samples, dtype=float)), "o": _b64(np.asarray(opt.opp_samples, dtype=float)),
+    }
+    uid = f"ed-{_e(snapshot.profile)}"
+    # Inside a script element "</" would end it early.
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    return (
+        f'<details class="card" id="{uid}"><summary><strong>Try a lineup</strong> '
+        '<span class="opp">pick any starters and see P(win) and points change</span></summary>'
+        '<div class="ed-buttons">'
+        '<button type="button" data-p="set">As set</button>'
+        '<button type="button" data-p="win">Best P(win)</button>'
+        '<button type="button" data-p="pts">Most points</button></div>'
+        '<div class="scroll"><table><tbody class="ed-rows"></tbody></table></div>'
+        '<p class="ed-out sub"></p>'
+        f'<script type="application/json" class="ed-data">{payload}</script>'
+        f"<script>{_EDITOR_JS.replace('__UID__', uid)}</script>"
+        "</details>"
+    )
+
+
+_EDITOR_JS = r"""
+(function(){
+var root=document.getElementById('__UID__');if(!root)return;
+var D=JSON.parse(root.querySelector('.ed-data').textContent);
+function dec(b){var s=atob(b),u=new Uint8Array(s.length);for(var i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return new Int16Array(u.buffer);}
+var S=dec(D.s),O=dec(D.o),m=D.m,n=D.n,body=root.querySelector('.ed-rows'),out=root.querySelector('.ed-out'),sel=[];
+var base=null;
+D.slots.forEach(function(slot,k){
+  var tr=document.createElement('tr'),td=document.createElement('td'),td2=document.createElement('td'),s=document.createElement('select');
+  td.textContent=slot;
+  var fixed=-1;D.players.forEach(function(p,i){if(p.l&&p.st===slot&&D.presets.set.indexOf(i)===k)fixed=i;});
+  var o=document.createElement('option');o.value=-1;o.textContent='(empty)';s.appendChild(o);
+  D.players.forEach(function(p,i){
+    if(p.el.indexOf(slot)<0)return;
+    if(p.l&&i!==fixed)return;
+    var op=document.createElement('option');op.value=i;
+    op.textContent=p.n+' '+p.pos+' '+p.tm+' ('+p.p.toFixed(1)+(p.f?' final':'')+')';s.appendChild(op);});
+  if(fixed>=0){s.value=fixed;s.disabled=true;}
+  s.addEventListener('change',calc);sel.push(s);td2.appendChild(s);tr.appendChild(td);tr.appendChild(td2);body.appendChild(tr);});
+function score(ch){var w=0;for(var r=0;r<n;r++){var t=0,o=r*m;for(var j=0;j<ch.length;j++)t+=S[o+ch[j]];w+=t>O[r]?1:(t===O[r]?0.5:0);}return w/n;}
+function calc(){
+  var ch=[],seen={},dup=false,pts=0;
+  sel.forEach(function(s){var v=+s.value;if(v<0)return;if(seen[v])dup=true;seen[v]=1;ch.push(v);pts+=D.players[v].p;});
+  if(dup){out.textContent='A player is picked twice.';return;}
+  var p=score(ch),txt='P(win) '+(p*100).toFixed(1)+'%  ·  projected '+pts.toFixed(1);
+  if(base!==null)txt+='  ('+((p-base)*100>=0?'+':'')+((p-base)*100).toFixed(1)+' vs best P(win))';
+  out.textContent=txt+'  —  from '+n.toLocaleString()+' of the simulated weeks, so ±0.7.';}
+function load(k){var pr=D.presets[k]||[];sel.forEach(function(s,i){if(!s.disabled)s.value=(pr[i]===undefined?-1:pr[i]);});calc();}
+root.querySelectorAll('button[data-p]').forEach(function(b){b.addEventListener('click',function(){load(b.getAttribute('data-p'));});});
+var bw=D.presets.win.filter(function(v){return v>=0;});base=score(bw);
+load('set');
+})();
+"""
 
 
 def _vegas_section(snapshot, opt, cfg: Config, report=None) -> str:

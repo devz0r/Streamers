@@ -361,7 +361,7 @@ def fetch_props(
     import requests
 
     from ..teams import normalize_team
-    from .odds import odds_api_key
+    from .odds import credit_free, odds_api_key
 
     cfg = cfg or get_config()
     conf = cfg.odds
@@ -426,12 +426,19 @@ def fetch_props(
     books = ",".join(pconf.get("bookmakers") or [])
     payloads, warnings, remaining = [], [], None
     max_age = float(pconf.get("cache_minutes", 180))
+    free = credit_free()
+    if free:
+        # A refresh that must not spend: whatever was bought this week, however
+        # old, beats nothing, and nothing new is bought.
+        max_age = 7 * 24 * 60.0
     requested = reused = 0
     for event in events:
         hit = cached_event(cfg, str(event["id"]), max_age)
         if hit is not None:
             payloads.append(hit)
             reused += 1
+            continue
+        if free:
             continue
         params = {"apiKey": key, "regions": conf["regions"], "markets": markets,
                   "oddsFormat": conf["odds_format"]}
