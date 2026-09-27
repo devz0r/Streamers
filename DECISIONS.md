@@ -1050,3 +1050,43 @@ free-agent list for a position is shorter than a page (25) it is the whole
 pool, so a unit missing from it is taken. A full page (kickers, usually)
 leaves unlisted units unlabelled rather than guessed.
 
+## Winning the championship
+
+### The objective
+Lineups maximise P(win the week). Waivers and add/drops should maximise
+P(win the title), which is not a projection comparison. It needs three
+things: how each player's outlook could move (speculation), whether a
+pickup is worth more to *this* roster than the player he replaces, and
+whether the claim is worth the waiver priority (or FAAB) it costs. The
+first is built and validated; the season simulator and the move/priority
+valuation sit on top of it.
+
+### How a player's outlook can move
+Measured on 2021-2025 with the production projection:
+
+- **The projection is a random walk.** Weekly steps have sd 0.8-1.15 by
+  position, fat-tailed (kurtosis ~1.8), with **no momentum** (this week's
+  step vs last week's: r = 0.00-0.09). Spread over k games grows as
+  sqrt(k): 0.92 / 1.33 / 1.87 / 2.48 at 1 / 2 / 4 / 8 games (slight mean
+  reversion by 8). A trend is already in the projection; the honest
+  forecast is a widening cone around it, not a continued line.
+- **Absences** (byes excluded), per game, by projection level
+  (<8 / 8-12 / 12-16 / 16+): RB 13 / 9 / 6 / 6%, WR 14 / 8 / 6 / 6%,
+  TE 11 / 7 / 9 / 2%, QB 46 / 32 / 12 / 5% (a low-level QB is mostly a
+  backup losing the job). Half of absences last one game; a quarter four or
+  more.
+- **A persistent error.** Simulating only drift, absences and weekly noise
+  was too confident: 65% of actual six-game averages inside the 80% band.
+  The projection's error persists across weeks (a player is better or
+  worse than his number, every week). Adding a persistent error of
+  1.5 x sqrt(level) and scaling absences 1.2x for role loss the injury count
+  misses -- both fit on 2022-23 -- gave, on 2024-25: **82% inside the 80%
+  band, 52% inside the 50% band, 9% below / 9% above, mean 8.75 vs 8.87
+  actual**, and 81-83% at every position.
+
+`roster/futures.py` simulates that, week by week, with byes and the next
+man up inheriting part of a missing lead's job; the parameters are refit by
+`scripts/fit_outcome_model.py` into `outcome_model.json`. A bug caught while
+porting: the first fit counted weeks a player played below 5 projected
+points as missed games; the played-week set now includes every game.
+

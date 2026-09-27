@@ -174,6 +174,67 @@ def drift(skill: pd.DataFrame) -> dict:
     }
 
 
+#: Projection levels for the absence table.
+ABSENCE_LEVELS = (8.0, 12.0, 16.0)
+
+#: Validated on 2024-25 after fitting on 2022-23 (DECISIONS.md, "How a
+#: player's outlook can move"): a persistent projection error of
+#: ``PERSISTENT_ERROR * sqrt(projection)`` and absences at
+#: ``ABSENCE_SCALE`` times the measured rate (role loss the injury count
+#: misses) put 82% of six-week outcomes inside the 80% band.
+PERSISTENT_ERROR = 1.5
+ABSENCE_SCALE = 1.2
+
+
+def futures(skill: pd.DataFrame, cfg) -> dict:
+    """How a player's outlook moves week to week, for season simulation.
+
+    * ``step``: sd of the one-game change in his projection (a random walk:
+      no momentum, variance growing with the number of games);
+    * ``hazard``: chance he misses his team's next game, byes excluded, by
+      position and projection level;
+    * ``duration``: how many games such an absence lasts (share of 1..8+).
+    """
+    from streamer.data.nflverse import games_frame
+
+    f = skill.sort_values(["player_id", "season", "week"]).copy()
+    g = f.groupby("player_id")
+    nxt_w, nxt_s = g["week"].shift(-1), g["season"].shift(-1)
+    step = (g["proj"].shift(-1) - f["proj"]).where((nxt_s == f["season"]) & (nxt_w - f["week"] == 1))
+    f["step"] = step
+    ev = f[(f["c_long"] >= 3) & (f["week"] <= 16)]
+    steps = {pos: round(float(x["step"].std()), 3) for pos, x in ev.groupby("position")}
+
+    games = games_frame(cfg)
+    team_weeks = games[games["week"] <= 17].groupby(["team", "season"])["week"].apply(sorted).to_dict()
+    rows = []
+    for (_pid, season), x in f.groupby(["player_id", "season"]):
+        # Every game he played counts as played, whatever his projection that
+        # week; only the starting points are restricted to real contributors.
+        have = set(x["week"])
+        tw = team_weeks.get((x["team"].iloc[-1], season), [])
+        for w, proj, pos, c in zip(x["week"], x["proj"], x["position"], x["c_long"]):
+            future = [t for t in tw if t > w]
+            if w >= 17 or not future or not (proj >= 5) or c < 3:
+                continue
+            missed = 0
+            for t in future:
+                if t in have:
+                    break
+                missed += 1
+            rows.append((pos, proj, missed))
+    a = pd.DataFrame(rows, columns=["pos", "proj", "missed"])
+    a["lvl"] = np.digitize(a["proj"], ABSENCE_LEVELS)
+    hazard = {f"{pos}|{int(lvl)}": round(float((x["missed"] > 0).mean()), 4)
+              for (pos, lvl), x in a.groupby(["pos", "lvl"]) if len(x) >= 25}
+    duration = {}
+    for pos, x in a[a["missed"] > 0].groupby("pos"):
+        counts = x["missed"].clip(upper=8).value_counts(normalize=True).sort_index()
+        duration[pos] = [round(float(counts.get(k, 0.0)), 4) for k in range(1, 9)]
+    return {"step": steps, "hazard": hazard, "hazard_levels": list(ABSENCE_LEVELS),
+            "duration": duration, "persistent_error": PERSISTENT_ERROR, "absence_scale": ABSENCE_SCALE}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--profile", default="espn", help="profile whose D/ST and K scoring to use")
@@ -197,6 +258,7 @@ def main() -> None:
         "shape": shapes,
         "correlation": correlations(skill, units),
         "drift": drift(skill),
+        "futures": futures(skill, cfg),
     }
     Path(args.out).write_text(json.dumps(model, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {args.out}")
