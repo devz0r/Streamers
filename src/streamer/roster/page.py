@@ -82,7 +82,7 @@ def render_my_team(
         rows.append(
             f"<tr><td>{_e(slot)}</td><td class='unit'>{_e(p.name)}{flag}</td>"
             f"<td>{_e(p.position)}</td><td>{_e(p.team or '--')}</td>"
-            f"<td>{p.week_value:.1f}</td>{vegas}"
+            f"<td>{_proj_cell(p)}</td>{vegas}"
             f"<td>{spread}</td></tr>"
         )
     vegas_head = "<th>Vegas</th>" if has_vegas else ""
@@ -168,6 +168,16 @@ def render_my_team(
     return "".join(parts)
 
 
+def _proj_cell(p) -> str:
+    """The projection, and for an injury tag what he projects if he plays."""
+    cell = f"{p.week_value:.1f}"
+    q = p.play_probability
+    if p.actual_points is None and 0 < q < 1 and p.projection:
+        cell += (f' <span class="opp">({p.projection / q:.1f} if he plays, '
+                 f"{q:.0%})</span>")
+    return cell
+
+
 def _bench_reason(p, opt) -> str:
     """Why a benched player sits when he projects more than a starter whose
     slot he could fill; empty when he simply projects less."""
@@ -216,7 +226,7 @@ def _bench(snapshot: LeagueSnapshot, opt, has_vegas: bool) -> str:
         why = _bench_reason(p, opt)
         rows.append(
             f"<tr><td class='unit'>{_e(p.name)}{tag}</td><td>{_e(p.position)}</td>"
-            f"<td>{_e(p.team or '--')}</td><td>{p.week_value:.1f}</td>{vegas}<td>{spread}</td></tr>"
+            f"<td>{_e(p.team or '--')}</td><td>{_proj_cell(p)}</td>{vegas}<td>{spread}</td></tr>"
             + (f"<tr><td class='why' colspan='{6 if has_vegas else 5}'>&#8627; {_e(why)}</td></tr>" if why else "")
         )
     vegas_head = "<th>Vegas</th>" if has_vegas else ""

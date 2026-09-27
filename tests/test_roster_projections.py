@@ -77,10 +77,12 @@ def test_status_adjustment_is_a_mixture(cfg):
     m, s = _status_adjust(12.0, 6.0, healthy, cfg)
     assert (m, s) == (12.0, 6.0)
     mq, sq = _status_adjust(12.0, 6.0, q, cfg)
-    assert mq == pytest.approx(12.0 * 0.75)
+    assert mq == pytest.approx(12.0 * 0.72)               # measured: Q skill players play 72%
     assert sq > 6.0                                       # the coin flip widens it
+    qb = PlayerRow(player_id="5", name="e", position="QB", status="Q")
+    assert _status_adjust(12.0, 6.0, qb, cfg)[0] == pytest.approx(12.0 * 0.42)
     md, _ = _status_adjust(12.0, 6.0, d, cfg)
-    assert md == pytest.approx(12.0 * 0.25)
+    assert md == pytest.approx(12.0 * 0.02)               # doubtful almost never plays
     assert _status_adjust(12.0, 6.0, out, cfg) == (0.0, 0.0)
 
 

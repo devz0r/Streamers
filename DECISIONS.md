@@ -917,3 +917,13 @@ this season, without anyone retuning it. The "market would start" line and
 the disagreement list compare against our number before the blend, and the
 market lineup now respects locks like the optimiser does.
 
+### Injury tags, measured
+The play probabilities for injury tags were guesses (Questionable 75%,
+Doubtful 25%). Measured on 2021-2025 official reports against snap counts,
+for regular contributors (40%+ of snaps earlier that season): Questionable
+RB/WR/TE played **72%** (n=1,238), Questionable QBs **42%** (n=156), and
+Doubtful players **0.5%** (n=183) -- a Doubtful tag means out. Practice
+status separates Questionable further (DNP 48%, limited 71%, full 84%),
+but the platforms do not carry it, so it is not used. The page now shows a
+tagged player's projection both ways: "9.7 (13.5 if he plays, 72%)".
+

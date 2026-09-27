@@ -338,7 +338,10 @@ def _play_probability(player: PlayerRow, cfg: Config) -> float:
     if player.status in ("DOUBTFUL", "D"):
         return float(conf["doubtful_play_probability"])
     if player.is_questionable:
-        return float(conf["questionable_play_probability"])
+        q = conf["questionable_play_probability"]
+        if isinstance(q, dict):
+            return float(q.get(player.position, q.get("default", 0.72)))
+        return float(q)
     return 1.0
 
 
