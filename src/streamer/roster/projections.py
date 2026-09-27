@@ -1,23 +1,30 @@
 """Weekly projections for every player on a league snapshot.
 
-Skill positions (QB/RB/WR/TE) are projected from nflverse history with a
-formula chosen by walk-forward validation (see DECISIONS.md):
+Skill positions (QB/RB/WR/TE) are projected from nflverse history as
+**opportunity times efficiency**, a formula chosen by walk-forward validation
+(see DECISIONS.md):
 
-    blend  = shrink( 0.5 * trailing(actual PPR) + 0.5 * trailing(opportunity-expected PPR) )
-    mean   = blend * (implied_total / trailing_implied_total) ** vegas_damping
+    volume     = recent opportunity (exponentially weighted, half-life 2.5
+                 games), anchored to his ~17-game opportunity with 2 games
+                 of weight
+    efficiency = points per expected point over ~17 games, shrunk toward the
+                 position's rate, with a quarter of the weight on the last 4
+    mean       = volume * efficiency * (implied_total / trailing_implied) ** 0.5
 
-The opportunity-expected term comes from nflverse ``ff_opportunity`` -- points
-a player *should* have scored given their targets, carries and field position
--- and is less noisy than what they actually scored. The Vegas term scales by
-how this week's game total compares with the team's recent ones, damped
-because the full effect helps quarterbacks and tight ends but hurts receivers.
+Opportunity comes from nflverse ``ff_opportunity`` -- points a player *should*
+have scored given his targets, carries and field position. It is sticky, so
+it gets a fast window; efficiency (touchdowns, big plays) mostly regresses, so
+it gets a slow one. When a starter is ruled out, the next man up at his
+position inherits part of his opportunity before he has played a snap in the
+role -- measured from every absence 2021-2025.
 
 D/ST and K come from the streaming model, which is already validated against
 the Vegas baseline and knows about two-week holds.
 
 Every projection carries a standard deviation calibrated from historical
 residuals by position and projection level, which is what the lineup
-simulator draws from.
+simulator draws from, and a role (QB, RB1, WR2, ...) and opponent, through
+which it correlates players in the same game.
 """
 
 from __future__ import annotations
@@ -37,7 +44,8 @@ from ..data.nflverse import (
     live_max_age,
 )
 from ..data.odds import get_lines, lines_to_team_rows
-from ..league.model import LeagueSnapshot, PlayerRow
+from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, LeagueSnapshot, PlayerRow
+from . import outcome
 from .players import build_index, match_players
 
 log = logging.getLogger(__name__)
@@ -120,72 +128,109 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # The formula
 # ---------------------------------------------------------------------------
-def _trailing_features(history: pd.DataFrame, n_games: int, long_games: int = 17) -> pd.DataFrame:
-    """Leak-free trailing means: each row sees only the rows before it.
+def _trailing_features(history: pd.DataFrame, n_games: int, long_games: int = 17,
+                       halflife: float = 2.5) -> pd.DataFrame:
+    """Leak-free trailing sums: each row sees only the rows before it.
 
-    Two windows: the last ``n_games`` (current role and form) and the last
-    ``long_games`` (who the player has been over roughly a season).
+    Two windows -- the last ``n_games`` (current form) and the last
+    ``long_games`` (roughly a season) -- plus an exponentially weighted mean
+    of opportunity, which is what moves fastest when a role changes. Expected
+    points fall back to actual points where nflverse has no opportunity row.
     """
-    h = history.copy()
-    grp = h.groupby("player_id", group_keys=False)
+    h = history.reset_index(drop=True).copy()
+    h["_exp"] = h["total_fantasy_points_exp"].fillna(h["fantasy_points_ppr"])
+    pid = h["player_id"]
+    # Every window looks strictly backwards: shift by one game within player.
+    prev_pts = h.groupby(pid, sort=False)["fantasy_points_ppr"].shift(1)
+    prev_exp = h.groupby(pid, sort=False)["_exp"].shift(1)
 
-    def mean(col: str, n: int, min_periods: int) -> pd.Series:
-        return grp[col].transform(lambda s: s.shift(1).rolling(n, min_periods=min_periods).mean())
+    def roll(series: pd.Series, n: int, how: str) -> pd.Series:
+        r = getattr(series.groupby(pid, sort=False).rolling(n, min_periods=1), how)()
+        return r.reset_index(level=0, drop=True).sort_index()
 
-    def count(n: int) -> pd.Series:
-        return grp["fantasy_points_ppr"].transform(lambda s: s.shift(1).rolling(n, min_periods=1).count())
+    h["a_short"] = roll(prev_pts, n_games, "sum")
+    h["e_short"] = roll(prev_exp, n_games, "sum")
+    h["c_short"] = roll(prev_pts, n_games, "count")
+    h["a_long"] = roll(prev_pts, long_games, "sum")
+    h["e_long"] = roll(prev_exp, long_games, "sum")
+    h["c_long"] = roll(prev_pts, long_games, "count")
+    h["e_2"] = roll(prev_exp, 2, "sum")
+    h["c_2"] = roll(prev_pts, 2, "count")
+    alpha = 1.0 - 0.5 ** (1.0 / halflife)
+    ew = prev_exp.groupby(pid, sort=False).ewm(alpha=alpha, adjust=True).mean()
+    h["v_recent"] = ew.reset_index(level=0, drop=True).sort_index()
+    h["n"] = prev_pts.notna().astype(float).groupby(pid, sort=False).cumsum()
+    return h.drop(columns=["_exp"])
 
-    h["t_act"] = mean("fantasy_points_ppr", n_games, 2)
-    h["t_exp"] = mean("total_fantasy_points_exp", n_games, 2)
-    h["l_act"] = mean("fantasy_points_ppr", long_games, 1)
-    h["l_exp"] = mean("total_fantasy_points_exp", long_games, 1)
-    h["c_short"] = count(n_games)
-    h["c_long"] = count(long_games)
-    h["n"] = grp["fantasy_points_ppr"].transform(lambda s: s.shift(1).expanding().count())
-    return h
+
+def position_rates(history: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
+    """Per position: mean points per game, and points per expected point."""
+    exp = history["total_fantasy_points_exp"].fillna(history["fantasy_points_ppr"])
+    grp = history.assign(_exp=exp).groupby("position")
+    return grp["fantasy_points_ppr"].mean(), grp["fantasy_points_ppr"].sum() / grp["_exp"].sum()
 
 
-def _blend(frame: pd.DataFrame, pos_mean: pd.Series, k: float, k_long: float = 6.0) -> pd.Series:
-    """Recent form, anchored to the player's own longer record.
+def _volume_efficiency(frame: pd.DataFrame, pos_mean: pd.Series, pos_eff: pd.Series,
+                       conf: dict) -> tuple[pd.Series, pd.Series]:
+    """Opportunity per game, and points per unit of opportunity.
 
-    The earlier version shrank a four-game average toward the league mean
-    using career game count, so a veteran was barely shrunk at all and a
-    four-game streak drove the number outright. Walk-forward that made it
-    overreact -- calibration slope 0.89, top projections 1.5 points too high
-    -- which is how a quarterback with two big games out-projected an
-    established starter, and a WR1 in a cold spell fell level with a bench
-    back. Now the recent average is shrunk toward the player's own ~17-game
-    average (itself shrunk toward the league mean when it is thin), with
-    ``k_long`` games of weight: slope 1.01, better pairwise accuracy in every
-    season 2022-2025. See DECISIONS.md.
+    Volume reacts quickly: an exponentially weighted mean of recent expected
+    points, anchored to his ~17-game volume with ``volume_prior_games`` of
+    weight. Efficiency reacts slowly: long-run points per expected point,
+    shrunk toward the position rate with ``efficiency_prior_points``, and only
+    ``recent_efficiency_weight`` on the last few games. Walk-forward 2022-2025
+    this beat the production blend in every season on start/sit accuracy and
+    MAE, and at every position on rank correlation -- opportunity changes
+    persist, scoring streaks mostly do not.
     """
-    short = 0.5 * frame["t_act"] + 0.5 * frame["t_exp"].fillna(frame["t_act"])
-    long_raw = 0.5 * frame["l_act"] + 0.5 * frame["l_exp"].fillna(frame["l_act"])
-    long_ = (frame["c_long"] * long_raw + k * pos_mean) / (frame["c_long"] + k)
-    est = (frame["c_short"] * short + k_long * long_) / (frame["c_short"] + k_long)
-    return est.where(short.notna(), long_)
+    k = float(conf["shrink_games"])
+    k_vol = float(conf.get("volume_prior_games", 2.0))
+    m_eff = float(conf.get("efficiency_prior_points", 150.0))
+    m_rec = float(conf.get("recent_efficiency_prior_points", 60.0))
+    w_rec = float(conf.get("recent_efficiency_weight", 0.25))
+
+    c_long = frame["c_long"].fillna(0.0)
+    e_long = frame["e_long"].fillna(0.0)
+    vol_long = (e_long + k * pos_mean) / (c_long + k)
+    c_short = frame["c_short"].fillna(0.0)
+    vol = (c_short * frame["v_recent"] + k_vol * vol_long) / (c_short + k_vol)
+    vol = vol.where(frame["v_recent"].notna(), vol_long)
+    eff_long = (frame["a_long"].fillna(0.0) + m_eff * pos_eff) / (e_long + m_eff)
+    eff_rec = (frame["a_short"].fillna(0.0) + m_rec * eff_long) / (frame["e_short"].fillna(0.0) + m_rec)
+    eff = (1.0 - w_rec) * eff_long + w_rec * eff_rec
+    # No games at all: nothing to project from.
+    none = c_long <= 0
+    return vol.mask(none), eff.mask(none)
+
+
+def _blend(frame: pd.DataFrame, pos_mean: pd.Series, pos_eff: pd.Series, conf: dict) -> pd.Series:
+    """The per-game projection before any matchup scaling: volume x efficiency."""
+    vol, eff = _volume_efficiency(frame, pos_mean, pos_eff, conf)
+    return vol * eff
+
+
+TABLE_COLUMNS = ["player_id", "player_display_name", "position", "team", "blend", "vol", "eff",
+                 "n", "last_season", "last_week", "recent_exp", "prior_exp", "first_season"]
 
 
 def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> pd.DataFrame:
-    """Per nflverse player: the blend as of (season, week), before any matchup scaling."""
+    """Per nflverse player: the projection as of (season, week), before any
+    matchup scaling, with the volume and efficiency behind it."""
     conf = cfg.raw["roster"]
     n_games = int(conf["trailing_games"])
-    k = float(conf["shrink_games"])
     long_games = int(conf.get("long_games", 17))
-    k_long = float(conf.get("long_prior_games", 6.0))
+    halflife = float(conf.get("volume_halflife_games", 2.5))
     if history.empty:
-        return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n",
-                                     "last_season", "last_week"])
+        return pd.DataFrame(columns=TABLE_COLUMNS)
 
     prior = history[
         (history["season"] < season) | ((history["season"] == season) & (history["week"] < week))
     ]
     if prior.empty:
-        return pd.DataFrame(columns=["player_id", "player_display_name", "position", "team", "blend", "n",
-                                     "last_season", "last_week"])
-    # Shrinkage target from completed games only: the target week must not
+        return pd.DataFrame(columns=TABLE_COLUMNS)
+    # Shrinkage targets from completed games only: the target week must not
     # inform its own projection.
-    pos_mean_all = prior.groupby("position")["fantasy_points_ppr"].mean()
+    pos_mean_all, pos_eff_all = position_rates(prior)
 
     # Append one placeholder row per player for the target week so the trailing
     # window lands on exactly the games before it.
@@ -196,17 +241,25 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     placeholder["total_fantasy_points_exp"] = np.nan
     stacked = pd.concat([prior, placeholder], ignore_index=True)
     stacked = stacked.sort_values(["player_id", "season", "week"]).reset_index(drop=True)
-    feats = _trailing_features(stacked, n_games, long_games)
+    feats = _trailing_features(stacked, n_games, long_games, halflife)
     target = feats[(feats["season"] == season) & (feats["week"] == week)].copy()
-    target["pos_mean"] = target["position"].map(pos_mean_all)
-    target["blend"] = _blend(target, target["pos_mean"], k, k_long)
+    pos_mean = target["position"].map(pos_mean_all)
+    pos_eff = target["position"].map(pos_eff_all)
+    target["vol"], target["eff"] = _volume_efficiency(target, pos_mean, pos_eff, conf)
+    target["blend"] = target["vol"] * target["eff"]
     target = target[target["blend"].notna()]
+    # Opportunity over the last two games against the games before them: the
+    # "his role changed" signal shown next to a waiver pick.
+    target["recent_exp"] = target["e_2"] / target["c_2"].where(target["c_2"] >= 2)
+    before_n = (target["c_long"] - target["c_2"]).where(lambda x: x >= 3)
+    target["prior_exp"] = (target["e_long"] - target["e_2"]) / before_n
     target = target.merge(
         last[["player_id", "season", "week"]].rename(columns={"season": "last_season", "week": "last_week"}),
         on="player_id", how="left",
     )
-    return target[["player_id", "player_display_name", "position", "team", "blend", "n",
-                   "last_season", "last_week"]]
+    first = prior.groupby("player_id")["season"].min().rename("first_season")
+    target = target.merge(first, left_on="player_id", right_index=True, how="left")
+    return target[TABLE_COLUMNS]
 
 
 def weeks_since(row, season: int, week: int, weeks_per_season: int = 18) -> int:
@@ -219,14 +272,14 @@ def weeks_since(row, season: int, week: int, weeks_per_season: int = 18) -> int:
 
 
 def sd_table(history: pd.DataFrame, cfg: Config) -> dict[tuple[str, int], float]:
-    """Residual sd of the blend by (position, projection bucket), from history."""
+    """Residual sd of the projection by (position, projection bucket), from history."""
     conf = cfg.raw["roster"]
     if history.empty:
         return {}
-    feats = _trailing_features(history, int(conf["trailing_games"]), int(conf.get("long_games", 17)))
-    pos_mean = feats.groupby("position")["fantasy_points_ppr"].transform("mean")
-    feats["blend"] = _blend(feats, pos_mean, float(conf["shrink_games"]),
-                            float(conf.get("long_prior_games", 6.0)))
+    feats = _trailing_features(history, int(conf["trailing_games"]), int(conf.get("long_games", 17)),
+                               float(conf.get("volume_halflife_games", 2.5)))
+    pos_mean, pos_eff = position_rates(history)
+    feats["blend"] = _blend(feats, feats["position"].map(pos_mean), feats["position"].map(pos_eff), conf)
     feats = feats[feats["blend"].notna()]
     feats["resid"] = feats["fantasy_points_ppr"] - feats["blend"]
     feats["bucket"] = np.digitize(feats["blend"], SD_BUCKETS[1:-1])
@@ -275,21 +328,182 @@ def _implied_scale(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool) -
     return scale, source
 
 
-def _status_adjust(mean: float, sd: float, player: PlayerRow, cfg: Config) -> tuple[float, float]:
-    """Scale a projection by the chance the player actually plays."""
+def _play_probability(player: PlayerRow, cfg: Config) -> float:
+    """Chance the player suits up this week, from his injury tag."""
     conf = cfg.raw["roster"]
     if player.is_out:
-        return 0.0, 0.0
+        return 0.0
     if player.status in ("DOUBTFUL", "D"):
-        p = float(conf["doubtful_play_probability"])
-    elif player.is_questionable:
-        p = float(conf["questionable_play_probability"])
-    else:
+        return float(conf["doubtful_play_probability"])
+    if player.is_questionable:
+        return float(conf["questionable_play_probability"])
+    return 1.0
+
+
+def _status_adjust(mean: float, sd: float, player: PlayerRow, cfg: Config) -> tuple[float, float]:
+    """Scale a projection by the chance the player actually plays."""
+    p = _play_probability(player, cfg)
+    if p <= 0.0:
+        return 0.0, 0.0
+    if p >= 1.0:
         return mean, sd
     # Mixture of "plays" (mean, sd) and "does not" (0, 0).
     mix_mean = p * mean
     mix_var = p * (sd ** 2 + mean ** 2) - mix_mean ** 2
     return mix_mean, float(np.sqrt(max(mix_var, 0.0)))
+
+
+# ---------------------------------------------------------------------------
+# The next man up
+# ---------------------------------------------------------------------------
+def _absence(player: PlayerRow, sits: bool, cfg: Config) -> tuple[float, float, str]:
+    """(this week, rest of season) weight that the player is missing, and how
+    to say it. A bye is not an absence: his role is waiting for him."""
+    if player.on_bye:
+        return 0.0, 0.0, ""
+    status = player.status
+    if status in LONG_TERM_OUT_STATUSES:
+        if status.startswith("SUSP"):
+            label = "is suspended"
+        elif status.startswith("PUP"):
+            label = "is on the PUP list"
+        elif status == "NFI":
+            label = "is on the NFI list"
+        else:
+            label = "is on IR"
+        return 1.0, 1.0, label
+    if status in OUT_STATUSES:
+        return 1.0, 0.3, "is out"
+    if sits:
+        return 1.0, 0.3, "is not expected to play"
+    p = _play_probability(player, cfg)
+    if p < 1.0:
+        label = "is doubtful" if status in ("DOUBTFUL", "D") else "is questionable"
+        return 1.0 - p, 0.5 * (1.0 - p) * 0.3, label
+    return 0.0, 0.0, ""
+
+
+def next_man_up(
+    players: list[PlayerRow],
+    mapping: dict[str, str],
+    table: pd.DataFrame,
+    sits: set[str],
+    season: int,
+    week: int,
+    cfg: Config,
+) -> dict[str, tuple[float, float, str]]:
+    """Opportunity inherited from absent teammates: platform id ->
+    (extra volume this week, extra volume rest of season, reason).
+
+    When a regular misses a game, the teammate at his position with the most
+    opportunity takes over part of the gap between them. Measured on every
+    first game of an absence 2021-2025 (fit 2021-23, tested 2024-25): the
+    next-man-up running back averaged 13.9 points against 10.7 for backs
+    projected the same with no absence, and scored 20+ a quarter of the time.
+    The least-squares takeover share is ~0.35 of the gap for RBs, ~0.3 for
+    QBs, ~0.1 for TEs; receivers spread a missing WR's targets too thinly to
+    help any one of them, so they get none.
+    """
+    conf = cfg.raw["roster"]
+    takeover = {k: float(v) for k, v in (conf.get("next_man_up") or {}).items()}
+    inactive_weeks = int(conf.get("inactive_weeks", 4))
+    if table.empty or not takeover:
+        return {}
+    by_id = table.set_index("player_id")
+    team_of: dict[str, str] = {}
+    platform_of: dict[str, PlayerRow] = {}
+    blocked: set[str] = set()      # cannot inherit: missing, or likely missing
+    absent: dict[tuple[str, str], list[tuple[float, float, float, str, str]]] = {}
+    for p in players:
+        if p.position not in SKILL:
+            continue
+        nid = mapping.get(p.player_id)
+        if nid is None:
+            continue
+        if p.team:
+            team_of[nid] = p.team
+        platform_of[nid] = p
+        w_week, w_ros, label = _absence(p, p.player_id in sits, cfg)
+        if w_week > 0 or w_ros > 0:
+            blocked.add(nid)
+        if (w_week <= 0 and w_ros <= 0) or not p.team or nid not in by_id.index:
+            continue
+        row = by_id.loc[nid]
+        # Long gone: his work was redistributed weeks ago and is already in
+        # everyone else's recent numbers.
+        if weeks_since(row, season, week) > inactive_weeks:
+            continue
+        absent.setdefault((p.team, p.position), []).append(
+            (w_week, w_ros, float(row["vol"]), p.name, label))
+
+    out: dict[str, tuple[float, float, str]] = {}
+    for (team, pos), missing in absent.items():
+        share = takeover.get(pos, 0.0)
+        if share <= 0:
+            continue
+        pool = by_id[by_id["position"] == pos]
+        best_nid, best_vol = None, -1.0
+        for nid, row in pool.iterrows():
+            if team_of.get(nid, row["team"]) != team or nid in blocked:
+                continue
+            if weeks_since(row, season, week) > inactive_weeks:
+                continue
+            if float(row["vol"]) > best_vol:
+                best_nid, best_vol = nid, float(row["vol"])
+        heir = platform_of.get(best_nid) if best_nid is not None else None
+        if heir is None:
+            continue
+        gap_week = sum(w * max(0.0, v - best_vol) for w, _r, v, _n, _l in missing)
+        gap_ros = sum(r * max(0.0, v - best_vol) for _w, r, v, _n, _l in missing)
+        if gap_week <= 0 and gap_ros <= 0:
+            continue
+        lead = max(missing, key=lambda m: m[0] * m[2])
+        out[heir.player_id] = (share * gap_week, share * gap_ros, f"next man up: {lead[3]} {lead[4]}")
+    return out
+
+
+def _opponents(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, str]:
+    """NFL team -> this week's opponent."""
+    try:
+        games = games_frame(cfg)
+    except Exception as exc:  # noqa: BLE001 - correlations degrade to none
+        log.warning("no schedule for opponents: %s", exc)
+        return {}
+    wk = games[(games["season"] == snapshot.season) & (games["week"] == snapshot.week)]
+    return dict(zip(wk["team"], wk["opponent"]))
+
+
+def assign_roles(players: list[PlayerRow]) -> None:
+    """Depth-chart role per player -- QB, RB1, RB2, WR1..., TE -- by healthy
+    per-game projection among his NFL teammates in the player pool."""
+    groups: dict[tuple[str, str], list[PlayerRow]] = {}
+    for p in players:
+        if p.position in ("DST", "K"):
+            p.role = p.position
+        elif p.position in SKILL and p.team:
+            groups.setdefault((p.team, p.position), []).append(p)
+    for (_team, pos), members in groups.items():
+        members.sort(key=lambda q: -float(q.ros_value if q.ros_value is not None else (q.projection or 0.0)))
+        for rank, p in enumerate(members, start=1):
+            if pos in ("QB", "TE"):
+                p.role = pos if rank == 1 else f"{pos}{rank}"
+            else:
+                p.role = f"{pos}{rank}"
+
+
+def _trend_signal(row) -> str:
+    """Opportunity over his last two games against the games before them."""
+    try:
+        recent, before = float(row["recent_exp"]), float(row["prior_exp"])
+    except (KeyError, TypeError, ValueError):
+        return ""
+    if not (np.isfinite(recent) and np.isfinite(before)):
+        return ""
+    if recent >= 1.4 * before and recent - before >= 3.0:
+        return f"opportunity up: {recent:.1f} expected pts/game over his last 2 vs {before:.1f} before"
+    if recent <= 0.65 * before and before - recent >= 3.0:
+        return f"opportunity down: {recent:.1f} expected pts/game over his last 2 vs {before:.1f} before"
+    return ""
 
 
 def project_snapshot(
@@ -311,6 +525,7 @@ def project_snapshot(
     damping = float(conf["vegas_damping"])
     w_platform = float(conf["platform_projection_weight"])
     inactive_weeks = int(conf.get("inactive_weeks", 4))
+    first_known = int(history["season"].min()) if not history.empty else snapshot.season
 
     # nflverse index for name matching: newest team per player.
     latest = history.sort_values(["season", "week"]).groupby("player_id").tail(1)
@@ -335,26 +550,31 @@ def project_snapshot(
     projected = [p for p in active if (p.platform_projection or 0) > 0]
     platform_covers = len(active) >= 20 and len(projected) / len(active) >= 0.8
 
+    # A platform projection of exactly zero, for a player on an NFL team and
+    # not on bye, is the platform saying he will not play THIS week --
+    # suspended, on the commissioner's exempt list, a doubtful tag it has
+    # already resolved. ESPN has no status for some of these (it listed Josh
+    # Jacobs, exempt, as DAY_TO_DAY), so the zero is the signal. It is trusted
+    # only when the platform projects nearly everyone, so an unpopulated feed
+    # cannot bench a whole roster. It says nothing about the rest of the
+    # season, so rest-of-season value is kept.
+    sits = {
+        p.player_id for p in players
+        if p.platform_projection is not None and p.platform_projection <= 0 and platform_covers
+        and bool(p.team) and not p.on_bye and not p.in_ir_slot
+    }
+    heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg)
+
     for p in players:
         mean: float | None = None
         model_mean: float | None = None
         sd: float | None = None
         ros: float | None = None
         source = ""
-
-        # A platform projection of exactly zero, for a player on an NFL team
-        # and not on bye, is the platform saying he will not play THIS week --
-        # suspended, on the commissioner's exempt list, a doubtful tag it has
-        # already resolved. ESPN has no status for some of these (it listed
-        # Josh Jacobs, exempt, as DAY_TO_DAY), so the zero is the signal. It
-        # is trusted only when the platform projects nearly everyone, so an
-        # unpopulated feed cannot bench a whole roster. It says nothing about
-        # the rest of the season, so rest-of-season value is kept.
+        p.signals = []
+        p.experience = None
+        platform_says_sits = p.player_id in sits
         plat = p.platform_projection
-        platform_says_sits = (
-            plat is not None and plat <= 0 and platform_covers
-            and bool(p.team) and not p.on_bye and not p.in_ir_slot
-        )
         if plat is not None and plat <= 0:
             plat = None
 
@@ -372,11 +592,23 @@ def project_snapshot(
             # zeroed by the status adjustment). A stale player with no status,
             # or any unsigned one, needs a platform projection to count.
             if row is not None and not unsigned and (not stale or p.status):
-                blend = float(row["blend"])
-                ros = blend
+                vol, eff = float(row["vol"]), float(row["eff"])
+                extra_week, extra_ros, why = heirs.get(p.player_id, (0.0, 0.0, ""))
+                first = row.get("first_season")
+                if first is not None and np.isfinite(first) and int(first) > first_known:
+                    p.experience = int(snapshot.season) - int(first)
+                ros = (vol + extra_ros) * eff + outcome.youth_drift(p.experience)
                 s = scale.get(p.team, 1.0) if p.team else 1.0
-                mean = blend * (s ** damping)
+                mean = (vol + extra_week) * eff * (s ** damping)
                 source = "model"
+                # Only worth saying when it moves him: a questionable starter
+                # barely shifts his backup, and "+0.0" is noise.
+                if why and max(extra_week, extra_ros) * eff >= 0.3:
+                    p.signals.append(f"{why} (+{extra_week * eff:.1f} projected)" if extra_week * eff >= 0.3
+                                     else f"{why} (+{extra_ros * eff:.1f} a game rest of season)")
+                trend = _trend_signal(row)
+                if trend:
+                    p.signals.append(trend)
             elif (stale or unsigned) and plat is None:
                 # History windows count games played, not time elapsed, so a
                 # player who has not taken a snap in two seasons would keep his
@@ -397,6 +629,7 @@ def project_snapshot(
                 mean = (1 - w_platform) * mean + w_platform * float(plat)
                 source = "model+platform"
             sd = lookup_sd(sds, p.position, mean)
+            p.ros_sd = round(outcome.drift_sd(p.position, ros or 0.0, p.experience), 2)
 
         elif p.position == "DST" and p.team in dst_rows:
             r = dst_rows[p.team]
@@ -420,11 +653,14 @@ def project_snapshot(
 
         if mean is None:
             continue
+        p.outcome_sd = round(sd or 0.0, 2)
+        p.play_probability = _play_probability(p, cfg)
         own = model_mean if model_mean is not None else mean
         own, _own_sd = _status_adjust(own, sd or 0.0, p, cfg)
         mean, sd = _status_adjust(mean, sd or 0.0, p, cfg)
         if platform_says_sits and p.position not in ("DST", "K"):
             own = mean = sd = 0.0
+            p.play_probability = 0.0
             source = f"{source}/sits"
             report.sitting.append(p.name)
         p.model_projection = round(own, 2)
@@ -433,6 +669,11 @@ def project_snapshot(
         p.ros_value = round(ros, 2) if ros is not None else None
         p.projection_source = source
         report.projected += 1
+
+    assign_roles(players)
+    opponents = _opponents(snapshot, cfg)
+    for p in players:
+        p.nfl_opponent = opponents.get(p.team) if p.team else None
 
     if report.unmatched:
         report.notes.append(f"{len(report.unmatched)} player(s) could not be matched to nflverse history")

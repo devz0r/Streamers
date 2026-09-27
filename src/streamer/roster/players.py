@@ -86,8 +86,11 @@ def match_players(
                     if k[1] == p.position and k[0].split()[-1:] == parts[-1:]
                     and k[0][:1] == parts[0][:1]
                 ]
-                if len(loose) == 1:
-                    candidates = loose[0][1]
+                # Spelling variants only: the same player is on the same team.
+                # Without this a rookie "Jalon Daniels" inherited Jayden
+                # Daniels's history.
+                if len(loose) == 1 and p.team:
+                    candidates = [c for c in loose[0][1] if c[1] == p.team]
         if not candidates:
             unmatched.append(f"{p.name} ({p.position})")
             continue

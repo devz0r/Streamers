@@ -336,19 +336,32 @@ paths:
 roster:
   # Monte-Carlo draws per lineup evaluation. 20k keeps P(win) stable to ~0.5%.
   sims: 20000
-  # Skill-position projection = blend of trailing production and trailing
-  # opportunity-expected points (validated walk-forward, see DECISIONS.md),
-  # scaled by the week's team implied total relative to its recent average.
-  # `vegas_damping` is the exponent on that scale: 0 = ignore Vegas, 1 = full.
+  # Skill-position projection = opportunity x efficiency (validated
+  # walk-forward, see DECISIONS.md), scaled by the week's team implied total
+  # relative to its recent average. `vegas_damping` is the exponent on that
+  # scale: 0 = ignore Vegas, 1 = full.
   vegas_damping: 0.5
   trailing_games: 4
   shrink_games: 3.0
-  # The recent average is anchored to the player's own longer record: the
-  # last `long_games` games, carrying `long_prior_games` games of weight.
-  # Without it the model chased four-game streaks (calibration slope 0.89);
-  # with it, slope 1.01 and better start/sit accuracy every season 2022-25.
   long_games: 17
-  long_prior_games: 6.0
+  # Opportunity (nflverse expected points) is sticky, so it moves fast: an
+  # exponentially weighted mean with this half-life in games, anchored to the
+  # player's ~17-game volume with `volume_prior_games` of weight.
+  volume_halflife_games: 2.5
+  volume_prior_games: 2.0
+  # Efficiency (points per expected point) mostly regresses, so it moves
+  # slowly: long-run rate shrunk to the position's with this many expected
+  # points of prior, and only a quarter of the weight on recent games.
+  efficiency_prior_points: 150.0
+  recent_efficiency_prior_points: 60.0
+  recent_efficiency_weight: 0.25
+  # When a regular is ruled out, the teammate at his position with the most
+  # opportunity inherits this share of the gap between them (least squares
+  # on 2021-23 absences, tested on 2024-25). Receivers: none measurable.
+  next_man_up:
+    RB: 0.35
+    QB: 0.30
+    TE: 0.10
   # A player whose last game is more than this many weeks back is only
   # projected if the platform projects him (a return from injury); otherwise
   # he is treated as inactive. History windows count games, not time, so

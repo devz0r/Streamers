@@ -1,16 +1,34 @@
 """Lineup optimisation that maximises the probability of winning the matchup.
 
 Maximising expected points is the wrong objective in a head-to-head week. If
-you are the underdog you want variance -- a boom-or-bust receiver beats a
-steady one when only a boom wins -- and if you are the favourite you want to
-choke it off. So every candidate lineup is scored by Monte Carlo against the
-opponent's lineup, and the one with the highest **P(win)** is recommended,
-with the expected-points-maximising lineup shown alongside so the trade-off is
-visible.
+you are the underdog you want variance -- a boom-or-bust play beats a steady
+one when only a boom wins -- and if you are the favourite you want to choke it
+off. So every candidate lineup is scored by Monte Carlo against the
+opponent's lineup, and the one with the highest **P(win)** is recommended.
+
+What makes the variance real rather than cosmetic is how the draws are made:
+
+* **Correlated.** Players in the same game move together -- a quarterback
+  and his receivers (+0.3), a quarterback and the defence facing him (-0.44),
+  both quarterbacks in a shootout (+0.18). Stacking raises your spread;
+  starting the receiver who catches your opponent's quarterback's passes
+  lowers the spread of the *difference*. Measured 2021-2025; see
+  :mod:`streamer.roster.outcome`.
+* **Skewed.** A projection of 6 has a floor near zero and a long right tail;
+  the draws follow the measured shape by position and level, not a normal.
+* **Injury tags are a coin flip.** A Questionable player either plays (full
+  distribution) or scores zero -- a genuinely high-variance play.
+
+Tested on 2024-25 data: player "types" (touchdown-dependent, deep threat,
+target hog) did not predict weekly spread beyond position and projection
+level, so no such labels are used.
 
 The search is exhaustive over valid slot assignments (with a light candidate
-prune per slot), and every lineup is evaluated on one shared sample matrix, so
-thousands of lineups cost a single matrix multiply.
+prune per slot), and every lineup is evaluated on one shared sample matrix.
+The best candidates are then re-scored on a *fresh* sample, so a lineup that
+only won by luck on the first draw cannot be recommended, and a lineup that
+gives up projected points is only recommended when it wins more by a margin
+the simulation can actually resolve.
 """
 
 from __future__ import annotations
@@ -19,14 +37,26 @@ import itertools
 from dataclasses import dataclass, field
 
 import numpy as np
+from scipy.stats import norm
 
 from ..league.model import SLOT_ELIGIBILITY, PlayerRow
+from . import outcome
 
 #: Positions that can legitimately score below zero.
 NEGATIVE_OK = ("DST", "K")
 
 #: How many extra candidates beyond the slot count to consider per slot.
 PRUNE_EXTRA = 3
+
+#: Lineups re-scored on the confirmation sample.
+CONFIRM_TOP = 30
+
+#: The smallest P(win) edge worth giving up projected points for. Below it,
+#: the higher-projected lineup is recommended.
+MIN_WIN_EDGE = 0.005
+
+#: Correlation beyond which a pair is worth naming in an explanation.
+NOTABLE_CORR = 0.15
 
 
 @dataclass
@@ -57,6 +87,10 @@ class Optimisation:
     changes: list[tuple[str, PlayerRow | None, PlayerRow]] = field(default_factory=list)
     n_lineups: int = 0
     n_sims: int = 0
+    #: Why the recommendation starts someone projected below a benched player.
+    reasons: list[str] = field(default_factory=list)
+    #: Player id -> (15th, 85th percentile) of his simulated score.
+    ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
 
     @property
     def win_gain(self) -> float:
@@ -68,21 +102,85 @@ class Optimisation:
 # ---------------------------------------------------------------------------
 # Sampling
 # ---------------------------------------------------------------------------
-def sample_points(players: list[PlayerRow], n_sims: int, rng: np.random.Generator) -> np.ndarray:
+def pair_correlation(a: PlayerRow, b: PlayerRow) -> float:
+    """Residual correlation of two players' scores this week (0 if unrelated)."""
+    if not (a.team and b.team and a.role and b.role) or a.player_id == b.player_id:
+        return 0.0
+    if a.team == b.team:
+        return outcome.correlation(True, a.role, b.role)
+    if a.nfl_opponent and a.nfl_opponent == b.team:
+        return outcome.correlation(False, a.role, b.role)
+    return 0.0
+
+
+def correlation_matrix(players: list[PlayerRow]) -> np.ndarray:
+    """Pairwise correlations, repaired to the nearest valid matrix if needed."""
+    n = len(players)
+    corr = np.eye(n)
+    for i in range(n):
+        for j in range(i + 1, n):
+            r = pair_correlation(players[i], players[j])
+            if r:
+                corr[i, j] = corr[j, i] = r
+    w, v = np.linalg.eigh(corr)
+    if w.min() < 1e-6:
+        corr = (v * np.clip(w, 1e-6, None)) @ v.T
+        d = np.sqrt(np.diag(corr))
+        corr = corr / np.outer(d, d)
+    return corr
+
+
+def _if_plays(p: PlayerRow) -> tuple[float, float, float]:
+    """(mean, sd, chance he plays) -- the distribution *given* he suits up.
+
+    ``projection`` already folds a Questionable tag in as a mixture; the
+    simulation undoes that and flips the coin instead, which is what makes a
+    questionable player the high-variance play he really is.
+    """
+    mean = float(p.projection or 0.0)
+    sd = float(p.projection_sd or 0.0)
+    q = float(p.play_probability if p.play_probability is not None else 1.0)
+    if p.is_out or q <= 0.0:
+        return 0.0, 0.0, 0.0
+    if q < 1.0 and p.outcome_sd is not None and mean > 0:
+        return mean / q, float(p.outcome_sd), q
+    return mean, sd, 1.0
+
+
+def sample_points(players: list[PlayerRow], n_sims: int, rng: np.random.Generator,
+                  correlated: bool = True) -> np.ndarray:
     """``(n_sims, n_players)`` simulated scores.
 
-    Normal around the projection with the calibrated sd, floored at zero for
-    skill positions (a receiver cannot score -4) but not for D/ST and K.
+    Correlated standard normals (a Gaussian copula) are mapped through each
+    player's measured outcome shape, scaled by his projection and spread,
+    floored at zero for skill positions (a receiver cannot score -4) but not
+    for D/ST and K, and zeroed when an injury tag's coin comes up "sits".
     """
-    if not players:
+    n = len(players)
+    if not n:
         return np.zeros((n_sims, 0))
-    means = np.array([float(p.projection or 0.0) for p in players])
-    sds = np.array([float(p.projection_sd or 0.0) for p in players])
-    out = rng.normal(means, np.maximum(sds, 1e-6), size=(n_sims, len(players)))
-    floor = np.array([0 if p.position in NEGATIVE_OK else 1 for p in players], dtype=bool)
-    out[:, floor] = np.maximum(out[:, floor], 0.0)
-    # An unavailable player scores exactly nothing.
-    out[:, [p.is_out for p in players]] = 0.0
+    z = rng.standard_normal((n_sims, n))
+    if correlated and n > 1:
+        corr = correlation_matrix(players)
+        try:
+            root = np.linalg.cholesky(corr)
+        except np.linalg.LinAlgError:
+            w, v = np.linalg.eigh(corr)
+            root = v * np.sqrt(np.clip(w, 0.0, None))
+        z = z @ root.T
+    u = norm.cdf(z)
+    out = np.empty((n_sims, n))
+    for j, p in enumerate(players):
+        mean, sd, q = _if_plays(p)
+        if q <= 0.0:
+            out[:, j] = 0.0
+            continue
+        probs, zq = outcome.shape(p.position, mean)
+        out[:, j] = mean + max(sd, 1e-6) * np.interp(u[:, j], probs, zq)
+        if p.position not in NEGATIVE_OK:
+            out[:, j] = np.maximum(out[:, j], 0.0)
+        if q < 1.0:
+            out[:, j] *= rng.random(n_sims) < q
     return out
 
 
@@ -198,12 +296,26 @@ def _totals(
     return ind @ samples.T
 
 
+def _win_rates(lineups, samples, index, opp_total, chunk: int = 256) -> np.ndarray:
+    """P(win) per lineup, in chunks so thousands of lineups stay in memory."""
+    out = np.empty(len(lineups))
+    for lo in range(0, len(lineups), chunk):
+        t = _totals(lineups[lo:lo + chunk], samples, index)
+        out[lo:lo + chunk] = (t > opp_total).mean(axis=1) + 0.5 * (t == opp_total).mean(axis=1)
+    return out
+
+
+def _projected(lineup: dict[str, list[PlayerRow]]) -> float:
+    return float(sum(p.projection or 0.0 for ps in lineup.values() for p in ps))
+
+
 def optimise(
     roster: list[PlayerRow],
     slots: dict[str, int],
     opponent_roster: list[PlayerRow] | None,
     n_sims: int = 20000,
     seed: int = 7,
+    min_edge: float = MIN_WIN_EDGE,
 ) -> Optimisation:
     """Find the lineup that maximises P(win) against the opponent."""
     rng = np.random.default_rng(seed)
@@ -224,51 +336,142 @@ def optimise(
         if opp_lineup is None or sum(len(v) for v in opp_lineup.values()) < sum(slots.values()):
             opp_lineups = enumerate_lineups(opponent_roster, slots)
             if opp_lineups:
-                opp_lineup = max(
-                    opp_lineups,
-                    key=lambda lu: sum(p.projection or 0.0 for ps in lu.values() for p in ps),
-                )
+                opp_lineup = max(opp_lineups, key=_projected)
 
     everyone = list(roster) + (list(opponent_roster) if opponent_roster else [])
     index = {p.player_id: i for i, p in enumerate(everyone)}
-    samples = sample_points(everyone, n_sims, rng)
 
-    my_totals = _totals(mine, samples, index)
-    if opp_lineup is not None:
-        opp_total = _totals([opp_lineup], samples, index)[0]
-    else:
-        opp_total = np.zeros(n_sims)
+    # Select on one sample, confirm on a fresh one: picking the best of
+    # thousands of lineups on the same draws that score them flatters
+    # whichever got lucky.
+    select = sample_points(everyone, n_sims, rng)
+    opp_sel = _totals([opp_lineup], select, index)[0] if opp_lineup is not None else np.zeros(n_sims)
+    wins_sel = _win_rates(mine, select, index, opp_sel)
+    projected = np.array([_projected(lu) for lu in mine])
+    ev_best = int(np.argmax(projected))
+    top = list(np.argsort(-wins_sel)[:CONFIRM_TOP])
+    if ev_best not in top:
+        top.append(ev_best)
 
-    wins = (my_totals > opp_total[None, :]).mean(axis=1) + 0.5 * (my_totals == opp_total[None, :]).mean(axis=1)
-    evs = my_totals.mean(axis=1)
-    sds = my_totals.std(axis=1)
+    confirm = sample_points(everyone, n_sims, rng)
+    opp_total = _totals([opp_lineup], confirm, index)[0] if opp_lineup is not None else np.zeros(n_sims)
+    cand = [mine[i] for i in top]
+    totals = _totals(cand, confirm, index)
+    win_ind = (totals > opp_total) + 0.5 * (totals == opp_total)
+    wins = win_ind.mean(axis=1)
+    leader = int(np.argmax(wins))
+    # Anything the simulation cannot tell apart from the leader is a tie, and
+    # ties go to projected points: never give up points for noise.
+    tied = []
+    for k in range(len(cand)):
+        se = float(np.std(win_ind[leader] - win_ind[k]) / np.sqrt(n_sims))
+        if wins[k] >= wins[leader] - max(min_edge, 2.0 * se):
+            tied.append(k)
+    pick = max(tied, key=lambda k: (round(projected[top[k]], 6), wins[k]))
+    ev_k = top.index(ev_best)
 
-    def result(i: int) -> LineupResult:
-        return LineupResult(starters=mine[i], expected=float(evs[i]), sd=float(sds[i]),
-                            win_probability=float(wins[i]))
+    def result(k: int) -> LineupResult:
+        return LineupResult(starters=cand[k], expected=float(projected[top[k]]),
+                            sd=float(totals[k].std()), win_probability=float(wins[k]))
 
-    best_win = result(int(np.argmax(wins)))
-    best_ev = result(int(np.argmax(evs)))
+    best_win = result(pick)
+    best_ev = result(ev_k)
 
     current = None
     cur = current_lineup(roster, slots)
     if cur is not None:
-        t = _totals([cur], samples, index)[0]
+        t = _totals([cur], confirm, index)[0]
         current = LineupResult(
-            starters=cur, expected=float(t.mean()), sd=float(t.std()),
+            starters=cur, expected=_projected(cur), sd=float(t.std()),
             win_probability=float((t > opp_total).mean() + 0.5 * (t == opp_total).mean()),
         )
 
     opponent = None
     if opp_lineup is not None:
-        opponent = LineupResult(starters=opp_lineup, expected=float(opp_total.mean()),
+        opponent = LineupResult(starters=opp_lineup, expected=_projected(opp_lineup),
                                 sd=float(opp_total.std()), win_probability=1.0 - best_win.win_probability)
+
+    ranges = {p.player_id: (float(np.percentile(confirm[:, index[p.player_id]], 15)),
+                            float(np.percentile(confirm[:, index[p.player_id]], 85)))
+              for p in everyone}
+    reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges)
 
     return Optimisation(
         best_win=best_win, best_ev=best_ev, current=current, opponent=opponent,
         changes=diff_lineups(current.starters if current else None, best_win.starters),
-        n_lineups=len(mine), n_sims=n_sims,
+        n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges,
     )
+
+
+def _strongest(pool: list[PlayerRow], who: PlayerRow, sign: int,
+               skip: tuple[str, ...]) -> tuple[float, PlayerRow | None]:
+    """The pool member most correlated with ``who`` in direction ``sign``."""
+    scored = [(pair_correlation(who, m), m) for m in pool if m.player_id not in skip]
+    scored = [x for x in scored if sign * x[0] >= NOTABLE_CORR]
+    return max(scored, key=lambda x: abs(x[0]), default=(0.0, None))
+
+
+def explain(
+    chosen: LineupResult,
+    by_points: LineupResult,
+    opp_lineup: dict[str, list[PlayerRow]] | None,
+    samples: np.ndarray,
+    index: dict[str, int],
+    opp_total: np.ndarray,
+    ranges: dict[str, tuple[float, float]],
+) -> list[str]:
+    """One sentence per player started below a benched one's projection."""
+    if chosen.player_ids == by_points.player_ids:
+        return []
+    started = [p for _s, p in chosen.flat() if p.player_id not in by_points.player_ids]
+    benched = [p for _s, p in by_points.flat() if p.player_id not in chosen.player_ids]
+    mates = [p for _s, p in chosen.flat()]
+    theirs = [p for ps in (opp_lineup or {}).values() for p in ps]
+    underdog = by_points.win_probability < 0.5
+    base = _totals([by_points.starters], samples, index)[0]
+    out = []
+    for s in started:
+        if not benched:
+            break
+        b = min(benched, key=lambda x: (x.position != s.position, abs((x.projection or 0) - (s.projection or 0))))
+        benched.remove(b)
+        swapped = base - samples[:, index[b.player_id]] + samples[:, index[s.player_id]]
+        p_swap = float((swapped > opp_total).mean() + 0.5 * (swapped == opp_total).mean())
+
+        skip = (s.player_id, b.player_id)
+        why = ""
+        if underdog:
+            r, m = _strongest(mates, s, +1, skip)
+            if m is not None:
+                why = f"he stacks with your {m.name} (they rise and fall together), which widens your range"
+            else:
+                r, m = _strongest(theirs, s, -1, skip)
+                if m is not None:
+                    why = f"he tends to do well when your opponent's {m.name} does badly"
+        else:
+            r, m = _strongest(theirs, s, +1, skip)
+            if m is not None:
+                why = f"he rises and falls with your opponent's {m.name}, which protects your lead"
+            else:
+                r, m = _strongest(mates, b, +1, skip)
+                if m is not None:
+                    why = f"benching {b.name} breaks up his stack with your {m.name}, which steadies your score"
+        if not why:
+            lo_s, hi_s = ranges.get(s.player_id, (0, 0))
+            lo_b, hi_b = ranges.get(b.player_id, (0, 0))
+            if s.play_probability < 1.0 and underdog:
+                why = f"his {s.status.lower() or 'injury'} tag makes him boom-or-bust, and you need a boom"
+            elif underdog:
+                why = f"more upside: {lo_s:.0f}-{hi_s:.0f} against {lo_b:.0f}-{hi_b:.0f}"
+            else:
+                why = f"a steadier floor: {lo_s:.0f}-{hi_s:.0f} against {lo_b:.0f}-{hi_b:.0f}"
+        lead = "you are the underdog" if underdog else "you are favoured"
+        out.append(
+            f"Start {s.name} over {b.name} ({b.name} projects "
+            f"{(b.projection or 0) - (s.projection or 0):.1f} more): {lead}, and {why}. "
+            f"P(win) {by_points.win_probability:.1%} -> {p_swap:.1%}."
+        )
+    return out
 
 
 def diff_lineups(

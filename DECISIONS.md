@@ -371,6 +371,7 @@ the Wednesday workflow, which is where the secrets live, is the only place the
 platforms are actually called. Adding a platform means one adapter file.
 
 ### Skill projections: opportunity blended with production, damped by Vegas
+*(Superseded by "Opportunity moves fast, efficiency slowly" below; kept for the history.)*
 D/ST and K reuse the streaming rankings. Every other position gets a blend of
 trailing-4 actual PPR and trailing-4 nflverse *opportunity-expected* points
 (`ff_opportunity`), shrunk toward the position mean with 3 pseudo-games, then
@@ -611,6 +612,8 @@ cookie, which lands in `sync_status.json` and on the page.
 
 
 ### Recent form, anchored to the player's own record
+*(Superseded by "Opportunity moves fast, efficiency slowly" below, which keeps the
+long anchor for efficiency and lets opportunity move.)*
 The first real Yahoo waiver list recommended picking up Bryce Young to start
 over Matthew Stafford, and rated Drake London (a WR1) level with Ray Davis (a
 bench back). Neither was a parsing error. The skill model averaged the last
@@ -702,3 +705,147 @@ manual re-run shortly after a scheduled one pays nothing, while scheduled runs,
 a day or more apart, always fetch fresh. A run is capped at 56 credits
 whatever the number of leagues. The page says how many games were bought
 versus reused.
+
+
+## Winning the week, and finding the breakout first
+
+The request was three things: lineups that account for correlation (stacks,
+players in the same game), lineups that chase upside when behind and protect
+the floor when ahead, and waivers that find a breakout -- a backup who
+inherits the job, a player whose role just grew -- before his projection
+catches up. Each was measured on 2021-2025 before anything was built. The
+research scripts' results are summarised here; the shipped numbers are refit
+by `scripts/fit_outcome_model.py`.
+
+### Opportunity moves fast, efficiency slowly
+The previous projection shrank a four-game blend of points and expected
+points toward the player's 17-game record. It treated a touchdown streak and
+a new role the same way. Splitting the projection into **volume** (expected
+points per game from nflverse `ff_opportunity`: targets, carries, field
+position) and **efficiency** (points per expected point) and giving each its
+own speed did better. Volume is an exponentially weighted mean (half-life 2.5
+games) anchored to the 17-game volume with 2 games of weight. Efficiency is
+the 17-game rate shrunk to the position's with 150 expected points of prior,
+with a quarter of the weight on the last four games. Walk-forward, same
+evaluation as before (19,257 player-weeks, identical random pairs):
+
+| | previous | volume x efficiency |
+|---|---|---|
+| picks the higher scorer, 2022 / 2023 / 2024 / 2025 | .715 / .733 / .735 / .724 | **.718 / .734 / .739 / .728** |
+| MAE, all seasons | 5.019 | **4.958** |
+| calibration slope | 1.019 | 0.977 |
+| rank correlation QB / RB / TE / WR | .474 / .618 / .505 / .577 | **.481 / .627 / .513 / .582** |
+| bias on players whose opportunity fell sharply | -1.30 | **-0.94** |
+
+Better in every season and at every position. Tried along the way:
+- half-life 1.5 matched 2.5 on accuracy but over-reacted (slope 0.95);
+  half-life 4 was less accurate;
+- a volume prior of 1 game was equally accurate but over-reacted, while 3-4
+  games lagged real role changes;
+- efficiency priors of 40 and 80 points did slightly worse than 150;
+- recent efficiency at weights 0 / 0.25 / 0.5 / 1: 0.25 was best by a hair.
+  Scoring streaks carry a little signal, not much.
+
+Two things that were **not** adopted:
+
+- *Chasing one-game jumps.* After a single game with 10+ expected points from
+  a player averaging under 6, his next four games averaged 6.6, and the
+  previous model projected 6.6. Most one-game spikes are game script. A
+  faster model over-projected those players by a point.
+- *A youth bonus in the mean.* Rookies beat their projections by ~0.3 a game
+  where veterans fall ~0.2 short. A 5% rookie bonus removed the bias but
+  worsened MAE in 2023 and 2024. Youth goes into waiver upside instead
+  (below).
+
+### The next man up
+The case the trailing numbers cannot see is a backup who is about to get the
+job, because he has never had it. From every game 2021-2025 where a regular
+(5+ expected points in his last game for the team) was missing, for the
+teammate at his position with the most opportunity:
+
+- First game of the absence, running backs: the next man up averaged **13.9
+  points**. Backs projected the same with no absence averaged 10.7. He hit 20+
+  25% of the time, against 11%.
+- Modelled as inheriting a share of the gap between the two players'
+  opportunity, least squares on 2021-23 and tested on 2024-25: RB 0.35
+  (bias +4.1 -> +2.8, RMSE 9.6 -> 9.0), QB 0.30, TE 0.10.
+- Receivers: a missing WR's targets spread across the WRs, the TE and the
+  backs. No single receiver gained enough to beat noise, and every share
+  above zero worsened out-of-sample error, so receivers get none.
+
+In the tool, "missing" is read from the snapshot: IR, PUP, NFI and suspension
+apply for this week and the rest of the season; OUT or a platform zero for
+this week (and 30% of rest of season); Doubtful and Questionable at their
+chance of sitting. It moves only the model half of the projection, because
+the platform's half already carries depth-chart news. The waiver reason says
+it: "next man up: X is on IR (+3.1 projected)".
+
+### Correlated draws, a measured shape, and a coin flip for injury tags
+The lineup optimiser already maximised P(win). The simulation underneath it
+did not know that players in the same game move together. Residual
+correlations by role, 2021-2025, stable between 2021-23 and 2024-25:
+
+| same team | r | opponents | r |
+|---|---|---|---|
+| QB - WR1 | +0.34 | QB - opposing D/ST | -0.44 |
+| QB - WR2 | +0.29 | K - opposing D/ST | -0.29 |
+| QB - TE | +0.26 | RB1 - opposing D/ST | -0.26 |
+| K - D/ST | +0.24 | WR1 - opposing D/ST | -0.20 |
+| QB - WR3 | +0.19 | QB - QB | +0.18 |
+| QB - RB1, K - RB1 | +0.11 | D/ST - D/ST | -0.17 |
+
+Receivers on the same team are uncorrelated with each other (targets
+compete, but the passing game rises together), and so are the two backs.
+Draws are correlated normals (a Gaussian copula) mapped through each
+position-and-level's measured residual shape. That shape is right-skewed:
+the median sits below the mean and the 99th percentile is 3-4 sd out for
+low projections. A Questionable or Doubtful player plays with the tag's
+probability and otherwise scores zero, instead of being a narrower normal
+around a discounted mean.
+
+Tested and rejected: **player-specific volatility**. Touchdown share of
+expected points, receiving share, average depth of target, the player's own
+past residuals, youth. Fit on 2022-23, tested on 2024-25: the realised
+spread by predicted quartile was flat at every position, and the Gaussian
+log-likelihood gain was zero or negative. So "boom-or-bust" labels are not
+used. Beyond position and projection level, spread comes from correlation,
+injury tags and skew.
+
+### Ties go to projected points
+Picking the best of a few hundred lineups on the draws that scored them
+favours whichever got lucky. So the top 30 are re-scored on a fresh 20,000
+draws. Every lineup the simulation cannot separate from the leader -- within
+max(0.5 points of P(win), 2 paired standard errors) -- counts as tied, and a
+tie goes to the higher projection. On the synthetic league a favourite at
+70-80% keeps a one-point-better player over a steadier one, because a point
+of mean is worth more than the variance. The steady player wins only when
+projections are level (tested). When the recommendation does differ from
+the max-points lineup, the panel names the reason (stack, hedge, range,
+injury tag) and the P(win) change.
+
+### Waiver upside is an option, and handcuffs are priced as one
+Rest-of-season value adds, for each bench player, `E[max(0, V - bar)]`. V is
+his per-game projection a month from now (normal around today's, spread
+measured) and bar is the weakest starter whose slot he could fill. How far
+projections move over four games, 2021-2025: typically 1.5-2.5 points a
+game by position and level. Rookies move 1.23x as far and rise 0.37 a game
+more than veterans; second-year players 1.04x and +0.31. The
+option is honest about its size: for most free agents it is a few tenths of
+a point a game, which is enough to break a tie toward the rookie, not to
+invent a move.
+
+The **upside stashes** list covers what a single number cannot: free agents
+with a reason to jump who do not yet clear the bar. It is ranked by value to
+*your* lineup, so a backup quarterback in a one-QB league does not top it.
+Handcuffs -- the RB2 behind a lead back with 12+ a game -- are valued at
+8.5% (how often lead backs miss the next game, 2021-2025) times how far the
+inherited job would put him above your weakest eligible starter.
+
+### Loose name matches need the same team
+The first live run recommended stashing "Jalon Daniels", a TB rookie
+quarterback with no NFL snaps. The matcher's fallback -- first initial plus
+surname, for "DJ" vs "D.J." -- had matched him uniquely to Jayden Daniels,
+and he inherited Jayden's history. The fallback exists for spelling
+variants of one player, and one player is on one team. It now requires the
+same NFL team; a real spelling variant still matches.
+

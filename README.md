@@ -288,7 +288,7 @@ and the free-agent pool:
 |---|---|
 | `streamer sync --week N` | Pulls both leagues (`--profile` narrows) into `data/leagues/<profile>/week_N.json`. `--skip-missing` quietly skips a league whose credentials are absent. |
 | `streamer lineup --week N` | The lineup that maximises **P(win) against this week's opponent**, with the swaps from what is currently set. |
-| `streamer waivers --week N` | Ranked add/drop pairs, each scored by how much it raises your best lineup plus depth over what is left on the wire, with a one-line reason. |
+| `streamer waivers --week N` | Ranked add/drop pairs, each scored by how much it raises your best lineup, depth over what is left on the wire, and rest-of-season upside, with a one-line reason. |
 | `streamer matchup --week N` | The head-to-head: your P(win), both sides' expected score and spread, and the players that swing it most. |
 | `streamer yahoo-auth` | One-time browser authorisation that mints the Yahoo refresh token. |
 
@@ -327,19 +327,77 @@ minutes before kickoff.
 ### How players are projected
 
 D/ST and K use the streaming rankings above. Every other position gets a
-skill projection: a shrunk blend of trailing production and trailing
-**opportunity-expected** points (nflverse `ff_opportunity`), scaled by this
-week's Vegas implied total relative to the team's recent average. When the
-platform publishes its own projection the two are averaged. Injuries scale the
-mean and widen the spread; a bye or an OUT tag zeroes the week. Walk-forward
-on 2021-2025 it ranks starters better than trailing average alone at every
-position (DECISIONS.md has the numbers).
+skill projection built as **opportunity x efficiency**: how much work he is
+getting (nflverse `ff_opportunity` expected points -- targets, carries, where
+on the field), which is sticky and so reacts within a game or two, times how
+well he converts it, which mostly regresses and so moves slowly. That is
+then scaled by this week's Vegas implied total relative to the team's recent
+average, and averaged with the platform's own projection when it publishes
+one. A scoring streak on the same workload barely moves him; a jump in
+workload does. Walk-forward on 2022-2025 it picks the higher scorer of two
+players more often than the previous formula in every season (DECISIONS.md
+has the numbers).
 
-The lineup optimiser does not chase expected points. It draws 20,000 joint
-samples of every player on both rosters, enumerates every valid lineup and
-picks the one that wins the most draws — which is why it will start a
-high-variance receiver when you are the underdog and the steady one when you
-are not.
+When a starter is ruled out (IR, OUT, suspended, or the platform projecting
+him for zero), the teammate at his position with the most opportunity is
+projected to inherit part of the gap: about a third of it for a running
+back. That happens before the backup has played a snap in the role -- the
+moment a waiver claim is worth making. Injuries scale the mean by the chance
+to play; a bye or an OUT tag zeroes the week.
+
+### How the lineup is chosen
+
+The lineup optimiser maximises the chance of **winning the week**, not
+expected points. It draws 20,000 joint outcomes for every player on both
+rosters, enumerates every valid lineup and picks the one that beats your
+opponent's in the most draws. What makes that more than a slogan is how the
+draws are made:
+
+- **Correlated**, as measured 2021-2025: a quarterback and his WR1 (+0.34),
+  WR2 (+0.29) and tight end (+0.26); a quarterback and the defence facing
+  him (-0.44); the two quarterbacks in the same game (+0.18). A stack widens
+  your range, which an underdog wants. Starting the receiver who catches
+  your *opponent's* quarterback's passes narrows the range of the
+  difference, which a favourite wants.
+- **Skewed**: a 6-point projection has a floor near zero and a long right
+  tail, so the draws follow the measured shape, not a bell curve.
+- **Injury tags are a coin flip**: a Questionable player either plays
+  (his full range) or scores zero.
+
+The best candidates are re-scored on a fresh set of draws, and a lineup that
+gives up projected points is only recommended when it wins more by a margin
+the simulation can resolve (at least half a percentage point). Most weeks
+that means the highest-projected lineup: favourite-or-underdog effects are
+real but usually smaller than a point of projection. When the recommendation
+does differ, the panel says why ("you are the underdog, and he stacks with
+your quarterback ..., P(win) 38% -> 40%"). The Range column is the middle 70%
+of each player's simulated outcomes.
+
+One thing tested and *not* used: labelling players "boom-or-bust" or
+"high-floor" from touchdown dependence, depth of target or their own past
+volatility. On 2024-25 none of it predicted weekly spread beyond position
+and projection level.
+
+### How waivers are priced
+
+A pickup is priced by what it does to your roster: this week, and the rest
+of the season. Rest of season also counts **upside** as an option -- a
+bench player is worth what he adds if his projection climbs past a starter
+he could replace, and nothing if it does not, so the one whose role could
+move (a rookie, a back one injury from the job) is worth more than a steady
+veteran with the same projection. Projections typically move 1.5-2.5 points
+a game over a month; rookies' move a quarter more and tend to rise.
+
+Two other lists sit under the moves. **Upside stashes** are free agents who
+do not clear the bar yet but have the most room to grow *for your lineup*: a
+back behind a bell-cow (lead backs miss about 8.5% of games, and the next
+man up has averaged 13.9 points when they do), a rookie, a player whose
+opportunity just jumped. **Drop watch** is the roster spots that cost least.
+
+The waiver reasons say what moved: "next man up: X is on IR (+3.1
+projected)", "opportunity up: 13.1 expected pts/game over his last 2 vs 9.0
+before", "rookie". A points streak with no more opportunity behind it is not
+flagged -- measured, those mostly fade.
 
 ### Syncing your leagues
 

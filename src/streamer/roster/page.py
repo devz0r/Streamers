@@ -11,7 +11,7 @@ import html
 from ..config import Config
 from ..league.model import LeagueSnapshot, short_status
 from .matchup import MatchupReport
-from .waivers import Move, drop_watch
+from .waivers import Move, drop_watch, stashes
 
 
 def _e(v: object) -> str:
@@ -65,11 +65,14 @@ def render_my_team(
         if has_vegas:
             vegas = (f"<td>{p.vegas_points:.1f}</td>" if p.vegas_points is not None
                      else '<td class="opp">--</td>')
+        lo, hi = opt.ranges.get(p.player_id, (None, None))
+        spread = (f"{lo:.0f}&ndash;{hi:.0f}" if lo is not None
+                  else f"&plusmn;{(p.projection_sd or 0):.0f}")
         rows.append(
             f"<tr><td>{_e(slot)}</td><td class='unit'>{_e(p.name)}{flag}</td>"
             f"<td>{_e(p.position)}</td><td>{_e(p.team or '--')}</td>"
             f"<td>{(p.projection or 0):.1f}</td>{vegas}"
-            f"<td>&plusmn;{(p.projection_sd or 0):.0f}</td></tr>"
+            f"<td>{spread}</td></tr>"
         )
     vegas_head = "<th>Vegas</th>" if has_vegas else ""
     parts.append(
@@ -88,13 +91,13 @@ def render_my_team(
         parts.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
     else:
         parts.append('<p class="sub">Your set lineup is already the recommended one.</p>')
-    if opt.best_ev.player_ids != opt.best_win.player_ids:
-        parts.append(
-            f'<p class="sub">The max-points lineup would project {opt.best_ev.expected:.1f} '
-            f"but win only {_pct(opt.best_ev.win_probability)}; the recommendation trades "
-            f"{opt.best_ev.expected - opt.best_win.expected:.1f} points for "
-            f"{(opt.best_win.win_probability - opt.best_ev.win_probability) * 100:+.0f} points of win probability.</p>"
-        )
+    parts.append(
+        '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
+        "percentile), with teammates and opponents correlated as they are on the field.</p>"
+    )
+    if opt.reasons:
+        items = "".join(f"<li>{_e(r)}</li>" for r in opt.reasons)
+        parts.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
 
     if has_vegas:
         parts.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
@@ -119,6 +122,27 @@ def render_my_team(
                 f'<div class="why">{_e(m.reason)}</div></div>'
             )
         parts.append("".join(cards))
+
+    tickets = stashes(snapshot, moves, n=3)
+    if tickets:
+        cards = []
+        for t in tickets:
+            p = t.player
+            cards.append(
+                '<div class="card"><div class="row">'
+                '<div class="rank">&#8599;</div>'
+                f'<div><span class="name">{_e(p.name)}</span> '
+                f'<span class="opp">{_e(p.position)} {_e(p.team or "")}</span></div>'
+                f'<div class="pts">{t.ceiling:.1f}</div></div>'
+                f'<div class="why">{(p.ros_value or 0):.1f} a game now; {_e("; ".join(t.reasons))}</div></div>'
+            )
+        parts.append(
+            "<h3>Upside stashes</h3>"
+            '<p class="sub">Not enough projected value to clear the bar yet, but the most room '
+            "to grow. The number is what he could be worth a game in a month if things break "
+            "his way (85th percentile of how projections move). Worth a bench spot you would "
+            "otherwise waste.</p>" + "".join(cards)
+        )
 
     watch = drop_watch(snapshot, n=3)
     if watch:

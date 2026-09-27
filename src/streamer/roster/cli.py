@@ -146,11 +146,10 @@ def cmd_lineup(args: argparse.Namespace, cfg: Config) -> int:
                 print(f"    odds API credits remaining: {prep.vegas.credits_remaining}")
         for w in (prep.vegas.warnings if prep.vegas else []):
             print(f"    - {w}")
-        if opt.best_ev.player_ids != opt.best_win.player_ids:
-            print(f"\n  Note: the max-expected-points lineup differs "
-                  f"(EV {opt.best_ev.expected:.1f}, P(win) {opt.best_ev.win_probability:.0%}); "
-                  f"the recommendation trades {opt.best_ev.expected - opt.best_win.expected:.1f} "
-                  f"expected points for {opt.best_win.win_probability - opt.best_ev.win_probability:+.1%} win probability.")
+        if opt.reasons:
+            print("\n  Not simply the highest projections, because:")
+            for r in opt.reasons:
+                print(f"    - {r}")
         if opt.changes:
             print("\n  Changes from your current lineup:")
             for slot, benched, started in opt.changes:

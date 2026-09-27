@@ -96,6 +96,22 @@ class PlayerRow:
     vegas_points: float | None = None
     vegas_stats: dict = field(default_factory=dict)
     vegas_books: int = 0
+    #: This week's NFL opponent, and the player's role on his NFL team (QB,
+    #: RB1, WR2, ...). The lineup simulator correlates players through these.
+    nfl_opponent: str | None = None
+    role: str = ""
+    #: Chance the player suits up this week (injury tags), and his spread if
+    #: he does. ``projection``/``projection_sd`` are the blend of both cases.
+    play_probability: float = 1.0
+    outcome_sd: float | None = None
+    #: How far his per-game projection could move over the next month, and
+    #: seasons in the league (0 = rookie) where known. Waivers price upside
+    #: from these.
+    ros_sd: float | None = None
+    experience: int | None = None
+    #: Short, human reasons the projection moved: a starter ahead of him is
+    #: out, his opportunity has changed.
+    signals: list[str] = field(default_factory=list)
 
     @property
     def is_out(self) -> bool:

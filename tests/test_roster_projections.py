@@ -120,29 +120,37 @@ def test_load_history_returns_the_expected_columns(cfg):
         assert col in hist.columns
 
 
-def test_long_record_tempers_a_four_game_streak(cfg):
-    """A proven player in a cold spell stays above his slump; a journeyman on
-    a hot streak stays below his peak. The old four-game window did neither."""
+def _streak_history(recent_points: float, recent_exp: float, usual_points: float = 8.0,
+                    usual_exp: float = 8.5) -> pd.DataFrame:
     rows = []
     for season in (2024, 2025):
         for week in range(1, 18):
             recent = season == 2025 and week >= 13
-            # Veteran: 18-point player, cold for his last four games.
-            rows.append({"player_id": "vet", "player_display_name": "Vet", "position": "WR",
-                         "season": season, "week": week, "team": "ATL",
-                         "fantasy_points_ppr": 6.0 if recent else 18.0,
-                         "total_fantasy_points_exp": 7.0 if recent else 17.0})
-            # Journeyman: 8-point player, hot for his last four.
-            rows.append({"player_id": "hot", "player_display_name": "Hot", "position": "WR",
+            rows.append({"player_id": "p", "player_display_name": "P", "position": "WR",
                          "season": season, "week": week, "team": "CAR",
-                         "fantasy_points_ppr": 24.0 if recent else 8.0,
-                         "total_fantasy_points_exp": 22.0 if recent else 8.5})
-    hist = pd.DataFrame(rows)
-    table = player_table(hist, 2025, 18, cfg).set_index("player_id")["blend"]
-    vet, hot = table["vet"], table["hot"]
-    assert 6.5 < vet < 18.0 and vet > 10.0        # anchored well above the slump
-    assert 8.5 < hot < 23.0 and hot < 17.0        # anchored well below the streak
-    assert vet > hot - 6.0                         # no longer a coin flip the wrong way
+                         "fantasy_points_ppr": recent_points if recent else usual_points,
+                         "total_fantasy_points_exp": recent_exp if recent else usual_exp})
+    return pd.DataFrame(rows)
+
+
+def test_a_scoring_streak_without_more_opportunity_is_mostly_discounted(cfg):
+    """Four 24-point games on the same 8.5 expected points: touchdowns and big
+    plays, which regress. The projection moves, but stays near his usual."""
+    proj = player_table(_streak_history(24.0, 8.5), 2025, 18, cfg).set_index("player_id")["blend"]["p"]
+    assert 8.5 < proj < 13.0
+
+
+def test_more_opportunity_moves_the_projection_most_of_the_way(cfg):
+    """Four games at 22 expected points is a new role (a starter hurt, a
+    promotion): opportunity is sticky, so it is believed."""
+    proj = player_table(_streak_history(20.0, 22.0), 2025, 18, cfg).set_index("player_id")["blend"]["p"]
+    assert proj > 15.0
+
+
+def test_a_proven_player_in_a_cold_spell_stays_above_his_slump(cfg):
+    proj = player_table(_streak_history(6.0, 16.0, usual_points=18.0, usual_exp=17.0),
+                        2025, 18, cfg).set_index("player_id")["blend"]["p"]
+    assert proj > 12.0
 
 
 def _stale_snapshot(status: str = "", platform=None, team: str | None = "LV"):
@@ -254,3 +262,79 @@ def test_platform_zero_ignored_when_the_feed_is_not_populated(cfg, monkeypatch):
     _project(snap, cfg, monkeypatch)
     jj = snap.my_team.roster[0]
     assert jj.projection and jj.projection > 5.0
+
+
+# ---------------------------------------------------------------------------
+# The next man up
+# ---------------------------------------------------------------------------
+def _depth_history() -> pd.DataFrame:
+    """KC: a 16-point lead back and a 4-point backup; two receivers likewise."""
+    rows = []
+    for season in (2025, 2026):
+        for week in range(1, 18 if season == 2025 else 3):
+            for pid, name, pos, exp in (("nfl-lead", "Lead Back", "RB", 16.0),
+                                        ("nfl-cuff", "Cuff Back", "RB", 4.0),
+                                        ("nfl-wr1", "Top Receiver", "WR", 15.0),
+                                        ("nfl-wr3", "Deep Receiver", "WR", 4.0)):
+                rows.append({"player_id": pid, "player_display_name": name, "position": pos,
+                             "season": season, "week": week, "team": "KC",
+                             "fantasy_points_ppr": exp, "total_fantasy_points_exp": exp})
+    return pd.DataFrame(rows).sort_values(["player_id", "season", "week"]).reset_index(drop=True)
+
+
+def _depth_snapshot(lead_status: str = "", wr_status: str = ""):
+    roster = [
+        PlayerRow(player_id="lead", name="Lead Back", position="RB", team="KC", status=lead_status),
+        PlayerRow(player_id="wr1", name="Top Receiver", position="WR", team="KC", status=wr_status),
+    ]
+    fas = [
+        PlayerRow(player_id="cuff", name="Cuff Back", position="RB", team="KC", slot="FA"),
+        PlayerRow(player_id="wr3", name="Deep Receiver", position="WR", team="KC", slot="FA"),
+    ]
+    return LeagueSnapshot(
+        platform="espn", profile="espn", league_id="1", league_name="t", season=2026, week=3,
+        slots={"RB": 1, "WR": 1}, bench_size=2,
+        teams=[TeamRow(team_id="1", name="me", roster=roster, is_mine=True)],
+        free_agents=fas, matchup=None, synced_at="",
+    )
+
+
+def _project_depth(snap, cfg):
+    from streamer.roster import projections
+
+    projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=_depth_history())
+    return {p.player_id: p for p in snap.all_players()}
+
+
+def test_backup_inherits_part_of_an_injured_starters_work(cfg):
+    healthy = _project_depth(_depth_snapshot(), cfg)
+    hurt = _project_depth(_depth_snapshot(lead_status="INJURY_RESERVE"), cfg)
+    gap = healthy["lead"].model_projection - healthy["cuff"].model_projection
+    gain = hurt["cuff"].model_projection - healthy["cuff"].model_projection
+    assert 0.25 * gap < gain < 0.45 * gap                 # ~0.35 of the gap
+    assert hurt["cuff"].ros_value > healthy["cuff"].ros_value   # IR: rest of season too
+    assert any("next man up: Lead Back is on IR" in s for s in hurt["cuff"].signals)
+    assert not healthy["cuff"].signals or all("next man up" not in s for s in healthy["cuff"].signals)
+
+
+def test_a_one_week_absence_lifts_this_week_more_than_the_season(cfg):
+    healthy = _project_depth(_depth_snapshot(), cfg)
+    out = _project_depth(_depth_snapshot(lead_status="OUT"), cfg)
+    week_gain = out["cuff"].model_projection - healthy["cuff"].model_projection
+    ros_gain = out["cuff"].ros_value - healthy["cuff"].ros_value
+    assert week_gain > 0 and 0 < ros_gain < week_gain
+
+
+def test_receivers_do_not_inherit_a_missing_receivers_targets(cfg):
+    """Measured: a missing WR's targets spread too thinly to lift any one
+    teammate, so none is projected to."""
+    healthy = _project_depth(_depth_snapshot(), cfg)
+    hurt = _project_depth(_depth_snapshot(wr_status="OUT"), cfg)
+    assert hurt["wr3"].model_projection == pytest.approx(healthy["wr3"].model_projection)
+
+
+def test_roles_and_opponents_are_attached(cfg):
+    got = _project_depth(_depth_snapshot(), cfg)
+    assert got["lead"].role == "RB1" and got["cuff"].role == "RB2"
+    assert got["wr1"].role == "WR1"
+    assert got["lead"].ros_sd is not None and got["lead"].ros_sd > 0

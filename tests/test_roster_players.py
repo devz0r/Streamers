@@ -50,3 +50,19 @@ def test_defenses_and_unknowns_are_reported():
     result = match_players(rows, _index())
     assert "d" not in result.mapping                 # defences are matched by team elsewhere
     assert result.unmatched == ["Nobody Real (WR)"]
+
+
+def test_loose_match_needs_the_same_team():
+    """First-initial matching is for spelling variants of one player, so it
+    must not hand a rookie another team's star with the same surname."""
+    index = build_index(pd.DataFrame({
+        "player_id": ["00-9", "00-8"], "player_display_name": ["Jayden Daniels", "Gabe Davis"],
+        "position": ["QB", "WR"], "team": ["WAS", "BUF"],
+    }))
+    rows = [
+        PlayerRow(player_id="r", name="Jalon Daniels", position="QB", team="TB"),
+        PlayerRow(player_id="s", name="Gabriel Davis", position="WR", team="BUF"),
+    ]
+    result = match_players(rows, index)
+    assert "r" not in result.mapping
+    assert result.mapping["s"] == "00-8"

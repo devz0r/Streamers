@@ -24,6 +24,15 @@ a reason to skip a real asset); late in the season next week is what matters.
 Moves are assigned greedily and re-scored after each one, so the list reads as
 a sequence that can all be made together, each priced on top of the last.
 
+Rest of season also prices **upside**. A bench player is worth what he adds
+when his role grows past one of your starters, and nothing when it does not
+-- an option, so a player whose projection could move a lot (a rookie, a
+back one injury from the job) is worth more than a steady one with the same
+mean. How far projections move over a month was measured 2021-2025 by
+position and level: typically 1.5-2.5 points per game, a quarter wider for
+rookies, whose projections also tend to rise (+0.4 points per game over a
+month against veterans).
+
 Players sitting in an IR slot are neither drop candidates (dropping them frees
 no bench spot) nor part of the lineup (activating them is a roster move).
 """
@@ -31,7 +40,9 @@ no bench spot) nor part of the lineup (activating them is a roster move).
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from scipy.stats import norm
 
 from ..league.model import SLOT_ELIGIBILITY, LeagueSnapshot, PlayerRow
 
@@ -50,6 +61,14 @@ BENCH_WEIGHTS: dict[str, tuple[float, ...]] = {
     "DST": (),
 }
 
+#: Positions whose bench bodies carry upside (their role can grow into a
+#: starting one). Kickers and defences are streamed week to week instead.
+UPSIDE_POSITIONS = ("QB", "RB", "WR", "TE")
+
+#: Share of games a lead back misses (2021-2025: 8.5% of the games after one
+#: he played with 12+ expected points). What a handcuff's contingency is worth.
+LEAD_BACK_MISS_RATE = 0.085
+
 #: Free agents considered per position, by their better horizon value.
 POOL_PER_POSITION = 30
 #: Pickups re-scored after each accepted move.
@@ -67,6 +86,7 @@ class Move:
     score: float
     tag: str
     reason: str
+    upside_gain: float = 0.0
 
 
 def horizon_weight(week: int, max_week: int = 18) -> float:
@@ -132,37 +152,58 @@ def _eligible(p: PlayerRow, slot: str) -> bool:
     return p.position in SLOT_ELIGIBILITY.get(slot, ())
 
 
-def best_lineup(players: list[PlayerRow], slots: dict[str, int], key: Key) -> tuple[set[str], float]:
-    """Greedy best lineup on ``key``: dedicated slots first, flex slots last.
+def lineup_slots(players: list[PlayerRow], slots: dict[str, int], key: Key) -> dict[str, str]:
+    """Greedy best lineup on ``key``: player id -> the slot he fills.
 
-    Exact for the usual one-flex structure; a close approximation otherwise.
-    Returns the starters' ids and their total.
+    Dedicated slots first, flex slots last; exact for the usual one-flex
+    structure and a close approximation otherwise.
     """
     ordered = sorted(
         slots.items(),
         key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]),
     )
     ranked = sorted(players, key=key, reverse=True)
-    used: set[str] = set()
-    total = 0.0
+    assigned: dict[str, str] = {}
     for slot, count in ordered:
         taken = 0
         for p in ranked:
             if taken >= count:
                 break
-            if p.player_id in used or not _eligible(p, slot):
+            if p.player_id in assigned or not _eligible(p, slot):
                 continue
-            used.add(p.player_id)
-            total += key(p)
+            assigned[p.player_id] = slot
             taken += 1
-    return used, total
+    return assigned
+
+
+def best_lineup(players: list[PlayerRow], slots: dict[str, int], key: Key) -> tuple[set[str], float]:
+    """The best lineup's starters and their total on ``key``."""
+    assigned = lineup_slots(players, slots, key)
+    return set(assigned), sum(key(p) for p in players if p.player_id in assigned)
+
+
+def upside(mean: float, spread: float, bar: float) -> float:
+    """Expected points a game by which a player's role outgrows ``bar``.
+
+    ``E[max(0, V - bar)]`` for V ~ Normal(mean, spread): the option value of
+    holding someone who starts for you only if he gets better.
+    """
+    if spread <= 0:
+        return max(mean - bar, 0.0)
+    d = (mean - bar) / spread
+    return float(spread * (norm.pdf(d) + d * norm.cdf(d)))
 
 
 def roster_value(
-    players: list[PlayerRow], slots: dict[str, int], key: Key, replacement: dict[str, float]
+    players: list[PlayerRow], slots: dict[str, int], key: Key, replacement: dict[str, float],
+    with_upside: bool = False,
 ) -> float:
-    """Best-lineup points plus replacement-level bench depth."""
-    starters, total = best_lineup(players, slots, key)
+    """Best-lineup points plus replacement-level bench depth, plus -- for the
+    rest-of-season horizon -- the upside of bench players whose role could
+    grow past the weakest starter they are eligible to replace."""
+    assigned = lineup_slots(players, slots, key)
+    starters = set(assigned)
+    total = sum(key(p) for p in players if p.player_id in assigned)
     bench: dict[str, list[float]] = {}
     for p in players:
         if p.player_id not in starters:
@@ -172,6 +213,15 @@ def roster_value(
         level = replacement.get(pos, 0.0)
         for w, v in zip(BENCH_WEIGHTS.get(pos, ()), vals):
             total += w * max(v - level, 0.0)
+    if with_upside:
+        by_id = {p.player_id: p for p in players}
+        for p in players:
+            if p.player_id in starters or p.position not in UPSIDE_POSITIONS or p.ros_sd is None:
+                continue
+            # He can only take the job of a starter whose slot he can fill.
+            rivals = [key(by_id[i]) for i, slot in assigned.items() if _eligible(p, slot)]
+            if rivals:
+                total += upside(key(p), float(p.ros_sd), min(rivals))
     return total
 
 
@@ -252,13 +302,15 @@ def recommend(
         rep_next = _level_excluding(lv_next, fa, nxt)
         rep_ros = _level_excluding(lv_ros, fa, _ros)
         base_next = roster_value(state, slots, nxt, rep_next)
-        base_ros = roster_value(state, slots, _ros, rep_ros)
+        base_ros = roster_value(state, slots, _ros, rep_ros, with_upside=True)
+        base_ros_flat = roster_value(state, slots, _ros, rep_ros)
         best: Move | None = None
         starting_now, _ = best_lineup(state, slots, nxt)
         for drop in droppable(state, w_next, fa.position):
             trial = [p for p in state if p.player_id != drop.player_id] + [fa]
             next_gain = roster_value(trial, slots, nxt, rep_next) - base_next
-            ros_gain = roster_value(trial, slots, _ros, rep_ros) - base_ros
+            ros_gain = roster_value(trial, slots, _ros, rep_ros, with_upside=True) - base_ros
+            flat_gain = roster_value(trial, slots, _ros, rep_ros) - base_ros_flat
             score = w_next * next_gain + (1.0 - w_next) * ros_gain
             # Who the pickup would actually start over this week, if anyone:
             # "add a QB, drop a WR, +3.5" is baffling until it says the QB is
@@ -273,9 +325,10 @@ def recommend(
             tie_same_pos = (best is not None and abs(score - best.score) <= 1e-9
                             and drop.position == fa.position and best.drop.position != fa.position)
             if better or tie_same_pos:
-                tag, reason = _explain(fa, drop, next_gain, ros_gain, nxt, starts_over)
+                up = (1.0 - w_next) * (ros_gain - flat_gain)
+                tag, reason = _explain(fa, drop, next_gain, ros_gain, nxt, starts_over, up)
                 best = Move(add=fa, drop=drop, next_week_gain=next_gain,
-                            ros_gain=ros_gain, score=score, tag=tag, reason=reason)
+                            ros_gain=ros_gain, score=score, tag=tag, reason=reason, upside_gain=up)
         return best
 
     state = list(roster)
@@ -295,8 +348,9 @@ def recommend(
 
 
 def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float,
-             nxt=_next_week, starts_over: PlayerRow | None = None) -> tuple[str, str]:
-    bits = []
+             nxt=_next_week, starts_over: PlayerRow | None = None,
+             upside_gain: float = 0.0) -> tuple[str, str]:
+    bits = list(fa.signals)
     if fa.position in ("DST", "K"):
         tag = "stream"
         bits.append(f"{fa.position} streamer, {nxt(fa):.1f} projected this week")
@@ -314,6 +368,11 @@ def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float,
     if starts_over is not None:
         bits.append(f"would start over {starts_over.name} "
                     f"({nxt(fa):.1f} vs {nxt(starts_over):.1f} projected)")
+    if upside_gain >= 0.1:
+        bits.append(f"+{upside_gain:.1f} of that is upside, the chance his projection climbs past your starter"
+                    + (f"; {_youth(fa)}" if _youth(fa) else ""))
+    elif _youth(fa):
+        bits.append(_youth(fa))
     if fa.on_bye:
         bits.append("on bye this week")
     if drop.on_bye:
@@ -323,6 +382,86 @@ def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float,
     if fa.percent_owned is not None and fa.percent_owned < 25:
         bits.append(f"{fa.percent_owned:.0f}% rostered")
     return tag, "; ".join(bits)
+
+
+def _youth(p: PlayerRow) -> str:
+    if p.experience == 0:
+        return "rookie, and rookies' roles tend to grow"
+    if p.experience == 1:
+        return "second-year player"
+    return ""
+
+
+@dataclass
+class Stash:
+    """A free agent worth a spare bench spot for what he could become."""
+
+    player: PlayerRow
+    ceiling: float                 # his per-game projection a month out, 85th percentile
+    value: float                   # upside to your lineup, points a game
+    reasons: list[str] = field(default_factory=list)
+
+
+def handcuffs(snapshot: LeagueSnapshot) -> dict[str, tuple[PlayerRow, float]]:
+    """Free-agent backs next in line behind a healthy lead back: player id ->
+    (the starter, the extra points a game he would inherit if the starter
+    misses time). History: the next man up averaged 13.9 points in the first
+    game of an absence, against 10.7 for backs projected the same."""
+    everyone = snapshot.all_players()
+    leads = {p.team: p for p in everyone
+             if p.position == "RB" and p.role == "RB1" and not p.is_out and (p.ros_value or 0) >= 12.0}
+    out = {}
+    for fa in snapshot.free_agents:
+        if fa.position != "RB" or fa.role != "RB2" or fa.team not in leads:
+            continue
+        lead = leads[fa.team]
+        gain = 0.35 * max(float(lead.ros_value or 0) - float(fa.ros_value or 0), 0.0)
+        if gain >= 1.5:
+            out[fa.player_id] = (lead, gain)
+    return out
+
+
+def stashes(snapshot: LeagueSnapshot, moves: list[Move], n: int = 3) -> list[Stash]:
+    """Lottery tickets: free agents whose value could jump, even though their
+    projection does not yet clear the bar -- a back behind a lead back, a
+    rookie whose role is growing, a player whose opportunity just rose.
+
+    Ranked by upside to *your* lineup: the expected points a game by which he
+    could outgrow the weakest starter he is eligible to replace, plus, for a
+    handcuff, the share of games a lead back misses times what the job is
+    worth. A backup quarterback in a one-QB league scores near zero here
+    however good he is, because he would have to beat your starter.
+    """
+    taken = {m.add.player_id for m in moves}
+    cuffs = handcuffs(snapshot)
+    roster = [p for p in snapshot.my_team.roster if _has_value(p) and not p.in_ir_slot]
+    assigned = lineup_slots(roster, snapshot.starting_slots, _ros)
+    by_id = {p.player_id: p for p in roster}
+    out = []
+    for fa in snapshot.free_agents:
+        if (fa.player_id in taken or fa.position not in UPSIDE_POSITIONS or fa.is_long_term_out
+                or fa.ros_value is None or fa.ros_sd is None or not fa.team):
+            continue
+        reasons = [s for s in fa.signals if not s.startswith("opportunity down")]
+        rivals = [_ros(by_id[i]) for i, slot in assigned.items() if _eligible(fa, slot)]
+        if not rivals:
+            continue
+        bar = min(rivals)
+        ros, spread = float(fa.ros_value), float(fa.ros_sd)
+        value = upside(ros, spread, bar)
+        ceiling = ros + 1.04 * spread
+        if fa.player_id in cuffs:
+            lead, gain = cuffs[fa.player_id]
+            reasons.append(f"handcuff to {lead.name}: about +{gain:.1f} a game if he misses time")
+            value += LEAD_BACK_MISS_RATE * max(ros + gain - bar, 0.0)
+            ceiling = max(ceiling, ros + gain)
+        if fa.experience == 0:
+            reasons.append(_youth(fa))
+        if not reasons or value < 0.05:
+            continue
+        out.append(Stash(player=fa, ceiling=ceiling, value=value, reasons=reasons))
+    out.sort(key=lambda s: -s.value)
+    return out[:n]
 
 
 def drop_watch(snapshot: LeagueSnapshot, n: int = 4, max_week: int = 18) -> list[PlayerRow]:
@@ -336,12 +475,12 @@ def drop_watch(snapshot: LeagueSnapshot, n: int = 4, max_week: int = 18) -> list
     rep_next = {pos: (v[0] if v else 0.0) for pos, v in _replacement_levels(pool, nxt).items()}
     rep_ros = {pos: (v[0] if v else 0.0) for pos, v in _replacement_levels(pool, _ros).items()}
     base_next = roster_value(roster, slots, nxt, rep_next)
-    base_ros = roster_value(roster, slots, _ros, rep_ros)
+    base_ros = roster_value(roster, slots, _ros, rep_ros, with_upside=True)
 
     def loss(p: PlayerRow) -> float:
         rest = [q for q in roster if q.player_id != p.player_id]
         d_next = base_next - roster_value(rest, slots, nxt, rep_next)
-        d_ros = base_ros - roster_value(rest, slots, _ros, rep_ros)
+        d_ros = base_ros - roster_value(rest, slots, _ros, rep_ros, with_upside=True)
         return w_next * d_next + (1.0 - w_next) * d_ros
 
     # Ties (several spots that cost nothing) go to the least valuable body.

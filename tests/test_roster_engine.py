@@ -71,18 +71,90 @@ def test_win_probability_responds_to_opponent_strength():
     assert strong.best_win.win_probability < 0.25
 
 
-def test_underdog_prefers_the_high_variance_receiver():
-    """WR 7 (mean 11, sd 11) vs WR 6 (mean 11, sd 6): identical EV.
+def _two_for_one_slot() -> list[PlayerRow]:
+    """WR 6 (mean 11, sd 6) and WR 7 (mean 11, sd 11) contest the last WR
+    spot: the flex is taken by a 12-point back, so only one of them starts."""
+    roster = my_roster()
+    for p in roster:
+        if p.player_id == "11":
+            p.projection, p.status = 12.0, ""
+    return roster
 
-    Against a much stronger opponent only a boom wins, so the optimiser should
-    lean on the volatile one; against a weak opponent it should not.
-    """
+
+def test_underdog_prefers_the_high_variance_receiver():
+    """Identical EV. Against a much stronger opponent only a boom wins, so the
+    optimiser leans on the volatile one; against a weak opponent it does not."""
     def picked_boom(strength: float) -> bool:
-        res = lineup.optimise(my_roster(), STARTING, opponent_roster(strength), n_sims=12000)
+        res = lineup.optimise(_two_for_one_slot(), STARTING, opponent_roster(strength), n_sims=12000)
         return "7" in res.best_win.player_ids
 
-    assert picked_boom(1.6) is True
-    assert picked_boom(0.5) is False
+    assert picked_boom(1.4) is True
+    assert picked_boom(0.8) is False
+
+
+def test_points_are_not_given_up_for_an_edge_the_simulation_cannot_see():
+    """In a blowout the steadier player gains a sliver of P(win) at the cost
+    of a projected point; the projection wins that tie."""
+    res = lineup.optimise(my_roster(), STARTING, opponent_roster(0.5), n_sims=12000)
+    assert res.best_win.expected == res.best_ev.expected
+    assert res.reasons == []
+
+
+def _stack_roster(opp_qb_team: str = "BUF") -> tuple[list[PlayerRow], list[PlayerRow]]:
+    """Two receivers with the same projection and spread; one catches passes
+    from our quarterback (KC), the other from the opponent's (BUF)."""
+    roster = _two_for_one_slot()
+    for p in roster:
+        p.role = {"QB": "QB", "K": "K", "DST": "DST"}.get(p.position, p.position + "2")
+        if p.player_id == "6":
+            p.team, p.projection_sd, p.role = opp_qb_team, 8.0, "WR1"
+        if p.player_id == "7":
+            p.team, p.projection_sd, p.role = "KC", 8.0, "WR1"
+    opp = opponent_roster(1.0)
+    for p in opp:
+        p.role = {"QB": "QB", "K": "K", "DST": "DST"}.get(p.position, p.position + "2")
+    return roster, opp
+
+
+def test_correlation_widens_a_stack_and_narrows_a_hedge():
+    import numpy as np
+
+    roster, opp = _stack_roster()
+    rng = np.random.default_rng(3)
+    qb, stack, hedge = roster[0], roster[6], roster[5]
+    opp_qb = opp[0]
+    s = lineup.sample_points([qb, stack, hedge, opp_qb], 40000, rng)
+    assert np.corrcoef(s[:, 0], s[:, 1])[0, 1] > 0.25       # QB and his WR1
+    assert np.corrcoef(s[:, 2], s[:, 3])[0, 1] > 0.25       # opponent's QB and his WR1
+    assert abs(np.corrcoef(s[:, 0], s[:, 2])[0, 1]) < 0.05  # unrelated games
+
+
+def test_underdog_stacks_and_favourite_hedges():
+    """Same projection and spread: the underdog starts the receiver who moves
+    with its own quarterback; the favourite the one who moves with the
+    opponent's. The explanation names the reason."""
+    def pick(strength: float) -> tuple[str, list[str]]:
+        roster, opp = _stack_roster()
+        for p in opp:
+            if p.position != "QB":
+                p.projection = (p.projection or 0) * strength
+        res = lineup.optimise(roster, STARTING, opp, n_sims=20000)
+        return ("7" if "7" in res.best_win.player_ids else "6"), res.reasons
+
+    under, _ = pick(1.5)
+    fav, _ = pick(0.6)
+    assert under == "7"
+    assert fav == "6"
+
+
+def test_a_questionable_player_is_a_coin_flip_in_the_simulation():
+    import numpy as np
+
+    q = PlayerRow(player_id="q", name="q", position="WR", status="QUESTIONABLE",
+                  projection=7.5, projection_sd=8.0, outcome_sd=6.0, play_probability=0.75)
+    s = lineup.sample_points([q], 40000, np.random.default_rng(2))[:, 0]
+    assert 0.2 < (s == 0.0).mean() < 0.3          # sits about a quarter of the time
+    assert abs(s.mean() - 7.5) < 0.4              # the mixture mean is kept
 
 
 def test_optimiser_without_an_opponent_still_returns_lineups():
@@ -319,3 +391,73 @@ def test_a_pickup_that_would_start_names_who_it_benches():
     for m in moves.values():
         if m.add.player_id != "204" and m.tag == "stash":
             assert "would start over" not in m.reason
+
+
+# ---------------------------------------------------------------------------
+# Upside
+# ---------------------------------------------------------------------------
+def test_upside_is_an_option_worth_more_with_more_room_to_move():
+    assert waivers.upside(8.0, 3.0, 12.0) > waivers.upside(8.0, 1.0, 12.0) > 0.0
+    assert waivers.upside(8.0, 0.0, 12.0) == 0.0
+    assert waivers.upside(14.0, 0.0, 12.0) == 2.0
+
+
+def _wr(pid: str, ros: float, spread: float, slot: str = "BN") -> PlayerRow:
+    return PlayerRow(player_id=pid, name=pid, position="WR", team="KC", slot=slot,
+                     eligible_slots=["WR", "FLEX"], projection=ros, projection_sd=6.0,
+                     ros_value=ros, ros_sd=spread)
+
+
+def test_bench_upside_only_counts_jobs_he_could_take():
+    """A bench receiver's upside is measured against the receiver he could
+    replace, never against a weak tight end in a slot he cannot fill."""
+    slots = {"WR": 1, "TE": 1}
+    te = PlayerRow(player_id="te", name="te", position="TE", team="KC", slot="TE",
+                   eligible_slots=["TE"], projection=3.0, ros_value=3.0, ros_sd=1.0)
+    roster = [te, _wr("wr", 15.0, 2.0, slot="WR"), _wr("bench", 10.0, 2.0)]
+    key = waivers._ros
+    flat = waivers.roster_value(roster, slots, key, {})
+    with_up = waivers.roster_value(roster, slots, key, {}, with_upside=True)
+    assert 0.0 <= with_up - flat < 0.05                   # 10 vs 15: little chance
+
+
+def test_the_riskier_stash_wins_at_the_same_projection():
+    base = snapshot(week=4)
+    for p in base.my_team.roster:
+        p.ros_sd = 1.5
+    steady = _wr("steady", 10.5, 1.0, slot="FA")
+    rookie = _wr("rookie", 10.5, 3.5, slot="FA")
+    rookie.experience = 0
+    base.free_agents = [steady, rookie]
+    moves = {m.add.player_id: m for m in waivers.recommend(base, min_gain=-99)}
+    assert moves["rookie"].score > moves["steady"].score
+    assert "rookie" in moves["rookie"].reason
+
+
+def test_stash_list_names_a_handcuff():
+    """Behind a bell-cow, the backup would start for you if he got the job."""
+    snap = snapshot(week=4)
+    for p in snap.my_team.roster:
+        p.ros_sd = 1.5
+    lead = PlayerRow(player_id="lead", name="Lead Back", position="RB", team="SEA", role="RB1",
+                     projection=24.0, ros_value=24.0, ros_sd=2.0)
+    cuff = PlayerRow(player_id="cuff", name="Cuff Back", position="RB", team="SEA", role="RB2",
+                     slot="FA", eligible_slots=["RB", "FLEX"], projection=8.0, ros_value=8.0, ros_sd=1.6)
+    snap.teams[1].roster.append(lead)
+    snap.free_agents = [cuff]
+    names = {s.player.player_id: s for s in waivers.stashes(snap, [])}
+    assert "cuff" in names
+    assert any("handcuff to Lead Back" in r for r in names["cuff"].reasons)
+
+
+def test_a_handcuff_who_could_not_start_for_you_is_not_a_stash():
+    snap = snapshot(week=4)
+    for p in snap.my_team.roster:
+        p.ros_sd = 1.5
+    lead = PlayerRow(player_id="lead", name="Lead Back", position="RB", team="SEA", role="RB1",
+                     projection=13.0, ros_value=13.0, ros_sd=2.0)
+    cuff = PlayerRow(player_id="cuff", name="Cuff Back", position="RB", team="SEA", role="RB2",
+                     slot="FA", eligible_slots=["RB", "FLEX"], projection=3.0, ros_value=3.0, ros_sd=1.2)
+    snap.teams[1].roster.append(lead)
+    snap.free_agents = [cuff]
+    assert waivers.stashes(snap, []) == []
