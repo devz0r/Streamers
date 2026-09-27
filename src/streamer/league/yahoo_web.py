@@ -297,7 +297,57 @@ def probe(league_id: str, team_id: str | None, cookie: str, week: int | None = N
     results.append(probe_page(f"{BASE}{free_agent_path(league_id, 'O', week or 1, 0)}",
                               cookie, league_id, detail))
     results.append(probe_page(f"{BASE}/f1/{league_id}/matchup{wk}", cookie, league_id, detail))
+    # What the season simulator needs: settings, the schedule, waiver order.
+    settings = probe_page(f"{BASE}/f1/{league_id}/settings", cookie, league_id, detail)
+    try:
+        settings.hints.extend(["settings:"] + settings_lines(fetch(f"{BASE}/f1/{league_id}/settings", cookie).text))
+    except Exception as exc:  # noqa: BLE001
+        settings.hints.append(f"settings read failed: {type(exc).__name__}")
+    results.append(settings)
+    if team_id:
+        results.append(probe_page(f"{BASE}/f1/{league_id}/{team_id}/schedule", cookie, league_id, detail))
+        try:
+            team_html = fetch(f"{BASE}/f1/{league_id}/{team_id}{wk}", cookie).text
+            results[1].hints.extend(waiver_hints(team_html))
+        except Exception:  # noqa: BLE001
+            pass
+    later = (week or 1) + 2
+    results.append(probe_page(f"{BASE}/f1/{league_id}?matchup_week={later}&module=matchups",
+                              cookie, league_id, detail))
     return results
+
+
+#: Settings rows worth printing: generic league rules, never names.
+_SETTING_LABELS = re.compile(
+    r"(waiver|playoff|regular season|tie|trade|faab|budget|median|max teams|scoring type|"
+    r"roster positions|start week|end week|reseed|consolation|keeper|fractional)", re.I)
+
+
+def settings_lines(html: str) -> list[str]:
+    """Label: value for the league's rule rows. Values are rules text
+    ("Continual rolling list", "Week 15, 16 and 17 (6 teams)"), safe to print;
+    any row about names is skipped by the label filter."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    out = []
+    for tr in soup.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
+        if len(cells) >= 2 and _SETTING_LABELS.search(cells[0]) and "name" not in cells[0].lower():
+            out.append(f"      {cells[0][:40]}: {cells[1][:80]}")
+    for dt in soup.find_all("dt"):
+        dd = dt.find_next_sibling("dd")
+        label = dt.get_text(" ", strip=True)
+        if dd is not None and _SETTING_LABELS.search(label) and "name" not in label.lower():
+            out.append(f"      {label[:40]}: {dd.get_text(' ', strip=True)[:80]}")
+    return out[:40] or ["      (no rule rows found in tr/th/td or dt/dd)"]
+
+
+def waiver_hints(html: str) -> list[str]:
+    """Where the page mentions the waiver order, with the digits kept."""
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or ""))
+    hits = [m.group(0)[:60] for m in re.finditer(r"[Ww]aiver[^.]{0,40}?\d{1,2}", text)]
+    return [f"waiver mention: {h}" for h in hits[:5]] or ["no waiver-order mention on this page"]
 
 
 # ---------------------------------------------------------------------------
