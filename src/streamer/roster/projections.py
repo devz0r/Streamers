@@ -108,8 +108,9 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
             log.warning("player history for %s unavailable: %s", season, exc)
             continue
         stats = stats[stats["season_type"].eq("REG") & stats["position"].isin(SKILL)]
+        usage = [c for c in ("targets", "carries", "target_share") if c in stats.columns]
         stats = stats[["player_id", "player_display_name", "position", "season", "week",
-                       "team", "fantasy_points_ppr"]].copy()
+                       "team", "fantasy_points_ppr", *usage]].copy()
         stats["season"] = stats["season"].astype(int)
         stats["week"] = stats["week"].astype(int)
         opp = opp[["player_id", "season", "week", "total_fantasy_points_exp"]].copy()
@@ -262,6 +263,39 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     first = prior.groupby("player_id")["season"].min().rename("first_season")
     target = target.merge(first, left_on="player_id", right_index=True, how="left")
     return target[TABLE_COLUMNS]
+
+
+def recent_usage(history: pd.DataFrame, season: int, week: int, n: int = 3) -> pd.DataFrame:
+    """Targets, carries and target share per game over each player's last
+    ``n`` games before (season, week). Shown beside waiver and lottery picks
+    as the evidence for their opportunity; the projection itself already
+    prices it through expected points (raw counts, target share and catch
+    rate over expected added nothing on top, walk-forward 2022-2025)."""
+    cols = [c for c in ("targets", "carries", "target_share") if c in history.columns]
+    if not cols or history.empty:
+        return pd.DataFrame(columns=cols)
+    prior = history[(history["season"] < season) | ((history["season"] == season) & (history["week"] < week))]
+    last = prior.sort_values(["season", "week"]).groupby("player_id").tail(n)
+    out = last.groupby("player_id")[cols].mean()
+    out["games"] = last.groupby("player_id").size()
+    return out
+
+
+def usage_line(row) -> str:
+    """'7.3 targets (22% share), 1.0 carries a game over his last 3'."""
+    bits = []
+    tgt, car = float(row.get("targets", 0) or 0), float(row.get("carries", 0) or 0)
+    share = row.get("target_share")
+    if tgt >= 0.5:
+        bits.append(f"{tgt:.1f} targets" + (f" ({float(share):.0%} share)" if share == share and share else ""))
+    if car >= 0.5:
+        bits.append(f"{car:.1f} carries")
+    if not bits:
+        return ""
+    games = int(row.get("games", 0))
+    if games <= 1:
+        return f"{', '.join(bits)} in his only game so far"
+    return f"{', '.join(bits)} a game over his last {games}"
 
 
 def weeks_since(row, season: int, week: int, weeks_per_season: int = 18) -> int:
@@ -571,6 +605,7 @@ def project_snapshot(
         and bool(p.team) and not p.on_bye and not p.in_ir_slot
     }
     heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg)
+    usage = recent_usage(history, snapshot.season, snapshot.week)
 
     for p in players:
         mean: float | None = None
@@ -579,6 +614,7 @@ def project_snapshot(
         ros: float | None = None
         source = ""
         p.signals = []
+        p.usage = ""
         p.experience = None
         platform_says_sits = p.player_id in sits
         plat = p.platform_projection
@@ -616,6 +652,8 @@ def project_snapshot(
                 trend = _trend_signal(row)
                 if trend:
                     p.signals.append(trend)
+                if nfl_id in usage.index:
+                    p.usage = usage_line(usage.loc[nfl_id])
             elif (stale or unsigned) and plat is None:
                 # History windows count games played, not time elapsed, so a
                 # player who has not taken a snap in two seasons would keep his

@@ -168,6 +168,8 @@ def lottery_tickets(snapshot: LeagueSnapshot, cfg: Config, games=None,
             reasons.extend(s for s in fa.signals if s.startswith(("opportunity up", "next man up")))
             if fa.experience == 0:
                 reasons.append("rookie")
+            if fa.usage:
+                reasons.append(fa.usage)
             tickets.append(Ticket(player=fa, p_boom=pb, p_job=pj, reasons=reasons))
         tickets = [t for t in tickets if t.p_keep >= min_keep]
         tickets.sort(key=lambda t: -t.p_keep)

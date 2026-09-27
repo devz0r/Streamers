@@ -351,6 +351,8 @@ def _explain(fa: PlayerRow, drop: PlayerRow, next_gain: float, ros_gain: float,
              nxt=_next_week, starts_over: PlayerRow | None = None,
              upside_gain: float = 0.0) -> tuple[str, str]:
     bits = list(fa.signals)
+    if fa.usage:
+        bits.append(fa.usage)
     if fa.position in ("DST", "K"):
         tag = "stream"
         bits.append(f"{fa.position} streamer, {nxt(fa):.1f} projected this week")
@@ -459,6 +461,8 @@ def stashes(snapshot: LeagueSnapshot, moves: list[Move], n: int = 3) -> list[Sta
             reasons.append(_youth(fa))
         if not reasons or value < 0.05:
             continue
+        if fa.usage:
+            reasons.append(fa.usage)
         out.append(Stash(player=fa, ceiling=ceiling, value=value, reasons=reasons))
     out.sort(key=lambda s: -s.value)
     return out[:n]

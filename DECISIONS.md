@@ -982,3 +982,29 @@ cheapest roster spots to open for the rotation. Shown for platforms listed
 in `roster.lottery_tickets.platforms` (Yahoo only; ESPN locks players at
 kickoff).
 
+### Targets, touches and catch rate: already in, now shown
+Fantasy production is opportunity plus talent, and the projection is built
+that way: opportunity is nflverse expected points, which prices every target
+by depth and field position and every carry by yard line; talent is points
+per expected point, which includes catching more than expected. Tested
+walk-forward whether the raw ingredients add anything on top (2022-2025,
+fit 2022-23, tested 2024-25):
+
+- Trailing targets, carries, target share and weighted opportunity correlate
+  with the projection's residual at only -0.07 to -0.09. That is the model
+  slightly over-projecting high-volume players, which a plain calibration
+  captures equally well. On top of it they moved next-game MAE by at most
+  0.015 and made the four-game horizon worse for backs.
+- Catch rate over expected, receiving and rushing yards over expected,
+  touchdowns over expected: residual correlation about zero.
+- Splitting efficiency into non-touchdown skill (light shrinkage) and
+  touchdown luck (heavy shrinkage): every setting within noise of the
+  single efficiency term (pairwise .7209-.7214 vs .7211).
+- For lottery tickets, predicting a top-14 week among waiver-level players:
+  accuracy (AUC) .700 / .712 / .715 for RB / WR / TE from the projection
+  alone, .697 / .711 / .715 with targets, carries, share and catch rate added.
+
+So the model is unchanged. Usage is shown beside waiver, stash and lottery
+picks ("7.3 targets (22% share), 1.0 carries a game over his last 3"),
+because it is the evidence a manager wants to see for an opportunity call.
+

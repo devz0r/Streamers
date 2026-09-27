@@ -112,6 +112,8 @@ class PlayerRow:
     #: Short, human reasons the projection moved: a starter ahead of him is
     #: out, his opportunity has changed.
     signals: list[str] = field(default_factory=list)
+    #: Recent usage -- targets, target share, carries a game -- for display.
+    usage: str = ""
     #: His game has kicked off, so his lineup spot can no longer change; and,
     #: once the game is final, the points he actually scored.
     locked: bool = False
