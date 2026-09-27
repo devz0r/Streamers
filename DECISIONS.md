@@ -927,3 +927,35 @@ status separates Questionable further (DNP 48%, limited 71%, full 84%),
 but the platforms do not carry it, so it is not used. The page now shows a
 tagged player's projection both ways: "9.7 (13.5 if he plays, 72%)".
 
+### Are the ranges and P(win) honest?
+Checked walk-forward: for each season 2022-2025, the spread and outcome
+shape were fit on earlier seasons only, then scored on that season's games
+(21,721 player-weeks).
+
+| claimed | actually inside | below | above |
+|---|---|---|---|
+| 70% range (15th-85th) | **71.1%** | 14.9% | 13.9% |
+| 90% range (5th-95th) | **90.4%** | | |
+
+Every season lands within 1.1 points of 70%. By position: RB 73%, TE 72%,
+WR 70%, QB 67.5% (QB ranges run slightly narrow: a quarterback's week is a
+little less predictable than his level says). By projection level: 69-73%.
+
+P(win) was checked on 3,000 synthetic head-to-heads built from real players
+in the same week of 2024-25 (QB, 2 RB, 2 WR, TE, flex each side), scored
+with their actual points:
+
+| predicted | 0-20% | 20-35% | 35-50% | 50-65% | 65-80% | 80-100% |
+|---|---|---|---|---|---|---|
+| mean predicted | 14% | 28% | 43% | 58% | 72% | 86% |
+| actually won | 15% | 29% | 42% | 57% | 70% | 84% |
+
+Brier 0.214; predicted spread of the difference 26.6 points against 27.0
+actual. Correlation made no measurable difference here, because random
+lineups rarely stack; it matters for real rosters that do.
+
+Limits: this validates the model's own projection. The live number also
+blends in the platform and the market, whose spread has no history yet (the
+projection log will provide it), and kicker/defence ranges come from the
+streaming models' own error bands.
+
