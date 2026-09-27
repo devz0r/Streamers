@@ -172,6 +172,11 @@ class TeamRow:
     points_for: float = 0.0
     roster: list[PlayerRow] = field(default_factory=list)
     is_mine: bool = False
+    #: Waiver standing: priority (1 = first claim) or FAAB spent, and how
+    #: many pickups the team has made (a read on how active the league is).
+    waiver_rank: int | None = None
+    faab_spent: float | None = None
+    acquisitions: int | None = None
 
     def starters(self) -> list[PlayerRow]:
         return [p for p in self.roster if p.starting]
@@ -211,6 +216,13 @@ class LeagueSnapshot:
     synced_at: str
     #: Anything platform-specific worth keeping for the report.
     extra: dict[str, Any] = field(default_factory=dict)
+    #: League structure for season simulation: ``regular_season_weeks``,
+    #: ``playoff_teams``, ``playoff_round_weeks``, ``seeding`` ("record" or
+    #: "points"), ``median_game``, ``waiver`` ("faab" / "priority"),
+    #: ``faab_budget``, and ``schedule`` -- every regular-season pairing as
+    #: [week, team_id, team_id]. Empty when the platform adapter cannot read
+    #: it yet.
+    rules: dict[str, Any] = field(default_factory=dict)
 
     # -- accessors ---------------------------------------------------------
     @property
@@ -265,6 +277,7 @@ class LeagueSnapshot:
             slots=dict(raw.get("slots", {})), bench_size=int(raw.get("bench_size", 0)),
             teams=teams, free_agents=fas, matchup=matchup,
             synced_at=raw.get("synced_at", ""), extra=dict(raw.get("extra", {})),
+            rules=dict(raw.get("rules", {})),
         )
 
     @classmethod

@@ -128,6 +128,40 @@ def identify_my_team(teams: list[Any], swid: str | None, team_id: str | None) ->
     return None
 
 
+#: ESPN seeding rules that rank by points rather than record.
+_POINTS_SEEDING = ("TOTAL_POINTS_SCORED", "POINTS_FOR")
+
+
+def league_rules(league: Any) -> dict[str, Any]:
+    """Season structure from ``espn_api``: length, playoffs, waivers, schedule.
+
+    Every team's ``schedule`` lists its opponent for each matchup period in
+    order (the team itself on a bye), so the regular season is the first
+    ``reg_season_count`` entries of each.
+    """
+    settings = _attr(league, "settings")
+    reg = int(_attr(settings, "reg_season_count", 0) or 0)
+    pairs: set[tuple[int, str, str]] = set()
+    for team in _attr(league, "teams", []) or []:
+        tid = str(_attr(team, "team_id"))
+        for i, opp in enumerate((_attr(team, "schedule", []) or [])[:reg]):
+            oid = str(_attr(opp, "team_id", opp))
+            if oid and oid != tid:
+                a, b = sorted((tid, oid))
+                pairs.add((i + 1, a, b))
+    seeding = str(_attr(settings, "playoff_seed_tie_rule", "") or "").upper()
+    return {
+        "regular_season_weeks": reg,
+        "playoff_teams": int(_attr(settings, "playoff_team_count", 0) or 0),
+        "playoff_round_weeks": int(_attr(settings, "playoff_matchup_period_length", 1) or 1),
+        "seeding": "points" if seeding in _POINTS_SEEDING else "record",
+        "median_game": bool(_attr(settings, "median_scoring", False)),
+        "waiver": "faab" if _attr(settings, "faab", False) else "priority",
+        "faab_budget": float(_attr(settings, "acquisition_budget", 0) or 0),
+        "schedule": sorted([list(p) for p in pairs]),
+    }
+
+
 def build_snapshot(
     league: Any,
     week: int,
@@ -182,6 +216,9 @@ def build_snapshot(
             points_for=float(_attr(team, "points_for", 0.0) or 0.0),
             roster=roster,
             is_mine=(my_team_id is not None and tid == str(my_team_id)),
+            waiver_rank=int(_attr(team, "waiver_rank", 0) or 0) or None,
+            faab_spent=float(_attr(team, "acquisition_budget_spent", 0) or 0),
+            acquisitions=int(_attr(team, "acquisitions", 0) or 0),
         ))
 
     fas = [normalize_player(p, week) for p in (free_agents or [])]
@@ -203,6 +240,7 @@ def build_snapshot(
         matchup=matchup,
         synced_at=datetime.now(UTC).isoformat(),
         extra={"nfl_week": _attr(league, "nfl_week"), "current_week": _attr(league, "current_week")},
+        rules=league_rules(league),
     )
 
 

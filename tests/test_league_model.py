@@ -393,3 +393,24 @@ def test_detail_skeleton_publishes_nothing_identifying():
                  'data-tst="row"', 'data-pos="QB"', "/nfl/players/«n»/news", "«n»",
                  "team id 4", "crumbData", "Pos{r2}", "% Start", "Proj"):
         assert kept in out, kept
+
+
+def test_espn_league_rules_capture_schedule_playoffs_and_waivers():
+    from types import SimpleNamespace as NS
+
+    from streamer.league import espn
+
+    a, b, c, d = (NS(team_id=i) for i in (1, 2, 3, 4))
+    a.schedule, b.schedule = [b, c, d, b], [a, d, c, a]
+    c.schedule, d.schedule = [d, a, b, c], [c, b, a, d]      # a team facing itself = bye
+    league = NS(teams=[a, b, c, d], settings=NS(
+        reg_season_count=3, playoff_team_count=2, playoff_matchup_period_length=1,
+        playoff_seed_tie_rule="TOTAL_POINTS_SCORED", median_scoring=True, faab=True,
+        acquisition_budget=100))
+    rules = espn.league_rules(league)
+    assert rules["regular_season_weeks"] == 3 and rules["playoff_teams"] == 2
+    assert rules["seeding"] == "points" and rules["median_game"] and rules["waiver"] == "faab"
+    assert rules["faab_budget"] == 100
+    assert [1, "1", "2"] in rules["schedule"] and [1, "3", "4"] in rules["schedule"]
+    assert all(w <= 3 for w, _x, _y in rules["schedule"])      # playoffs excluded
+    assert len(rules["schedule"]) == 6                          # 2 games x 3 weeks, deduped
