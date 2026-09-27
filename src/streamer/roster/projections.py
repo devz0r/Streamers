@@ -113,7 +113,11 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
                        "team", "fantasy_points_ppr", *usage]].copy()
         stats["season"] = stats["season"].astype(int)
         stats["week"] = stats["week"].astype(int)
-        opp = opp[["player_id", "season", "week", "total_fantasy_points_exp"]].copy()
+        td_cols = [c for c in ("rec_touchdown_exp", "rush_touchdown_exp") if c in opp.columns]
+        opp = opp[["player_id", "season", "week", "total_fantasy_points_exp", *td_cols]].copy()
+        if td_cols:
+            opp["xtd"] = opp[td_cols].fillna(0).sum(axis=1)
+            opp = opp.drop(columns=td_cols)
         opp["season"] = opp["season"].astype(int)
         opp["week"] = opp["week"].astype(int)
         frames.append(stats.merge(opp, on=["player_id", "season", "week"], how="left"))
@@ -271,7 +275,7 @@ def recent_usage(history: pd.DataFrame, season: int, week: int, n: int = 3) -> p
     as the evidence for their opportunity; the projection itself already
     prices it through expected points (raw counts, target share and catch
     rate over expected added nothing on top, walk-forward 2022-2025)."""
-    cols = [c for c in ("targets", "carries", "target_share") if c in history.columns]
+    cols = [c for c in ("targets", "carries", "target_share", "xtd") if c in history.columns]
     if not cols or history.empty:
         return pd.DataFrame(columns=cols)
     prior = history[(history["season"] < season) | ((history["season"] == season) & (history["week"] < week))]
@@ -290,6 +294,11 @@ def usage_line(row) -> str:
         bits.append(f"{tgt:.1f} targets" + (f" ({float(share):.0%} share)" if share == share and share else ""))
     if car >= 0.5:
         bits.append(f"{car:.1f} carries")
+    # Expected touchdowns are the red-zone role: sticky (split-half r ~0.7),
+    # unlike converting above expectation (r ~0.05), which is not shown.
+    xtd = row.get("xtd")
+    if xtd == xtd and xtd is not None and float(xtd) >= 0.25:
+        bits.append(f"{float(xtd):.2f} expected TDs")
     if not bits:
         return ""
     games = int(row.get("games", 0))

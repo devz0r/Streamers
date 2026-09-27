@@ -1008,3 +1008,21 @@ So the model is unchanged. Usage is shown beside waiver, stash and lottery
 picks ("7.3 targets (22% share), 1.0 carries a game over his last 3"),
 because it is the evidence a manager wants to see for an opportunity call.
 
+### The red-zone role is opportunity; finishing is not a skill
+The case for a real touchdown skill: some players become the red-zone
+favourite because of size and ability. Measured 2021-2025 on RB/WR/TE:
+
+| | within a season (odd vs even games) | year to year |
+|---|---|---|
+| red-zone role: expected TDs a game | r = 0.62-0.75 | r = 0.55-0.68 |
+| converting above expected: TDs over expected a game | r = 0.02-0.05 | r = 0.02-0.07 |
+
+Size matters to the role (receiver height vs expected TDs, r = +0.28) but
+not to conversion (height vs conversion rate r = -0.23 to +0.06). So the
+favourite-in-the-red-zone effect is real, sticky, and already in the fast
+opportunity half of the projection -- a target at the 5 is worth far more
+expected points than one at midfield -- while the finishing rate is noise
+and right to shrink. Expected touchdowns a game now appear in the usage
+line beside waiver, stash and lottery picks, so the red-zone role is
+visible.
+
