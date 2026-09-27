@@ -859,10 +859,10 @@
           "market_weight": 0.0
         },
         {
-          "player_id": "33415",
-          "name": "Rashod Bateman",
+          "player_id": "40877",
+          "name": "Xavier Worthy",
           "position": "WR",
-          "team": "BAL",
+          "team": "KC",
           "status": "",
           "slot": "FLEX",
           "eligible_slots": [
@@ -870,9 +870,9 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 10.13,
+          "platform_projection": 11.12,
           "season_avg": null,
-          "percent_owned": 44.0,
+          "percent_owned": 66.0,
           "projection": null,
           "projection_sd": null,
           "projection_source": "",
@@ -895,10 +895,10 @@
           "market_weight": 0.0
         },
         {
-          "player_id": "40877",
-          "name": "Xavier Worthy",
+          "player_id": "33415",
+          "name": "Rashod Bateman",
           "position": "WR",
-          "team": "KC",
+          "team": "BAL",
           "status": "",
           "slot": "BN",
           "eligible_slots": [
@@ -906,9 +906,9 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 11.12,
+          "platform_projection": 10.13,
           "season_avg": null,
-          "percent_owned": 66.0,
+          "percent_owned": 44.0,
           "projection": null,
           "projection_sd": null,
           "projection_source": "",
@@ -4519,7 +4519,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-27T15:32:45.447433+00:00",
+  "synced_at": "2026-09-27T15:34:57.584309+00:00",
   "extra": {
     "source": "yahoo-web"
   }

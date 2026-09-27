@@ -1605,7 +1605,7 @@
           "position": "WR",
           "team": "SF",
           "status": "QUESTIONABLE",
-          "slot": "FLEX",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -1721,7 +1721,7 @@
           "position": "WR",
           "team": "BUF",
           "status": "",
-          "slot": "BN",
+          "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -9112,7 +9112,7 @@
       "name": "Behren Morton",
       "position": "QB",
       "team": "NE",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -26406,7 +26406,7 @@
       "name": "Eli Raridon",
       "position": "TE",
       "team": "NE",
-      "status": "QUESTIONABLE",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -29104,7 +29104,7 @@
       "name": "Brevin Jordan",
       "position": "TE",
       "team": "HOU",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -34942,12 +34942,12 @@
     "week": 3,
     "my_team_id": "3",
     "opponent_team_id": "2",
-    "my_platform_projection": 126.14,
+    "my_platform_projection": 124.01,
     "opp_platform_projection": 136.78,
     "my_points": 29.9,
     "opp_points": 22.6
   },
-  "synced_at": "2026-09-27T15:32:35.329523+00:00",
+  "synced_at": "2026-09-27T15:34:48.736307+00:00",
   "extra": {
     "nfl_week": 3,
     "current_week": 3
