@@ -176,7 +176,7 @@ def _bench_reason(p, opt) -> str:
     if p.in_ir_slot:
         return "in an IR slot"
     lower = [q for slot, q in opt.best_win.flat() if _eligible(p, slot) and q.week_value < p.week_value]
-    if not lower and p.actual_points is None:
+    if not lower:
         return ""
     if p.locked:
         return "his game has started, so he cannot be moved in"
@@ -184,8 +184,6 @@ def _bench_reason(p, opt) -> str:
         return "on bye"
     if p.is_out:
         return f"listed {p.status.lower() or 'out'}"
-    if not lower:
-        return ""
     if p.player_id in opt.bench_reasons:
         return opt.bench_reasons[p.player_id]
     q = min(lower, key=lambda x: x.week_value)
