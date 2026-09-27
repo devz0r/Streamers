@@ -128,8 +128,8 @@ def identify_my_team(teams: list[Any], swid: str | None, team_id: str | None) ->
     return None
 
 
-#: ESPN seeding rules that rank by points rather than record.
-_POINTS_SEEDING = ("TOTAL_POINTS_SCORED", "POINTS_FOR")
+#: ESPN playoff-seed tiebreakers that use points scored.
+_POINTS_TIEBREAK = ("TOTAL_POINTS_SCORED", "POINTS_FOR")
 
 
 def league_rules(league: Any) -> dict[str, Any]:
@@ -149,12 +149,13 @@ def league_rules(league: Any) -> dict[str, Any]:
             if oid and oid != tid:
                 a, b = sorted((tid, oid))
                 pairs.add((i + 1, a, b))
-    seeding = str(_attr(settings, "playoff_seed_tie_rule", "") or "").upper()
+    tiebreak = str(_attr(settings, "playoff_seed_tie_rule", "") or "").upper()
     return {
         "regular_season_weeks": reg,
         "playoff_teams": int(_attr(settings, "playoff_team_count", 0) or 0),
         "playoff_round_weeks": int(_attr(settings, "playoff_matchup_period_length", 1) or 1),
-        "seeding": "points" if seeding in _POINTS_SEEDING else "record",
+        # Seeds go by record; this is how ties in record are broken.
+        "tiebreak": "points" if tiebreak in _POINTS_TIEBREAK else "h2h",
         "median_game": bool(_attr(settings, "median_scoring", False)),
         "waiver": "faab" if _attr(settings, "faab", False) else "priority",
         "faab_budget": float(_attr(settings, "acquisition_budget", 0) or 0),

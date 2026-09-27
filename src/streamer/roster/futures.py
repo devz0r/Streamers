@@ -141,6 +141,7 @@ def simulate(
             lead_out = out_left[:, lead] > 0
             eff[:, h] = np.where(lead_out, level[:, h] + TAKEOVER.get(pos, 0.0) * gap, level[:, h])
         levels[:, :, k] = np.where(playing, eff, 0.0)
+        finals = [j for j, p in enumerate(players) if k == 0 and p.actual_points is not None]
         for j, p in enumerate(players):
             probs, zq = outcome.shape(p.position, float(base[j]))
             sd = sd0[j] * np.sqrt(np.maximum(eff[:, j], 1.0) / max(base[j], 1.0))
@@ -149,6 +150,9 @@ def simulate(
             if p.position in SKILL:
                 s = np.maximum(s, 0.0)
             scores[:, j, k] = np.where(playing[:, j], s, 0.0)
+        for j in finals:
+            # This week's game is over: his score is a fact.
+            scores[:, j, k] = float(players[j].actual_points)
         # A game passes: absences tick down (a bye does not use one up), and
         # the true level drifts.
         out_left = np.where(on_bye[None, :], out_left, np.maximum(out_left - 1, 0))

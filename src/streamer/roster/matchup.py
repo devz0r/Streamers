@@ -17,6 +17,9 @@ class MatchupReport:
     notes: list[str] = field(default_factory=list)
     #: D/ST and kicker options ranked by this week's P(win) (position -> list).
     streams: dict[str, list[StreamOption]] = field(default_factory=dict)
+    #: Rest-of-season odds for every team (None until the league's schedule
+    #: and playoff format have been read).
+    season: object | None = None
 
     @property
     def win_probability(self) -> float:

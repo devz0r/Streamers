@@ -409,7 +409,7 @@ def test_espn_league_rules_capture_schedule_playoffs_and_waivers():
         acquisition_budget=100))
     rules = espn.league_rules(league)
     assert rules["regular_season_weeks"] == 3 and rules["playoff_teams"] == 2
-    assert rules["seeding"] == "points" and rules["median_game"] and rules["waiver"] == "faab"
+    assert rules["tiebreak"] == "points" and rules["median_game"] and rules["waiver"] == "faab"
     assert rules["faab_budget"] == 100
     assert [1, "1", "2"] in rules["schedule"] and [1, "3", "4"] in rules["schedule"]
     assert all(w <= 3 for w, _x, _y in rules["schedule"])      # playoffs excluded

@@ -56,6 +56,8 @@ def render_my_team(
         "</div>"
     )
 
+    parts.append(_season(report))
+
     # -- lineup ----------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
     has_vegas = any(p.vegas_points is not None for p in snapshot.my_team.roster)
@@ -173,6 +175,34 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def _season(report: MatchupReport) -> str:
+    """Playoff and title odds for every team, yours first."""
+    o = report.season
+    if o is None or o.mine is None:
+        return ""
+    m = o.mine
+    rows = []
+    for i in sorted(range(len(o.names)), key=lambda i: -o.p_title[i]):
+        me = " style='font-weight:700'" if i == m else ""
+        rows.append(f"<tr{me}><td class='unit'>{_e(o.names[i])}</td><td>{_e(o.records[i])}</td>"
+                    f"<td>{o.exp_wins[i]:.1f}</td><td>{o.p_playoffs[i]:.0%}</td><td>{o.p_title[i]:.1%}</td></tr>")
+    return (
+        '<div class="card"><div class="row"><div class="rank">&#127942;</div>'
+        f'<div><span class="name">Season outlook</span> '
+        f'<span class="opp">{o.p_playoffs[m]:.0%} to make the playoffs, {o.p_bye[m]:.0%} for a bye</span></div>'
+        f'<div class="pts">{o.p_title[m]:.1%}</div></div>'
+        f'<div class="meta"><span>P(title)</span><span>{o.exp_wins[m]:.1f} expected wins</span>'
+        f"<span>{o.n_sims:,} simulated seasons</span></div></div>"
+        '<details><summary>Every team\'s odds</summary><div class="scroll"><table><thead><tr>'
+        '<th class="unit">Team</th><th>Rec</th><th>Exp W</th><th>Playoffs</th><th>Title</th></tr></thead>'
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        '<p class="sub">Each player\'s future is simulated (role drift, injuries, byes, the next man up '
+        "taking over -- validated to put 82% of real six-week outcomes inside its 80% range); every team "
+        "starts its best lineup each week on what it could see then; the season is played on the real "
+        "schedule and the playoffs on the real bracket. Rosters are held as they stand.</p></details>"
+    )
 
 
 def _stream_note(report: MatchupReport, player) -> str:

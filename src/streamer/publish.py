@@ -701,6 +701,12 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
+            try:
+                from .roster.season import season_odds
+
+                report.season = season_odds(snap, bound)
+            except Exception as exc:  # noqa: BLE001 - odds are a bonus section
+                log.warning("season odds for %s skipped: %s", name, exc)
             report.notes.extend(n for n in projected.notes if "not playing" in n)
             report.notes.extend(projected.lock_notes)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))

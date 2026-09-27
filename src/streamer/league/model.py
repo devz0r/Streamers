@@ -217,8 +217,8 @@ class LeagueSnapshot:
     #: Anything platform-specific worth keeping for the report.
     extra: dict[str, Any] = field(default_factory=dict)
     #: League structure for season simulation: ``regular_season_weeks``,
-    #: ``playoff_teams``, ``playoff_round_weeks``, ``seeding`` ("record" or
-    #: "points"), ``median_game``, ``waiver`` ("faab" / "priority"),
+    #: ``playoff_teams``, ``playoff_round_weeks``, ``tiebreak`` for seeds
+    #: level on record ("points" or "h2h"), ``median_game``, ``waiver`` ("faab" / "priority"),
     #: ``faab_budget``, and ``schedule`` -- every regular-season pairing as
     #: [week, team_id, team_id]. Empty when the platform adapter cannot read
     #: it yet.
