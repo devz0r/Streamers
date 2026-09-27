@@ -1287,7 +1287,7 @@
           "name": "Jalen Coker",
           "position": "WR",
           "team": "CAR",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -1605,7 +1605,7 @@
           "position": "WR",
           "team": "SF",
           "status": "QUESTIONABLE",
-          "slot": "BN",
+          "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -1721,7 +1721,7 @@
           "position": "WR",
           "team": "BUF",
           "status": "",
-          "slot": "FLEX",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -2483,7 +2483,7 @@
           "name": "Tyjae Spears",
           "position": "RB",
           "team": "TEN",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -3601,7 +3601,7 @@
           "name": "Michael Pittman Jr.",
           "position": "WR",
           "team": "PIT",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -5634,7 +5634,7 @@
           "name": "Jaylen Warren",
           "position": "RB",
           "team": "PIT",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
@@ -7564,7 +7564,7 @@
       "name": "Drew Allar",
       "position": "QB",
       "team": "PIT",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -8464,7 +8464,7 @@
       "name": "Riley Leonard",
       "position": "QB",
       "team": "IND",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -9076,7 +9076,7 @@
       "name": "Brady Cook",
       "position": "QB",
       "team": "MIA",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -11082,7 +11082,7 @@
       "name": "Eli Heidenreich",
       "position": "RB",
       "team": "PIT",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -11272,7 +11272,7 @@
       "name": "Jaylen Wright",
       "position": "RB",
       "team": "MIA",
-      "status": "DOUBTFUL",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -12222,7 +12222,7 @@
       "name": "DJ Giddens",
       "position": "RB",
       "team": "IND",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -19877,7 +19877,7 @@
       "name": "Darius Slayton",
       "position": "WR",
       "team": "IND",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -22568,7 +22568,7 @@
       "name": "Ryan Miller",
       "position": "WR",
       "team": "MIA",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -34942,12 +34942,12 @@
     "week": 3,
     "my_team_id": "3",
     "opponent_team_id": "2",
-    "my_platform_projection": 124.01,
+    "my_platform_projection": 126.14,
     "opp_platform_projection": 136.78,
     "my_points": 29.9,
     "opp_points": 22.6
   },
-  "synced_at": "2026-09-27T15:34:48.736307+00:00",
+  "synced_at": "2026-09-27T15:40:02.748139+00:00",
   "extra": {
     "nfl_week": 3,
     "current_week": 3
