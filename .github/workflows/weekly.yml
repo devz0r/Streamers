@@ -179,8 +179,12 @@ jobs:
             echo "Nothing changed."
           else
             git commit -m "weekly: refresh rankings (${{ steps.mode.outputs.mode }})"
+            # Everything committed here is generated, so if another run
+            # pushed first, this run's freshly built files win the conflict
+            # (in a rebase, -X theirs means the commit being replayed).
             for attempt in 1 2 3 4; do
-              git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+              git pull --rebase -X theirs origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+              git rebase --abort 2>/dev/null || true
               echo "push failed (attempt $attempt); retrying"
               sleep $((2 ** attempt))
             done
