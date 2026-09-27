@@ -2838,7 +2838,7 @@
           "name": "DJ Moore",
           "position": "WR",
           "team": "BUF",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "WR",
           "eligible_slots": [
             "FLEX",
@@ -3898,7 +3898,7 @@
           "name": "Adonai Mitchell",
           "position": "WR",
           "team": "NYJ",
-          "status": "QUESTIONABLE",
+          "status": "OUT",
           "slot": "WR",
           "eligible_slots": [
             "FLEX",
@@ -8176,7 +8176,7 @@
       "name": "Will Howard",
       "position": "QB",
       "team": "PIT",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -8248,7 +8248,7 @@
       "name": "Trey Lance",
       "position": "QB",
       "team": "LAC",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -8896,7 +8896,7 @@
       "name": "Garrett Nussmeier",
       "position": "QB",
       "team": null,
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -8932,7 +8932,7 @@
       "name": "Haynes King",
       "position": "QB",
       "team": "CAR",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -10892,7 +10892,7 @@
       "name": "Devin Singletary",
       "position": "RB",
       "team": "NYG",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -14388,7 +14388,7 @@
       "name": "Michael Carter",
       "position": "RB",
       "team": "TEN",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -18590,7 +18590,7 @@
       "name": "Keon Coleman",
       "position": "WR",
       "team": "BUF",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -19409,7 +19409,7 @@
       "name": "Xavier Legette",
       "position": "WR",
       "team": "CAR",
-      "status": "QUESTIONABLE",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -20150,7 +20150,7 @@
       "name": "Skyler Bell",
       "position": "WR",
       "team": "BUF",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -26748,7 +26748,7 @@
       "name": "Ja'Tavion Sanders",
       "position": "TE",
       "team": "CAR",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -27698,7 +27698,7 @@
       "name": "Tyler Conklin",
       "position": "TE",
       "team": "DET",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -28876,7 +28876,7 @@
       "name": "Jared Wiley",
       "position": "TE",
       "team": null,
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -29142,7 +29142,7 @@
       "name": "Kylen Granson",
       "position": "TE",
       "team": "TEN",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -29636,7 +29636,7 @@
       "name": "Thomas Fidone II",
       "position": "TE",
       "team": "NYG",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -29978,7 +29978,7 @@
       "name": "Jack Endries",
       "position": "TE",
       "team": "CIN",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -33367,7 +33367,7 @@
       "name": "Blake Grupe",
       "position": "K",
       "team": "NYJ",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "K"
@@ -34947,7 +34947,7 @@
     "my_points": 29.9,
     "opp_points": 22.6
   },
-  "synced_at": "2026-09-27T15:40:02.748139+00:00",
+  "synced_at": "2026-09-27T15:53:45.885876+00:00",
   "extra": {
     "nfl_week": 3,
     "current_week": 3
