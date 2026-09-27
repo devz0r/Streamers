@@ -102,6 +102,7 @@ def render_my_team(
         parts.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
     else:
         parts.append('<p class="sub">Your set lineup is already the recommended one.</p>')
+    parts.append(_bench(snapshot, opt, has_vegas))
     parts.append(
         '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
         "percentile), with teammates and opponents correlated as they are on the field.</p>"
@@ -165,6 +166,65 @@ def render_my_team(
             + "</p>"
         )
     return "".join(parts)
+
+
+def _bench_reason(p, opt) -> str:
+    """Why a benched player sits when he projects more than a starter whose
+    slot he could fill; empty when he simply projects less."""
+    from .lineup import _eligible
+
+    if p.in_ir_slot:
+        return "in an IR slot"
+    lower = [q for slot, q in opt.best_win.flat() if _eligible(p, slot) and q.week_value < p.week_value]
+    if not lower and p.actual_points is None:
+        return ""
+    if p.locked:
+        return "his game has started, so he cannot be moved in"
+    if p.on_bye:
+        return "on bye"
+    if p.is_out:
+        return f"listed {p.status.lower() or 'out'}"
+    if not lower:
+        return ""
+    if p.player_id in opt.bench_reasons:
+        return opt.bench_reasons[p.player_id]
+    q = min(lower, key=lambda x: x.week_value)
+    if q.locked:
+        return f"{q.name}'s game has started, so his spot is frozen"
+    return ""
+
+
+def _bench(snapshot: LeagueSnapshot, opt, has_vegas: bool) -> str:
+    """Everyone not in the recommended lineup, with the same numbers."""
+    starting = opt.best_win.player_ids
+    bench = [p for p in snapshot.my_team.roster if p.player_id not in starting]
+    if not bench:
+        return ""
+    bench.sort(key=lambda p: (p.in_ir_slot, -p.week_value))
+    rows = []
+    for p in bench:
+        tag = ""
+        if p.actual_points is not None:
+            tag = ' <span class="opp">final</span>'
+        elif p.status:
+            tag = f' <span class="opp">{_e(short_status(p.status))}</span>'
+        vegas = ""
+        if has_vegas:
+            vegas = (f"<td>{p.vegas_points:.1f}</td>" if p.vegas_points is not None
+                     else '<td class="opp">--</td>')
+        lo, hi = opt.ranges.get(p.player_id, (None, None))
+        spread = ("scored" if p.actual_points is not None
+                  else f"{lo:.0f}&ndash;{hi:.0f}" if lo is not None else "--")
+        why = _bench_reason(p, opt)
+        rows.append(
+            f"<tr><td class='unit'>{_e(p.name)}{tag}</td><td>{_e(p.position)}</td>"
+            f"<td>{_e(p.team or '--')}</td><td>{p.week_value:.1f}</td>{vegas}<td>{spread}</td></tr>"
+            + (f"<tr><td class='why' colspan='{6 if has_vegas else 5}'>&#8627; {_e(why)}</td></tr>" if why else "")
+        )
+    vegas_head = "<th>Vegas</th>" if has_vegas else ""
+    return ("<h3>Bench</h3>"
+            '<div class="scroll"><table><thead><tr><th class="unit">Player</th><th>Pos</th><th>Tm</th>'
+            f"<th>Proj</th>{vegas_head}<th>Range</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
 
 
 def _refresh_link() -> str:

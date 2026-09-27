@@ -463,3 +463,18 @@ def test_a_handcuff_who_could_not_start_for_you_is_not_a_stash():
     snap.teams[1].roster.append(lead)
     snap.free_agents = [cuff]
     assert waivers.stashes(snap, []) == []
+
+
+def test_bench_shows_everyone_and_explains_a_higher_projected_sit(cfg):
+    from streamer.roster.page import render_my_team
+
+    snap = snapshot(week=5)
+    by = {p.player_id: p for p in snap.my_team.roster}
+    by["4"].projection = 30.0          # bench RB who out-projects the starters...
+    by["4"].locked = True              # ...but his game has started
+    report = build_report(snap, cfg)
+    html = render_my_team(snap, report, [], cfg)
+    assert "<h3>Bench</h3>" in html
+    bench = html.split("<h3>Bench</h3>")[1]
+    assert "RB Player 4" in bench and "cannot be moved in" in bench
+    assert "WR Player 14" in bench     # the OUT receiver is listed too

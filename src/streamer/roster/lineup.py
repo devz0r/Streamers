@@ -101,6 +101,9 @@ class Optimisation:
     sample_ids: list[str] = field(default_factory=list)
     samples: np.ndarray | None = None
     opp_samples: np.ndarray | None = None
+    #: Benched player id -> why the P(win) lineup sits him despite projecting
+    #: more than a starter he could replace.
+    bench_reasons: dict[str, str] = field(default_factory=dict)
 
     @property
     def win_gain(self) -> float:
@@ -426,14 +429,15 @@ def optimise(
     ranges = {p.player_id: (float(np.percentile(confirm[:, index[p.player_id]], 15)),
                             float(np.percentile(confirm[:, index[p.player_id]], 85)))
               for p in everyone}
-    reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges)
+    bench_reasons: dict[str, str] = {}
+    reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges, bench_reasons)
 
     keep = min(EDITOR_SIMS, n_sims)
     ids = [p.player_id for p in roster]
     return Optimisation(
         best_win=best_win, best_ev=best_ev, current=current, opponent=opponent,
         changes=diff_lineups(current.starters if current else None, best_win.starters),
-        n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges,
+        n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges, bench_reasons=bench_reasons,
         sample_ids=ids, samples=confirm[:keep, [index[i] for i in ids]],
         opp_samples=opp_total[:keep],
     )
@@ -455,8 +459,11 @@ def explain(
     index: dict[str, int],
     opp_total: np.ndarray,
     ranges: dict[str, tuple[float, float]],
+    bench_reasons: dict[str, str] | None = None,
 ) -> list[str]:
-    """One sentence per player started below a benched one's projection."""
+    """One sentence per player started below a benched one's projection.
+    ``bench_reasons`` is filled with the same sentence keyed by the benched
+    player."""
     if chosen.player_ids == by_points.player_ids:
         return []
     started = [p for _s, p in chosen.flat() if p.player_id not in by_points.player_ids]
@@ -502,6 +509,10 @@ def explain(
             else:
                 why = f"a steadier floor: {lo_s:.0f}-{hi_s:.0f} against {lo_b:.0f}-{hi_b:.0f}"
         lead = "you are the underdog" if underdog else "you are favoured"
+        if bench_reasons is not None:
+            bench_reasons[b.player_id] = (
+                f"{s.name} starts instead: {lead}, and {why} "
+                f"(P(win) {by_points.win_probability:.1%} with {b.name}, {p_swap:.1%} with {s.name})")
         out.append(
             f"Start {s.name} over {b.name} ({b.name} projects "
             f"{b.week_value - s.week_value:.1f} more): {lead}, and {why}. "
