@@ -321,6 +321,12 @@ def _vegas_section(snapshot, opt, cfg: Config, report=None) -> str:
             f"{_e(p.name)} {'+' if d > 0 else ''}{d:.1f}" for p, d in gaps
         )
         bits.append(f"Biggest disagreements (market minus ours): {detail}.")
+    weights = [p.market_weight for p in snapshot.my_team.roster if p.market_weight > 0]
+    if weights:
+        bits.append(
+            f"Where a book priced a player, his projection blends in the market at up to "
+            f"{max(weights):.0%} (less when fewer books posted him); the weight is refit as "
+            "this season's results come in.")
     credits = getattr(snapshot, "_vegas_credits", None)
     if credits is not None:
         bits.append(f"Odds API credits left: {credits}.")

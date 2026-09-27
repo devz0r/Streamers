@@ -140,21 +140,113 @@ def vegas_lineup(snapshot: LeagueSnapshot, cfg: Config | None = None):
     """The lineup the market's numbers would start, and what it projects.
 
     Falls back to our own projection for players with no posted prop, because
-    a lineup that benches every kicker is not a lineup.
+    a lineup that benches every kicker is not a lineup. Respects kickoffs the
+    way the optimiser does: a starter whose game has begun keeps his slot, a
+    benched one cannot come in, and a final score counts as scored.
     """
-    from .lineup import best_by_key
+    from .lineup import LineupResult, best_by_key
 
     cfg = cfg or get_config()
     roster = [p for p in snapshot.my_team.roster if not p.in_ir_slot]
+    slots = snapshot.starting_slots
 
     def key(p: PlayerRow) -> float:
+        if p.actual_points is not None:
+            return float(p.actual_points)
         if p.is_out:
             return 0.0
         if p.vegas_points is not None:
             return float(p.vegas_points)
-        return float(p.projection or 0.0)
+        return float(p.pre_market_projection if p.pre_market_projection is not None
+                     else (p.projection or 0.0))
 
-    return best_by_key(roster, snapshot.starting_slots, key)
+    fixed: dict[str, list[PlayerRow]] = {}
+    for p in roster:
+        if p.locked and p.starting and p.slot in slots:
+            fixed.setdefault(p.slot, []).append(p)
+    free_slots = {s: n - len(fixed.get(s, [])) for s, n in slots.items()}
+    free_slots = {s: n for s, n in free_slots.items() if n > 0}
+    free = [p for p in roster if not p.locked]
+    rest = best_by_key(free, free_slots, key) if free_slots else None
+    starters = {s: list(fixed.get(s, [])) + (list(rest.starters.get(s, [])) if rest else []) for s in slots}
+    total = sum(key(p) for ps in starters.values() for p in ps)
+    return LineupResult(starters=starters, expected=round(total, 2), sd=0.0, win_probability=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Blending the market into the projection
+# ---------------------------------------------------------------------------
+#: A consensus from fewer books is noisier: the share of the full weight a
+#: player gets by how many books priced him.
+BOOK_DEPTH = {1: 0.6, 2: 0.85}
+
+
+def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
+    """The market's blend weight, and how many finished games it rests on.
+
+    Joins the projection log to actual PPR points and finds the weight that
+    minimises squared error of ``(1-w) * ours + w * market``, then shrinks
+    it toward the prior by ``blend_prior_games``. Below ``blend_min_games``
+    the prior stands: there is no free archive of player props, so the
+    evidence has to accumulate from this season's own logs.
+    """
+    import numpy as np
+    import pandas as pd
+
+    pconf = cfg.odds.get("props") or {}
+    prior = float(pconf.get("blend_weight_prior", 0.4))
+    k = float(pconf.get("blend_prior_games", 300))
+    need = int(pconf.get("blend_min_games", 150))
+    frames = []
+    for d in sorted({cfg.results_dir.parent / name for name in ("espn", "yahoo")} | {cfg.results_dir}):
+        path = d / "skill_log.parquet"
+        if path.exists():
+            frames.append(pd.read_parquet(path))
+    if not frames:
+        return prior, 0
+    log_ = pd.concat(frames).dropna(subset=["vegas_points", "projection", "nfl_id"])
+    log_ = log_.drop_duplicates(["season", "week", "nfl_id"])
+    if log_.empty:
+        return prior, 0
+    if history is None:
+        from .projections import load_history
+
+        history = load_history(cfg)
+    actual = history[["player_id", "season", "week", "fantasy_points_ppr"]].rename(columns={"player_id": "nfl_id"})
+    j = log_.merge(actual, on=["nfl_id", "season", "week"], how="inner")
+    n = len(j)
+    if n < need:
+        return prior, n
+    ours, mkt, y = (j["projection"].to_numpy(float), j["vegas_points"].to_numpy(float),
+                    j["fantasy_points_ppr"].to_numpy(float))
+    grid = np.linspace(0.0, 1.0, 21)
+    errs = [float(np.mean(((1 - w) * ours + w * mkt - y) ** 2)) for w in grid]
+    w_fit = float(grid[int(np.argmin(errs))])
+    return (n * w_fit + k * prior) / (n + k), n
+
+
+def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = None) -> float:
+    """Blend sportsbook-implied points into every priced player's projection.
+
+    Props assume the player suits up, so the blend is done on the
+    if-he-plays number and the injury discount re-applied. Players already
+    locked, out, or whom the platform has ruled out are left alone. Returns
+    the weight used.
+    """
+    if weight is None:
+        weight, _n = fit_market_weight(cfg)
+    for p in snapshot.all_players():
+        p.pre_market_projection = p.projection
+        p.market_weight = 0.0
+        if (p.vegas_points is None or p.projection is None or p.locked or p.is_out
+                or p.play_probability <= 0 or "sits" in (p.projection_source or "")):
+            continue
+        w = weight * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0)
+        q = p.play_probability if p.play_probability else 1.0
+        if_plays = float(p.projection) / q
+        p.projection = round(q * ((1 - w) * if_plays + w * float(p.vegas_points)), 2)
+        p.market_weight = round(w, 3)
+    return weight
 
 
 def disagreements(
@@ -172,7 +264,8 @@ def disagreements(
             continue
         if among is not None and p.player_id not in among:
             continue
-        gaps.append((p, float(p.vegas_points) - float(p.projection)))
+        ours = p.pre_market_projection if p.pre_market_projection is not None else p.projection
+        gaps.append((p, float(p.vegas_points) - float(ours)))
     gaps.sort(key=lambda g: -abs(g[1]))
     return gaps[:n]
 
@@ -200,7 +293,10 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
         rows.append({
             "season": snapshot.season, "week": snapshot.week, "player_id": p.player_id,
             "nfl_id": p.nfl_id, "name": p.name, "position": p.position, "team": p.team,
-            "status": p.status, "projection": p.projection, "model_projection": p.model_projection,
+            "status": p.status,
+            "projection": p.pre_market_projection if p.pre_market_projection is not None else p.projection,
+            "blended_projection": p.projection, "market_weight": p.market_weight,
+            "model_projection": p.model_projection,
             "platform_projection": p.platform_projection, "vegas_points": p.vegas_points,
             "vegas_books": p.vegas_books, "logged_at": stamp,
         })

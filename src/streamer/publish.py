@@ -608,6 +608,15 @@ def team_panels_for(
         except Exception as exc:  # noqa: BLE001 - props are a bonus column
             log.warning("player props skipped: %s", exc)
 
+    market_w = None
+    if loaded:
+        try:
+            from .roster.vegas import fit_market_weight
+
+            market_w, n_fit = fit_market_weight(loaded[0][1])
+            log.info("market blend weight %.2f (%d logged games with results)", market_w, n_fit)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("market weight fit failed, using the prior: %s", exc)
     for name, bound, snap, status, rankings in loaded:
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
@@ -616,6 +625,12 @@ def team_panels_for(
                              prefetched=shared)
             except Exception as exc:  # noqa: BLE001 - props are a bonus column
                 log.warning("player props for %s skipped: %s", name, exc)
+            try:
+                from .roster.vegas import blend_market
+
+                blend_market(snap, bound, weight=market_w)
+            except Exception as exc:  # noqa: BLE001 - the market is a bonus input
+                log.warning("market blend for %s skipped: %s", name, exc)
             try:
                 from .roster.vegas import log_projections
 

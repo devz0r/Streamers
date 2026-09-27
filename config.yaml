@@ -296,6 +296,13 @@ odds:
     # league in the same run, and by any re-run soon after. Scheduled runs are
     # at least a day apart, so they always fetch fresh.
     cache_minutes: 180
+    # How much the sportsbook-implied points count in the projection the
+    # lineup maths uses, where a book priced the player. A prior until the
+    # projection log has enough finished games to fit it (see DECISIONS.md),
+    # then fitted and shrunk toward the prior with `blend_prior_games`.
+    blend_weight_prior: 0.4
+    blend_prior_games: 300
+    blend_min_games: 150
     # A prop line is the market's median. Converting it to a mean needs the
     # spread of that stat at that level: sd = intercept + slope x line,
     # floored. Fitted on 2021-2025 nflverse weekly stats, bucketing players by

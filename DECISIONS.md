@@ -901,3 +901,19 @@ every priced or rostered player before kickoff
 ~1,000 player-games with actuals, enough to fit blend weights the same way
 the rest of the model was fit.
 
+### The market gets a weight, and the weight learns
+Where a book priced a player, the projection the lineup maths uses is
+`(1 - w) * ours + w * market`, on the if-he-plays number with the injury
+discount re-applied (props assume he suits up). Locked, out and
+platform-ruled-out players are untouched. The weight starts from a prior of
+0.4 -- sharp, Pinnacle-weighted prices deserve real weight, but ours carries
+opportunity and next-man-up information the prop may not yet reflect -- and
+is scaled by book depth (0.6x with one book, 0.85x with two), because a
+one-book price is noisier. Every publish then fits it: the projection log
+joined to actual points, the weight minimising squared error, shrunk toward
+the prior with 300 games of weight, and only once 150 logged games have
+results. So it moves toward whichever source has actually been more right
+this season, without anyone retuning it. The "market would start" line and
+the disagreement list compare against our number before the blend, and the
+market lineup now respects locks like the optimiser does.
+

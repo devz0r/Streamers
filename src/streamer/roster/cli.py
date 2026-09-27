@@ -39,6 +39,9 @@ def _prepare(args: argparse.Namespace, cfg: Config) -> Prepared:
     rankings = rank_week(snapshot.week, snapshot.season, cfg, allow_network=not args.offline)
     projection_report = project_snapshot(snapshot, cfg, rankings, allow_network=not args.offline)
     vegas = attach_vegas(snapshot, cfg, allow_network=not args.offline)
+    from .vegas import blend_market
+
+    blend_market(snapshot, cfg)
     report = build_report(snapshot, cfg)
     return Prepared(snapshot, rankings, report, projection_report, vegas)
 

@@ -304,6 +304,10 @@ FanDuel and Caesars, weighted toward Pinnacle because its margin is thinnest.
 A blank means no book posted that player, which is not the same as zero --
 kickers, defences and deep bench players are rarely priced.
 
+The market also feeds the projection: where a book priced a player it is
+blended in (40% to start, less with fewer books), and that weight is refit
+each run from how ours and the market's numbers actually did this season.
+
 The panel also says what lineup the market's numbers would start and which
 players the two projections disagree about most. Disagreement is the useful
 part: the market sees beat-reporter news about a snap count days before it

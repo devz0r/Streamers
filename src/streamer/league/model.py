@@ -118,6 +118,10 @@ class PlayerRow:
     actual_points: float | None = None
     #: nflverse player id, where matched.
     nfl_id: str | None = None
+    #: The projection before the sportsbook number was blended in, and the
+    #: weight the market got (0 when no book priced him).
+    pre_market_projection: float | None = None
+    market_weight: float = 0.0
 
     @property
     def week_value(self) -> float:
