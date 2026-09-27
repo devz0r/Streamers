@@ -4,16 +4,26 @@ name: weekly
 #   the moment a week is over its recommendations are worthless, so the page
 #   must not sit on them until Wednesday.
 # Wednesday: publish again, once waivers have processed and lines have settled.
-# Sunday 07:00 ET: publish once more, a few hours before the early kickoffs --
-#   this is the run where sportsbook player props actually exist and the
-#   inactives are known, so it is the one the lineup should be read from.
+# Sunday early morning: publish once more before the early kickoffs -- this
+#   is the run where sportsbook player props exist and the Friday injury
+#   designations are in, so it is the one the lineup should be read from.
+#   (Official inactives come 90 minutes before kickoff; no morning run can
+#   know them.)
 #
 # Every step runs BOTH scoring profiles (ESPN and Yahoo) -- the CLI defaults to
 # --profile all -- so each league gets its own calibration and both land on the
 # one published page, switchable client-side.
 #
-# Times are UTC. 11:00 UTC is 07:00 ET during EDT and 06:00 ET during EST --
-# early enough that the refreshed page is waiting on a phone before work.
+# Times are UTC, and deliberately early and off the hour. GitHub treats a
+# schedule as a request: runs queue behind everyone else's, most of all at
+# the top of the hour, and this workflow's runs landed 3.5-4.5 hours late
+# every time when it was set for 11:00 UTC. Scheduled at :17 past, hours
+# ahead of when the page is wanted, the same delay still lands it early:
+#   Tue/Wed 07:17 UTC = 03:17 ET (EDT) -> observed-delay worst case ~08:00 ET
+#   Sun     08:17 UTC = 04:17 ET (EDT) -> worst case ~09:00 ET, ahead of the
+#                                          09:30 ET London games and far
+#                                          ahead of 13:00 ET kickoffs.
+# In EST (from November) each is an hour earlier in ET.
 #
 # NOTE: GitHub runs scheduled workflows only from the repository's DEFAULT
 # branch, and fails silently otherwise -- if this file lives on a non-default
@@ -21,9 +31,9 @@ name: weekly
 # branch as the default, or move the workflow when you change defaults.
 on:
   schedule:
-    - cron: "0 11 * * 2"   # Tuesday — update (+ benchmark if a CSV is committed)
-    - cron: "0 11 * * 3"   # Wednesday — rank + publish
-    - cron: "0 11 * * 0"   # Sunday — republish with props and final injuries
+    - cron: "17 7 * * 2"   # Tuesday — score the week, publish the next
+    - cron: "17 7 * * 3"   # Wednesday — rank + publish after waivers
+    - cron: "17 8 * * 0"   # Sunday — republish with props and injury reports
   workflow_dispatch:
     inputs:
       week:
@@ -98,9 +108,9 @@ jobs:
           MODE="${{ inputs.job }}"
           if [ -z "$MODE" ] || [ "$MODE" = "both" ]; then
             case "${{ github.event.schedule }}" in
-              "0 11 * * 2") MODE=both ;;
-              "0 11 * * 3") MODE=publish ;;
-              "0 11 * * 0") MODE=publish ;;
+              "17 7 * * 2") MODE=both ;;
+              "17 7 * * 3") MODE=publish ;;
+              "17 8 * * 0") MODE=publish ;;
               *)            MODE=both ;;
             esac
           fi

@@ -247,16 +247,23 @@ itself pushes to `${GITHUB_REF_NAME}`, so it works under any branch name.
 
 ### Automation
 
-[`.github/workflows/weekly.yml`](.github/workflows/weekly.yml) runs at 11:00 UTC
-(07:00 ET during EDT):
+[`.github/workflows/weekly.yml`](.github/workflows/weekly.yml) is scheduled for
+07:17 UTC Tuesday and Wednesday and 08:17 UTC Sunday (03:17 / 04:17 ET). That
+looks absurdly early on purpose: GitHub starts scheduled runs when it has
+capacity, and this workflow's runs have typically landed 3.5-4.5 hours after
+the scheduled time. Scheduled early and off the hour, they still arrive before
+you look. The "synced" time at the top of each My-team panel says exactly when
+the page was last refreshed.
 
 - **Tuesday** — `update` on the completed week for both leagues, plus
   `benchmark` if you committed a Subvertadown CSV
 - **Wednesday** — `sync` both leagues (skipped for any league without
   secrets), then `rank` and `publish` the upcoming week and commit the
   refreshed page
-- **Sunday, 07:00 ET** — publish once more before the early kickoffs, when
-  the sportsbook player props are posted and the inactives are known
+- **Sunday, early morning** — publish once more before the early kickoffs,
+  when the sportsbook player props are posted and Friday's injury
+  designations are in (official inactives come 90 minutes before kickoff,
+  so no morning run can know them -- check those yourself)
 
 Both profiles run in every step, so each league keeps its own calibration
 history and both appear on the one published page.
@@ -312,9 +319,10 @@ reports. Lower `odds.props.max_events` or `window_hours`, drop a market, or
 set `odds.props.enabled` to `false` in config.yaml to spend less.
 
 **Read the lineup on Sunday morning.** The page is published Tuesday and
-Wednesday for waivers, and again at 07:00 ET Sunday. Only that last one has
-the props posted and the inactives known, so it is the one to set a lineup
-from.
+Wednesday for waivers, and again early Sunday. Only that last one has the
+props posted and the week's injury designations in, so it is the one to set a
+lineup from -- then glance at the official inactives, which come out 90
+minutes before kickoff.
 
 ### How players are projected
 

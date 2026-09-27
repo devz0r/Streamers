@@ -341,10 +341,22 @@ scroll inside their own container so the page body never scrolls sideways.
 If a week was never published, `update` re-fits on games before that week and
 says so in the review — still out-of-sample, but labelled as a reconstruction.
 
-### The workflow runs at 11:00 UTC
-07:00 ET during EDT. Tuesday scores the completed week; Wednesday ranks and
-publishes the upcoming one. Wednesday is deliberate: waiver claims process
-Wednesday morning, and lines have settled by then.
+### The workflow is scheduled early, and off the hour
+It was scheduled for 11:00 UTC (07:00 ET), and the docs promised 07:00 ET. It
+never once ran then: every scheduled run through September landed 3.5-4.5
+hours late, between 10:38 and 11:26 ET. GitHub treats a cron schedule as a
+request, queues scheduled runs behind everyone else's, and is most congested
+exactly on the hour. The schedule is now 07:17 UTC Tuesday and Wednesday and
+08:17 UTC Sunday: off the hour, and early enough that the same delay still
+lands the page by breakfast, and the Sunday page ahead of the 09:30 ET London
+games. The promise in the docs is now "early morning", with the page's own
+"synced" time as the record of when it actually ran.
+
+Tuesday scores the completed week and publishes the next; Wednesday publishes
+again once waiver claims have processed and lines have settled; Sunday
+publishes with player props and injury designations. None of them can see
+official inactives, which are announced 90 minutes before kickoff -- an
+earlier version of these docs claimed the Sunday run knew them.
 
 ## In-season suite
 
@@ -515,8 +527,8 @@ helped, because the real cause is that books post a game's props a day or two
 before kickoff. A midweek request about Sunday is not just wasteful, it
 returns nothing. Events further out than `window_hours` (72) are now not
 requested at all, which makes the Tuesday and Wednesday runs nearly free and
-concentrates the spend on a new Sunday 07:00 ET publish -- the run where the
-props exist, the inactives are known, and the lineup is actually being set.
+concentrates the spend on a new early-Sunday publish -- the run where the
+props exist, the injury designations are in, and the lineup is actually being set.
 Coverage is reported on the page ("priced 6 of your 14 startable players"), so
 a column of dashes is explained rather than mysterious.
 
