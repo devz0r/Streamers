@@ -220,7 +220,7 @@ def _season(report: MatchupReport) -> str:
     for i in sorted(range(len(o.names)), key=lambda i: -o.p_title[i]):
         me = " style='font-weight:700'" if i == m else ""
         rows.append(f"<tr{me}><td class='unit'>{_e(o.names[i])}</td><td>{_e(o.records[i])}</td>"
-                    f"<td>{o.exp_wins[i]:.1f}</td><td>{o.p_playoffs[i]:.0%}</td><td>{o.p_title[i]:.1%}</td></tr>")
+                    f"<td>{o.p_title[i]:.1%}</td><td>{o.p_playoffs[i]:.0%}</td><td>{o.exp_wins[i]:.1f}</td></tr>")
     return (
         '<div class="card"><div class="row"><div class="rank">&#127942;</div>'
         f'<div><span class="name">Season outlook</span> '
@@ -229,7 +229,7 @@ def _season(report: MatchupReport) -> str:
         f'<div class="meta"><span>P(title)</span><span>{o.exp_wins[m]:.1f} expected wins</span>'
         f"<span>{o.n_sims:,} simulated seasons</span></div></div>"
         '<details><summary>Every team\'s odds</summary><div class="scroll"><table><thead><tr>'
-        '<th class="unit">Team</th><th>Rec</th><th>Exp W</th><th>Playoffs</th><th>Title</th></tr></thead>'
+        '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th></tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
         '<p class="sub">Each player\'s future is simulated (role drift, injuries, byes, the next man up '
         "taking over -- validated to put 82% of real six-week outcomes inside its 80% range); every team "

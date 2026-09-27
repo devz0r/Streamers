@@ -459,6 +459,12 @@ browser), logged in to your league:
 3. `YAHOO_LEAGUE_ID` as below. Your team and opponent are found
    automatically.
 
+Each sync reads the league page, the settings page, every team's roster,
+your matchup and a few pages of free agents -- about twenty page loads, a
+short pause apart. The first sync of a season also pages through the rest
+of the regular-season schedule (one league page per week); it is kept in
+the snapshots and not read again.
+
 Know what you are storing: those cookies are your whole Yahoo sign-in, not
 just fantasy -- the secret is encrypted and only your own workflows can read
 it, and signing out of Yahoo invalidates it. They expire every few months; the

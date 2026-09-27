@@ -1145,3 +1145,37 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
+### Yahoo, on the same engine
+The Yahoo sync now reads what the simulator needs, from pages a logged-in
+browser already gets:
+
+- **Settings.** The rules table states the playoffs in one line -- "6
+  teams - Week 15, 16 and 17" -- which gives the field, the regular
+  season (everything before the first playoff week) and the round length.
+  Also the waiver type (a continual rolling list), reseeding, and whether
+  a median game is played.
+- **Waiver order and activity.** The standings table carries each team's
+  waiver priority and its pickups so far -- the same two numbers ESPN
+  gives, so priority cost and rival claim odds work unchanged.
+- **Every roster**, one team page each.
+- **The schedule**, from the league page's matchup list, one page per
+  remaining week. It is read once a season and reused from earlier
+  snapshots, and kept only when every remaining week is complete: a week
+  with games missing would hand out too few wins and skew every team.
+
+Two rules the ESPN league does not have, now modelled for both:
+
+- **Reseeding.** After each playoff round the best seed left plays the
+  worst seed left. A fixed bracket would send the top seed into the 4/5
+  winner even after the 6 seed pulls an upset.
+- **Only a rolling list charges for a claim.** On an order that resets by
+  standings each week (or FAAB), a claim costs no future priority.
+
+A fourteen-team league is about 260 simulated players; 6,000 seasons and the
+candidate moves take under a minute and about 1 GB.
+
+The probe that found these pages printed table headers and page titles
+without scrubbing them, which put two managers' first names and the league
+name in a public workflow log. Both now pass the same whitelist as the rest
+of the probe output, and a test holds them to it.
+

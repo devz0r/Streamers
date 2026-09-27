@@ -191,6 +191,8 @@ class ProbeResult:
     def lines(self) -> list[str]:
         if self.error:
             return [f"  {self.url}", f"    ERROR {self.error}"]
+        if not self.status:                     # a summary over several pages
+            return [f"  {self.url}"] + [f"    {h}" for h in self.hints]
         out = [
             f"  {self.url}",
             f"    status {self.status}  bytes {self.bytes}  "
