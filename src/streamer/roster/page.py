@@ -215,33 +215,57 @@ def _names(players) -> str:
     return " + ".join(f"{p.name} ({p.position})" for p in players)
 
 
+def _trade_card(t) -> str:
+    from .trades import acceptance_label
+
+    win = '<span class="hold-tag">win-win</span>' if t.win_win else ""
+    return (
+        '<div class="card"><div class="row"><div class="rank">&#8644;</div>'
+        f'<div><span class="name">Get {_e(_names(t.get))}</span> '
+        f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}</span></div>'
+        f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
+        f'<div class="meta">{win}<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}</span>'
+        f"<span>yes: {acceptance_label(t.p_accept)} (~{t.p_accept:.0%})</span>"
+        f"<span>his title {t.their_base:.1%} &rarr; {t.their_new:.1%}</span></div>"
+        f'<div class="why"><b>For you:</b> {_e("; ".join(t.why_you))}.<br>'
+        f'<b>For him:</b> {_e("; ".join(t.why_them))}.</div></div>')
+
+
+_TRADE_TABS = (
+    ("top", "Top trades", "By expected gain: the chance he says yes times the title odds you gain."),
+    ("best", "Best for you", "By title odds gained, among offers with at least a 15% chance of a yes."),
+    ("likely", "Most likely yes", "By the chance he says yes, among offers that clearly raise your title odds."),
+)
+
+
 def _trades(report: MatchupReport) -> str:
-    """Trades that raise your title odds and give the other side a reason to say yes."""
-    trades = report.trades
-    if trades is None:
+    """Three views of the same trades: overall, best for you, most likely accepted."""
+    board = report.trades
+    if board is None:
         return ""
-    head = ("<h3>Trades, by title odds</h3>"
-            '<p class="sub">Every 1-for-1, 2-for-1 and 1-for-2 with every team, kept only when the other '
-            "manager's roster gets better on projections (his lineup no worse, his roster value up) -- a "
-            "trade he should take on the numbers -- then priced in title odds for both teams on the same "
-            "simulated seasons. <b>Win-win</b>: his title odds rise too. <b>Offer</b>: he gains on "
-            "projections, you gain more in the title race. Each is priced on its own, as an alternative "
-            "to the others.</p>")
-    if not trades:
-        return head + '<p class="sub">No trade both raises your title odds and gives the other side a reason to accept.</p>'
-    cards = []
-    for t in trades:
-        label, css = ("Win-win", "hold-tag") if t.verdict == "win-win" else ("Offer", "opp")
-        cards.append(
-            '<div class="card"><div class="row"><div class="rank">&#8644;</div>'
-            f'<div><span class="name">Get {_e(_names(t.get))}</span> '
-            f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}</span></div>'
-            f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
-            f'<div class="meta"><span class="{css}">{label}</span>'
-            f"<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}</span>"
-            f"<span>theirs {t.their_base:.1%} &rarr; {t.their_new:.1%}</span></div>"
-            f'<div class="why">{_e("; ".join(t.reasons))}</div></div>')
-    return head + "".join(cards)
+    head = ("<h3>Trades</h3>"
+            '<p class="sub">Every 1-for-1, 2-for-1 and 1-for-2 with every team. <b>For you</b>: priced in '
+            "title odds for both teams on the same simulated seasons as the waiver moves. <b>For him</b>: he "
+            "cannot see this tool, so his side is judged the way the market values players -- the "
+            "platform's projection, a player's name and last season, this season so far, injuries -- "
+            "in the proportions measured from Yahoo's rostership, plus whether he gets the best player in "
+            "the deal and how active he is. The yes-chance ranks offers; it is a rough estimate, not a "
+            "measured rate. Each trade is priced on its own, as an alternative to the others.</p>")
+    if not board:
+        return head + '<p class="sub">No trade both raises your title odds and has a real chance of a yes.</p>'
+    uid = _e(report.snapshot.profile)
+    radios, labels, panes = [], [], []
+    for i, (key, label, note) in enumerate(_TRADE_TABS):
+        trades = getattr(board, key)
+        tid = f"trades-{uid}-{key}"
+        radios.append(f'<input class="tab-radio t{i}" type="radio" name="trades-{uid}" id="{tid}"'
+                      f'{" checked" if i == 0 else ""}>')
+        labels.append(f'<label for="{tid}">{label}</label>')
+        body = "".join(_trade_card(t) for t in trades) or \
+            '<p class="sub">Nothing clears this bar.</p>'
+        panes.append(f'<div class="tab-pane p{i}"><p class="sub">{note}</p>{body}</div>')
+    return (head + '<div class="tabs">' + "".join(radios)
+            + '<div class="tab-labels">' + "".join(labels) + "</div>" + "".join(panes) + "</div>")
 
 
 def _season(report: MatchupReport) -> str:

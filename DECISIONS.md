@@ -1145,38 +1145,55 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
-### Trades, by title odds
+### Trades: what helps you, and what he will accept
 The waiver wire in a ten-team league is shallow; a roster short on points
-has to find them on other rosters. The trade finder searches every 1-for-1,
-2-for-1 and 1-for-2 of skill players with every team and keeps a trade only
-if it clears two separate bars:
+has to find them on other rosters. Every 1-for-1, 2-for-1 and 1-for-2 of
+skill players with every team is screened, and each trade answers two
+questions about two different people.
 
-- **The other manager should say yes.** He judges on what he can see, so
-  the test is his roster on per-game projections: roster value (best
-  lineup, bench depth over replacement, bench upside) up by at least 0.25
-  points a game, and his starting lineup no more than 0.25 worse. A trade
-  that leaves him level is not offered -- he has no reason to take it --
-  and nothing relies on him misreading the numbers.
-- **It raises your title odds**, priced on the same simulated seasons as
-  the waiver moves, for both teams at once, by at least 0.3 points and
-  twice the paired simulation noise.
+**Does it help you?** Our projections and our simulated futures: your
+P(title) with the new roster, priced for both teams at once on the title
+engine's seasons, kept when the gain clears 0.3 points and twice the paired
+noise.
 
-Win-win when his title odds rise too; otherwise an offer he gains from on
-projections while you gain more in the title race. The trades that exist
-are mostly about fit: a team deep at one position and thin at another sees
-the same players differently from you. A team receiving two for one drops
-its least valuable bench player; an opened spot is left open (the
-simulator plays a hole at replacement level), so the value of the pickup
-it allows is not counted.
+**Will he say yes?** He cannot see this tool, so his view has to be
+modelled, and it was measured rather than guessed. Yahoo's "% rostered" is
+the whole market's revealed opinion of every player. On 237 players at
+week 3 (logit of % rostered, position intercepts), it is explained by:
 
-On the real leagues at week 3 the screen keeps about 100 of several
-thousand candidate trades in 3 seconds; the best 36 are priced in about
-10. The ESPN team, last in points scored, had offers worth +1 to +2 points
-of title odds (from 4.7%), each well clear of +-0.3 of noise.
+| What he sees | Weight | 90% interval |
+|---|---|---|
+| The platform's projection | 41% | 18-73% |
+| Reputation: last season's points a game (the one before at half weight), shrunk to the projection over 4 games | 46% | 24-64% |
+| This season so far, shrunk over 2 games | 13% | -2 to 27% |
 
-What it does not know: how a particular manager values a name over a
-projection, and what the platform's own rankings show him. Treat each as
-an opening offer.
+Out of sample the blend explains 68% of rostership; our projection alone
+explains 60% and adds nothing once the three are in -- the market does not
+value players the way we do, and that gap is what makes a trade work.
+Selling a player the market rates above us (a big name in a shrinking role)
+and buying one it rates below us helps you and looks good to him. Being on
+IR reads about 1.4 points a game lower; each game missed last season about
+0.08 (injury history barely registers). `scripts/fit_perception.py` refits
+the weights into `perception.json`; the season-so-far weight should grow as
+the sample does.
+
+His perceived gain is the change in his roster value on that blend (his
+best lineup plus bench depth). The chance he accepts is a logistic in it,
+even money at +1 point a game (people value what they own above what they
+are offered), shifted by 0.75 when an uneven deal gives him -- or takes
+from him -- the best player in it, and scaled by engagement (0.6 for a team
+with no pickups, 1.0 at one a week). That shape is an assumption: offers
+and refusals are not published, so it cannot be fitted. It ranks offers;
+the percentage is not a measured rate.
+
+Three views of the same priced trades: **top** by expected gain (chance of
+a yes x title odds gained), **best for you** by title odds among offers
+with at least a 15% chance, **most likely yes** by the chance among offers
+that clearly help. Each card says why for both sides: sell-high and
+buy-low gaps, who he would start over, name value, a hot or cold start,
+injuries, how active he is. On the ESPN league at week 3, 999 trades
+screened and 66 priced took 20 seconds; the top offer (London for Swift)
+had an 86% yes-chance and +1.3 points of title odds.
 
 ### Yahoo, on the same engine
 The Yahoo sync now reads what the simulator needs, from pages a logged-in

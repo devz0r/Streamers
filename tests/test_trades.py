@@ -51,19 +51,23 @@ def finder(cfg):
     return TradeFinder(snap, SeasonModel(snap, cfg, n_sims=1500))
 
 
-def test_surplus_for_need_is_found_and_both_sides_gain_on_projections(finder):
-    trades = finder.find(5)
-    assert trades, "a back-for-receiver swap with the mirror team should be on offer"
-    best = trades[0]
+def test_surplus_for_need_is_found_and_both_views_are_filled(finder):
+    board = finder.find(5)
+    assert board.top, "a back-for-receiver swap with the mirror team should be on offer"
+    best = board.top[0]
     assert best.partner.team_id == "1"
     assert "RB" in {p.position for p in best.give} and "WR" in {p.position for p in best.get}
-    assert best.gain > 0 and best.p_new > best.p_base
-    assert best.their_value >= 0.25 and best.their_lineup >= -0.25
+    assert best.gain > 0 and best.p_accept > 0.25 and best.their_seen > 0
+    assert best.why_you and best.why_them
 
 
-def test_nothing_is_offered_that_the_other_side_would_refuse(finder):
-    for t in finder.screen():
-        assert t.their_value >= 0.25 and t.their_lineup >= -0.25 and t.my_value > 0
+def test_the_three_lists_are_ordered_by_what_they_promise(finder):
+    board = finder.find(5)
+    top = [t.expected for t in board.top]
+    assert top == sorted(top, reverse=True)
+    assert [t.p_accept for t in board.likely] == sorted((t.p_accept for t in board.likely), reverse=True)
+    assert all(t.p_accept >= 0.15 for t in board.best)
+    assert [t.gain for t in board.best] == sorted((t.gain for t in board.best), reverse=True)
 
 
 def test_a_trade_never_leaves_either_side_without_a_quarterback(finder):
@@ -73,14 +77,24 @@ def test_a_trade_never_leaves_either_side_without_a_quarterback(finder):
         assert any(p.position == "QB" for p in mine) and any(p.position == "QB" for p in theirs)
 
 
-def test_the_page_names_both_sides_of_each_trade(finder):
+def test_selling_a_player_the_market_overrates_is_called_out(cfg):
+    snap = _league()
+    star = next(p for p in snap.my_team.roster if p.player_id == "0-RB0")
+    star.platform_projection = 21.0            # the market sees a star; we project 16
+    board = TradeFinder(snap, SeasonModel(snap, cfg, n_sims=1500)).find(5)
+    selling = [t for t in board.top + board.best + board.likely if star in t.give]
+    assert selling and all(any("sell high" in r for r in t.why_you) for t in selling)
+
+
+def test_the_page_shows_three_tabs(finder):
     from types import SimpleNamespace
 
     from streamer.roster.page import _trades
 
-    trades = finder.find(3)
-    html = _trades(SimpleNamespace(trades=trades))
-    assert "Trades, by title odds" in html and "Team 1" in html
-    assert all(p.name in html for t in trades for p in t.give + t.get)
-    assert _trades(SimpleNamespace(trades=None)) == ""
-    assert "No trade" in _trades(SimpleNamespace(trades=[]))
+    board = finder.find(3)
+    html = _trades(SimpleNamespace(trades=board, snapshot=finder.snapshot))
+    for label in ("Top trades", "Best for you", "Most likely yes"):
+        assert label in html
+    assert html.count('type="radio"') == 3 and 'id="trades-espn-top"' in html
+    assert all(p.name in html for t in board.top for p in t.give + t.get)
+    assert _trades(SimpleNamespace(trades=None, snapshot=finder.snapshot)) == ""

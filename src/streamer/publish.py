@@ -139,6 +139,18 @@ summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 }
 .switch label:hover { color: var(--text); }
 .profile-panel { display: none; }
+
+/* Tabs inside a panel (trade views): the same radio + :checked pattern. */
+.tab-radio { position: absolute; opacity: 0; pointer-events: none; }
+.tab-labels { display: flex; gap: .25rem; padding: .2rem; margin: .4rem 0 .6rem;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; }
+.tab-labels label { flex: 1; text-align: center; padding: .35rem .4rem; border-radius: 999px;
+  font-size: .8rem; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent; }
+.tab-pane { display: none; }
+.t0:checked ~ .p0, .t1:checked ~ .p1, .t2:checked ~ .p2 { display: block; }
+.t0:checked ~ .tab-labels label:nth-child(1), .t1:checked ~ .tab-labels label:nth-child(2),
+.t2:checked ~ .tab-labels label:nth-child(3) { background: var(--accent); color: #fff; }
 """
 
 
@@ -714,9 +726,10 @@ def team_panels_for(
                     engine = None
                 if engine is not None:
                     try:
+                        from .roster.projections import load_history
                         from .roster.trades import TradeFinder
 
-                        report.trades = TradeFinder(snap, engine.model).find(5)
+                        report.trades = TradeFinder(snap, engine.model, history=load_history(bound)).find(5)
                     except Exception as exc:  # noqa: BLE001
                         log.warning("trade finder for %s skipped: %s", name, exc)
             report.notes.extend(n for n in projected.notes if "not playing" in n)

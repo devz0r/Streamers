@@ -406,9 +406,12 @@ and projection level.
 ### Trades
 
 When the league's structure has been read, the My-team panel lists trades
-that raise your title odds *and* give the other manager a reason to accept:
-his roster improves on projections. Each shows both teams' title odds
-before and after. See DECISIONS.md, "Trades, by title odds".
+in three views: **top** (chance of a yes x title odds gained), **best for
+you** (title odds gained) and **most likely yes**. Your side is priced in
+title odds; his is judged the way the market values players -- the
+platform projection, name value from last season, this season so far,
+injuries -- in proportions measured from Yahoo's rostership. See
+DECISIONS.md, "Trades: what helps you, and what he will accept".
 
 ### How waivers are priced
 
