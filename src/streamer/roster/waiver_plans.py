@@ -10,9 +10,9 @@ players is screened on roster value (best lineup, bench depth over
 replacement, bench upside -- the waiver engine's measure), keeping one
 drop-set per group of adds. The best plans are then priced in P(title) on
 the title engine's simulated seasons, against standing pat and against the
-best single move, with paired noise. A plan is recommended only when it
-beats the best single move by more than twice that noise: otherwise make
-the single move and refresh.
+best single move, with paired noise. A plan that beats the best single
+move by more than twice that noise is recommended; one that beats it by
+less is shown as a close call (the single move gets most of the gain).
 
 Claims go in the order of their single-move value. On a rolling waiver list
 the first claim that succeeds spends your priority; the rest are processed
@@ -50,6 +50,9 @@ class Plan:
     p_single: float = 0.0                              # the best single move's P(title)
     single_gains: dict[str, float] = field(default_factory=dict)   # add id -> gain alone
     noise: float = 0.0
+    #: "plan" when it beats the best single move by more than the noise,
+    #: "lean" when it beats it by less (a close call).
+    verdict: str = ""
     reasons: list[str] = field(default_factory=list)
     #: Plans one player different and about as good: (add in, add out, P(title)).
     alternatives: list[tuple[PlayerRow, PlayerRow, float]] = field(default_factory=list)
@@ -194,8 +197,13 @@ class PlanFinder:
             # Claim order: the move worth most on its own goes first.
             plan.moves.sort(key=lambda m: -plan.single_gains.get(m[0].player_id, 0.0))
             if plan.over_single >= max(MIN_GAIN, 2.0 * plan.noise):
-                out.append(plan)
-        out.sort(key=lambda p: -p.p_plan)
+                plan.verdict = "plan"
+            elif plan.over_single > 0 and plan.gain >= max(MIN_GAIN, 2.0 * plan.noise):
+                plan.verdict = "lean"
+            else:
+                continue
+            out.append(plan)
+        out.sort(key=lambda p: (p.verdict != "plan", -p.p_plan))
         # Distinct plans: one sharing all but one pickup with a better plan is
         # listed on it as an alternative, not as a plan of its own.
         kept: list[Plan] = []
@@ -220,6 +228,9 @@ class PlanFinder:
     def _reasons(self, plan: Plan) -> list[str]:
         pts = lambda v: f"{v * 100:+.1f}"            # noqa: E731
         bits = [f"{pts(plan.over_single)} over the best single move"]
+        if plan.verdict == "lean":
+            bits.append(f"that edge is inside the simulation's noise (+-{2 * plan.noise * 100:.2f}): "
+                        "the single move gets most of it")
         tolerance = 2.0 * plan.noise
         if plan.gain > plan.summed + tolerance:
             bits.append(f"worth more together: {pts(plan.gain)} against {pts(plan.summed)} priced one at a time")
@@ -237,6 +248,9 @@ class PlanFinder:
             if s is not None and s.value >= _ros(d) + TRADE_VALUE_NOTE:
                 bits.append(f"shop {d.name} in a trade before dropping him: the market sees "
                             f"{s.value:.1f} a game, we project {_ros(d):.1f}")
+        for x in plan.adds:
+            if x.is_out or x.is_long_term_out:
+                bits.append(f"{x.name} is listed {x.status or 'out'}: a stash for when he is back")
         for x in plan.adds:
             if x.usage:
                 bits.append(f"{x.name}: {x.usage}")

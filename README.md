@@ -406,8 +406,9 @@ and projection level.
 ### Waiver plans
 
 Below the single waiver moves, the panel lists plans of two or three moves
-made together, when one beats the best single move in title odds by more
-than the simulation noise, with the order to put the claims in. See
+made together, priced in title odds against the best single move -- "make
+the plan" when it wins by more than the simulation noise, "close call" when
+by less -- with the order to put the claims in. See
 DECISIONS.md, "Waiver plans".
 
 ### Trades

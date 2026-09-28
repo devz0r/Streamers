@@ -36,7 +36,7 @@ def test_two_starters_together_beat_either_alone(engine):
     best = plans[0]
     assert {"rb-star", "wr-star"} <= {a.player_id for a in best.adds}
     assert best.p_plan > best.p_single > best.p_base
-    assert best.over_single >= 2 * best.noise
+    assert best.over_single >= 2 * best.noise and best.verdict == "plan"
     assert any("over the best single move" in r for r in best.reasons)
 
 

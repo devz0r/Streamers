@@ -1158,8 +1158,8 @@ each group of adds and only plans that beat the best single move on paper.
 The best twelve are priced in P(title) on the title engine's seasons,
 against standing pat and against the best single move on the same seasons,
 and a plan is listed only when it beats that single move by more than
-twice the paired noise -- otherwise the advice is to make the single move
-and refresh. A plan one pickup away from a better one is folded into it as
+twice the paired noise ("make the plan"); one that beats it by less is
+shown as a close call, since the single move then gets most of the gain. A plan one pickup away from a better one is folded into it as
 an alternative ("about as good: X instead of Y").
 
 Claims go in order of what each is worth alone: on a rolling list the
@@ -1169,6 +1169,9 @@ above our projection is flagged to shop in a trade first. On the real
 leagues at week 3: ESPN's best plan (Aiyuk, Love, Henry) reached 7.1% title
 odds against 6.0% for the best single move and 5.5% standing pat (noise
 +-0.26); Yahoo's (Dobbins, Otton, Bernard) 16.6% against 14.6% and 13.2%.
+A later ESPN sync listed Aiyuk out, and its best plan fell to +0.5 over the
+best single move against +-0.58 of noise: a close call, which is what the
+page now says instead of hiding it.
 Screening takes about a second, pricing about five.
 
 ### Trades: what helps you, and what he will accept

@@ -221,12 +221,14 @@ def _plans(report: MatchupReport) -> str:
             '<p class="sub">Moves interact -- two backs chasing one lineup spot are worth less together, '
             "two dead roster spots turned into a starter and his handcuff can be worth more -- so every "
             "combination of two or three pickups and drops is screened, and the best priced in title odds "
-            "against standing pat and against the best single move. Listed only when the plan beats that "
-            "single move by more than the simulation noise; otherwise make the single move above.</p>")
+            "against standing pat and against the best single move. <b>Make the plan</b> when it beats that "
+            "single move by more than the simulation noise; a <b>close call</b> when by less.</p>")
     if not plans:
         return head + '<p class="sub">No plan beats the best single move; make that one and refresh.</p>'
     cards = []
     for plan in plans:
+        label = ('<span class="hold-tag">make the plan</span>' if plan.verdict == "plan"
+                 else '<span class="opp">close call</span>')
         steps = "".join(
             f"<li>Add <b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')}), drop {_e(d.name)}</li>"
             for a, d in plan.moves)
@@ -235,7 +237,7 @@ def _plans(report: MatchupReport) -> str:
             f'<div><span class="name">{len(plan.moves)} moves</span> '
             f'<span class="opp">{_e(", ".join(a.name for a in plan.adds))}</span></div>'
             f'<div class="pts">{plan.gain * 100:+.1f}</div></div>'
-            f'<div class="meta"><span>title {plan.p_base:.1%} &rarr; {plan.p_plan:.1%}</span>'
+            f'<div class="meta">{label}<span>title {plan.p_base:.1%} &rarr; {plan.p_plan:.1%}</span>'
             f"<span>best single move {plan.p_single:.1%}</span>"
             f"<span>&plusmn;{2 * plan.noise * 100:.1f} noise</span></div>"
             f'<div class="why"><ol class="steps">{steps}</ol>{_e("; ".join(plan.reasons))}.</div></div>')
