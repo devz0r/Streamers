@@ -1145,6 +1145,39 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
+### Trades, by title odds
+The waiver wire in a ten-team league is shallow; a roster short on points
+has to find them on other rosters. The trade finder searches every 1-for-1,
+2-for-1 and 1-for-2 of skill players with every team and keeps a trade only
+if it clears two separate bars:
+
+- **The other manager should say yes.** He judges on what he can see, so
+  the test is his roster on per-game projections: roster value (best
+  lineup, bench depth over replacement, bench upside) up by at least 0.25
+  points a game, and his starting lineup no more than 0.25 worse. A trade
+  that leaves him level is not offered -- he has no reason to take it --
+  and nothing relies on him misreading the numbers.
+- **It raises your title odds**, priced on the same simulated seasons as
+  the waiver moves, for both teams at once, by at least 0.3 points and
+  twice the paired simulation noise.
+
+Win-win when his title odds rise too; otherwise an offer he gains from on
+projections while you gain more in the title race. The trades that exist
+are mostly about fit: a team deep at one position and thin at another sees
+the same players differently from you. A team receiving two for one drops
+its least valuable bench player; an opened spot is left open (the
+simulator plays a hole at replacement level), so the value of the pickup
+it allows is not counted.
+
+On the real leagues at week 3 the screen keeps about 100 of several
+thousand candidate trades in 3 seconds; the best 36 are priced in about
+10. The ESPN team, last in points scored, had offers worth +1 to +2 points
+of title odds (from 4.7%), each well clear of +-0.3 of noise.
+
+What it does not know: how a particular manager values a name over a
+projection, and what the platform's own rankings show him. Treat each as
+an opening offer.
+
 ### Yahoo, on the same engine
 The Yahoo sync now reads what the simulator needs, from pages a logged-in
 browser already gets:

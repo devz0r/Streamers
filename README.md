@@ -403,6 +403,13 @@ One thing tested and *not* used: labelling players "boom-or-bust" or
 volatility. On 2024-25 none of it predicted weekly spread beyond position
 and projection level.
 
+### Trades
+
+When the league's structure has been read, the My-team panel lists trades
+that raise your title odds *and* give the other manager a reason to accept:
+his roster improves on projections. Each shows both teams' title odds
+before and after. See DECISIONS.md, "Trades, by title odds".
+
 ### How waivers are priced
 
 A pickup is priced by what it does to your roster: this week, and the rest

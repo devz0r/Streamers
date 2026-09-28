@@ -24,6 +24,9 @@ class MatchupReport:
     #: has not been read, and the roster-value engine is used instead).
     title_moves: list | None = None
     waiver_rank: int | None = None
+    #: Trades that raise your title odds and pass the other manager's bar
+    #: (None when the league structure has not been read).
+    trades: list | None = None
 
     @property
     def win_probability(self) -> float:

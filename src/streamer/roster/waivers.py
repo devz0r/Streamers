@@ -39,10 +39,9 @@ no bench spot) nor part of the lineup (activating them is a roster move).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
-
-from scipy.stats import norm
 
 from ..league.model import SLOT_ELIGIBILITY, LeagueSnapshot, PlayerRow
 
@@ -191,7 +190,11 @@ def upside(mean: float, spread: float, bar: float) -> float:
     if spread <= 0:
         return max(mean - bar, 0.0)
     d = (mean - bar) / spread
-    return float(spread * (norm.pdf(d) + d * norm.cdf(d)))
+    # The normal pdf and cdf by hand: this runs inside every roster
+    # valuation, and scipy's per-call overhead dominated trade screening.
+    pdf = math.exp(-0.5 * d * d) / math.sqrt(2.0 * math.pi)
+    cdf = 0.5 * (1.0 + math.erf(d / math.sqrt(2.0)))
+    return float(spread * (pdf + d * cdf))
 
 
 def roster_value(

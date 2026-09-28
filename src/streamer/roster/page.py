@@ -124,6 +124,7 @@ def render_my_team(
     # -- waivers ---------------------------------------------------------
     if report.title_moves is not None:
         parts.append(_title_moves(report))
+        parts.append(_trades(report))
         moves = [m for m in moves if m.add.position in ("DST", "K")]
     parts.append("<h3>Waiver moves</h3>" if report.title_moves is None else "<h3>D/ST and K streams</h3>")
     if not moves:
@@ -207,6 +208,39 @@ def _title_moves(report: MatchupReport) -> str:
             f'<div class="meta"><span class="{css}">{label}</span>'
             f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span></div>"
             f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
+    return head + "".join(cards)
+
+
+def _names(players) -> str:
+    return " + ".join(f"{p.name} ({p.position})" for p in players)
+
+
+def _trades(report: MatchupReport) -> str:
+    """Trades that raise your title odds and give the other side a reason to say yes."""
+    trades = report.trades
+    if trades is None:
+        return ""
+    head = ("<h3>Trades, by title odds</h3>"
+            '<p class="sub">Every 1-for-1, 2-for-1 and 1-for-2 with every team, kept only when the other '
+            "manager's roster gets better on projections (his lineup no worse, his roster value up) -- a "
+            "trade he should take on the numbers -- then priced in title odds for both teams on the same "
+            "simulated seasons. <b>Win-win</b>: his title odds rise too. <b>Offer</b>: he gains on "
+            "projections, you gain more in the title race. Each is priced on its own, as an alternative "
+            "to the others.</p>")
+    if not trades:
+        return head + '<p class="sub">No trade both raises your title odds and gives the other side a reason to accept.</p>'
+    cards = []
+    for t in trades:
+        label, css = ("Win-win", "hold-tag") if t.verdict == "win-win" else ("Offer", "opp")
+        cards.append(
+            '<div class="card"><div class="row"><div class="rank">&#8644;</div>'
+            f'<div><span class="name">Get {_e(_names(t.get))}</span> '
+            f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}</span></div>'
+            f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
+            f'<div class="meta"><span class="{css}">{label}</span>'
+            f"<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}</span>"
+            f"<span>theirs {t.their_base:.1%} &rarr; {t.their_new:.1%}</span></div>"
+            f'<div class="why">{_e("; ".join(t.reasons))}</div></div>')
     return head + "".join(cards)
 
 

@@ -711,6 +711,14 @@ def team_panels_for(
                     report.waiver_rank = engine.rank
                 except Exception as exc:  # noqa: BLE001 - odds are a bonus section
                     log.warning("title engine for %s skipped: %s", name, exc)
+                    engine = None
+                if engine is not None:
+                    try:
+                        from .roster.trades import TradeFinder
+
+                        report.trades = TradeFinder(snap, engine.model).find(5)
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("trade finder for %s skipped: %s", name, exc)
             report.notes.extend(n for n in projected.notes if "not playing" in n)
             report.notes.extend(projected.lock_notes)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
