@@ -140,6 +140,9 @@ summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 .switch label:hover { color: var(--text); }
 .profile-panel { display: none; }
 
+ol.steps { margin: 0 0 .4rem; padding-left: 1.2rem; color: var(--text); }
+ol.steps li { margin: .1rem 0; }
+
 /* Tabs inside a panel (trade views): the same radio + :checked pattern. */
 .tab-radio { position: absolute; opacity: 0; pointer-events: none; }
 .tab-labels { display: flex; gap: .25rem; padding: .2rem; margin: .4rem 0 .6rem;
@@ -725,11 +728,24 @@ def team_panels_for(
                     log.warning("title engine for %s skipped: %s", name, exc)
                     engine = None
                 if engine is not None:
+                    seen = None
                     try:
+                        from .roster import perception
                         from .roster.projections import load_history
+
+                        seen = perception.for_snapshot(snap, load_history(bound))
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("market view for %s skipped: %s", name, exc)
+                    try:
+                        from .roster.waiver_plans import PlanFinder
+
+                        report.plans = PlanFinder(engine, report.title_moves, seen=seen).find(3)
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning("waiver plans for %s skipped: %s", name, exc)
+                    try:
                         from .roster.trades import TradeFinder
 
-                        report.trades = TradeFinder(snap, engine.model, history=load_history(bound)).find(5)
+                        report.trades = TradeFinder(snap, engine.model, seen=seen).find(5)
                     except Exception as exc:  # noqa: BLE001
                         log.warning("trade finder for %s skipped: %s", name, exc)
             report.notes.extend(n for n in projected.notes if "not playing" in n)

@@ -124,6 +124,7 @@ def render_my_team(
     # -- waivers ---------------------------------------------------------
     if report.title_moves is not None:
         parts.append(_title_moves(report))
+        parts.append(_plans(report))
         parts.append(_trades(report))
         moves = [m for m in moves if m.add.position in ("DST", "K")]
     parts.append("<h3>Waiver moves</h3>" if report.title_moves is None else "<h3>D/ST and K streams</h3>")
@@ -208,6 +209,36 @@ def _title_moves(report: MatchupReport) -> str:
             f'<div class="meta"><span class="{css}">{label}</span>'
             f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span></div>"
             f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
+    return head + "".join(cards)
+
+
+def _plans(report: MatchupReport) -> str:
+    """Two or three waiver moves made together, priced as one."""
+    plans = report.plans
+    if plans is None:
+        return ""
+    head = ("<h3>Waiver plans: several moves together</h3>"
+            '<p class="sub">Moves interact -- two backs chasing one lineup spot are worth less together, '
+            "two dead roster spots turned into a starter and his handcuff can be worth more -- so every "
+            "combination of two or three pickups and drops is screened, and the best priced in title odds "
+            "against standing pat and against the best single move. Listed only when the plan beats that "
+            "single move by more than the simulation noise; otherwise make the single move above.</p>")
+    if not plans:
+        return head + '<p class="sub">No plan beats the best single move; make that one and refresh.</p>'
+    cards = []
+    for plan in plans:
+        steps = "".join(
+            f"<li>Add <b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')}), drop {_e(d.name)}</li>"
+            for a, d in plan.moves)
+        cards.append(
+            '<div class="card"><div class="row"><div class="rank">&#9776;</div>'
+            f'<div><span class="name">{len(plan.moves)} moves</span> '
+            f'<span class="opp">{_e(", ".join(a.name for a in plan.adds))}</span></div>'
+            f'<div class="pts">{plan.gain * 100:+.1f}</div></div>'
+            f'<div class="meta"><span>title {plan.p_base:.1%} &rarr; {plan.p_plan:.1%}</span>'
+            f"<span>best single move {plan.p_single:.1%}</span>"
+            f"<span>&plusmn;{2 * plan.noise * 100:.1f} noise</span></div>"
+            f'<div class="why"><ol class="steps">{steps}</ol>{_e("; ".join(plan.reasons))}.</div></div>')
     return head + "".join(cards)
 
 

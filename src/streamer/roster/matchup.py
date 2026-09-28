@@ -25,6 +25,9 @@ class MatchupReport:
     title_moves: list | None = None
     waiver_rank: int | None = None
     #: Trades that raise your title odds and pass the other manager's bar
+    #: Waiver plans -- several moves priced together (None when the league
+    #: structure has not been read).
+    plans: list | None = None
     #: Trade views (a :class:`TradeBoard`; None when the league structure
     #: has not been read).
     trades: object | None = None

@@ -403,6 +403,13 @@ One thing tested and *not* used: labelling players "boom-or-bust" or
 volatility. On 2024-25 none of it predicted weekly spread beyond position
 and projection level.
 
+### Waiver plans
+
+Below the single waiver moves, the panel lists plans of two or three moves
+made together, when one beats the best single move in title odds by more
+than the simulation noise, with the order to put the claims in. See
+DECISIONS.md, "Waiver plans".
+
 ### Trades
 
 When the league's structure has been read, the My-team panel lists trades

@@ -1145,6 +1145,32 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
+### Waiver plans: several moves priced together
+Single moves are priced one at a time, and moves interact: two backs
+chasing one lineup spot are worth less together than apart; two dead
+roster spots turned into a starter and a handcuff can be worth more. A plan
+is two or three (add, drop) pairs made together.
+
+Every combination of the ten most promising free agents and your eight
+weakest skill players is screened on roster value (the waiver engine's
+measure: lineup, bench depth, bench upside), keeping the best drop-set for
+each group of adds and only plans that beat the best single move on paper.
+The best twelve are priced in P(title) on the title engine's seasons,
+against standing pat and against the best single move on the same seasons,
+and a plan is listed only when it beats that single move by more than
+twice the paired noise -- otherwise the advice is to make the single move
+and refresh. A plan one pickup away from a better one is folded into it as
+an alternative ("about as good: X instead of Y").
+
+Claims go in order of what each is worth alone: on a rolling list the
+first successful claim spends your priority and the rest land when nobody
+ahead of you wants the same player. A drop the market still values well
+above our projection is flagged to shop in a trade first. On the real
+leagues at week 3: ESPN's best plan (Aiyuk, Love, Henry) reached 7.1% title
+odds against 6.0% for the best single move and 5.5% standing pat (noise
++-0.26); Yahoo's (Dobbins, Otton, Bernard) 16.6% against 14.6% and 13.2%.
+Screening takes about a second, pricing about five.
+
 ### Trades: what helps you, and what he will accept
 The waiver wire in a ten-team league is shallow; a roster short on points
 has to find them on other rosters. Every 1-for-1, 2-for-1 and 1-for-2 of
