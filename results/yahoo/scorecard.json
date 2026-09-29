@@ -48,5 +48,10 @@
       "Betting props": 4.63
     }
   ],
-  "ros": []
+  "ros": [],
+  "season_weight": {
+    "weight": 0.3,
+    "games": 0,
+    "measured": false
+  }
 }
