@@ -4,8 +4,10 @@ Needs ``FANTASYPROS_API_KEY`` (a repository secret, or ``.env`` locally --
 never in code or chat). What comes back is FantasyPros' data: it is cached on
 the runner under ``data/raw/fantasypros/`` (restored between runs by the
 workflow's cache, ignored by git) and never committed or published raw. The
-page shows only what is derived from it -- accuracy scores, whether the
-consensus agrees with us -- unless ``fantasypros.publish_ranks`` is turned on.
+page shows only analysis derived from it -- accuracy scores, whether the
+consensus agrees with us -- credited to FantasyPros as their terms require.
+Their numbers themselves are never shown: that is redistribution, which the
+standard API licence does not grant.
 
 Three pulls, per position (QB, RB, WR, TE):
 

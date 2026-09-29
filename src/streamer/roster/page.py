@@ -231,7 +231,10 @@ def _scorecard(report: MatchupReport) -> str:
         "<th>Start/sit</th><th>Ours</th><th>Miss</th><th>Ours</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>{ros}"
         '<p class="sub">Early weeks are noisy: a point or two of start/sit is within chance until '
-        "several weeks are in.</p>")
+        "several weeks are in.</p>"
+        + ('<p class="sub">Consensus rankings and projections: data from '
+           '<a href="https://www.fantasypros.com">FantasyPros</a>, used for analysis only.</p>'
+           if any(g.source.startswith("FantasyPros") for g in card.grades) or card.ros else ""))
 
 
 def _fold(uid: str, key: str, title: str, body: str) -> str:
@@ -284,7 +287,10 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
             '<p class="sub">Points of title odds each move adds on its own, against your roster as it '
             "stands -- they do not add up; make the top one and refresh. This week's lineup and "
             "streams are priced through what a win this week is worth to your title odds. A trade needs "
-            "a yes, so it is ranked by what it adds times the chance he accepts.</p>")
+            "a yes, so it is ranked by what it adds times the chance he accepts.</p>"
+            + ('<p class="sub">Consensus notes are analysis based on data from '
+               '<a href="https://www.fantasypros.com">FantasyPros</a>.</p>'
+               if any("FantasyPros" in a.detail for a in acts) else ""))
 
 
 _VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Close call: lean claim", "opp"),

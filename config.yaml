@@ -326,11 +326,11 @@ odds:
 fantasypros:
   # Consensus rankings and projections (needs the FANTASYPROS_API_KEY secret).
   # Their data stays on the runner (data/raw/fantasypros, never committed);
-  # the page shows only what is derived from it. Set publish_ranks: true to
-  # print their ranks on the public page, if your API terms allow it.
+  # the page shows only analysis derived from it, credited to FantasyPros.
+  # Their ranks and projections are never displayed: that is redistribution,
+  # which needs a Commercial API agreement.
   scoring: PPR
   cache_hours: 6
-  publish_ranks: false
 
 weather:
   # Manual CSV override: data/weather_week_N.csv

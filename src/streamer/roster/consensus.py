@@ -4,8 +4,10 @@ The consensus is the market that matters most for trades -- managers read
 these rankings in their apps -- and the benchmark our season values have to
 beat. Its numbers are FantasyPros' data: they live on the player objects for
 one publish and in a runner-only log (``data/raw/fantasypros/log.parquet``),
-never in a committed file or on the public page, where only what is derived
-from them appears (unless ``fantasypros.publish_ranks`` is on).
+never in a committed file or on the public page, where only analysis derived
+from them appears, credited to FantasyPros. Showing their ranks or
+projections themselves would be redistribution, which their API licence
+reserves for a Commercial agreement.
 """
 
 from __future__ import annotations
@@ -103,8 +105,9 @@ def note(p: PlayerRow, ours: dict[str, int], cfg: Config) -> str:
     if abs(gap) < max(5, 0.3 * min(mine, theirs)):
         return ""
     side = "lower" if gap > 0 else "higher"
-    if fp.conf(cfg).get("publish_ranks"):
-        return f"consensus is much {side} on him (we {p.position}{mine}, FantasyPros {p.position}{theirs})"
+    # Analysis only: their ranks themselves are never shown. Publishing
+    # FantasyPros data is redistribution, which needs a Commercial API
+    # agreement; analysis based on it is allowed with credit to them.
     return f"FantasyPros consensus is much {side} on him than we are"
 
 
