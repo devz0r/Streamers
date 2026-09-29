@@ -47,3 +47,12 @@ def test_the_next_man_up_gains_while_the_lead_is_out():
 def test_the_average_future_stays_near_todays_projection():
     f = simulate([_p("a", ros=12.0)], weeks=list(range(4, 10)), byes={}, n_sims=6000)
     assert 9.5 < f.scores[:, 0, :].mean() < 12.5          # absences pull it a little below
+
+
+def test_a_rookies_outlook_moves_more_than_a_veterans():
+    rookie, vet = _p("rookie"), _p("vet")
+    rookie.experience, vet.experience = 0, 6
+    f = simulate([rookie, vet], weeks=list(range(4, 16)), byes={}, n_sims=6000)
+    k = 11
+    spread = [f.levels[:, j, k][f.levels[:, j, k] > 0].std() for j in (0, 1)]
+    assert spread[0] > spread[1] * 1.03

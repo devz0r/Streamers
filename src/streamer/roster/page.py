@@ -57,6 +57,7 @@ def render_my_team(
     )
 
     parts.append(_season(report))
+    parts.append(_stakes(report))
 
     # -- lineup ----------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
@@ -299,6 +300,41 @@ def _trades(report: MatchupReport) -> str:
         panes.append(f'<div class="tab-pane p{i}"><p class="sub">{note}</p>{body}</div>')
     return (head + '<div class="tabs">' + "".join(radios)
             + '<div class="tab-labels">' + "".join(labels) + "</div>" + "".join(panes) + "</div>")
+
+
+def _stakes(report: MatchupReport) -> str:
+    """Must-win weeks, and the record that gets you in."""
+    st = report.stakes
+    if st is None or not st.games:
+        return ""
+    must = {g.week for g in st.must_win()}
+    rows = []
+    for g in st.games:
+        flag = ' style="font-weight:700"' if g.week in must else ""
+        tag = " &#9888;" if g.week in must else ""
+        rows.append(f"<tr{flag}><td>Wk {g.week}{tag}</td><td class='unit'>{_e(g.opponent)}</td>"
+                    f"<td>{g.p_win:.0%}</td><td>{g.playoffs_win:.0%}</td><td>{g.playoffs_loss:.0%}</td>"
+                    f"<td>{g.swing * 100:+.0f}</td></tr>")
+    need = st.wins_needed(0.5)
+    record = ", ".join(f"{k} wins: {p:.0%}" for k, (p, n) in sorted(st.by_wins.items()) if n >= 30)
+    must_line = (f"Must-win: {', '.join(f'week {w}' for w in sorted(must))} -- a result there moves your "
+                 "playoff odds more than an average game, usually because the opponent is chasing the same "
+                 "spots." if must else
+                 f"No single game stands out: each remaining game is worth about "
+                 f"{sum(g.swing for g in st.games) / len(st.games) * 100:.0f} points of playoff odds.")
+    need_line = (f"You make the playoffs at least half the time with {need} wins; you are on pace for "
+                 f"{st.exp_wins:.1f}." if need is not None else "")
+    return (
+        "<details><summary>Must-win weeks</summary>"
+        f'<p class="sub">{_e(must_line)} {_e(need_line)}</p>'
+        '<div class="scroll"><table><thead><tr><th>Week</th><th class="unit">Opponent</th><th>Win</th>'
+        "<th>Playoffs if W</th><th>if L</th><th>Swing</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        f'<p class="sub">Playoff odds by final record -- {_e(record)}. Each game is flipped in every '
+        "simulated season with everything else held as it fell, so the swing is what that one result is "
+        "worth, including what it does to the opponent's record. Your lineup is always set to win the "
+        "week in front of you; this is about where the season turns.</p></details>"
+    )
 
 
 def _season(report: MatchupReport) -> str:

@@ -10,7 +10,8 @@ Each simulated future of a player is built from what was measured on
   persistent error (the projection is wrong by the same amount every week),
   ``PERSISTENT_ERROR * sqrt(level)``, then drifts as a random walk -- no
   momentum, spread growing with the square root of time, ~0.8-1.15 points a
-  game per week by position.
+  game per week by position, 23% wider for a rookie (4% for a second-year
+  player), as their projections were measured to move.
 * **Absences** fire at his position-and-level rate (a backup QB 46% a week,
   a 16+ back 6%), scaled for role loss, and last a measured number of games
   (half are one game; a quarter four or more).
@@ -141,6 +142,14 @@ def simulate(
         if any(q.player_id == lead for q in players) and any(q.player_id == h for q in players)}
 
     sd0 = np.array([float(p.outcome_sd if p.outcome_sd is not None else (p.projection_sd or 6.0)) for p in players])
+    # Young players' outlooks move more: a rookie's projection drifts 23%
+    # wider over a month than a veteran's at the same level (measured with
+    # the drift, see outcome_model.json). Their expected rise is already in
+    # today's projection, so only the spread is widened here.
+    youth = outcome.load().get("drift", {}).get("youth_multiplier", {})
+    walk_scale = np.array([float(youth.get("rookie", 1.0)) if p.experience == 0
+                           else float(youth.get("second", 1.0)) if p.experience == 1 else 1.0
+                           for p in players])
     for k, week in enumerate(weeks):
         on_bye = np.array([bool(p.team) and week in byes.get(p.team, set()) for p in players])
         # New absences (not on bye, not already out).
@@ -180,5 +189,6 @@ def simulate(
         seen += playing
         for j, p in enumerate(players):
             if p.position in SKILL:
-                walk[:, j] = walk[:, j] + float(step_sd.get(p.position, 0.95)) * rng.standard_normal(n_sims)
+                walk[:, j] = walk[:, j] + float(step_sd.get(p.position, 0.95)) * walk_scale[j] \
+                    * rng.standard_normal(n_sims)
     return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks), scores=scores, levels=levels)

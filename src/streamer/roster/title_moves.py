@@ -32,7 +32,7 @@ import numpy as np
 from ..config import Config
 from ..league.model import LeagueSnapshot, PlayerRow
 from .season import SeasonModel
-from .waivers import MIN_KEEP
+from .waivers import MIN_KEEP, handcuffs
 
 SKILL = ("QB", "RB", "WR", "TE")
 
@@ -41,6 +41,8 @@ SKILL = ("QB", "RB", "WR", "TE")
 BREAKOUT_MARGIN = 2.0
 #: Title-odds gains below this (in probability) are not worth a transaction.
 MIN_GAIN = 0.002
+#: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
+UPSIDE_EACH = 3
 
 
 @dataclass
@@ -116,7 +118,7 @@ def _droppable(roster: list[PlayerRow], add: PlayerRow) -> list[PlayerRow]:
 
 class TitleEngine:
     def __init__(self, snapshot: LeagueSnapshot, cfg: Config, n_sims: int = 6000,
-                 candidates: int = 20, drops: int = 6, seed: int = 29):
+                 candidates: int = 20, drops: int = 4, seed: int = 29):
         self.snapshot, self.cfg = snapshot, cfg
         me = snapshot.my_team
         self.me = me
@@ -131,6 +133,9 @@ class TitleEngine:
             at = sorted((p for p in pool if p.position == pos),
                         key=lambda p: -(float(p.ros_value or 0.0) + float(p.ros_sd or 0.0)))
             self.candidates.extend(at[:max(1, round(n * candidates / 20))])
+        self.upside = self._upside_candidates(snapshot, pool)
+        have = {p.player_id for p in self.candidates}
+        self.candidates.extend(p for p in pool if p.player_id in self.upside and p.player_id not in have)
         self.n_drops = drops
         self.model = SeasonModel(snapshot, cfg, n_sims=n_sims, seed=seed, extra_players=self.candidates)
         self.mine = self.model.team_index[me.team_id]
@@ -147,6 +152,28 @@ class TitleEngine:
         # One set of claim-success draws for every candidate: common random
         # numbers, so candidates differ by who they are, not by luck.
         self.u = np.random.default_rng(seed + 1).random(n_sims)
+
+    @staticmethod
+    def _upside_candidates(snapshot: LeagueSnapshot, pool: list[PlayerRow]) -> dict[str, str]:
+        """Upside a ranking by today's value never reaches: backs one injury
+        from a lead role, rookies, players whose opportunity just rose. Their
+        average is low, so they are added to the list on purpose; what the
+        upside is worth is left to P(title) -- more when you are behind, when
+        only the seasons where something breaks right end in a title."""
+        out: dict[str, str] = {}
+        ids = {p.player_id for p in pool}
+        cuffs = sorted(((pid, lead, gain) for pid, (lead, gain) in handcuffs(snapshot).items() if pid in ids),
+                       key=lambda t: -t[2])
+        for pid, lead, _gain in cuffs[:UPSIDE_EACH]:
+            out[pid] = f"next in line behind {lead.name}"
+        by_value = sorted(pool, key=lambda p: -float(p.ros_value or 0.0))
+        for p in [q for q in by_value if q.experience == 0 and q.player_id not in out][:UPSIDE_EACH]:
+            out[p.player_id] = "rookie: roles grow, and his outlook moves more"
+        rising = [q for q in by_value if q.player_id not in out
+                  and any(s.startswith("opportunity up") for s in q.signals)]
+        for p in rising[:UPSIDE_EACH]:
+            out[p.player_id] = "his role is growing"
+        return out
 
     # -- building blocks -------------------------------------------------
     def _title(self, roster_ids: list[str], **kw) -> float:
@@ -189,26 +216,31 @@ class TitleEngine:
 
     def priority_cost(self, exclude: str) -> float:
         """Title odds lost on the best future contested claim if you drop to
-        the back of the order now."""
+        the back of the order now (the claim in question excluded)."""
+        gaps = self._priority_gaps()
+        return max((g for pid, g in gaps.items() if pid != exclude), default=0.0)
+
+    def _priority_gaps(self) -> dict[str, float]:
+        """For the top free agents: what your current rank is worth over last
+        place on a wait-and-claim for him. Computed once and shared."""
+        if getattr(self, "_gaps", None) is not None:
+            return self._gaps
+        self._gaps = {}
         if not self.priority_waivers or self.rank >= self.n_teams:
-            return 0.0
+            return self._gaps
         worst = sorted([p for p in self.me.roster if not p.in_ir_slot and p.position in SKILL],
                        key=lambda p: float(p.ros_value or 0.0))
         if not worst:
-            return 0.0
+            return self._gaps
         drop = worst[0]
-        best = 0.0
         for z in self.candidates[:6]:
-            if z.player_id == exclude:
-                continue
-            gap = self.value_wait(z, drop, self.rank) - self.value_wait(z, drop, self.n_teams)
-            best = max(best, gap)
-        return best
+            self._gaps[z.player_id] = max(
+                self.value_wait(z, drop, self.rank) - self.value_wait(z, drop, self.n_teams), 0.0)
+        return self._gaps
 
     # -- the recommendation ----------------------------------------------
     def moves(self, n: int = 5) -> list[TitleMove]:
         out: list[TitleMove] = []
-        cost_cache: dict[str, float] = {}
         for x in self.candidates:
             best: TitleMove | None = None
             for y in _droppable(self.me.roster, x)[: self.n_drops]:
@@ -224,9 +256,7 @@ class TitleEngine:
             ref = wait if wait.mean() >= self.base else self.base_won
             best.p_wait = float(wait.mean())
             best.noise = float((now - ref).std() / np.sqrt(len(now)))
-            if x.player_id not in cost_cache:
-                cost_cache[x.player_id] = self.priority_cost(x.player_id)
-            best.priority_cost = cost_cache[x.player_id]
+            best.priority_cost = self.priority_cost(x.player_id)
             if best.net >= max(MIN_GAIN, 2.0 * best.noise):
                 best.verdict = "claim"
             elif best.net > 0:
@@ -247,6 +277,8 @@ class TitleEngine:
             bits.append(f"your #{self.rank} priority is worth {m.priority_cost * 100:.1f} on future claims")
         if m.verdict == "lean":
             bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f})")
+        if m.add.player_id in self.upside:
+            bits.append(f"upside play: {self.upside[m.add.player_id]}")
         bits.extend(m.add.signals)
         if m.add.usage:
             bits.append(m.add.usage)

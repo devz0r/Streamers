@@ -1145,6 +1145,39 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
+### Behind in the standings: upside, and the games that matter
+A team behind needs seasons where something breaks right, so a player's
+spread is worth more to it than to a leader. No multiplier is bolted on for
+that: waiver moves are priced in P(title), which already counts only the
+seasons that end in a title, so it weighs upside by how far behind you are
+-- more at 5% than at 25%. What was missing was the upside itself:
+
+- **Rookies' futures were drawn like veterans'.** Their projections move
+  23% more over a month (second-year players 4%), measured with the drift
+  in `outcome_model.json`. The simulated walk is now widened by that
+  factor. Their expected rise is already in today's projection, so the
+  mean is left alone.
+- **Upside plays never reached the list.** Candidates were the best free
+  agents by average plus spread, so a back one injury from a lead role,
+  whose average is low, was never priced. Up to three of each kind are now
+  priced on purpose -- next-man-up backs behind a healthy lead, rookies,
+  players whose opportunity just rose -- and each card says which kind.
+
+**Must-win weeks.** For each remaining game, every simulated season is
+replayed with that one result forced to a win and then a loss, everything
+else held as it fell: the swing is what that result is worth to your
+playoff and title odds, including what it does to the opponent's record,
+so a game against a rival for the same spots swings more. A week is
+flagged when its swing is at least 1.25 times the average and 10 points.
+With it, the playoff odds by final win total show the record that gets in.
+In the ESPN league at week 3 (0-2, about to be 0-3) no game stood out --
+each was worth about 14 points of playoff odds -- and the record told the
+story: 6 wins got in 29% of the time, 7 wins 87%, on a pace of 5.4.
+
+Pricing the extra candidates is kept affordable: the priority cost is
+computed once rather than per candidate, and each candidate is priced
+against his four likeliest drops rather than six.
+
 ### A mid-week move cannot reach back into played games
 Between Sunday and the Tuesday turnover, the simulator's first week is the
 one in progress, with finished scores fixed. Pricing a pickup by putting

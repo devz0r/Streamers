@@ -56,6 +56,49 @@ class SeasonOdds:
                 "p_title": float(self.p_title[i]), "exp_wins": float(self.exp_wins[i])}
 
 
+@dataclass
+class GameStakes:
+    week: int
+    opponent: str
+    opponent_id: str
+    p_win: float
+    playoffs_win: float
+    playoffs_loss: float
+    title_win: float
+    title_loss: float
+
+    @property
+    def swing(self) -> float:
+        return self.playoffs_win - self.playoffs_loss
+
+
+@dataclass
+class Stakes:
+    """What each remaining game is worth to one team."""
+
+    games: list[GameStakes]
+    by_wins: dict[int, tuple[float, int]]     # final wins -> (P(playoffs), seasons)
+    p_playoffs: float
+    exp_wins: float
+    n_sims: int
+
+    def must_win(self, share: float = 1.25) -> list[GameStakes]:
+        """Games whose swing stands out: at least ``share`` times the
+        average swing, and at least 10 points."""
+        if not self.games:
+            return []
+        avg = sum(g.swing for g in self.games) / len(self.games)
+        return [g for g in self.games if g.swing >= max(share * avg, 0.10)]
+
+    def wins_needed(self, target: float = 0.5) -> int | None:
+        """The fewest final wins that get in at least ``target`` of the time."""
+        for k in sorted(self.by_wins):
+            p, n = self.by_wins[k]
+            if n >= 30 and p >= target:
+                return k
+        return None
+
+
 def bracket_order(slots: int) -> list[int]:
     """Seed order for a fixed bracket: 8 -> 1,8,4,5,3,6,2,7."""
     order = [1, 2]
@@ -253,12 +296,33 @@ class SeasonModel:
     def odds(self, override: dict[str, np.ndarray] | None = None) -> SeasonOdds:
         """Play out every simulated season. ``override`` swaps in a team's
         weekly scores (from :meth:`team_scores` on a changed roster)."""
+        scores = self._scores(override)
+        n_t = len(self.teams)
+        wins, points, _results = self._regular_season(scores)
+        made, byes, champ = self._playoffs(scores, wins, points)
+        title = np.zeros(n_t)
+        if champ is not None:
+            title = np.bincount(np.asarray(champ).ravel(), minlength=n_t) / self.n
+        mine = next((i for i, t in enumerate(self.teams) if t.is_mine), None)
+        return SeasonOdds(
+            team_ids=[t.team_id for t in self.teams], names=[t.name for t in self.teams],
+            records=[f"{t.wins}-{t.losses}" + (f"-{t.ties}" if t.ties else "") for t in self.teams],
+            p_playoffs=made.mean(axis=1), p_bye=byes.mean(axis=1), p_title=title,
+            exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
+            champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes))
+
+    def _scores(self, override: dict[str, np.ndarray] | None) -> np.ndarray:
         scores = self.base_scores.copy()
         for tid, arr in (override or {}).items():
             scores[self.team_index[tid]] = arr
-        n_t = len(self.teams)
+        return scores
+
+    def _regular_season(self, scores: np.ndarray):
+        """Wins and points after the regular season, and each head-to-head
+        game's result: ``results[(week, a, b)]`` is a's win (1, 0.5, 0) per sim."""
         wins = np.array([t.wins + 0.5 * t.ties for t in self.teams], float)[:, None].repeat(self.n, 1)
         points = np.array([t.points_for for t in self.teams], float)[:, None].repeat(self.n, 1)
+        results: dict[tuple[int, int, int], np.ndarray] = {}
         for k, week in enumerate(self.weeks):
             if week > self.reg_weeks:
                 break
@@ -268,12 +332,19 @@ class SeasonModel:
                 if w != week or a not in self.team_index or b not in self.team_index:
                     continue
                 ia, ib = self.team_index[a], self.team_index[b]
-                wins[ia] += (wk[ia] > wk[ib]) + 0.5 * (wk[ia] == wk[ib])
-                wins[ib] += (wk[ib] > wk[ia]) + 0.5 * (wk[ia] == wk[ib])
+                res = (wk[ia] > wk[ib]) + 0.5 * (wk[ia] == wk[ib])
+                wins[ia] += res
+                wins[ib] += 1.0 - res
+                results[(week, ia, ib)] = res
             if self.median:
                 med = np.median(wk, axis=0)
                 wins += wk > med[None, :]
-        # Seeds: record, then points.
+        return wins, points, results
+
+    def _playoffs(self, scores: np.ndarray, wins: np.ndarray, points: np.ndarray):
+        """Seeds by record then points, then the bracket: who made it, who
+        had a bye, and the champion per simulation."""
+        n_t = len(self.teams)
         key = wins * 1e6 + points
         order = np.argsort(-key, axis=0)                                       # (teams, n)
         p_teams = min(self.playoff_teams, n_t)
@@ -311,17 +382,44 @@ class SeasonModel:
                 nxt_seed.append(np.where(a_wins, sa, sb))
             alive, seed_of = nxt, nxt_seed
         champ = alive[0] if alive and alive[0] is not None else None
-        title = np.zeros(n_t)
-        if champ is not None:
-            title = np.bincount(np.asarray(champ).ravel(), minlength=n_t) / self.n
-        mine = next((i for i, t in enumerate(self.teams) if t.is_mine), None)
-        return SeasonOdds(
-            team_ids=[t.team_id for t in self.teams], names=[t.name for t in self.teams],
-            records=[f"{t.wins}-{t.losses}" + (f"-{t.ties}" if t.ties else "") for t in self.teams],
-            p_playoffs=made.mean(axis=1), p_bye=byes.mean(axis=1), p_title=title,
-            exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
-            champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes))
+        return made, byes, champ
 
+    # -- what each game is worth ---------------------------------------
+    def stakes(self, team_id: str, override: dict[str, np.ndarray] | None = None) -> Stakes:
+        """For each of the team's remaining regular-season games: P(playoffs)
+        and P(title) if he wins it and if he loses it, everything else in
+        each simulated season held as it fell. Flipping one game moves both
+        teams' records, so a game against a rival for the same playoff spot
+        swings more than one against a team out of reach.
+
+        Also the playoff odds by final win total -- what record gets in."""
+        scores = self._scores(override)
+        i = self.team_index[team_id]
+        wins, points, results = self._regular_season(scores)
+        made0, _b, champ0 = self._playoffs(scores, wins, points)
+        games = []
+        for (week, ia, ib), res in sorted(results.items()):
+            if i not in (ia, ib) or week < int(self.snapshot.week):
+                continue
+            opp = ib if ia == i else ia
+            mine = res if ia == i else 1.0 - res
+            out = {}
+            for forced in (1.0, 0.0):
+                w = wins.copy()
+                w[i] += forced - mine
+                w[opp] -= forced - mine
+                made, _byes, champ = self._playoffs(scores, w, points)
+                out[forced] = (float(made[i].mean()),
+                               float((champ == i).mean()) if champ is not None else 0.0)
+            games.append(GameStakes(week=week, opponent=self.teams[opp].name, opponent_id=self.teams[opp].team_id,
+                                    p_win=float(mine.mean()),
+                                    playoffs_win=out[1.0][0], playoffs_loss=out[0.0][0],
+                                    title_win=out[1.0][1], title_loss=out[0.0][1]))
+        final = np.rint(wins[i]).astype(int)
+        by_wins = {int(k): (float(made0[i][final == k].mean()), int((final == k).sum()))
+                   for k in np.unique(final)}
+        return Stakes(games=games, by_wins=by_wins, p_playoffs=float(made0[i].mean()),
+                      exp_wins=float(wins[i].mean()), n_sims=self.n)
 
     def _reseeded(self, alive: list, seed_of: list) -> tuple[list, list]:
         """Survivors re-paired by seed in every simulation: best left against

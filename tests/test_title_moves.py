@@ -42,3 +42,19 @@ def test_a_star_on_the_wire_is_a_claim_and_a_scrub_is_not(cfg):
     assert "star" in moves and moves["star"].verdict == "claim"
     assert moves["star"].p_now > engine.base + 0.02
     assert "scrub" not in moves
+
+
+def test_upside_plays_are_priced_even_when_their_average_is_low(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    lead = snap.teams[1].roster[1]
+    lead.team, lead.role, lead.ros_value = "SEA", "RB1", 18.0
+    cuff = _fa("cuff", "RB", 4.0)
+    cuff.role = "RB2"
+    rookie = _fa("rook", "WR", 4.5)
+    rookie.experience = 0
+    snap.free_agents = [_fa(f"rb{i}", "RB", 9.0 - i * 0.2) for i in range(10)] + \
+        [_fa(f"wr{i}", "WR", 9.0 - i * 0.2) for i in range(10)] + [cuff, rookie]
+    engine = TitleEngine(snap, cfg, n_sims=500, candidates=8)
+    ids = {p.player_id for p in engine.candidates}
+    assert {"cuff", "rook"} <= ids
+    assert "behind" in engine.upside["cuff"] and "rookie" in engine.upside["rook"]

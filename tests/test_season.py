@@ -130,3 +130,29 @@ def test_a_week_the_standings_have_not_counted_is_played_out(cfg):
     odds = model.odds()
     # Everyone is 0-2; weeks 3-10 are all played, week 3 included: 8 weeks x 2 games.
     assert odds.exp_wins.sum() == pytest.approx(8 * len(snap.teams) / 2)
+
+
+def test_winning_a_game_never_hurts_and_more_wins_get_in_more(cfg):
+    snap = _league([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    snap.rules["playoff_teams"] = 3
+    model = SeasonModel(snap, cfg, n_sims=2000)
+    st = model.stakes("0")
+    assert st.games and all(g.playoffs_win >= g.playoffs_loss for g in st.games)
+    assert all(0 <= g.p_win <= 1 for g in st.games)
+    assert abs(st.p_playoffs - model.odds().p_playoffs[0]) < 1e-9
+    # More wins, better odds.
+    ks = sorted(k for k, (_p, n) in st.by_wins.items() if n >= 30)
+    ps = [st.by_wins[k][0] for k in ks]
+    assert ps == sorted(ps)
+
+
+def test_the_stakes_table_renders(cfg):
+    from types import SimpleNamespace
+
+    from streamer.roster.page import _stakes
+
+    snap = _league([1.0, 1.1, 0.9, 1.0])
+    st = SeasonModel(snap, cfg, n_sims=500).stakes("0")
+    html = _stakes(SimpleNamespace(stakes=st))
+    assert "Must-win weeks" in html and html.count("<tr") == len(st.games) + 1
+    assert _stakes(SimpleNamespace(stakes=None)) == ""

@@ -724,6 +724,7 @@ def team_panels_for(
                     report.season = engine.model.odds()
                     report.title_moves = engine.moves(5)
                     report.waiver_rank = engine.rank
+                    report.stakes = engine.model.stakes(snap.my_team.team_id)
                 except Exception as exc:  # noqa: BLE001 - odds are a bonus section
                     log.warning("title engine for %s skipped: %s", name, exc)
                     engine = None

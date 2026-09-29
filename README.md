@@ -403,6 +403,14 @@ One thing tested and *not* used: labelling players "boom-or-bust" or
 volatility. On 2024-25 none of it predicted weekly spread beyond position
 and projection level.
 
+### Must-win weeks and upside plays
+
+Under the season outlook, "Must-win weeks" shows what each remaining game is
+worth to your playoff odds (win against loss, in every simulated season)
+and the record that gets in. Waiver moves always price next-man-up backs,
+rookies and rising roles; title odds decide how much their upside is worth,
+which is more the further behind you are.
+
 ### Waiver plans
 
 Below the single waiver moves, the panel lists plans of two or three moves
