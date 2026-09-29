@@ -87,6 +87,9 @@ class PlayerRow:
     projection_source: str = ""
     #: A rest-of-season value proxy (per-game), for waiver decisions.
     ros_value: float | None = None
+    #: His team's games in a row, up to now this season, that he has not
+    #: played: how long an absence in progress has already run.
+    games_missed: int = 0
     #: The part of ``ros_value`` inherited from an absent teammate's work.
     #: The season simulation takes it back out when it plays that absence
     #: out itself, week by week.

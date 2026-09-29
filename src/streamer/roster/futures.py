@@ -86,26 +86,37 @@ def _hazard(pos: str, level: np.ndarray, conf: dict) -> np.ndarray:
     return base[idx] * float(conf.get("absence_scale", 1.2))
 
 
-def _durations(pos: str, n: int, rng: np.random.Generator, conf: dict) -> np.ndarray:
+def _durations(pos: str, n: int, rng: np.random.Generator, conf: dict, already: int = 0) -> np.ndarray:
+    """Games an absence lasts (from its start), or -- for one that has
+    already run ``already`` games -- the games still to go: the measured
+    lengths conditioned on lasting longer than that. Half of all absences
+    last one game, but one that has already run three is a long one."""
     pmf = np.asarray(conf.get("duration", {}).get(pos) or [0.45, 0.19, 0.11, 0.08, 0.05, 0.04, 0.03, 0.05])
     pmf = pmf / pmf.sum()
-    d = rng.choice(np.arange(1, len(pmf) + 1), size=n, p=pmf)
     # The last bucket is "8 or more": spread it over the rest of a season.
-    long = d == len(pmf)
-    d[long] = rng.integers(len(pmf), len(pmf) + 8, size=int(long.sum()))
-    return d
+    full = np.concatenate([pmf[:-1], np.full(8, pmf[-1] / 8)])
+    lengths = np.arange(1, len(full) + 1)
+    if already > 0:
+        full = np.where(lengths > already, full, 0.0)
+        if full.sum() <= 0:                  # out longer than any measured absence
+            return rng.integers(1, 9, size=n)
+    d = rng.choice(lengths, size=n, p=full / full.sum())
+    return d - already
 
 
 def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict) -> np.ndarray:
-    """Games still to miss from today's status."""
+    """Games still to miss from today's status, given how many of his team's
+    games in a row he has already missed."""
+    pos = p.position if p.position in SKILL else "WR"
+    already = int(getattr(p, "games_missed", 0) or 0)
     if p.status in LONG_TERM_OUT_STATUSES:
-        return np.maximum(_durations(p.position if p.position in SKILL else "WR", n, rng, conf), 4)
+        return np.maximum(_durations(pos, n, rng, conf, already), 4)
     if p.is_out and not p.on_bye:
-        return _durations(p.position if p.position in SKILL else "WR", n, rng, conf)
+        return _durations(pos, n, rng, conf, already)
     q = p.play_probability if p.play_probability is not None else 1.0
     if q < 1.0:
         sits = rng.random(n) >= q
-        return np.where(sits, _durations(p.position if p.position in SKILL else "WR", n, rng, conf), 0)
+        return np.where(sits, _durations(pos, n, rng, conf, already), 0)
     return np.zeros(n, int)
 
 

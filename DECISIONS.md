@@ -1332,6 +1332,20 @@ were priced and fell short are now listed under the waiver moves with what
 each adds ("also priced"), so a name on every waiver list can be seen to
 have been considered, and what he would do for this roster.
 
+### An absence that has already run keeps running
+Josh Jacobs has not played this season (the commissioner's exempt list).
+ESPN tags him day-to-day and projects zero. The simulation drew his absence
+fresh from the measured lengths, so he was back next week 45% of the time,
+and the ESPN team's backfield looked healthier than it is. Every player now
+carries how many of his team's games in a row he has missed, and an absence
+in progress draws its remaining length from the same measured distribution
+conditioned on having lasted that long. Three games in, an absence ends the
+next week about 31% of the time instead of 36%, and runs about 3.4 more
+games on average instead of 2.8. The effect is modest because the measured
+lengths are not very heavy-tailed. A suspension or an exempt list with no
+set end is probably longer than an injury of the same age, but nothing in
+the feeds tells them apart, so a note says how long he has been out.
+
 ### Claim order spends priority where you would lose the player
 Plans listed claims in order of each pickup's own value, with Jacoby
 Brissett first. But on a rolling list the first successful claim sends you

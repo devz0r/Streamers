@@ -620,6 +620,30 @@ def assign_roles(players: list[PlayerRow]) -> None:
                 p.role = f"{pos}{rank}"
 
 
+def games_missed(history: pd.DataFrame, season: int, week: int) -> tuple[dict[str, list[int]], dict[str, set[int]]]:
+    """This season before ``week``: the weeks each team played, and the
+    weeks each player played -- enough to count how many of his team's
+    games in a row a player has missed."""
+    from ..teams import normalize_team
+
+    cur = history[(history["season"] == season) & (history["week"] < week)]
+    if cur.empty:
+        return {}, {}
+    team_weeks = {normalize_team(t): sorted(set(int(w) for w in g))
+                  for t, g in cur.groupby("team")["week"]}
+    played = {str(pid): set(int(w) for w in g) for pid, g in cur.groupby("player_id")["week"]}
+    return team_weeks, played
+
+
+def _missed_in_a_row(team_weeks: list[int], played: set[int]) -> int:
+    n = 0
+    for w in reversed(team_weeks):
+        if w in played:
+            break
+        n += 1
+    return n
+
+
 def _moved_signal(row) -> str:
     """A new team: how far his old role was discounted."""
     old = row.get("old_team")
@@ -716,6 +740,7 @@ def project_snapshot(
     }
     heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg)
     usage = recent_usage(history, snapshot.season, snapshot.week)
+    team_weeks, played_weeks = games_missed(history, int(snapshot.season), int(snapshot.week))
     # Where our season value has been measured to overreact, defer toward
     # the market (see market_calibration: two early-season cells).
     market_conf = market_calibration.load()
@@ -731,6 +756,7 @@ def project_snapshot(
         p.signals = []
         p.usage = ""
         p.inherited_ros = 0.0
+        p.games_missed = 0
         p.experience = None
         platform_says_sits = p.player_id in sits
         plat = p.platform_projection
@@ -739,6 +765,17 @@ def project_snapshot(
 
         if p.position in SKILL:
             nfl_id = matched.mapping.get(p.player_id)
+            # An absence in progress: how many of his team's games in a row
+            # he has already missed (the simulation lets a long one run long).
+            from ..teams import normalize_team
+
+            tw = team_weeks.get(normalize_team(p.team)) if p.team else None
+            if tw and nfl_id is not None:
+                p.games_missed = _missed_in_a_row(tw, played_weeks.get(str(nfl_id), set()))
+                if p.games_missed >= 2 and (platform_says_sits or p.is_out or p.is_long_term_out) \
+                        and not p.on_bye:
+                    p.signals.append(f"has missed his team's last {p.games_missed} games: an absence that has "
+                                     "run this long tends to run longer")
             row = by_id.loc[nfl_id] if (nfl_id is not None and not by_id.empty
                                         and nfl_id in by_id.index) else None
             stale = row is not None and weeks_since(row, snapshot.season, snapshot.week) > inactive_weeks

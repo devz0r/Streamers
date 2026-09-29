@@ -104,3 +104,18 @@ def test_a_takeover_varies_by_absence_and_can_stick():
     lead_back = (f.levels[:, 0, 0] == 0) & (f.levels[:, 0, 6:] > 0).all(axis=1)
     after = f.levels[lead_back, 1, 9]
     assert after[after > 0].mean() > 5.0 + 0.4
+
+
+def test_an_absence_that_has_already_run_long_tends_to_run_longer():
+    """Josh Jacobs had missed all three of his team's games (the exempt
+    list, tagged day-to-day). On the measured absence lengths, one already
+    three games old is less often back next week and runs longer."""
+    fresh = _p("fresh", "RB", 12.0)
+    fresh.play_probability = 0.0
+    long_out = _p("long", "RB", 12.0)
+    long_out.play_probability, long_out.games_missed = 0.0, 3
+    f = simulate([fresh, long_out], weeks=list(range(4, 12)), byes={}, n_sims=8000)
+    back_next = (f.levels[:, :, 1] > 0).mean(axis=0)
+    assert back_next[1] < back_next[0] - 0.03
+    games_out = (f.levels == 0).sum(axis=2).mean(axis=0)
+    assert games_out[1] > games_out[0] + 0.4
