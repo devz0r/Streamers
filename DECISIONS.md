@@ -1178,6 +1178,51 @@ Pricing the extra candidates is kept affordable: the priority cost is
 computed once rather than per candidate, and each candidate is priced
 against his four likeliest drops rather than six.
 
+### Grading the projections, and the FantasyPros consensus
+"How good are the projections?" deserves a running answer, not an
+impression. Every refresh already logs, before kickoff, our model's number,
+our final number (model, platform and betting market blended), the
+platform's projection and the betting props for each player. The scorecard
+joins that log to what the players scored and grades every source two ways,
+each on the players it covered with our final number graded on the same
+players beside it:
+
+- **start/sit** -- of any two players at the same position, did it rank the
+  one who scored more higher (rankings can take this test too);
+- **average miss** in points, for sources that give points.
+
+Week 3 of 2026, first grade: in the ESPN league our final number went
+73.0% on start/sit against ESPN's 72.3% on the same 217 players, missing by
+4.68 against 4.83; in the Yahoo league 69.3% against Yahoo's 67.8% (76
+players). Betting props were level with our final number on the players
+they priced. One week is noise; the table on the page accumulates.
+
+(An earlier quick check that had ESPN slightly ahead graded the wrong
+column -- our number before the market blend -- and only projections logged
+before the 1pm games, so late games were graded on stale numbers.)
+
+**FantasyPros** (with the `FANTASYPROS_API_KEY` secret) adds three things.
+Their rest-of-season consensus rank, this week's rank and this week's
+projection are attached to players at publish time:
+
+- **graded** in the same scorecard (weekly), and our season values are
+  graded against their rest-of-season ranks by rank correlation with the
+  points a game each player scored since, once three weeks have passed;
+- **folded into the market view** used for trade acceptance -- managers
+  read these rankings -- as the market value of a player's consensus rank,
+  at a provisional half weight until `scripts/fit_perception.py` measures
+  it against Yahoo's rostership;
+- **flagged** on hub rows and waiver cards where the consensus is well off
+  our view (5+ ranks and 30%), a second opinion before acting.
+
+Their data is theirs: it is cached on the runner only
+(`data/raw/fantasypros/`, restored between runs, ignored by git), never
+committed, and the public page shows only what is derived from it --
+grades and "consensus is much lower on him" -- unless
+`fantasypros.publish_ranks` is turned on. The probe
+(`streamer fantasypros-probe`, or the workflow's `fantasypros-probe` job)
+prints status, field names and counts, never values or the key.
+
 ### Where our season values defer to the market
 A trade the hub ranked first (Drake London for Cam Skattebo and Michael
 Wilson, +2.5 points of title odds) rested on our model valuing Wilson at

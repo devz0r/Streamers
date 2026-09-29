@@ -119,7 +119,27 @@ def perceive(players: list[PlayerRow], lines: dict, season: int, conf: dict | No
 
 
 def for_snapshot(snapshot: LeagueSnapshot, history: pd.DataFrame | None) -> dict[str, Perceived]:
-    return perceive(snapshot.all_players(), season_lines(history, snapshot.season), snapshot.season)
+    seen = perceive(snapshot.all_players(), season_lines(history, snapshot.season), snapshot.season)
+    return with_consensus(seen, snapshot)
+
+
+def with_consensus(seen: dict[str, Perceived], snapshot: LeagueSnapshot,
+                   conf: dict | None = None) -> dict[str, Perceived]:
+    """Fold the FantasyPros consensus into what a manager sees, where it
+    ranks the player: his value becomes a blend with the market value of
+    whoever sits at his consensus rank. The weight is ``consensus_weight``
+    in ``perception.json`` -- provisional until refit with the consensus in
+    hand (``scripts/fit_perception.py``)."""
+    from dataclasses import replace
+
+    from .consensus import market_values
+
+    w = float((conf or load()).get("consensus_weight", 0.5))
+    ecr = market_values(snapshot, seen)
+    if not ecr or w <= 0:
+        return seen
+    return {pid: (replace(s, value=(1 - w) * s.value + w * ecr[pid]) if pid in ecr else s)
+            for pid, s in seen.items()}
 
 
 # ---------------------------------------------------------------------------

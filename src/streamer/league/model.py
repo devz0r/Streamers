@@ -124,6 +124,12 @@ class PlayerRow:
     #: weight the market got (0 when no book priced him).
     pre_market_projection: float | None = None
     market_weight: float = 0.0
+    #: FantasyPros consensus (attached at publish time, never saved): the
+    #: rest-of-season and this week's position rank, and this week's
+    #: projected points.
+    ecr_ros_pos_rank: int | None = None
+    ecr_week_pos_rank: int | None = None
+    fp_projection: float | None = None
 
     @property
     def week_value(self) -> float:

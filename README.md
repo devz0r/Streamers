@@ -403,6 +403,13 @@ One thing tested and *not* used: labelling players "boom-or-bust" or
 volatility. On 2024-25 none of it predicted weekly spread beyond position
 and projection level.
 
+### How the projections are doing
+
+Each league panel ends with a scorecard: our projections, the platform's,
+the betting market's and (with a key) FantasyPros', each graded every week
+on the players who played -- start/sit accuracy and average miss -- with
+ours on the same players beside it. It builds up over the season.
+
 ### Championship hub
 
 The top of each My-team panel ranks every move you can make -- lineup
@@ -545,6 +552,14 @@ page will say so when a sync fails, and you re-copy them.
 The Yahoo *scoring profile* does not depend on any of this: its D/ST and K
 rankings come from nflverse and the betting markets. Only the My-team panel
 for that league needs API access.
+
+**FantasyPros (optional).** With a FantasyPros API key, the consensus
+rankings are graded against our projections, used as a second opinion on
+waiver and trade cards, and folded into the model of what other managers
+see. Add the key as the `FANTASYPROS_API_KEY` repository secret (Settings ->
+Secrets and variables -> Actions), and in `.env` locally. Run the
+`fantasypros-probe` job once from the Actions tab to check it works. Their
+data stays on the workflow runner and is never committed.
 
 Then:
 

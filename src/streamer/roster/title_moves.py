@@ -373,6 +373,14 @@ class TitleEngine:
                         f"{m.rival_name}), which costs you {m.block_value * 100:.1f} of that")
         if m.add.player_id in self.upside:
             bits.append(f"upside play: {self.upside[m.add.player_id]}")
+        if m.add.ecr_ros_pos_rank:
+            from .consensus import note, our_ranks
+
+            if getattr(self, "_our_ranks", None) is None:
+                self._our_ranks = our_ranks(self.snapshot)
+            second = note(m.add, self._our_ranks, self.cfg)
+            if second:
+                bits.append(second)
         bits.extend(m.add.signals)
         if m.add.usage:
             bits.append(m.add.usage)

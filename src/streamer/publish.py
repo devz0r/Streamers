@@ -724,7 +724,23 @@ def team_panels_for(
                 log_projections(snap, bound)
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)
+            try:
+                from .roster import consensus
+
+                if consensus.attach(snap, bound):
+                    consensus.log_week(snap, bound)
+            except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
+                log.warning("FantasyPros consensus for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
+            try:
+                from .roster import scorecard
+                from .roster.projections import load_history
+
+                report.scorecard = scorecard.build(bound, load_history(bound), snap.platform.upper()
+                                                   if snap.platform != "yahoo" else "Yahoo")
+                scorecard.save(bound, report.scorecard)
+            except Exception as exc:  # noqa: BLE001 - grading is a bonus section
+                log.warning("scorecard for %s skipped: %s", name, exc)
             if (snap.rules or {}).get("schedule"):
                 try:
                     from .roster.title_moves import TitleEngine

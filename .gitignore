@@ -2,6 +2,8 @@
 data/raw/*.parquet
 # Cached sportsbook props: short-lived, and re-fetchable.
 data/raw/props/
+# FantasyPros data: theirs, kept on the runner only.
+data/raw/fantasypros/
 !data/raw/.gitkeep
 
 .venv/

@@ -57,7 +57,7 @@ def render_my_team(
     )
 
     uid = _e(snapshot.profile)
-    parts.insert(2, _hub(report, uid))
+    parts.insert(2, _hub(report, uid, cfg))
     season = _season(report) + _stakes(report)
     if season:
         parts.append(_fold(uid, "season", "Season outlook and must-win weeks", season))
@@ -191,7 +191,47 @@ def render_my_team(
             + "</p>"
         )
     parts.append("</details>")
+    card = _scorecard(report)
+    if card:
+        parts.append(_fold(uid, "scorecard", "How the projections are doing", card))
     return "".join(parts)
+
+
+def _scorecard(report: MatchupReport) -> str:
+    """Every source graded on the same players, on what actually happened."""
+    card = getattr(report, "scorecard", None)
+    if card is None or not card.grades:
+        return ""
+    rows = []
+    for g in card.grades:
+        pairs = f"{g.pairs:.1%}" if g.pairs is not None else "--"
+        ours_p = f"{g.ours_pairs:.1%}" if g.ours_pairs is not None else "--"
+        miss = f"{g.miss:.2f}" if g.miss is not None else "--"
+        rows.append(f"<tr><td class='unit'>{_e(g.source)}</td><td>{g.players}</td><td>{pairs}</td>"
+                    f"<td>{ours_p}</td><td>{miss}</td><td>{g.ours_miss:.2f}</td></tr>")
+    weeks = max(g.weeks for g in card.grades)
+    ros = ""
+    if card.ros:
+        last = card.ros[-1]
+        avg_o = sum(r["ours"] for r in card.ros) / len(card.ros)
+        avg_c = sum(r["consensus"] for r in card.ros) / len(card.ros)
+        ros = (f'<p class="sub"><b>Rest of season</b>, against the FantasyPros consensus: how well each '
+               f"week's season values ordered players by the points a game they scored since (rank "
+               f"correlation within position, {len(card.ros)} logged weeks, latest week {last['week']} with "
+               f"{last['weeks_since']} weeks since): ours {avg_o:.2f}, consensus {avg_c:.2f}.</p>")
+    else:
+        ros = ('<p class="sub"><b>Rest of season</b> against the FantasyPros consensus: graded once '
+               "three weeks have been played after a logged week.</p>")
+    return (
+        f'<p class="sub">{weeks} week{"s" if weeks != 1 else ""} graded so far, on players who played. '
+        "<b>Start/sit</b>: of any two players at the same position, did it rank the one who scored more "
+        "higher. <b>Miss</b>: average points off. Each source is graded on the players it covered, with our "
+        "final number on the same players beside it.</p>"
+        '<div class="scroll"><table><thead><tr><th class="unit">Source</th><th>Players</th>'
+        "<th>Start/sit</th><th>Ours</th><th>Miss</th><th>Ours</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>{ros}"
+        '<p class="sub">Early weeks are noisy: a point or two of start/sit is within chance until '
+        "several weeks are in.</p>")
 
 
 def _fold(uid: str, key: str, title: str, body: str) -> str:
@@ -201,7 +241,7 @@ def _fold(uid: str, key: str, title: str, body: str) -> str:
 _HUB_SHOWN = 8
 
 
-def _hub(report: MatchupReport, uid: str) -> str:
+def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
     """Every move you can make -- lineup, streams, waivers, blocks, plans,
     trades -- ranked by what it does to your title odds."""
     from .hub import actions
@@ -221,7 +261,7 @@ def _hub(report: MatchupReport, uid: str) -> str:
         f'<div class="pts">{o.p_title[m]:.1%}</div></div>'
         '<div class="meta"><span>P(title)</span><span>every move, ranked by what it adds</span></div></div>'
     )
-    acts = actions(report)
+    acts = actions(report, cfg)
     if not acts:
         return head + '<p class="sub">Nothing on offer raises your title odds right now.</p>'
 

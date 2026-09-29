@@ -323,6 +323,15 @@ odds:
   #   last     -> most recent cached pull for this week
   fallback_order: [api, csv, schedule, last]
 
+fantasypros:
+  # Consensus rankings and projections (needs the FANTASYPROS_API_KEY secret).
+  # Their data stays on the runner (data/raw/fantasypros, never committed);
+  # the page shows only what is derived from it. Set publish_ranks: true to
+  # print their ranks on the public page, if your API terms allow it.
+  scoring: PPR
+  cache_hours: 6
+  publish_ranks: false
+
 weather:
   # Manual CSV override: data/weather_week_N.csv
   # Missing rows default to neutral (0 mph wind, no precipitation).

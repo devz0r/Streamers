@@ -275,6 +275,20 @@ def cmd_yahoo_auth(args: argparse.Namespace, cfg: Config) -> int:
     return 0
 
 
+def cmd_fantasypros_probe(args: argparse.Namespace, cfg: Config) -> int:
+    """Describe what the FantasyPros API returns: status, field names and
+    counts -- never values, never the key (workflow logs are public)."""
+    from ..data import fantasypros
+    from ..data.odds import _load_dotenv
+
+    _load_dotenv(cfg.root)
+    season = args.season or cfg.current_season
+    lines = fantasypros.probe(cfg, season, args.week or 1)
+    for line in lines:
+        print(line)
+    return 0 if all("HTTP 200" in line for line in lines) else 1
+
+
 def cmd_yahoo_probe(args: argparse.Namespace, cfg: Config) -> int:
     """Describe Yahoo's fantasy pages so the reader can be written against them.
 
@@ -346,6 +360,12 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
     p.add_argument("--week", type=int, default=None, help="snapshot week (default: newest)")
     p.add_argument("--season", type=int, default=None)
     p.set_defaults(func=cmd_matchup)
+
+    p = sub.add_parser("fantasypros-probe",
+                       help="describe the FantasyPros API's responses (diagnostic, prints no values)")
+    p.add_argument("--week", type=int, default=None)
+    p.add_argument("--season", type=int, default=None)
+    p.set_defaults(func=cmd_fantasypros_probe)
 
     p = sub.add_parser("yahoo-probe",
                        help="describe Yahoo's fantasy pages (diagnostic, prints no secrets)")

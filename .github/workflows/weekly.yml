@@ -45,7 +45,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe]
 
 permissions:
   contents: write
@@ -75,6 +75,7 @@ jobs:
       # provisions the developer API. The whole Cookie request header.
       YAHOO_COOKIE: ${{ secrets.YAHOO_COOKIE }}
       YAHOO_TEAM_ID: ${{ secrets.YAHOO_TEAM_ID }}
+      FANTASYPROS_API_KEY: ${{ secrets.FANTASYPROS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -121,6 +122,10 @@ jobs:
       - name: Probe Yahoo pages
         if: steps.mode.outputs.mode == 'yahoo-probe'
         run: streamer yahoo-probe --detail --week "${{ steps.week.outputs.upcoming_week }}"
+
+      - name: Probe the FantasyPros API
+        if: steps.mode.outputs.mode == 'fantasypros-probe'
+        run: streamer fantasypros-probe --week "${{ steps.week.outputs.upcoming_week }}"
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

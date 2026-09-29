@@ -48,9 +48,24 @@ def week_title_value(report) -> float | None:
     return None if game is None else max(game.title_win - game.title_loss, 0.0)
 
 
-def actions(report) -> list[HubAction]:
+def _second_opinion(report, cfg):
+    """"; <what the FantasyPros consensus thinks>" where it is well off our view."""
+    if cfg is None:
+        return lambda p: ""
+    from .consensus import note, our_ranks
+
+    ours = our_ranks(report.snapshot)
+
+    def say(p) -> str:
+        n = note(p, ours, cfg)
+        return f"; {p.name}: {n}" if n else ""
+    return say
+
+
+def actions(report, cfg=None) -> list[HubAction]:
     """Every priced move, best first."""
     out: list[HubAction] = []
+    second = _second_opinion(report, cfg)
     per_win = week_title_value(report)
     opt = report.optimisation
 
@@ -85,6 +100,7 @@ def actions(report) -> list[HubAction]:
         detail = f"drop {m.drop.name}"
         if blocking:
             detail += f"; keeps him from {m.rival_name}"
+        detail += second(m.add)
         out.append(HubAction("Block" if blocking else "Waiver", f"Add {m.add.name}", detail, gain,
                              note, "waivers"))
     for plan in getattr(report, "plans", None) or []:
@@ -105,7 +121,8 @@ def actions(report) -> list[HubAction]:
         for t in best_by_give.values():
             give = " + ".join(p.name for p in t.give)
             get = " + ".join(p.name for p in t.get)
-            out.append(HubAction("Trade", f"Trade {give} for {get}", f"with {t.partner.name}",
+            out.append(HubAction("Trade", f"Trade {give} for {get}",
+                                 f"with {t.partner.name}" + "".join(second(p) for p in t.get + t.give),
                                  t.p_accept * t.gain,
                                  f"{t.gain * 100:+.1f} if he accepts, chance of a yes ~{t.p_accept:.0%}"
                                  + ("; win-win" if t.win_win else ""), "trades", firm=False))
