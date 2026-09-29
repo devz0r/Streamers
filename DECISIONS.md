@@ -1178,6 +1178,24 @@ Pricing the extra candidates is kept affordable: the priority cost is
 computed once rather than per candidate, and each candidate is priced
 against his four likeliest drops rather than six.
 
+### When drops tie, keep the player others still value
+A waiver plan (Meyers, Brissett, Sadiq) dropped Xavier Worthy and Brian
+Thomas Jr., both widely rostered. On our projections they were the
+weakest receivers, but pricing the alternatives showed the choice of the
+last drop was a coin flip for the title: dropping Terrance Ferguson instead
+of Thomas Jr. came out at 7.00% against 6.80% (noise +-0.26). The proxy
+that picks drop-sets had broken the tie by our projection alone, ignoring
+that a player the market still values (Thomas Jr. 9.7 a game, Ferguson 6.3)
+can be traded -- and that cutting him hands him to a rival for nothing.
+
+Now, for single moves and plans, drops within 0.2 points of title odds of
+the best are treated as ties, and the tie goes to cutting the player the
+market (the perception model, consensus included) values least. It is a
+tie-break, not a trade-off: a drop that costs title odds is never swapped
+in for asset value -- Kenny Gainwell, valued less by the market than either
+receiver but more by us, would cost 0.8 points to cut, and stays. The plan
+card says when it kept someone and why.
+
 ### A player gone for more than a season is not injured
 Brandon Aiyuk was recommended as a pickup. He last played in October 2024
 and is on the 49ers' reserve/left-squad list, but ESPN tags him OUT, and a

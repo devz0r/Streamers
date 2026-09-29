@@ -48,6 +48,10 @@ BLOCK_ALLOWANCE = 0.003
 #: Blocking is named on a card only when it is worth at least this much:
 #: smaller values sit inside the simulation's noise.
 BLOCK_NOTE = 0.003
+#: Two drops this close in title odds are a coin flip for the season; the
+#: tie goes to keeping the player the market values more -- he can still be
+#: traded, and a rival would claim him. About the paired noise of one move.
+DROP_TIE = 0.002
 #: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
 UPSIDE_EACH = 3
 
@@ -177,6 +181,12 @@ class TitleEngine:
         self._seed = seed
         self._claimant_cache: dict[str, np.ndarray] = {}
         self._stand_pat_cache: dict[tuple[str, str], np.ndarray] = {}
+        #: Player id -> what the market sees him worth (perception); set by
+        #: the caller. Used to keep tradeable players when drops tie.
+        self.market: dict[str, float] = {}
+
+    def market_value(self, p: PlayerRow) -> float:
+        return float(self.market.get(p.player_id, p.ros_value or 0.0))
 
     @staticmethod
     def _upside_candidates(snapshot: LeagueSnapshot, pool: list[PlayerRow]) -> dict[str, str]:
@@ -321,10 +331,12 @@ class TitleEngine:
         out: list[TitleMove] = []
         for x in self.candidates:
             best: TitleMove | None = None
-            for y in _droppable(self.me.roster, x)[: self.n_drops]:
-                p_now = self.value_now(x, y)
-                if best is not None and p_now <= best.p_now:
-                    continue
+            priced = [(y, self.value_now(x, y)) for y in _droppable(self.me.roster, x)[: self.n_drops]]
+            if priced:
+                top = max(p for _y, p in priced)
+                # As good for the title, within noise: drop whoever the market values least.
+                ties = [(y, p) for y, p in priced if p >= top - DROP_TIE]
+                y, p_now = min(ties, key=lambda t: (self.market_value(t[0]), -t[1]))
                 best = TitleMove(add=x, drop=y, p_now=p_now, p_wait=0.0, p_base=self.base,
                                  priority_cost=0.0, verdict="skip")
             if best is None or best.p_now - self.base < MIN_GAIN - BLOCK_ALLOWANCE:

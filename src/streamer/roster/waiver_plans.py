@@ -29,7 +29,7 @@ import numpy as np
 
 from ..league.model import PlayerRow
 from .season import replacement_levels
-from .title_moves import MIN_GAIN, TitleEngine
+from .title_moves import DROP_TIE, MIN_GAIN, TitleEngine
 from .waivers import MIN_KEEP, _ros, roster_value
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -54,6 +54,8 @@ class Plan:
     #: "lean" when it beats it by less (a close call).
     verdict: str = ""
     reasons: list[str] = field(default_factory=list)
+    #: Drops swapped to keep a player the market values: (kept, dropped instead).
+    kept: list[tuple[PlayerRow, PlayerRow]] = field(default_factory=list)
     #: Plans one player different and about as good: (add in, add out, P(title)).
     alternatives: list[tuple[PlayerRow, PlayerRow, float]] = field(default_factory=list)
 
@@ -221,9 +223,39 @@ class PlanFinder:
             kept.append(plan)
             if len(kept) >= n:
                 break
+        _adds, pool, _best = self.pools()
         for plan in kept:
+            self._keep_assets(plan, pool)
             plan.reasons = self._reasons(plan)
         return kept
+
+    def market_value(self, p: PlayerRow) -> float:
+        s = self.seen.get(p.player_id)
+        return float(s.value) if s is not None else float(self.engine.market_value(p))
+
+    def _keep_assets(self, plan: Plan, pool: list[PlayerRow]) -> None:
+        """Where another drop is as good for the title (within noise), cut the
+        player the market values least instead: a player others still rate
+        can be traded, and cutting him hands him to a rival for nothing."""
+        roster = self.me.roster
+        for d in sorted(plan.drops, key=lambda q: -self.market_value(q)):
+            best = None
+            for r in pool:
+                if r in plan.drops or self.market_value(r) >= self.market_value(d):
+                    continue
+                drops = [q for q in plan.drops if q is not d] + [r]
+                new = [q for q in roster if q not in drops] + plan.adds
+                if not _keeps_minimums(new, roster):
+                    continue
+                p = float(self._won(new).mean())
+                if p >= plan.p_plan - DROP_TIE and (best is None or self.market_value(r) < self.market_value(best[0])):
+                    best = (r, p)
+            if best is not None:
+                r, p = best
+                plan.kept.append((d, r))
+                plan.moves = self._pair(plan.adds, [q for q in plan.drops if q is not d] + [r])
+                plan.moves.sort(key=lambda m: -plan.single_gains.get(m[0].player_id, 0.0))
+                plan.p_plan = p
 
     def _reasons(self, plan: Plan) -> list[str]:
         pts = lambda v: f"{v * 100:+.1f}"            # noqa: E731
@@ -243,6 +275,10 @@ class PlanFinder:
                         f"#{rank} priority, and the rest land if nobody ahead of you wants them")
         for new, old, p in plan.alternatives[:2]:
             bits.append(f"about as good: {new.name} instead of {old.name} (title {p:.1%})")
+        for kept, instead in plan.kept:
+            bits.append(f"keeps {kept.name}, whom the market still values at {self.market_value(kept):.1f} a game "
+                        f"(tradeable, and a rival would claim him): dropping {instead.name} instead is as good "
+                        "for your title odds")
         for d in plan.drops:
             s = self.seen.get(d.player_id)
             if s is not None and s.value >= _ros(d) + TRADE_VALUE_NOTE:

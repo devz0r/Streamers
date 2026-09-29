@@ -79,3 +79,20 @@ def test_passing_on_a_breakout_lets_a_rival_have_him(cfg):
     if "riser" in moves:
         m = moves["riser"]
         assert m.p_free == engine.base and m.rival_share > 0 and m.rival_name
+
+
+def test_when_drops_tie_the_one_the_market_values_least_goes(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    me = snap.teams[0]
+    # Two bench bodies below replacement: neither ever starts, so dropping
+    # either is exactly as good for the title -- but one still has a name.
+    for pid in ("no-name", "big-name"):
+        me.roster.append(_fa(pid, "WR", 2.0))
+    snap.free_agents = [_fa("star", "RB", 24.0), _fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0),
+                        _fa("rep3", "RB", 5.5), _fa("rep4", "WR", 5.5)]
+    for t in snap.teams:
+        t.acquisitions = 3
+    engine = TitleEngine(snap, cfg, n_sims=1500, candidates=8)
+    engine.market = {"no-name": 2.0, "big-name": 11.0}
+    star = next(m for m in engine.moves(8) if m.add.player_id == "star")
+    assert star.drop.player_id == "no-name"

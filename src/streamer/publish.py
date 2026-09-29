@@ -742,10 +742,19 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - grading is a bonus section
                 log.warning("scorecard for %s skipped: %s", name, exc)
             if (snap.rules or {}).get("schedule"):
+                seen = None
+                try:
+                    from .roster import perception
+                    from .roster.projections import load_history
+
+                    seen = perception.for_snapshot(snap, load_history(bound))
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("market view for %s skipped: %s", name, exc)
                 try:
                     from .roster.title_moves import TitleEngine
 
                     engine = TitleEngine(snap, bound)
+                    engine.market = {pid: s.value for pid, s in (seen or {}).items()}
                     report.season = engine.model.odds()
                     report.title_moves = engine.moves(5)
                     report.waiver_rank = engine.rank
@@ -754,14 +763,6 @@ def team_panels_for(
                     log.warning("title engine for %s skipped: %s", name, exc)
                     engine = None
                 if engine is not None:
-                    seen = None
-                    try:
-                        from .roster import perception
-                        from .roster.projections import load_history
-
-                        seen = perception.for_snapshot(snap, load_history(bound))
-                    except Exception as exc:  # noqa: BLE001
-                        log.warning("market view for %s skipped: %s", name, exc)
                     try:
                         from .roster.waiver_plans import PlanFinder
 
