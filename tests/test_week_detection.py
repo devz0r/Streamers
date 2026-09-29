@@ -88,3 +88,19 @@ def test_empty_season_is_handled():
 ])
 def test_rollover_boundary(today, expected):
     assert detect(_season(scored_through=0), 2026, 18, today=today) == expected
+
+
+def test_monday_night_stays_in_its_week_until_the_game_is_over():
+    from datetime import UTC, datetime
+
+    import pandas as pd
+
+    games = pd.DataFrame([
+        {"season": 2026, "week": 3, "gameday": "2026-09-27", "gametime": "13:00", "team_score": 20.0},
+        {"season": 2026, "week": 3, "gameday": "2026-09-28", "gametime": "20:15", "team_score": None},
+        {"season": 2026, "week": 4, "gameday": "2026-10-04", "gametime": "13:00", "team_score": None},
+    ])
+    # 9:38pm Eastern Monday = 01:38 UTC Tuesday: the game is on.
+    assert detect(games, 2026, 18, today=datetime(2026, 9, 29, 1, 38, tzinfo=UTC))[1] == 3
+    # 1am Eastern Tuesday: over.
+    assert detect(games, 2026, 18, today=datetime(2026, 9, 29, 5, 0, tzinfo=UTC)) == (3, 4)

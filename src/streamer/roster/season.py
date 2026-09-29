@@ -131,10 +131,20 @@ class SeasonModel:
         self.reseed = bool(rules.get("reseed"))
         self.rounds = max(math.ceil(math.log2(max(self.playoff_teams, 2))), 1)
         start = int(snapshot.week)
+        # The platform can be a week behind the calendar: Monday night's game
+        # is over, the week has turned, but the standings have not counted it
+        # yet. Skipping that week would lose a result for every team, so it
+        # is played out here instead (with today's rosters).
+        per_week = 2 if self.median else 1
+        counted = min((t.wins + t.losses + t.ties for t in snapshot.teams), default=0) // per_week
+        self.lag = max(0, min(start - 1 - counted, 2)) if snapshot.teams else 0
+        first = start - self.lag
         self.last_week = self.reg_weeks + self.rounds * self.round_weeks
-        self.weeks = list(range(start, self.last_week + 1))
+        self.weeks = list(range(first, self.last_week + 1))
         self.schedule = [(int(w), str(a), str(b)) for w, a, b in rules.get("schedule", [])
-                         if start <= int(w) <= self.reg_weeks]
+                         if first <= int(w) <= self.reg_weeks]
+        self.notes = ([f"The standings have not counted week {first} yet, so its results are simulated "
+                       "here; the odds firm up once the platform finalises it."] if self.lag else [])
         self.teams = snapshot.teams
         self.team_index = {t.team_id: i for i, t in enumerate(self.teams)}
         pool: dict[str, PlayerRow] = {}
@@ -148,7 +158,7 @@ class SeasonModel:
         byes = nfl_byes(snapshot, self.weeks, cfg)
         everyone = snapshot.all_players()
         self.futures = fut.simulate(self.players, self.weeks, byes, n_sims=n_sims, seed=seed,
-                                    heirs=heirs_for(everyone))
+                                    heirs=heirs_for(everyone), current=self.lag)
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),
                       key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]))]
         # Replacement level: what any team can pick up off the wire in a
@@ -222,14 +232,17 @@ class SeasonModel:
         original = {p.player_id for p in team.roster}
         played = lambda pid: pid in self.pid and (self.players[self.pid[pid]].locked  # noqa: E731
                                                   or self.players[self.pid[pid]].actual_points is not None)
+        # Weeks before the current one (a lagging platform's) are history too.
         for pid in roster_ids:
-            if pid not in original and played(pid):
+            join = self.lag + (1 if played(pid) else 0)
+            if pid not in original and join > 0:
                 cur = available_from.get(pid, 0)
-                available_from[pid] = np.maximum(np.asarray(cur), 1) if np.ndim(cur) else max(int(cur), 1)
+                available_from[pid] = np.maximum(np.asarray(cur), join) if np.ndim(cur) else max(int(cur), join)
         for pid in original:
-            if pid not in roster_ids and played(pid):
+            leave = self.lag + (1 if played(pid) else 0)
+            if pid not in roster_ids and leave > 0:
                 roster_ids.append(pid)
-                gone_from[pid] = 1
+                gone_from[pid] = leave
         return roster_ids, available_from, gone_from
 
     def slot_replacement(self, slot: str) -> float:
@@ -307,7 +320,7 @@ class SeasonModel:
             records=[f"{t.wins}-{t.losses}" + (f"-{t.ties}" if t.ties else "") for t in self.teams],
             p_playoffs=made.mean(axis=1), p_bye=byes.mean(axis=1), p_title=title,
             exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
-            champion=np.asarray(champ) if champ is not None else None)
+            champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes))
 
 
     def _reseeded(self, alive: list, seed_of: list) -> tuple[list, list]:

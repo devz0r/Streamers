@@ -167,7 +167,7 @@ class TitleEngine:
         ld = lv[:, xd, :] if xd is not None else np.zeros_like(lx)
         start = float(add.ros_value or 0.0)
         hit = (lx >= ld + BREAKOUT_MARGIN) & (lx >= start + BREAKOUT_MARGIN)
-        hit[:, 0] = False                            # this week is already being claimed on
+        hit[:, : self.model.lag + 1] = False         # this week is already being claimed on
         k = np.where(hit.any(axis=1), hit.argmax(axis=1), lv.shape[2] + 1)
         return k
 

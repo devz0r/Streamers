@@ -120,3 +120,13 @@ def test_a_mid_week_pickup_cannot_use_points_already_scored(cfg):
     assert naive[:, 0].mean() > settled[:, 0].mean() + 20
     # From next week he plays for me.
     assert np.allclose(settled[:, 1:], naive[:, 1:])
+
+
+def test_a_week_the_standings_have_not_counted_is_played_out(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.0])
+    snap.week = 4                                  # records show 2 games: week 3 not counted yet
+    model = SeasonModel(snap, cfg, n_sims=500)
+    assert model.lag == 1 and model.weeks[0] == 3 and model.notes
+    odds = model.odds()
+    # Everyone is 0-2; weeks 3-10 are all played, week 3 included: 8 weeks x 2 games.
+    assert odds.exp_wins.sum() == pytest.approx(8 * len(snap.teams) / 2)

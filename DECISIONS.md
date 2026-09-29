@@ -1156,6 +1156,18 @@ off joins from next week, and a departing player whose game has kicked off
 still counts this week. Waiver moves, plans and both sides of a trade use
 it.
 
+### The week turns over when Monday night is over
+The week detector compared the schedule's Eastern game dates with the UTC
+date, so the week turned at midnight UTC -- 8pm Eastern on Monday, during
+the Monday night game. A refresh then synced the next week while the
+platform's standings still showed the old record, and the simulator,
+starting at the new week, dropped the unfinished one: no loss counted,
+none simulated, title odds too high. Two fixes. A week is over at its last
+kickoff plus four hours. And if the standings still lag the calendar (the
+platform finalises overnight), the simulator plays the uncounted week out
+with today's rosters, says so on the page, and treats it as history for
+waiver and trade pricing: nobody added now can play in it.
+
 ### Waiver plans: several moves priced together
 Single moves are priced one at a time, and moves interact: two backs
 chasing one lineup spot are worth less together than apart; two dead

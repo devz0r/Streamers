@@ -102,11 +102,14 @@ def simulate(
     n_sims: int = 2000,
     seed: int = 17,
     heirs: Iterable[tuple[str, str]] = (),
+    current: int = 0,
 ) -> Futures:
     """Simulate every player's next ``weeks``.
 
     ``heirs`` pairs (lead id, next-man-up id) on the same NFL team: while the
     lead is out, the heir's level gains the takeover share of the gap.
+    ``current`` is the index of the week in progress, whose final scores
+    are facts (earlier weeks are ones the platform has not counted yet).
     """
     conf = _params()
     rng = np.random.default_rng(seed)
@@ -159,7 +162,7 @@ def simulate(
             eff_vis[:, h] = np.where(lead_out, visible[:, h] + share * np.maximum(visible[:, lead] - visible[:, h], 0.0),
                                      visible[:, h])
         levels[:, :, k] = np.where(playing, eff_vis, 0.0)
-        finals = [j for j, p in enumerate(players) if k == 0 and p.actual_points is not None]
+        finals = [j for j, p in enumerate(players) if k == current and p.actual_points is not None]
         for j, p in enumerate(players):
             probs, zq = outcome.shape(p.position, float(base[j]))
             sd = sd0[j] * np.sqrt(np.maximum(eff[:, j], 1.0) / max(base[j], 1.0))

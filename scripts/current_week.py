@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 
@@ -28,26 +28,50 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from streamer.config import get_config  # noqa: E402
 from streamer.data.nflverse import games_frame  # noqa: E402
 
+#: A game is over this long after kickoff (overtime included).
+GAME_LENGTH = timedelta(hours=4)
+
+
+def _last_kickoffs(rows: pd.DataFrame) -> dict[int, datetime | None]:
+    """Week -> the last kickoff of that week, in UTC (the schedule gives the
+    Eastern date and time)."""
+    from streamer.roster.locked import kickoff_utc
+
+    out: dict[int, datetime | None] = {}
+    for week, g in rows.groupby("week"):
+        times = []
+        for day, time in zip(g["gameday"], g.get("gametime", pd.Series([None] * len(g)))):
+            k = kickoff_utc(day, time if isinstance(time, str) and time else "23:59")
+            if k is not None:
+                times.append(k)
+        out[int(week)] = max(times) if times else None
+    return out
+
 
 def detect(games: pd.DataFrame, season: int, max_week: int, today=None) -> tuple[int, int]:
-    """``(completed_week, upcoming_week)`` for ``season`` as of ``today``."""
-    today = today or datetime.now(UTC).date()
+    """``(completed_week, upcoming_week)`` for ``season`` as of ``today``.
+
+    ``today`` is a datetime (UTC) or a date (read as noon Eastern). A week is
+    over once its last game is -- kickoff plus four hours, so Monday night
+    stays in its own week until it has actually been played, rather than
+    turning over at midnight UTC (8pm Eastern) mid-game.
+    """
+    if today is None:
+        now = datetime.now(UTC)
+    elif isinstance(today, datetime):
+        now = today if today.tzinfo else today.replace(tzinfo=UTC)
+    else:
+        now = datetime(today.year, today.month, today.day, 16, 0, tzinfo=UTC)
     rows = games[games["season"] == season]
     if rows.empty:
         return 0, 1
 
-    last_kickoff = (
-        rows.assign(_d=pd.to_datetime(rows["gameday"], errors="coerce"))
-        .groupby("week")["_d"]
-        .max()
-    )
-    finished = [int(w) for w, d in last_kickoff.items()
-                if pd.notna(d) and d.date() < today]
+    last_kickoff = _last_kickoffs(rows)
+    finished = [w for w, k in last_kickoff.items() if k is not None and now >= k + GAME_LENGTH]
     completed = max(finished) if finished else 0
 
-    # A week whose last game has not kicked off yet is the one to project.
-    ahead = [int(w) for w, d in last_kickoff.items()
-             if pd.isna(d) or d.date() >= today]
+    # A week whose last game is not over yet is the one to project.
+    ahead = [w for w, k in last_kickoff.items() if k is None or now < k + GAME_LENGTH]
     upcoming = min(ahead) if ahead else max_week
 
     # If scores say a later week is already done (a feed ahead of the

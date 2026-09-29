@@ -318,7 +318,9 @@ def _season(report: MatchupReport) -> str:
         f'<span class="opp">{o.p_playoffs[m]:.0%} to make the playoffs, {o.p_bye[m]:.0%} for a bye</span></div>'
         f'<div class="pts">{o.p_title[m]:.1%}</div></div>'
         f'<div class="meta"><span>P(title)</span><span>{o.exp_wins[m]:.1f} expected wins</span>'
-        f"<span>{o.n_sims:,} simulated seasons</span></div></div>"
+        f"<span>{o.n_sims:,} simulated seasons</span></div>"
+        + "".join(f'<div class="why">{_e(n)}</div>' for n in (o.notes or []))
+        + "</div>"
         '<details><summary>Every team\'s odds</summary><div class="scroll"><table><thead><tr>'
         '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th></tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
