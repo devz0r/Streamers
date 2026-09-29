@@ -724,11 +724,18 @@ def team_panels_for(
                 log_projections(snap, bound)
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)
+            season_w = None
             try:
                 from .roster import consensus
 
                 if consensus.attach(snap, bound):
-                    consensus.log_week(snap, bound)
+                    consensus.log_week(snap, bound)       # our own numbers, before the blend
+                    from .roster.projections import load_history
+
+                    season_w = consensus.season_weight(bound, load_history(bound))
+                    moved = consensus.blend_season(snap, season_w[0])
+                    log.info("consensus weight in season values %.2f (%d graded games); %d players moved",
+                             season_w[0], season_w[1], moved)
             except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
                 log.warning("FantasyPros consensus for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
@@ -738,6 +745,12 @@ def team_panels_for(
 
                 report.scorecard = scorecard.build(bound, load_history(bound), snap.platform.upper()
                                                    if snap.platform != "yahoo" else "Yahoo")
+                if season_w is not None:
+                    from .data.fantasypros import conf as fp_conf
+
+                    report.scorecard.season_weight = {
+                        "weight": round(season_w[0], 2), "games": season_w[1],
+                        "measured": season_w[1] >= int(fp_conf(bound).get("season_min_games", 150))}
                 scorecard.save(bound, report.scorecard)
             except Exception as exc:  # noqa: BLE001 - grading is a bonus section
                 log.warning("scorecard for %s skipped: %s", name, exc)

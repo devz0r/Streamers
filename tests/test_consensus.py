@@ -95,3 +95,49 @@ def test_the_scorecard_grades_each_source_beside_ours(cfg, tmp_path, monkeypatch
     final = card.grades[0]
     assert final.players >= n - 3 and 0.5 < final.pairs <= 1 and final.miss == final.ours_miss
     assert card.per_week and card.per_week[0]["week"] == 3
+
+
+def _wr(pid, ros, rank, status=""):
+    return PlayerRow(player_id=pid, name=pid, position="WR", team="KC", ros_value=ros, projection=ros,
+                     nfl_id=f"n-{pid}", ecr_ros_pos_rank=rank, status=status)
+
+
+def test_season_values_move_toward_the_consensus_order_on_our_scale():
+    a, b, c = _wr("a", 15.0, 3), _wr("b", 10.0, 1), _wr("c", 8.0, 2)
+    hurt = _wr("d", 12.0, 4, status="OUT")
+    mine = TeamRow(team_id="1", name="Mine", is_mine=True, roster=[a, b, hurt])
+    snap = LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L", season=2026,
+                          week=4, slots={"WR": 1}, bench_size=1, teams=[mine], free_agents=[c],
+                          matchup=None, synced_at="")
+    assert consensus.blend_season(snap, 0.3) == 3
+    # The consensus's order on our values (15, 10, 8): b is its #1, so 30% of the way to 15.
+    assert (b.ros_value, c.ros_value, a.ros_value) == (11.5, 8.6, 12.9)
+    assert hurt.ros_value == 12.0              # his rank also prices the games he misses: left alone
+    assert "raised from 10.0 to 11.5" in b.signals[-1] and "FantasyPros" in b.signals[-1]
+    assert consensus.blend_season(snap, 0.0) == 0 and b.ros_value == 11.5
+
+
+def _season_log(tmp_cfg, n, consensus_knows):
+    rng = np.random.default_rng(1)
+    talent = rng.uniform(5, 20, n)
+    ours = np.maximum(talent + rng.normal(0, 4, n), 0.5)
+    order = talent + rng.normal(0, 1, n) if consensus_knows else rng.normal(0, 1, n)
+    ranks = (-order).argsort().argsort() + 1
+    ids = [f"n{i}" for i in range(n)]
+    pd.DataFrame({"season": 2026, "week": 3, "nfl_id": ids, "position": "WR", "fp_projection": np.nan,
+                  "ecr_week_pos_rank": np.nan, "ecr_ros_pos_rank": ranks, "our_ros": ours, "clean": True,
+                  "logged_at": "2026-09-27T16:00:00Z"}).to_parquet(fp.cache_dir(tmp_cfg) / "log.parquet")
+    return pd.DataFrame({"player_id": ids, "season": 2026, "week": 3,
+                         "fantasy_points_ppr": talent + rng.normal(0, 6, n)})
+
+
+def test_the_consensus_earns_its_share_of_season_values(tmp_cfg):
+    prior = float(fp.conf(tmp_cfg)["season_weight_prior"])
+    assert consensus.season_weight(tmp_cfg, pd.DataFrame()) == (prior, 0)           # no log yet
+    history = _season_log(tmp_cfg, 100, consensus_knows=True)
+    assert consensus.season_weight(tmp_cfg, history) == (prior, 100)                 # too few games
+    history = _season_log(tmp_cfg, 400, consensus_knows=True)
+    right, n = consensus.season_weight(tmp_cfg, history)
+    history = _season_log(tmp_cfg, 400, consensus_knows=False)
+    wrong, _ = consensus.season_weight(tmp_cfg, history)
+    assert n == 400 and right > prior > wrong

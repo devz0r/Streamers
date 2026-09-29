@@ -556,7 +556,9 @@ for that league needs API access.
 **FantasyPros (optional).** With a FantasyPros API key, the consensus
 rankings are graded against our projections, used as a second opinion on
 waiver and trade cards, and folded into the model of what other managers
-see. Add the key as the `FANTASYPROS_API_KEY` repository secret (Settings ->
+see. They also get a share of every season value, weighted by how well they
+have predicted this season's games against our model (a 30% starting guess
+until enough games are graded). Add the key as the `FANTASYPROS_API_KEY` repository secret (Settings ->
 Secrets and variables -> Actions), and in `.env` locally. Run the
 `fantasypros-probe` job once from the Actions tab to check it works. Their
 data stays on the workflow runner and is never committed.

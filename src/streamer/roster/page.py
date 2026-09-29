@@ -222,6 +222,13 @@ def _scorecard(report: MatchupReport) -> str:
     else:
         ros = ('<p class="sub"><b>Rest of season</b> against the FantasyPros consensus: graded once '
                "three weeks have been played after a logged week.</p>")
+    sw = getattr(card, "season_weight", None)
+    if sw:
+        basis = (f"measured on {sw['games']} graded player-games" if sw.get("measured") else
+                 f"a starting guess until enough games are graded ({sw['games']} so far)")
+        ros += (f'<p class="sub"><b>Season values</b> move {sw["weight"]:.0%} of the way toward the FantasyPros '
+                f"consensus's order of players, {basis}: the more it proves right where it disagrees with "
+                "our model, the more say it gets.</p>")
     return (
         f'<p class="sub">{weeks} week{"s" if weeks != 1 else ""} graded so far, on players who played. '
         "<b>Start/sit</b>: of any two players at the same position, did it rank the one who scored more "
@@ -234,7 +241,7 @@ def _scorecard(report: MatchupReport) -> str:
         "several weeks are in.</p>"
         + ('<p class="sub">Consensus rankings and projections: data from '
            '<a href="https://www.fantasypros.com">FantasyPros</a>, used for analysis only.</p>'
-           if any(g.source.startswith("FantasyPros") for g in card.grades) or card.ros else ""))
+           if any(g.source.startswith("FantasyPros") for g in card.grades) or card.ros or sw else ""))
 
 
 def _fold(uid: str, key: str, title: str, body: str) -> str:

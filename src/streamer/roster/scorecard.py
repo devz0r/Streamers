@@ -59,10 +59,12 @@ class Scorecard:
     grades: list[Grade] = field(default_factory=list)
     per_week: list[dict] = field(default_factory=list)
     ros: list[dict] = field(default_factory=list)
+    #: The consensus's share of season values, and the graded games behind it.
+    season_weight: dict | None = None
 
     def to_json(self) -> str:
         return json.dumps({"grades": [g.__dict__ for g in self.grades], "per_week": self.per_week,
-                           "ros": self.ros}, indent=2)
+                           "ros": self.ros, "season_weight": self.season_weight}, indent=2)
 
 
 def pair_accuracy(pred: np.ndarray, actual: np.ndarray, groups: np.ndarray) -> tuple[int, int]:

@@ -1258,6 +1258,48 @@ switch to show them, so it cannot happen by accident. The probe
 (`streamer fantasypros-probe`, or the workflow's `fantasypros-probe` job)
 prints status, field names and counts, never values or the key.
 
+### The consensus as a second forecast of season value
+Ownership and name value track what people expect a player to score, so
+when the model rates a well-known receiver far below the market (Brian
+Thomas Jr. 7.9 a game against a market 9.7; Xavier Worthy 7.6 against
+9.4), it helps to know which view has usually been right. For name value,
+we checked on 2022-2025. When our season value for a receiver sat 1.5+
+points below name value in weeks 3-6 (159 cases), ours missed what they
+went on to score by 3.08 a game on average. Name value missed by 3.66, and
+an even average of the two by 3.27. Later weeks look the same. In the 27
+cases most like these two (we said 7.8, name value 9.4), they averaged 6.6
+a game, and 30% reached the name-value number. Name value leans on last
+year: Thomas Jr. scored 16.7 a game as a rookie, then 9.9, and 5.3 so far
+this season. The model leans on the role now, and that role has shrunk.
+
+Expert consensus is a different forecast. The experts read news, depth
+charts and coaching changes that none of our inputs see. There is no free
+archive of their rankings to backtest, so the consensus now gets a share of
+every season value, and has to earn it:
+
+- **Order, not level.** A player's consensus value is our season value of
+  whoever holds his consensus rank at his position. The blend moves players
+  past each other but never shifts a whole position.
+- **Healthy players only.** An injured player's rest-of-season rank also
+  counts the games he will miss; our per-game value leaves those to the
+  season simulation, so the two are not on the same footing.
+- **Earned weight.** Every refresh logs our own season value (before the
+  blend) and the consensus rank before kickoff. The weight is the one that
+  best predicts what the logged players then scored that week, shrunk
+  toward a prior of 0.3 by 300 games of evidence. The prior alone stands
+  until 150 games are graded. The same scheme sets the betting-prop weight.
+  The prior is below an even split because our values beat name value
+  where the two disagreed, and the experts are untested here.
+- **Visible.** A player moved 0.3+ points carries a note ("season value
+  raised from 7.9 to 8.6: the FantasyPros expert consensus rates him
+  higher than our model does"), and the scorecard says what share the
+  consensus has and what it rests on. Their ranks are never shown.
+
+Everything built on season values follows: drops, adds, plans, trades and
+title odds. The rest-of-season benchmark still grades our own values
+against their ranks, so the weight and the benchmark answer the same
+question from two sides.
+
 ### Where our season values defer to the market
 A trade the hub ranked first (Drake London for Cam Skattebo and Michael
 Wilson, +2.5 points of title odds) rested on our model valuing Wilson at

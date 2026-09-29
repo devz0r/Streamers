@@ -1,8 +1,10 @@
 """FantasyPros consensus, attached to league players and logged for grading.
 
 The consensus is the market that matters most for trades -- managers read
-these rankings in their apps -- and the benchmark our season values have to
-beat. Its numbers are FantasyPros' data: they live on the player objects for
+these rankings in their apps -- the benchmark our season values have to
+beat, and a second forecast of them: every season value moves part of the
+way toward the consensus's view, as far as the log shows that view earns
+(:func:`season_weight`). Its numbers are FantasyPros' data: they live on the player objects for
 one publish and in a runner-only log (``data/raw/fantasypros/log.parquet``),
 never in a committed file or on the public page, where only analysis derived
 from them appears, credited to FantasyPros. Showing their ranks or
@@ -14,11 +16,12 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 import pandas as pd
 
 from ..config import Config
 from ..data import fantasypros as fp
-from ..league.model import LeagueSnapshot, PlayerRow
+from ..league.model import OUT_STATUSES, LeagueSnapshot, PlayerRow
 from .players import normalize_name
 from .waivers import _ros
 
@@ -125,6 +128,96 @@ def market_values(snapshot: LeagueSnapshot, seen: dict) -> dict[str, float]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# The consensus as a second forecast of season value
+# ---------------------------------------------------------------------------
+def _clean(p: PlayerRow) -> bool:
+    """A player the consensus prices on the same footing as our season value.
+    An injured player's rest-of-season rank also counts the games he will
+    miss, which our per-game value leaves to the season simulation."""
+    return (p.position in SKILL and bool(p.ecr_ros_pos_rank) and bool(p.team) and p.ros_value is not None
+            and p.ros_value > 0 and p.status not in OUT_STATUSES and not p.in_ir_slot)
+
+
+def implied(frame: pd.DataFrame, by: list[str]) -> pd.Series:
+    """The consensus's order on our scale: each player gets our season value
+    of whoever holds his consensus rank among the same players (same
+    position, and the same ``by`` groups). Levels stay ours; only the order is
+    theirs, so the blend moves players past each other, not the whole list."""
+    out = pd.Series(np.nan, index=frame.index)
+    for _key, g in frame.groupby([*by, "position"]):
+        ladder = np.sort(g["our_ros"].to_numpy(float))[::-1]
+        out.loc[g.sort_values("ecr_ros_pos_rank", kind="stable").index] = ladder
+    return out
+
+
+def season_weight(cfg: Config, history: pd.DataFrame | None = None) -> tuple[float, int]:
+    """How much of a season value the consensus gets, and the graded games
+    that rests on.
+
+    From the consensus log, each week's season values -- ours, and the
+    consensus's order on our scale -- against what each player scored that
+    week; the weight minimising squared error, shrunk toward the prior by
+    ``season_prior_games``. Below ``season_min_games`` the prior stands.
+    There is no free archive of expert rankings to backtest, so the evidence
+    comes from this season's own logs, the same way the betting-prop weight
+    does.
+    """
+    conf = fp.conf(cfg)
+    prior = float(conf.get("season_weight_prior", 0.3))
+    k = float(conf.get("season_prior_games", 300))
+    need = int(conf.get("season_min_games", 150))
+    path = fp.cache_dir(cfg) / "log.parquet"
+    if not path.exists():
+        return prior, 0
+    c = pd.read_parquet(path).dropna(subset=["ecr_ros_pos_rank", "our_ros"])
+    c = c[c.our_ros > 0]
+    if "clean" in c:
+        c = c[c["clean"].fillna(True).astype(bool)]
+    if c.empty:
+        return prior, 0
+    c = c.assign(implied=implied(c, ["season", "week"]))
+    if history is None:
+        from .projections import load_history
+
+        history = load_history(cfg)
+    actual = history[["player_id", "season", "week", "fantasy_points_ppr"]].rename(columns={"player_id": "nfl_id"})
+    j = c.merge(actual, on=["nfl_id", "season", "week"], how="inner")
+    n = len(j)
+    if n < need:
+        return prior, n
+    ours, theirs, y = (j["our_ros"].to_numpy(float), j["implied"].to_numpy(float),
+                       j["fantasy_points_ppr"].to_numpy(float))
+    grid = np.linspace(0.0, 1.0, 21)
+    errs = [float(np.mean(((1 - w) * ours + w * theirs - y) ** 2)) for w in grid]
+    w_fit = float(grid[int(np.argmin(errs))])
+    return (n * w_fit + k * prior) / (n + k), n
+
+
+def blend_season(snapshot: LeagueSnapshot, weight: float) -> int:
+    """Move every season value part of the way toward the consensus's view of
+    the player, ``weight`` of the gap. Runs after :func:`log_week`, so the log
+    keeps our own number to grade. Returns how many moved 0.3+ points."""
+    clean = [p for p in snapshot.all_players() if _clean(p)]
+    if not clean or weight <= 0:
+        return 0
+    frame = pd.DataFrame({"position": [p.position for p in clean],
+                          "ecr_ros_pos_rank": [p.ecr_ros_pos_rank for p in clean],
+                          "our_ros": [float(p.ros_value) for p in clean]})
+    moved = 0
+    for p, target in zip(clean, implied(frame, [])):
+        before = float(p.ros_value)
+        after = before + weight * (float(target) - before)
+        p.ros_value = round(after, 2)
+        if abs(after - before) >= 0.3:
+            # Analysis only: the direction of their view, never their rank.
+            p.signals.append(f"season value {'raised' if after > before else 'lowered'} from {before:.1f} to "
+                             f"{after:.1f}: the FantasyPros expert consensus rates him "
+                             f"{'higher' if after > before else 'lower'} than our model does")
+            moved += 1
+    return moved
+
+
 def log_week(snapshot: LeagueSnapshot, cfg: Config) -> int:
     """Record the consensus beside our numbers, before kickoff, for grading.
     Runner-only: this file holds FantasyPros' numbers and is never committed."""
@@ -138,7 +231,7 @@ def log_week(snapshot: LeagueSnapshot, cfg: Config) -> int:
         rows.append({"season": int(snapshot.season), "week": int(snapshot.week), "nfl_id": p.nfl_id,
                      "position": p.position, "fp_projection": p.fp_projection,
                      "ecr_week_pos_rank": p.ecr_week_pos_rank, "ecr_ros_pos_rank": p.ecr_ros_pos_rank,
-                     "our_ros": _ros(p), "logged_at": stamp})
+                     "our_ros": _ros(p), "clean": _clean(p), "logged_at": stamp})
     if not rows:
         return 0
     path = fp.cache_dir(cfg) / "log.parquet"

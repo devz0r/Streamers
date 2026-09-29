@@ -331,6 +331,16 @@ fantasypros:
   # which needs a Commercial API agreement.
   scoring: PPR
   cache_hours: 6
+  # The consensus as a second forecast of season value: every season value
+  # moves this share of the way toward the consensus's order of players.
+  # A prior, shrunk toward what the log measures (weight minimising squared
+  # error against the week's points) once season_min_games are graded, the
+  # prior counting as season_prior_games of evidence. 0.3, not 0.5: on
+  # 2022-2025 our season values beat name value exactly where the two
+  # disagreed; expert rankings are better than name value but untested here.
+  season_weight_prior: 0.3
+  season_prior_games: 300
+  season_min_games: 150
 
 weather:
   # Manual CSV override: data/weather_week_N.csv
