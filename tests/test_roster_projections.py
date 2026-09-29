@@ -183,7 +183,7 @@ def _stale_history():
 @pytest.mark.parametrize("status,platform,team,expect", [
     ("", None, "LV", "inactive"),     # out of the league since 2024: not projected
     ("", 11.0, "LV", "platform"),     # returning, and the platform confirms it
-    ("OUT", None, "LV", "model"),     # on a roster but hurt: history still counts
+    ("OUT", None, "LV", "inactive"),  # tagged OUT but gone since 2024 (Aiyuk): not an injury
     ("OUT", None, None, "inactive"),  # unsigned, whatever tag he still carries
 ])
 def test_stale_history_needs_something_current(cfg, monkeypatch, status, platform, team, expect):
@@ -201,6 +201,23 @@ def test_stale_history_needs_something_current(cfg, monkeypatch, status, platfor
         assert ghost.projection == 0.0 and ghost.ros_value == 0.0
     if expect == "model":
         assert ghost.ros_value and ghost.ros_value > 5.0 and ghost.projection == 0.0
+
+
+def test_hurt_partway_through_last_season_keeps_his_value(cfg, monkeypatch):
+    """Out since week 8 of last season, tagged OUT: an injury, not a departure."""
+    import streamer.roster.projections as pj
+
+    snap = _stale_snapshot("OUT", None, "LV")
+    history = _stale_history()
+    gone = history.player_id == "nfl-g1"
+    history.loc[gone, "season"] = 2025
+    history = history[~gone | (history.week <= 8)]
+    monkeypatch.setattr(pj, "_implied_scale", lambda *a, **k: ({}, "test"))
+    monkeypatch.setattr(pj, "match_players",
+                        lambda rows, index: type("M", (), {"mapping": {"g1": "nfl-g1"}, "unmatched": []})())
+    pj.project_snapshot(snap, cfg.for_profile("espn"), rankings=None, allow_network=False, history=history)
+    hurt = snap.free_agents[0]
+    assert hurt.projection_source.startswith("model") and hurt.ros_value > 5.0 and hurt.projection == 0.0
 
 
 def _coverage_snapshot(jacobs_proj, others_proj=15.0, n_others=24):

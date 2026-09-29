@@ -575,6 +575,7 @@ def project_snapshot(
     damping = float(conf["vegas_damping"])
     w_platform = float(conf["platform_projection_weight"])
     inactive_weeks = int(conf.get("inactive_weeks", 4))
+    long_gone_weeks = int(conf.get("long_gone_weeks", 18))
     first_known = int(history["season"].min()) if not history.empty else snapshot.season
 
     # nflverse index for name matching: newest team per player.
@@ -644,11 +645,21 @@ def project_snapshot(
             # player cannot play, whatever injury tag he still carries. ESPN
             # lists 240-odd of them in a free-agent pool and projects one.
             unsigned = not p.team
+            # Gone for more than a season -- a holdout, the reserve/left-squad
+            # list, a long suspension -- is not an injury that heals in a few
+            # weeks, whatever tag he carries: his old games say nothing about
+            # this season. Brandon Aiyuk (last game October 2024, listed OUT)
+            # kept an 11.9-a-game value and was recommended as a pickup.
+            gone = row is not None and weeks_since(row, snapshot.season, snapshot.week) > long_gone_weeks
+            if gone and plat is None:
+                mean, ros, source = 0.0, 0.0, "inactive"
+                p.signals.append(f"has not played since {int(row['last_season'])} week "
+                                 f"{int(row['last_week'])}: no value until he is back on the field")
             # An injured player on a roster carries a status: he is real and
             # his history still speaks to rest-of-season value (this week is
             # zeroed by the status adjustment). A stale player with no status,
             # or any unsigned one, needs a platform projection to count.
-            if row is not None and not unsigned and (not stale or p.status):
+            elif row is not None and not unsigned and (not stale or p.status):
                 vol, eff = float(row["vol"]), float(row["eff"])
                 extra_week, extra_ros, why = heirs.get(p.player_id, (0.0, 0.0, ""))
                 first = row.get("first_season")
