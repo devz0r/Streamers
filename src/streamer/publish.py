@@ -141,6 +141,15 @@ summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 .profile-panel { display: none; }
 
 ol.steps { margin: 0 0 .4rem; padding-left: 1.2rem; color: var(--text); }
+.card.hub { border-left: 3px solid var(--accent); margin-top: .8rem; }
+.hub-table td { white-space: normal; vertical-align: top; }
+.hub-table td .why { padding: .15rem 0 0; }
+.kind { display: inline-block; font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .03em; padding: .05rem .35rem; border-radius: 5px; background: var(--panel-2);
+  color: var(--muted); margin-right: .25rem; }
+.kind-trade { color: var(--warn); } .kind-block { color: var(--bad); }
+.kind-lineup, .kind-stream { color: var(--accent); } .kind-waiver, .kind-plan { color: var(--good); }
+details > summary + h3 { margin-top: .6rem; }
 ol.steps li { margin: .1rem 0; }
 
 /* Tabs inside a panel (trade views): the same radio + :checked pattern. */

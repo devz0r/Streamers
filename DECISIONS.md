@@ -1178,6 +1178,28 @@ Pricing the extra candidates is kept affordable: the priority cost is
 computed once rather than per candidate, and each candidate is priced
 against his four likeliest drops rather than six.
 
+### The championship hub
+The panel had grown a section per idea. The hub, at the top, puts every
+move on one list in one unit -- points of title odds -- best first:
+lineup changes, D/ST and K streams, waiver claims (blocks marked), multi-
+move waiver plans and trades.
+
+Season moves are already priced in title odds. A move that only changes
+this week moves P(win the week), and a win this week is worth a measured
+amount of title odds: the must-win calculation forces this week's game to
+a win and to a loss in every simulated season. The move's value is the
+change in P(win) times that swing. Waiver claims are listed net of the
+waiver priority they spend. A trade is listed at what you gain if he says
+yes, with the chance of a yes beside it, and set apart visually: it is not
+yours alone to make.
+
+Each move is priced on its own against the roster as it stands, so the
+numbers do not add up; the advice is to make the top one and refresh. The
+detail sections -- season outlook and must-win weeks, lineup extras,
+waivers and plans, trades, streams and stashes -- fold away below, and
+each hub row links to the one that explains it. The matchup and the
+recommended lineup stay open.
+
 ### Rivals on the wire
 Standing pat used to mean the free agent stays on the wire all season. In
 a real league, when he breaks out somebody claims him. Now, in each

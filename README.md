@@ -403,6 +403,13 @@ One thing tested and *not* used: labelling players "boom-or-bust" or
 volatility. On 2024-25 none of it predicted weekly spread beyond position
 and projection level.
 
+### Championship hub
+
+The top of each My-team panel ranks every move you can make -- lineup
+changes, D/ST and K streams, waiver claims and blocks, multi-move plans,
+trades -- by how many points of title odds it adds, with a link to the
+section that explains each. The detail sections fold away below it.
+
 ### Must-win weeks and upside plays
 
 Under the season outlook, "Must-win weeks" shows what each remaining game is

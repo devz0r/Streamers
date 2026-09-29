@@ -56,8 +56,11 @@ def render_my_team(
         "</div>"
     )
 
-    parts.append(_season(report))
-    parts.append(_stakes(report))
+    uid = _e(snapshot.profile)
+    parts.insert(2, _hub(report, uid))
+    season = _season(report) + _stakes(report)
+    if season:
+        parts.append(_fold(uid, "season", "Season outlook and must-win weeks", season))
 
     # -- lineup ----------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
@@ -105,6 +108,7 @@ def render_my_team(
         parts.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
     else:
         parts.append('<p class="sub">Your set lineup is already the recommended one.</p>')
+    parts.append(f'<details id="{uid}-lineup"><summary>Lineup details: bench, alternatives, try your own</summary>')
     parts.append(_bench(snapshot, opt, has_vegas))
     parts.append(
         '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
@@ -121,13 +125,19 @@ def render_my_team(
 
     for note in report.notes:
         parts.append(f'<p class="sub">Note: {_e(note)}.</p>')
+    parts.append("</details>")
 
     # -- waivers ---------------------------------------------------------
     if report.title_moves is not None:
-        parts.append(_title_moves(report))
-        parts.append(_plans(report))
-        parts.append(_trades(report))
+        parts.append(_fold(uid, "waivers", "Waivers: single moves and plans",
+                           _title_moves(report) + _plans(report)))
+        trades = _trades(report)
+        if trades:
+            parts.append(_fold(uid, "trades", "Trades", trades))
         moves = [m for m in moves if m.add.position in ("DST", "K")]
+    parts.append(f'<details id="{uid}-streams"><summary>'
+                 + ("Waiver moves, D/ST and K, stashes" if report.title_moves is None
+                    else "D/ST and K, stashes, lottery tickets") + "</summary>")
     parts.append("<h3>Waiver moves</h3>" if report.title_moves is None else "<h3>D/ST and K streams</h3>")
     if not moves:
         parts.append('<p class="sub">Nothing on the wire clears the bar this week.</p>')
@@ -180,7 +190,61 @@ def render_my_team(
             + ", ".join(f"{_e(p.name)} ({(p.projection or 0):.1f})" for p in watch)
             + "</p>"
         )
+    parts.append("</details>")
     return "".join(parts)
+
+
+def _fold(uid: str, key: str, title: str, body: str) -> str:
+    return f'<details id="{uid}-{key}"><summary>{_e(title)}</summary>{body}</details>'
+
+
+_HUB_SHOWN = 8
+
+
+def _hub(report: MatchupReport, uid: str) -> str:
+    """Every move you can make -- lineup, streams, waivers, blocks, plans,
+    trades -- ranked by what it does to your title odds."""
+    from .hub import actions
+
+    o = report.season
+    if o is None or o.mine is None:
+        return ""
+    m = o.mine
+    st = report.stakes
+    need = st.wins_needed(0.5) if st is not None else None
+    pace = (f" &middot; about {need} wins get you in; on pace for {st.exp_wins:.1f}"
+            if need is not None else "")
+    head = (
+        '<div class="card hub"><div class="row"><div class="rank">&#127942;</div>'
+        '<div><span class="name">Championship hub</span> '
+        f'<span class="opp">{o.p_playoffs[m]:.0%} to make the playoffs{pace}</span></div>'
+        f'<div class="pts">{o.p_title[m]:.1%}</div></div>'
+        '<div class="meta"><span>P(title)</span><span>every move, ranked by what it adds</span></div></div>'
+    )
+    acts = actions(report)
+    if not acts:
+        return head + '<p class="sub">Nothing on offer raises your title odds right now.</p>'
+
+    def row(i, a):
+        link = (f'<a href="#{uid}-{a.section}" '
+                f"onclick=\"document.getElementById('{uid}-{a.section}').open=true\">details</a>")
+        return (f'<tr><td>{i}</td><td class="unit"><span class="kind kind-{a.kind.lower()}">{a.kind}</span> '
+                f"<b>{_e(a.headline)}</b><div class='why'>{_e(a.detail)}; {_e(a.note)} &middot; {link}</div></td>"
+                f'<td class="{"pos" if a.firm else ""}">{a.gain * 100:+.1f}</td></tr>')
+
+    rows = "".join(row(i + 1, a) for i, a in enumerate(acts[:_HUB_SHOWN]))
+    more = ""
+    if len(acts) > _HUB_SHOWN:
+        extra = "".join(row(i + 1, a) for i, a in enumerate(acts) if i >= _HUB_SHOWN)
+        more = (f"<details><summary>{len(acts) - _HUB_SHOWN} more</summary><div class='scroll'>"
+                f"<table class='hub-table'><tbody>{extra}</tbody></table></div></details>")
+    return (head + "<div class='scroll'><table class='hub-table'><thead><tr><th>#</th>"
+            "<th class='unit'>Move</th><th>+Title</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table></div>{more}"
+            '<p class="sub">Points of title odds each move adds on its own, against your roster as it '
+            "stands -- they do not add up; make the top one and refresh. This week's lineup and "
+            "streams are priced through what a win this week is worth to your title odds. A trade needs "
+            "a yes, so its number is what you gain if he accepts.</p>")
 
 
 _VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Close call: lean claim", "opp"),
