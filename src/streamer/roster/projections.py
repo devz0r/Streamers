@@ -217,12 +217,90 @@ def _blend(frame: pd.DataFrame, pos_mean: pd.Series, pos_eff: pd.Series, conf: d
 
 
 TABLE_COLUMNS = ["player_id", "player_display_name", "position", "team", "blend", "vol", "eff",
-                 "n", "last_season", "last_week", "recent_exp", "prior_exp", "first_season"]
+                 "n", "last_season", "last_week", "recent_exp", "prior_exp", "first_season",
+                 "team_games", "old_team", "vol_all_teams"]
 
 
-def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> pd.DataFrame:
+def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, str] | None,
+                   conf: dict, pos_mean: pd.Series) -> pd.DataFrame:
+    """A player's games for another team say less about his role on this one.
+
+    For every player with games for another team among his last
+    ``long_games``, volume is recomputed with those games counting
+    ``old_team_weight`` as much, and his volume scaled by the ratio of that
+    to the same computation with every game counting fully -- so a player
+    who has not moved is untouched. Efficiency (points per opportunity) is
+    his own and keeps every game.
+
+    Measured on 2022-2025, every player-week of a player with old-team games
+    in his window (2,580 projected 5+): the model had them 0.9 a game too
+    high, most of all in their first games for the new team (1.6 with none
+    yet, 2.2 for a mid-season signing). Old-team games at a fifth of the
+    weight was the best in every held-out season, average miss 3.13 -> 2.99.
+    Zach Ertz, a practice-squad stopgap in Philadelphia, was being valued on
+    his two seasons as Washington's starter.
+
+    ``teams`` (nflverse id -> current team) overrides the team of his last
+    game, so a player who has just signed somewhere is caught before he has
+    played for them.
+    """
+    from ..teams import normalize_team
+
+    w_old = float(conf.get("old_team_weight", 1.0))
+    n_long = int(conf.get("long_games", 17))
+    out = target.copy()
+    out["vol_all_teams"] = out["vol"]
+    current = out.set_index("player_id")["team"].map(normalize_team)
+    for pid, team in (teams or {}).items():
+        if pid in current.index and normalize_team(team):
+            current[pid] = normalize_team(team)
+    out["team"] = out["player_id"].map(current).fillna(out["team"])
+    last = prior[prior["player_id"].isin(out["player_id"])].sort_values(["season", "week"])
+    last = last.groupby("player_id").tail(n_long).copy()
+    if last.empty:
+        return out
+    last["_team"] = last["team"].map(normalize_team)
+    last["same"] = last["_team"].to_numpy() == last["player_id"].map(current).to_numpy()
+    last["age"] = last.groupby("player_id").cumcount(ascending=False)
+    team_games = last.groupby("player_id")["same"].sum()
+    out["team_games"] = out["player_id"].map(team_games)
+    moved = last[~last["same"]]
+    if moved.empty or w_old >= 1.0:
+        return out
+    out["old_team"] = out["player_id"].map(moved.groupby("player_id")["_team"].last())
+    last = last[last["player_id"].isin(moved["player_id"].unique())]
+    last["_exp"] = last["total_fantasy_points_exp"].fillna(last["fantasy_points_ppr"])
+    last["_pos_mean"] = last["position"].map(pos_mean)
+    k, k_vol = float(conf["shrink_games"]), float(conf.get("volume_prior_games", 2.0))
+    alpha = 1.0 - 0.5 ** (1.0 / float(conf.get("volume_halflife_games", 2.5)))
+    n_short = int(conf["trailing_games"])
+
+    def volume(w: float) -> pd.Series:
+        wt = np.where(last["same"], 1.0, w)
+        ew = (1.0 - alpha) ** last["age"].to_numpy() * wt
+        x = pd.DataFrame({"player_id": last["player_id"].to_numpy(), "ew": ew, "ewx": ew * last["_exp"].to_numpy(),
+                          "wt": wt, "wtx": wt * last["_exp"].to_numpy(),
+                          "short": np.where(last["age"].to_numpy() < n_short, wt, 0.0),
+                          "pos_mean": last["_pos_mean"].to_numpy()})
+        s = x.groupby("player_id").agg(ew=("ew", "sum"), ewx=("ewx", "sum"), c_long=("wt", "sum"),
+                                       e_long=("wtx", "sum"), c_short=("short", "sum"), pos_mean=("pos_mean", "first"))
+        recent = s["ewx"] / s["ew"].where(s["ew"] > 1e-9)
+        vol_long = (s["e_long"] + k * s["pos_mean"]) / (s["c_long"] + k)
+        vol = (s["c_short"] * recent + k_vol * vol_long) / (s["c_short"] + k_vol)
+        return vol.where(recent.notna(), vol_long)
+
+    ratio = (volume(w_old) / volume(1.0)).replace([np.inf, -np.inf], np.nan)
+    factor = out["player_id"].map(ratio).fillna(1.0).clip(0.0, 1.5)
+    out["vol"] = out["vol"] * factor
+    return out
+
+
+def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config,
+                 teams: dict[str, str] | None = None) -> pd.DataFrame:
     """Per nflverse player: the projection as of (season, week), before any
-    matchup scaling, with the volume and efficiency behind it."""
+    matchup scaling, with the volume and efficiency behind it. ``teams``
+    (nflverse id -> current team) says who plays where now, when a platform
+    knows it before the box scores do."""
     conf = cfg.raw["roster"]
     n_games = int(conf["trailing_games"])
     long_games = int(conf.get("long_games", 17))
@@ -253,6 +331,8 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config) -> 
     pos_mean = target["position"].map(pos_mean_all)
     pos_eff = target["position"].map(pos_eff_all)
     target["vol"], target["eff"] = _volume_efficiency(target, pos_mean, pos_eff, conf)
+    target["team_games"], target["old_team"], target["vol_all_teams"] = np.nan, None, target["vol"]
+    target = _team_discount(prior, target, teams, conf, pos_mean_all)
     target["blend"] = target["vol"] * target["eff"]
     target = target[target["blend"].notna()]
     # Opportunity over the last two games against the games before them: the
@@ -539,6 +619,22 @@ def assign_roles(players: list[PlayerRow]) -> None:
                 p.role = f"{pos}{rank}"
 
 
+def _moved_signal(row) -> str:
+    """A new team: how far his old role was discounted."""
+    old = row.get("old_team")
+    if not isinstance(old, str) or not old:
+        return ""
+    try:
+        now, before, games = float(row["vol"]), float(row["vol_all_teams"]), int(row["team_games"])
+        eff = float(row["eff"])
+    except (KeyError, TypeError, ValueError):
+        return ""
+    if not (np.isfinite(now) and np.isfinite(before)) or abs(before - now) * eff < 0.3:
+        return ""
+    return (f"new team: {games} game{'s' if games != 1 else ''} for {row['team']} so far, so his {old} "
+            f"role counts for less ({before * eff:.1f} -> {now * eff:.1f} a game)")
+
+
 def _trend_signal(row) -> str:
     """Opportunity over his last two games against the games before them."""
     try:
@@ -569,7 +665,6 @@ def project_snapshot(
     report = ProjectionReport()
 
     history = load_history(cfg) if history is None else history
-    table = player_table(history, snapshot.season, snapshot.week, cfg)
     sds = sd_table(history, cfg)
     scale, report.line_source = _implied_scale(snapshot, cfg, allow_network)
     damping = float(conf["vegas_damping"])
@@ -584,6 +679,10 @@ def project_snapshot(
     players = snapshot.all_players()
     matched = match_players([p for p in players if p.position in SKILL], index)
     report.unmatched = matched.unmatched
+    # The platform knows who plays where before the box scores do.
+    current_teams = {matched.mapping[p.player_id]: p.team for p in players
+                     if p.team and p.player_id in matched.mapping}
+    table = player_table(history, snapshot.season, snapshot.week, cfg, teams=current_teams)
     by_id = table.set_index("player_id") if not table.empty else pd.DataFrame()
     pos_mean = history.groupby("position")["fantasy_points_ppr"].mean() if not history.empty else pd.Series(dtype=float)
 
@@ -681,6 +780,9 @@ def project_snapshot(
                 if why and max(extra_week, extra_ros) * eff >= 0.3:
                     p.signals.append(f"{why} (+{extra_week * eff:.1f} projected)" if extra_week * eff >= 0.3
                                      else f"{why} (+{extra_ros * eff:.1f} a game rest of season)")
+                moved = _moved_signal(row)
+                if moved:
+                    p.signals.append(moved)
                 trend = _trend_signal(row)
                 if trend:
                     p.signals.append(trend)

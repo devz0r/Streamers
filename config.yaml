@@ -375,6 +375,11 @@ roster:
   # player's ~17-game volume with `volume_prior_games` of weight.
   volume_halflife_games: 2.5
   volume_prior_games: 2.0
+  # Games for a previous team count this much toward his volume on the new
+  # one (efficiency keeps them all). 0.2 was best in every held-out season
+  # of 2022-2025 for players with old-team games in their window: average
+  # miss 3.13 -> 2.99, and they had been projected 0.9 a game too high.
+  old_team_weight: 0.2
   # Efficiency (points per expected point) mostly regresses, so it moves
   # slowly: long-run rate shrunk to the position's with this many expected
   # points of prior, and only a quarter of the weight on recent games.

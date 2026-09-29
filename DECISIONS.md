@@ -1258,6 +1258,28 @@ switch to show them, so it cannot happen by accident. The probe
 (`streamer fantasypros-probe`, or the workflow's `fantasypros-probe` job)
 prints status, field names and counts, never values or the key.
 
+### A new team is a new role
+Zach Ertz was the top waiver add in the ESPN league and on nobody's list.
+The Eagles signed him to their practice squad as a stopgap for Dallas
+Goedert; in his one game he had 2 targets, and ESPN projected 3.4 points.
+We had him at 8.9 a game, because his volume came from his last 17 games,
+16 of them as Washington's starter. A player's role belongs to his team,
+and the model did not know he had changed teams.
+
+On 2022-2025, players with games for another team in their window (2,580
+player-weeks projected 5+) were projected 0.9 a game too high; players who
+had not moved were on target (+0.1). The miss was largest before they had
+played for the new team: 1.6 with no games yet, 2.2 for a mid-season
+signing. So their old-team games now count less toward their volume: at a
+fifth of the weight, the best in every held-out season, average miss went
+from 3.13 to 2.99, better in every group by games played for the new team.
+Efficiency (points per opportunity) is the player's own and keeps every
+game. The platform's current team overrides the box scores, so a player who
+has just signed is caught before his first game. Ertz now projects 6.5, and
+the note says why. Movers are still a little high after the change (about
+0.5 a game): some move because they are declining, which the discount does
+not try to read.
+
 ### The consensus as a second forecast of season value
 Ownership and name value track what people expect a player to score, so
 when the model rates a well-known receiver far below the market (Brian

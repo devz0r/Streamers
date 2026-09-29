@@ -155,6 +155,42 @@ def test_a_proven_player_in_a_cold_spell_stays_above_his_slump(cfg):
     assert proj > 12.0
 
 
+def _mover_history() -> pd.DataFrame:
+    """A starter for Washington for a season and a half, then one quiet game
+    as Philadelphia's stopgap; and a teammate who never moved."""
+    rows = []
+    for season in (2025, 2026):
+        for week in range(1, 18 if season == 2025 else 4):
+            moved = season == 2026 and week == 3
+            rows.append({"player_id": "ertz", "player_display_name": "Z", "position": "TE", "season": season,
+                         "week": week, "team": "PHI" if moved else "WAS",
+                         "fantasy_points_ppr": 2.0 if moved else 10.0,
+                         "total_fantasy_points_exp": 3.0 if moved else 10.0})
+            rows.append({"player_id": "stay", "player_display_name": "S", "position": "TE", "season": season,
+                         "week": week, "team": "WAS", "fantasy_points_ppr": 10.0, "total_fantasy_points_exp": 10.0})
+            for i in range(3):                                   # the rest of the position, blocking TEs
+                rows.append({"player_id": f"d{i}", "player_display_name": "D", "position": "TE", "season": season,
+                             "week": week, "team": "NYG", "fantasy_points_ppr": 3.0, "total_fantasy_points_exp": 3.0})
+    return pd.DataFrame(rows)
+
+
+def test_a_new_team_discounts_the_old_role(cfg):
+    from dataclasses import replace
+
+    hist = _mover_history()
+    full = replace(cfg, raw={**cfg.raw, "roster": {**cfg.raw["roster"], "old_team_weight": 1.0}})
+    now = player_table(hist, 2026, 4, cfg).set_index("player_id")
+    before = player_table(hist, 2026, 4, full).set_index("player_id")
+    assert now.loc["ertz", "blend"] < before.loc["ertz", "blend"] - 1.0
+    assert now.loc["ertz", "old_team"] == "WAS" and now.loc["ertz", "team_games"] == 1
+    assert now.loc["stay", "blend"] == pytest.approx(before.loc["stay", "blend"])    # never moved: untouched
+    # Signed somewhere new and not yet played for them: the platform's team
+    # says so, and with no new role to see his old one is shrunk toward the
+    # position's.
+    moved = player_table(hist, 2026, 4, cfg, teams={"stay": "KC"}).set_index("player_id")
+    assert moved.loc["stay", "blend"] < before.loc["stay", "blend"] - 0.5 and moved.loc["stay", "team_games"] == 0
+
+
 def _stale_snapshot(status: str = "", platform=None, team: str | None = "LV"):
     from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
 
