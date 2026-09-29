@@ -261,8 +261,8 @@ class TradeFinder:
     def price(self, t: Trade) -> Trade:
         mine, theirs = self._rosters(t)
         m = self.model
-        odds = m.odds(override={self.me.team_id: m.team_scores(mine),
-                                t.partner.team_id: m.team_scores(theirs)})
+        odds = m.odds(override={self.me.team_id: m.team_scores(mine, owner=self.me.team_id),
+                                t.partner.team_id: m.team_scores(theirs, owner=t.partner.team_id)})
         k = m.team_index[t.partner.team_id]
         won_new = (odds.champion == self.mine).astype(float)
         won_base = (self.base_champ == self.mine).astype(float)

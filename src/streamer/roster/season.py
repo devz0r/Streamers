@@ -164,12 +164,15 @@ class SeasonModel:
 
     # -- lineups ---------------------------------------------------------
     def team_scores(self, roster_ids: list[str], available_from: dict[str, int] | None = None,
-                    gone_from: dict[str, int] | None = None) -> np.ndarray:
+                    gone_from: dict[str, int] | None = None, owner: str | None = None) -> np.ndarray:
         """``(n_sims, weeks)`` points from starting the best lineup each week.
 
         ``available_from`` / ``gone_from`` map a player to the week index he
         joins / leaves the roster, per simulation (arrays) or for all.
         """
+        if owner is not None:
+            roster_ids, available_from, gone_from = self._this_week_is_settled(
+                owner, list(roster_ids), dict(available_from or {}), dict(gone_from or {}))
         ids = [i for i in roster_ids if i in self.pid]
         if not ids:
             return np.zeros((self.n, len(self.weeks)))
@@ -206,6 +209,28 @@ class SeasonModel:
                 total += np.where(ok, gained, rep_score)
                 used |= (np.arange(len(players))[None, :, None] == pick[:, None, :]) & ok[:, None, :]
         return total
+
+    def _this_week_is_settled(self, owner: str, roster_ids: list[str], available_from: dict,
+                              gone_from: dict) -> tuple[list[str], dict, dict]:
+        """A move made mid-week cannot reach back into games already played.
+
+        Against ``owner``'s current roster: a newcomer whose game has kicked
+        off joins from next week (his Sunday points were scored for someone
+        else's wire), and a departing player whose game has kicked off still
+        counts this week (those points are already yours)."""
+        team = self.snapshot.teams[self.team_index[owner]]
+        original = {p.player_id for p in team.roster}
+        played = lambda pid: pid in self.pid and (self.players[self.pid[pid]].locked  # noqa: E731
+                                                  or self.players[self.pid[pid]].actual_points is not None)
+        for pid in roster_ids:
+            if pid not in original and played(pid):
+                cur = available_from.get(pid, 0)
+                available_from[pid] = np.maximum(np.asarray(cur), 1) if np.ndim(cur) else max(int(cur), 1)
+        for pid in original:
+            if pid not in roster_ids and played(pid):
+                roster_ids.append(pid)
+                gone_from[pid] = 1
+        return roster_ids, available_from, gone_from
 
     def slot_replacement(self, slot: str) -> float:
         positions = SLOT_ELIGIBILITY.get(slot, (slot,))

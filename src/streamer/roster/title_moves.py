@@ -154,7 +154,7 @@ class TitleEngine:
 
     def _won(self, roster_ids: list[str], **kw) -> np.ndarray:
         """Per simulated season: 1 if you win the title with this roster."""
-        scores = self.model.team_scores(roster_ids, **kw)
+        scores = self.model.team_scores(roster_ids, owner=self.me.team_id, **kw)
         champ = self.model.odds(override={self.me.team_id: scores}).champion
         return (champ == self.mine).astype(float)
 

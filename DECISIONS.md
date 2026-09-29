@@ -1145,6 +1145,17 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
+### A mid-week move cannot reach back into played games
+Between Sunday and the Tuesday turnover, the simulator's first week is the
+one in progress, with finished scores fixed. Pricing a pickup by putting
+him on the roster for that whole week credited you with points he scored
+on the wire -- a free agent with 30 on Sunday looked like a 30-point
+upgrade for a week you cannot change. Every roster a move produces is now
+settled against the team's current one: a newcomer whose game has kicked
+off joins from next week, and a departing player whose game has kicked off
+still counts this week. Waiver moves, plans and both sides of a trade use
+it.
+
 ### Waiver plans: several moves priced together
 Single moves are priced one at a time, and moves interact: two backs
 chasing one lineup spot are worth less together than apart; two dead

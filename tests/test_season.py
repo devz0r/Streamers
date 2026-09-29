@@ -100,3 +100,23 @@ def test_reseeding_pairs_the_best_seed_left_with_the_worst(cfg):
     assert all(int(t[k]) == int(sd[k]) * 10 for t, sd in zip(teams, s) for k in range(4))
     odds = model.odds()
     assert odds.p_title.sum() == pytest.approx(1.0) and odds.p_playoffs.sum() == pytest.approx(6.0)
+
+
+def test_a_mid_week_pickup_cannot_use_points_already_scored(cfg):
+    import numpy as np
+
+    snap = _league([1.0, 1.1, 1.0, 1.0])
+    star = snap.teams[1].roster[1]                 # someone else's back, game already played
+    star.locked, star.actual_points = True, 40.0
+    mine = snap.teams[0]
+    mine.roster[1].locked, mine.roster[1].actual_points = True, 3.0   # my back, played, scored 3
+    model = SeasonModel(snap, cfg, n_sims=500)
+    swapped = [p.player_id for p in mine.roster if p is not mine.roster[1]] + [star.player_id]
+    naive = model.team_scores(swapped)
+    settled = model.team_scores(swapped, owner=mine.team_id)
+    base = model.team_scores([p.player_id for p in mine.roster], owner=mine.team_id)
+    # This week: my own finished score stands, the newcomer's 40 does not count.
+    assert np.allclose(settled[:, 0], base[:, 0])
+    assert naive[:, 0].mean() > settled[:, 0].mean() + 20
+    # From next week he plays for me.
+    assert np.allclose(settled[:, 1:], naive[:, 1:])
