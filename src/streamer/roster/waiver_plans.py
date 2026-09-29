@@ -29,7 +29,7 @@ import numpy as np
 
 from ..league.model import PlayerRow
 from .season import replacement_levels
-from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, toss_ups
+from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, drop_choice, toss_ups
 from .waivers import MIN_KEEP, _ros, roster_value
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -59,6 +59,8 @@ class Plan:
     drop_options: dict[str, list[tuple[PlayerRow, float]]] = field(default_factory=dict)
     #: Plans one player different and about as good: (add in, add out, P(title)).
     alternatives: list[tuple[PlayerRow, PlayerRow, float]] = field(default_factory=list)
+    #: Per add: (chance another manager claims him, chance one ahead of you does).
+    claim_odds: dict[str, tuple[float, float]] = field(default_factory=dict)
 
     @property
     def gain(self) -> float:
@@ -79,6 +81,23 @@ class Plan:
     @property
     def drops(self) -> list[PlayerRow]:
         return [d for _a, d in self.moves]
+
+
+def claims_text(plan: Plan) -> str:
+    """The adds, in claim order."""
+    return ", ".join(a.name for a, _d in plan.moves)
+
+
+def drops_text(plan: Plan) -> str:
+    """The drops as a set: the clear ones by name, a toss-up as "one of A
+    (4.8%) or B (4.7%)". Which add is paired with which drop does not
+    matter -- the roster that results is the same."""
+    options = getattr(plan, "drop_options", None) or {}
+    drops = [d for _a, d in plan.moves]
+    fixed = [d.name for d in drops if d.player_id not in options]
+    open_ = [f"one of {drop_choice(d, options[d.player_id])}" for d in drops if d.player_id in options]
+    parts = fixed + open_
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
 def _counts(roster: list[PlayerRow]) -> dict[str, int]:
@@ -227,8 +246,32 @@ class PlanFinder:
         _adds, pool, _best = self.pools()
         for plan in kept:
             self._drop_options(plan, pool)
+            self._claim_order(plan)
             plan.reasons = self._reasons(plan)
         return kept
+
+    def _claim_order(self, plan: Plan) -> None:
+        """On a rolling list your first successful claim spends your
+        priority, and every claim after it is processed from the back of the
+        order: you get those players only if nobody else claims them. So the
+        first claim goes where the priority is worth most -- the player you
+        would otherwise lose to someone ahead of you or behind -- and a
+        player nobody else wants goes last (he clears anyway). Elsewhere
+        (FAAB, an order reset by standings) the most valuable goes first."""
+        plan.claim_odds = {x.player_id: self.engine.claim_odds(x) for x in plan.adds}
+        value = {x.player_id: max(plan.single_gains.get(x.player_id, 0.0), 0.0) for x in plan.adds}
+        if self.engine.priority_waivers:
+            def priority_worth(x: PlayerRow) -> float:
+                anyone, ahead = plan.claim_odds[x.player_id]
+                return value[x.player_id] * ((1.0 - ahead) - (1.0 - anyone))
+
+            first = max(plan.adds, key=lambda x: (priority_worth(x), value[x.player_id]))
+            rest = sorted((x for x in plan.adds if x is not first),
+                          key=lambda x: -value[x.player_id] * (1.0 - plan.claim_odds[x.player_id][0]))
+            order = [first] + rest
+        else:
+            order = sorted(plan.adds, key=lambda x: -value[x.player_id])
+        plan.moves.sort(key=lambda m: order.index(m[0]))
 
     def market_value(self, p: PlayerRow) -> float:
         s = self.seen.get(p.player_id)
@@ -292,11 +335,13 @@ class PlanFinder:
             bits.append(f"worth more together: {pts(plan.gain)} against {pts(plan.summed)} priced one at a time")
         elif plan.gain < plan.summed - tolerance:
             bits.append(f"they overlap: {pts(plan.gain)} together against {pts(plan.summed)} priced one at a time")
-        first = plan.moves[0][0]
         rank = self.engine.rank
-        if self.engine.priority_waivers:
-            bits.append(f"claim {first.name} first: on a rolling list the first claim spends your "
-                        f"#{rank} priority, and the rest land if nobody ahead of you wants them")
+        if self.engine.priority_waivers and plan.claim_odds:
+            first = plan.moves[0][0]
+            odds = [f"{a.name} {plan.claim_odds[a.player_id][0]:.0%}" for a, _d in plan.moves]
+            bits.append(f"claim {first.name} first: your first successful claim spends your #{rank} priority and "
+                        "the rest are processed from the back of the order, so it goes on the player you would "
+                        "otherwise lose; chance another manager claims each this week: " + ", ".join(odds))
         for new, old, p in plan.alternatives[:2]:
             bits.append(f"about as good: {new.name} instead of {old.name} (title {p:.1%})")
         for options in plan.drop_options.values():

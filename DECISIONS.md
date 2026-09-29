@@ -1332,6 +1332,33 @@ were priced and fell short are now listed under the waiver moves with what
 each adds ("also priced"), so a name on every waiver list can be seen to
 have been considered, and what he would do for this roster.
 
+### Claim order spends priority where you would lose the player
+Plans listed claims in order of each pickup's own value, with Jacoby
+Brissett first. But on a rolling list the first successful claim sends you
+to the back, and every claim after it is processed from there: you get
+those players only if nobody else claims them. Priority is worth most on
+the player someone else would take. A backup quarterback in a one-QB league
+mostly clears without it.
+
+Each rival now claims a free agent with a chance that depends on need and
+news, scaled by how active he has been:
+- he would start for them (this week or on season value): 50%;
+- he is starting for an injured lead, and on every waiver list: 25%;
+- otherwise: 5%.
+
+These rates are assumptions, like the breakout-claim rate: failed claims
+are never published, so they cannot be fitted. The first claim goes to the
+pickup whose value times (chance someone claims him minus chance someone
+ahead of you does) is largest. The rest follow by value times the chance
+nobody else claims them. In the ESPN league at #3 of 10: Sadiq would start
+for 6 of 9 rivals (someone claims him 97%, someone ahead of you 43%), so he
+goes first; Brissett would start for 1 (63%, 5%). Single-move cards now
+give the chance another manager claims him. Plans show what to claim, in
+order, and what to drop as a set ("Thomas Jr., Worthy and one of Ferguson
+(5.7%) or Shakir (5.6%)"), because which add is paired with which drop does
+not change the roster that results. A plan's percentages are the whole
+plan's title odds; a single move's card prices that move alone.
+
 ### A season-ending injury is not a long absence
 De'Von Achane tore his ACL and was a free agent in the ESPN league, still
 worth 13.7 a game to the model: ESPN tags a season-ending injury and a

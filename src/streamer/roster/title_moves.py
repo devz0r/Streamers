@@ -102,6 +102,32 @@ class TitleMove:
 CLAIM_INTEREST = 0.35
 
 
+#: Chance a rival puts in a claim this week for a free agent who would start
+#: for him / who is in the news (starting for an injured lead: on every
+#: waiver list) / otherwise, before scaling by how active that manager is.
+#: Assumptions, like :data:`CLAIM_INTEREST` -- failed claims are never
+#: published -- set so a pickup who would start for half an active league
+#: draws two or three claims, and a backup quarterback almost none.
+CLAIM_IF_STARTS = 0.5
+CLAIM_IF_NEWS = 0.25
+CLAIM_OTHERWISE = 0.05
+
+
+def would_start(x: PlayerRow, roster: list[PlayerRow], slots: dict[str, int]) -> bool:
+    """Would he crack this roster's lineup -- this week, or on season value?
+    Compared with the team's n-th best at his position, n being its slots
+    there plus the flex for backs and receivers."""
+    n = int(slots.get(x.position, 0)) + (1 if x.position in ("RB", "WR", "TE") and slots.get("FLEX") else 0)
+    if n <= 0:
+        return False
+    mates = [p for p in roster if p.position == x.position and not p.in_ir_slot and p.player_id != x.player_id]
+    for value in (lambda p: float(p.projection or 0.0), lambda p: float(p.ros_value or 0.0)):
+        vals = sorted((value(p) for p in mates), reverse=True)
+        if len(vals) < n or value(x) > vals[n - 1]:
+            return True
+    return False
+
+
 def league_activity(snapshot: LeagueSnapshot) -> float:
     """Chance a given rival claims a breakout: the share of teams that have
     made at least one pickup a week so far (clipped to 0.3-0.9), times
@@ -223,6 +249,26 @@ class TitleEngine:
 
     def market_value(self, p: PlayerRow) -> float:
         return float(self.market.get(p.player_id, p.ros_value or 0.0))
+
+    def claim_odds(self, x: PlayerRow) -> tuple[float, float]:
+        """(chance another manager claims him this week, chance one ahead of
+        you in the waiver order does). Each rival claims him with a chance
+        that depends on whether he would start for them and whether he is in
+        the news, scaled by how active that manager has been."""
+        weeks = max(int(self.snapshot.week) - 1, 1)
+        news = any(s.startswith("next man up") for s in x.signals)
+        slots = self.snapshot.starting_slots
+        none_all = none_ahead = 1.0
+        for i, t in enumerate(self.snapshot.teams):
+            if i == self.mine:
+                continue
+            active = 0.6 if t.acquisitions is None else float(np.clip(t.acquisitions / weeks, 0.3, 1.0))
+            want = CLAIM_IF_STARTS if would_start(x, t.roster, slots) else CLAIM_IF_NEWS if news else CLAIM_OTHERWISE
+            p = active * want
+            none_all *= 1.0 - p
+            if self.ranks[i] < self.rank:
+                none_ahead *= 1.0 - p
+        return 1.0 - none_all, 1.0 - none_ahead
 
     @staticmethod
     def _upside_candidates(snapshot: LeagueSnapshot, pool: list[PlayerRow]) -> dict[str, str]:
@@ -444,6 +490,9 @@ class TitleEngine:
             bits.append(f"your #{self.rank} priority is worth {m.priority_cost * 100:.1f} on future claims")
         if m.verdict == "lean":
             bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f})")
+        anyone, _ahead = self.claim_odds(m.add)
+        bits.append(f"about a {anyone:.0%} chance another manager claims him this week"
+                    + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))
         if m.drop_options:
             bits.append("which to drop is a toss-up the simulation cannot separate, so it is your call: "
                         + "; ".join(f"{q.name} (title {v:.1%}; the market sees {self.market_value(q):.1f} a game)"

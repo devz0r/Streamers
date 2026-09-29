@@ -17,6 +17,7 @@ from ..config import Config
 from ..league.model import LeagueSnapshot, short_status
 from .matchup import MatchupReport
 from .title_moves import drop_choice
+from .waiver_plans import drops_text
 from .waivers import Move, drop_watch, stashes
 
 
@@ -365,11 +366,15 @@ def _plans(report: MatchupReport) -> str:
     for plan in plans:
         label = ('<span class="hold-tag">make the plan</span>' if plan.verdict == "plan"
                  else '<span class="opp">close call</span>')
-        steps = "".join(
-            f"<li>Add <b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')}), drop "
-            f"{_e(drop_choice(d, plan.drop_options.get(d.player_id)))}"
-            f"{' <i>(a toss-up: your call)</i>' if d.player_id in plan.drop_options else ''}</li>"
-            for a, d in plan.moves)
+        claims = "".join(
+            f"<li><b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')})"
+            + (f" &middot; {plan.claim_odds[a.player_id][0]:.0%} chance another manager claims him"
+               if a.player_id in plan.claim_odds else "") + "</li>"
+            for a, _d in plan.moves)
+        toss = " <i>(the one-of drop is a toss-up: your call)</i>" if plan.drop_options else ""
+        steps = (f"<b>Claim, in this order:</b><ol class=\"steps\">{claims}</ol>"
+                 f"<p><b>Drop:</b> {_e(drops_text(plan))}{toss}. The percentages are your title odds for the "
+                 "whole plan with that drop; a single move's card prices that one move alone.</p>")
         cards.append(
             '<div class="card"><div class="row"><div class="rank">&#9776;</div>'
             f'<div><span class="name">{len(plan.moves)} moves</span> '
@@ -378,7 +383,7 @@ def _plans(report: MatchupReport) -> str:
             f'<div class="meta">{label}<span>title {plan.p_base:.1%} &rarr; {plan.p_plan:.1%}</span>'
             f"<span>best single move {plan.p_single:.1%}</span>"
             f"<span>&plusmn;{2 * plan.noise * 100:.1f} noise</span></div>"
-            f'<div class="why"><ol class="steps">{steps}</ol>{_e("; ".join(plan.reasons))}.</div></div>')
+            f'<div class="why">{steps}{_e("; ".join(plan.reasons))}.</div></div>')
     return head + "".join(cards)
 
 

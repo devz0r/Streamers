@@ -107,11 +107,11 @@ def actions(report, cfg=None) -> list[HubAction]:
         out.append(HubAction("Block" if blocking else "Waiver", f"Add {m.add.name}", detail, gain,
                              note, "waivers"))
     for plan in getattr(report, "plans", None) or []:
-        options = getattr(plan, "drop_options", None) or {}
-        steps = "; ".join(f"add {a.name}, drop {drop_choice(d, options.get(d.player_id))}"
-                          for a, d in plan.moves)
-        if options:
-            steps += " (a drop with options is a toss-up: your call)"
+        from .waiver_plans import claims_text, drops_text
+
+        steps = f"claim {claims_text(plan)}, in that order; drop {drops_text(plan)}"
+        if getattr(plan, "drop_options", None):
+            steps += " (the one-of drop is a toss-up: your call; odds are for the whole plan)"
         out.append(HubAction("Plan", f"{len(plan.moves)} moves together", steps, plan.gain,
                              "make the plan" if plan.verdict == "plan" else "close call vs the best single move",
                              "waivers"))
