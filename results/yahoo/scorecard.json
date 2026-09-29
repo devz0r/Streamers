@@ -1,0 +1,52 @@
+{
+  "grades": [
+    {
+      "source": "Our final number",
+      "players": 100,
+      "weeks": 1,
+      "pairs": 0.7068166776968895,
+      "miss": 4.894400000000001,
+      "ours_pairs": 0.7068166776968895,
+      "ours_miss": 4.894400000000001
+    },
+    {
+      "source": "Our model alone",
+      "players": 100,
+      "weeks": 1,
+      "pairs": 0.686300463269358,
+      "miss": 5.042200000000001,
+      "ours_pairs": 0.7068166776968895,
+      "ours_miss": 4.894400000000001
+    },
+    {
+      "source": "Yahoo's projection",
+      "players": 76,
+      "weeks": 1,
+      "pairs": 0.6777251184834123,
+      "miss": 5.008947368421053,
+      "ours_pairs": 0.693127962085308,
+      "ours_miss": 4.880131578947368
+    },
+    {
+      "source": "Betting props",
+      "players": 71,
+      "weeks": 1,
+      "pairs": 0.7366310160427807,
+      "miss": 4.629295774647887,
+      "ours_pairs": 0.7349397590361446,
+      "ours_miss": 4.6694366197183115
+    }
+  ],
+  "per_week": [
+    {
+      "season": 2026,
+      "week": 3,
+      "players": 100,
+      "Our final number": 4.89,
+      "Our model alone": 5.04,
+      "Yahoo's projection": 5.01,
+      "Betting props": 4.63
+    }
+  ],
+  "ros": []
+}
