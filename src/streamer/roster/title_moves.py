@@ -113,17 +113,24 @@ CLAIM_IF_NEWS = 0.25
 CLAIM_OTHERWISE = 0.05
 
 
+#: A manager claims a player to start him only when he is a clear upgrade:
+#: this many points a game over the man he would replace. (Jacoby Brissett
+#: at 17.0 against Jalen Hurts at 16.9 is not a claim anyone puts in.)
+NEED_MARGIN = 1.5
+
+
 def would_start(x: PlayerRow, roster: list[PlayerRow], slots: dict[str, int]) -> bool:
-    """Would he crack this roster's lineup -- this week, or on season value?
-    Compared with the team's n-th best at his position, n being its slots
-    there plus the flex for backs and receivers."""
+    """Would he clearly upgrade this roster's lineup -- this week, or on
+    season value? Compared with the team's n-th best at his position, n
+    being its slots there plus the flex for backs and receivers, by
+    :data:`NEED_MARGIN`."""
     n = int(slots.get(x.position, 0)) + (1 if x.position in ("RB", "WR", "TE") and slots.get("FLEX") else 0)
     if n <= 0:
         return False
     mates = [p for p in roster if p.position == x.position and not p.in_ir_slot and p.player_id != x.player_id]
     for value in (lambda p: float(p.projection or 0.0), lambda p: float(p.ros_value or 0.0)):
         vals = sorted((value(p) for p in mates), reverse=True)
-        if len(vals) < n or value(x) > vals[n - 1]:
+        if len(vals) < n or value(x) >= vals[n - 1] + NEED_MARGIN:
             return True
     return False
 

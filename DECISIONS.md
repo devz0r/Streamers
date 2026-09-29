@@ -1373,6 +1373,18 @@ order, and what to drop as a set ("Thomas Jr., Worthy and one of Ferguson
 not change the roster that results. A plan's percentages are the whole
 plan's title odds; a single move's card prices that move alone.
 
+Two corrections after the first run. "Would start for them" had counted
+any edge at all: Brissett at 17.0 against Jalen Hurts at 16.9 made Team
+Morris a likely claimant, and his claim chance came out at 63%. A claim now
+needs a clear upgrade of 1.5+ points a game, and Brissett drops to 30%. The
+order also leaned on each pickup's value on its own, which carries the
+simulation's noise (+-0.3 points). In one run that noise put Meyers or
+Brissett first, when what priority is worth on each was 0.15-0.19 points
+either way. Every add in a plan helps, so each value is taken halfway to
+the plan's average, and in a close call the contested player goes first:
+Sadiq (87% claimed, 34% by someone ahead of you) before Brissett (30%, 5%).
+The card shows what priority is worth on each.
+
 ### A season-ending injury is not a long absence
 De'Von Achane tore his ACL and was a free agent in the ESPN league, still
 worth 13.7 a game to the model: ESPN tags a season-ending injury and a

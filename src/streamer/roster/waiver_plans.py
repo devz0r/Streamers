@@ -61,6 +61,8 @@ class Plan:
     alternatives: list[tuple[PlayerRow, PlayerRow, float]] = field(default_factory=list)
     #: Per add: (chance another manager claims him, chance one ahead of you does).
     claim_odds: dict[str, tuple[float, float]] = field(default_factory=dict)
+    #: Per add: title odds your waiver priority is worth on him (rolling lists).
+    priority_worth: dict[str, float] = field(default_factory=dict)
 
     @property
     def gain(self) -> float:
@@ -259,12 +261,18 @@ class PlanFinder:
         player nobody else wants goes last (he clears anyway). Elsewhere
         (FAAB, an order reset by standings) the most valuable goes first."""
         plan.claim_odds = {x.player_id: self.engine.claim_odds(x) for x in plan.adds}
-        value = {x.player_id: max(plan.single_gains.get(x.player_id, 0.0), 0.0) for x in plan.adds}
+        # Each add's value on its own carries the simulation's noise (+-0.3
+        # points), and every add is in the plan because it helps: halfway to
+        # the plan's average, so how contested he is decides a close call.
+        raw = {x.player_id: max(plan.single_gains.get(x.player_id, 0.0), 0.0) for x in plan.adds}
+        mean = sum(raw.values()) / max(len(raw), 1)
+        value = {pid: 0.5 * v + 0.5 * mean for pid, v in raw.items()}
         if self.engine.priority_waivers:
             def priority_worth(x: PlayerRow) -> float:
                 anyone, ahead = plan.claim_odds[x.player_id]
                 return value[x.player_id] * ((1.0 - ahead) - (1.0 - anyone))
 
+            plan.priority_worth = {x.player_id: priority_worth(x) for x in plan.adds}
             first = max(plan.adds, key=lambda x: (priority_worth(x), value[x.player_id]))
             rest = sorted((x for x in plan.adds if x is not first),
                           key=lambda x: -value[x.player_id] * (1.0 - plan.claim_odds[x.player_id][0]))
@@ -338,7 +346,8 @@ class PlanFinder:
         rank = self.engine.rank
         if self.engine.priority_waivers and plan.claim_odds:
             first = plan.moves[0][0]
-            odds = [f"{a.name} {plan.claim_odds[a.player_id][0]:.0%}" for a, _d in plan.moves]
+            odds = [f"{a.name} {plan.claim_odds[a.player_id][0]:.0%} (your priority worth "
+                    f"{plan.priority_worth.get(a.player_id, 0.0) * 100:.2f} on him)" for a, _d in plan.moves]
             bits.append(f"claim {first.name} first: your first successful claim spends your #{rank} priority and "
                         "the rest are processed from the back of the order, so it goes on the player you would "
                         "otherwise lose; chance another manager claims each this week: " + ", ".join(odds))
