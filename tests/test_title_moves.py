@@ -6,7 +6,7 @@ import pytest
 
 from streamer.league.model import PlayerRow
 from streamer.roster import season as season_mod
-from streamer.roster.title_moves import TitleEngine, p_win_claim
+from streamer.roster.title_moves import TitleEngine, drop_choice, p_win_claim, toss_ups
 from test_season import _league
 
 
@@ -81,7 +81,7 @@ def test_passing_on_a_breakout_lets_a_rival_have_him(cfg):
         assert m.p_free == engine.base and m.rival_share > 0 and m.rival_name
 
 
-def test_when_drops_tie_the_one_the_market_values_least_goes(cfg):
+def test_drops_the_simulation_cannot_separate_are_all_offered_with_their_odds(cfg):
     snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
     me = snap.teams[0]
     # Two bench bodies below replacement: neither ever starts, so dropping
@@ -95,4 +95,19 @@ def test_when_drops_tie_the_one_the_market_values_least_goes(cfg):
     engine = TitleEngine(snap, cfg, n_sims=1500, candidates=8)
     engine.market = {"no-name": 2.0, "big-name": 11.0}
     star = next(m for m in engine.moves(8) if m.add.player_id == "star")
-    assert star.drop.player_id == "no-name"
+    offered = [q.player_id for q, _p in star.drop_options]
+    assert {"no-name", "big-name"} <= set(offered)
+    assert star.drop.player_id == offered[0] and star.p_now == star.drop_options[0][1]   # best listed first
+    assert any("toss-up" in r and "big-name (title" in r and "no-name (title" in r for r in star.reasons)
+    assert drop_choice(star.drop, star.drop_options).startswith(f"{star.drop.name} ({star.p_now:.1%}) or ")
+
+
+def test_a_clear_best_drop_is_not_offered_as_a_toss_up():
+    import numpy as np
+
+    rng = np.random.default_rng(0)
+    base = (rng.random(4000) < 0.1).astype(float)
+    better = np.maximum(base, (rng.random(4000) < 0.05).astype(float))   # wins everything base wins, and more
+    a, b = _fa("a", "WR", 5.0), _fa("b", "WR", 5.0)
+    assert [q.player_id for q, _p in toss_ups([(a, base), (b, better)])] == ["b"]
+    assert drop_choice(b, toss_ups([(a, base), (b, better)])) == "b"

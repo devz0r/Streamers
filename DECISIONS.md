@@ -1196,6 +1196,23 @@ in for asset value -- Kenny Gainwell, valued less by the market than either
 receiver but more by us, would cost 0.8 points to cut, and stays. The plan
 card says when it kept someone and why.
 
+**Superseded: toss-ups are shown, not decided.** The tie-break then cut Kyle
+Pitts, and when that was priced directly, keeping him and dropping Worthy
+came out slightly ahead (4.62% against 4.27%, noise +-0.32). A fixed
+0.2-point tie band is narrower than the simulation's noise, so which way it
+fell was luck. Now a drop is a toss-up when the paired difference in title
+odds is within two standard errors: the simulation cannot tell the options
+apart. All of them are shown with their title odds ("drop Worthy (4.6%) or
+Pitts (4.3%)"), and the card adds what the market sees each at, for a
+manager picking by feel (a name that can still be traded, a hunch about a
+role). Single moves list the best first. A plan changes the drop the
+screening chose only for one clearly better, beyond the noise: taking the
+luckiest of eight noisy estimates would have overstated the plan (it
+turned a +0.8 plan into +1.6). Each alternative is offered once, at the
+step where it is worth most. At week 4 in the ESPN league most drops are
+toss-ups between two to four players, which is the honest answer: at that
+level of detail the season is not predictable.
+
 ### A player gone for more than a season is not injured
 Brandon Aiyuk was recommended as a pickup. He last played in October 2024
 and is on the 49ers' reserve/left-squad list, but ESPN tags him OUT, and a

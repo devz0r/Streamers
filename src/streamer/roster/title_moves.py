@@ -48,10 +48,10 @@ BLOCK_ALLOWANCE = 0.003
 #: Blocking is named on a card only when it is worth at least this much:
 #: smaller values sit inside the simulation's noise.
 BLOCK_NOTE = 0.003
-#: Two drops this close in title odds are a coin flip for the season; the
-#: tie goes to keeping the player the market values more -- he can still be
-#: traded, and a rival would claim him. About the paired noise of one move.
-DROP_TIE = 0.002
+#: Two choices are a toss-up when the gap between them in title odds is
+#: inside this many paired standard errors of the simulation: it cannot tell
+#: them apart, so both are shown with their odds and the manager picks.
+TOSS_UP_SE = 2.0
 #: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
 UPSIDE_EACH = 3
 #: Backups starting now because the man ahead of them is out, per position.
@@ -76,6 +76,9 @@ class TitleMove:
     #: Share of seasons a rival lands him if you pass, and who most often.
     rival_share: float = 0.0
     rival_name: str = ""
+    #: When the drop is a toss-up: every drop the simulation cannot tell
+    #: from the best, with P(title) adding him now, best first ("drop A or B").
+    drop_options: list[tuple[PlayerRow, float]] = field(default_factory=list)
 
     @property
     def block_value(self) -> float:
@@ -124,6 +127,37 @@ def p_win_claim(rank: int, n_teams: int, activity: float) -> float:
         win = comb(worse, m) / comb(others, m) if m <= worse else 0.0
         total += p_m * win
     return total
+
+
+def toss_ups(options: list[tuple[PlayerRow, np.ndarray]],
+             market=lambda p: 0.0) -> list[tuple[PlayerRow, float]]:
+    """Of several choices priced on the same simulated seasons (per-season
+    title wins), the best and every one the simulation cannot tell from it:
+    (player, P(title)), best first. A gap inside ``TOSS_UP_SE`` paired
+    standard errors is noise. Exact ties list the player the market values
+    least first -- the one to cut, since the other can still be traded."""
+    if not options:
+        return []
+    _best, best_w = max(options, key=lambda t: float(t[1].mean()))
+    out = []
+    for q, w in options:
+        diff = best_w - w
+        se = float(diff.std()) / np.sqrt(len(diff))
+        if float(diff.mean()) <= TOSS_UP_SE * se:
+            out.append((q, float(w.mean())))
+    return sorted(out, key=lambda t: (-round(t[1], 6), market(t[0])))
+
+
+def drop_choice(drop: PlayerRow, options: list[tuple[PlayerRow, float]] | None, shown: int = 3) -> str:
+    """"Pitts" -- or, for a toss-up, "Worthy (4.6%) or Pitts (4.3%)": the
+    drops the simulation cannot separate, with the title odds each way (the
+    first ``shown``; the card lists the rest)."""
+    if not options or len(options) < 2:
+        return drop.name
+    text = " or ".join(f"{q.name} ({v:.1%})" for q, v in options[:shown])
+    if len(options) > shown:
+        text += f" (+{len(options) - shown} more)"
+    return text
 
 
 def _droppable(roster: list[PlayerRow], add: PlayerRow) -> list[PlayerRow]:
@@ -348,14 +382,15 @@ class TitleEngine:
         out: list[TitleMove] = []
         for x in self.candidates:
             best: TitleMove | None = None
-            priced = [(y, self.value_now(x, y)) for y in _droppable(self.me.roster, x)[: self.n_drops]]
+            priced = [(y, self.value_now(x, y, per_sim=True)) for y in _droppable(self.me.roster, x)[: self.n_drops]]
+            won_by = {y.player_id: w for y, w in priced}
             if priced:
-                top = max(p for _y, p in priced)
-                # As good for the title, within noise: drop whoever the market values least.
-                ties = [(y, p) for y, p in priced if p >= top - DROP_TIE]
-                y, p_now = min(ties, key=lambda t: (self.market_value(t[0]), -t[1]))
+                # Drops the simulation cannot tell apart are all offered.
+                options = toss_ups(priced, self.market_value)
+                y, p_now = options[0]
                 best = TitleMove(add=x, drop=y, p_now=p_now, p_wait=0.0, p_base=self.base,
-                                 priority_cost=0.0, verdict="skip")
+                                 priority_cost=0.0, verdict="skip",
+                                 drop_options=options if len(options) > 1 else [])
             if best is None or best.p_now - self.base < MIN_GAIN - BLOCK_ALLOWANCE:
                 continue                  # too far short for blocking to rescue
             # Standing pat is not "he stays on the wire": if he breaks out, a
@@ -371,7 +406,7 @@ class TitleEngine:
             if lands.any():
                 top = np.bincount(claimant[lands], minlength=self.n_teams).argmax()
                 best.rival_name = self.snapshot.teams[int(top)].name
-            now = self.value_now(x, best.drop, per_sim=True)
+            now = won_by[best.drop.player_id]
             wait = self.value_wait(x, best.drop, self.rank, per_sim=True)
             ref = wait if wait.mean() >= pat.mean() else pat
             best.p_wait = float(wait.mean())
@@ -397,6 +432,10 @@ class TitleEngine:
             bits.append(f"your #{self.rank} priority is worth {m.priority_cost * 100:.1f} on future claims")
         if m.verdict == "lean":
             bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f})")
+        if m.drop_options:
+            bits.append("which to drop is a toss-up the simulation cannot separate, so it is your call: "
+                        + "; ".join(f"{q.name} (title {v:.1%}; the market sees {self.market_value(q):.1f} a game)"
+                                    for q, v in m.drop_options))
         if m.block_value >= BLOCK_NOTE and m.rival_name:
             bits.append(f"if you pass, a rival lands him in {m.rival_share:.0%} of seasons (most often "
                         f"{m.rival_name}), which costs you {m.block_value * 100:.1f} of that")

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .title_moves import BLOCK_NOTE
+from .title_moves import BLOCK_NOTE, drop_choice
 
 KINDS = ("Lineup", "Stream", "Waiver", "Block", "Plan", "Trade")
 
@@ -97,14 +97,21 @@ def actions(report, cfg=None) -> list[HubAction]:
         note = {"claim": "claim now", "lean": "close call", "wait": "worth adding, but could wait"}[m.verdict]
         if m.priority_cost > 0:
             note += f"; after your waiver priority ({m.priority_cost * 100:.1f})"
-        detail = f"drop {m.drop.name}"
+        options = getattr(m, "drop_options", None)
+        detail = f"drop {drop_choice(m.drop, options)}"
+        if options:
+            detail += " -- a toss-up, your call"
         if blocking:
             detail += f"; keeps him from {m.rival_name}"
         detail += second(m.add)
         out.append(HubAction("Block" if blocking else "Waiver", f"Add {m.add.name}", detail, gain,
                              note, "waivers"))
     for plan in getattr(report, "plans", None) or []:
-        steps = "; ".join(f"add {a.name}, drop {d.name}" for a, d in plan.moves)
+        options = getattr(plan, "drop_options", None) or {}
+        steps = "; ".join(f"add {a.name}, drop {drop_choice(d, options.get(d.player_id))}"
+                          for a, d in plan.moves)
+        if options:
+            steps += " (a drop with options is a toss-up: your call)"
         out.append(HubAction("Plan", f"{len(plan.moves)} moves together", steps, plan.gain,
                              "make the plan" if plan.verdict == "plan" else "close call vs the best single move",
                              "waivers"))

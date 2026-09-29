@@ -16,6 +16,7 @@ import numpy as np
 from ..config import Config
 from ..league.model import LeagueSnapshot, short_status
 from .matchup import MatchupReport
+from .title_moves import drop_choice
 from .waivers import Move, drop_watch, stashes
 
 
@@ -323,7 +324,8 @@ def _title_moves(report: MatchupReport) -> str:
             '<div class="card"><div class="row">'
             f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
             f'<div><span class="name">{_e(m.add.name)}</span> '
-            f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")} &middot; drop {_e(m.drop.name)}</span></div>'
+            f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")} &middot; drop '
+            f'{_e(drop_choice(m.drop, m.drop_options))}</span></div>'
             f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
             f'<div class="meta"><span class="{css}">{label}</span>'
             f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span></div>"
@@ -349,7 +351,9 @@ def _plans(report: MatchupReport) -> str:
         label = ('<span class="hold-tag">make the plan</span>' if plan.verdict == "plan"
                  else '<span class="opp">close call</span>')
         steps = "".join(
-            f"<li>Add <b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')}), drop {_e(d.name)}</li>"
+            f"<li>Add <b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')}), drop "
+            f"{_e(drop_choice(d, plan.drop_options.get(d.player_id)))}"
+            f"{' <i>(a toss-up: your call)</i>' if d.player_id in plan.drop_options else ''}</li>"
             for a, d in plan.moves)
         cards.append(
             '<div class="card"><div class="row"><div class="rank">&#9776;</div>'

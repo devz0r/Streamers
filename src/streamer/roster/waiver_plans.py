@@ -29,7 +29,7 @@ import numpy as np
 
 from ..league.model import PlayerRow
 from .season import replacement_levels
-from .title_moves import DROP_TIE, MIN_GAIN, TitleEngine
+from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, toss_ups
 from .waivers import MIN_KEEP, _ros, roster_value
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -54,8 +54,9 @@ class Plan:
     #: "lean" when it beats it by less (a close call).
     verdict: str = ""
     reasons: list[str] = field(default_factory=list)
-    #: Drops swapped to keep a player the market values: (kept, dropped instead).
-    kept: list[tuple[PlayerRow, PlayerRow]] = field(default_factory=list)
+    #: Toss-up drops: a drop's id -> every player the simulation cannot tell
+    #: from him as that drop, with the plan's P(title) each way, best first.
+    drop_options: dict[str, list[tuple[PlayerRow, float]]] = field(default_factory=dict)
     #: Plans one player different and about as good: (add in, add out, P(title)).
     alternatives: list[tuple[PlayerRow, PlayerRow, float]] = field(default_factory=list)
 
@@ -225,7 +226,7 @@ class PlanFinder:
                 break
         _adds, pool, _best = self.pools()
         for plan in kept:
-            self._keep_assets(plan, pool)
+            self._drop_options(plan, pool)
             plan.reasons = self._reasons(plan)
         return kept
 
@@ -233,29 +234,52 @@ class PlanFinder:
         s = self.seen.get(p.player_id)
         return float(s.value) if s is not None else float(self.engine.market_value(p))
 
-    def _keep_assets(self, plan: Plan, pool: list[PlayerRow]) -> None:
-        """Where another drop is as good for the title (within noise), cut the
-        player the market values least instead: a player others still rate
-        can be traded, and cutting him hands him to a rival for nothing."""
+    def _drop_options(self, plan: Plan, pool: list[PlayerRow]) -> None:
+        """Each drop against every other bench player in its place, on the
+        same seasons. The best becomes the drop; any the simulation cannot
+        tell from it are offered beside it with their title odds -- a
+        toss-up is the manager's call (a name he can still trade, a hunch
+        about a role). Each alternative is offered once, where it is best."""
         roster = self.me.roster
-        for d in sorted(plan.drops, key=lambda q: -self.market_value(q)):
-            best = None
+
+        def priced(d: PlayerRow) -> list[tuple[PlayerRow, np.ndarray]]:
+            out = [(d, self._won([q for q in roster if q not in plan.drops] + plan.adds))]
             for r in pool:
-                if r in plan.drops or self.market_value(r) >= self.market_value(d):
+                if r in plan.drops:
                     continue
                 drops = [q for q in plan.drops if q is not d] + [r]
                 new = [q for q in roster if q not in drops] + plan.adds
-                if not _keeps_minimums(new, roster):
-                    continue
-                p = float(self._won(new).mean())
-                if p >= plan.p_plan - DROP_TIE and (best is None or self.market_value(r) < self.market_value(best[0])):
-                    best = (r, p)
-            if best is not None:
-                r, p = best
-                plan.kept.append((d, r))
-                plan.moves = self._pair(plan.adds, [q for q in plan.drops if q is not d] + [r])
+                if _keeps_minimums(new, roster):
+                    out.append((r, self._won(new)))
+            return out
+
+        # A drop is changed only for one clearly better (beyond the noise):
+        # taking whichever of eight noisy estimates came out highest would
+        # overstate the plan. Then the toss-ups around the finished plan.
+        for d in list(plan.drops):
+            options = priced(d)
+            mine = options[0][1]
+            best, best_w = max(options, key=lambda t: float(t[1].mean()))
+            diff = best_w - mine
+            if best is not d and float(diff.mean()) > TOSS_UP_SE * float(diff.std()) / np.sqrt(len(diff)):
+                plan.moves = self._pair(plan.adds, [q for q in plan.drops if q is not d] + [best])
                 plan.moves.sort(key=lambda m: -plan.single_gains.get(m[0].player_id, 0.0))
-                plan.p_plan = p
+                plan.p_plan = float(best_w.mean())
+        found: dict[str, list[tuple[PlayerRow, float]]] = {}
+        for d in plan.drops:
+            options = toss_ups(priced(d), self.market_value)
+            if len(options) > 1 and any(q is d for q, _v in options):
+                found[d.player_id] = options
+        # A bench player tied for two drops is offered where he is worth most.
+        where: dict[str, tuple[str, float]] = {}
+        for drop_id, options in found.items():
+            for q, v in options:
+                if q.player_id != drop_id and (q.player_id not in where or v > where[q.player_id][1]):
+                    where[q.player_id] = (drop_id, v)
+        for drop_id, options in found.items():
+            kept = [(q, v) for q, v in options if q.player_id == drop_id or where[q.player_id][0] == drop_id]
+            if len(kept) > 1:
+                plan.drop_options[drop_id] = kept
 
     def _reasons(self, plan: Plan) -> list[str]:
         pts = lambda v: f"{v * 100:+.1f}"            # noqa: E731
@@ -275,10 +299,10 @@ class PlanFinder:
                         f"#{rank} priority, and the rest land if nobody ahead of you wants them")
         for new, old, p in plan.alternatives[:2]:
             bits.append(f"about as good: {new.name} instead of {old.name} (title {p:.1%})")
-        for kept, instead in plan.kept:
-            bits.append(f"keeps {kept.name}, whom the market still values at {self.market_value(kept):.1f} a game "
-                        f"(tradeable, and a rival would claim him): dropping {instead.name} instead is as good "
-                        "for your title odds")
+        for options in plan.drop_options.values():
+            bits.append("which to drop is a toss-up the simulation cannot separate, so it is your call: "
+                        + "; ".join(f"{q.name} (title {v:.1%}; the market sees {self.market_value(q):.1f} a game)"
+                                    for q, v in options))
         for d in plan.drops:
             s = self.seen.get(d.player_id)
             if s is not None and s.value >= _ros(d) + TRADE_VALUE_NOTE:
