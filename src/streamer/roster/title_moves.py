@@ -380,6 +380,10 @@ class TitleEngine:
     # -- the recommendation ----------------------------------------------
     def moves(self, n: int = 5) -> list[TitleMove]:
         out: list[TitleMove] = []
+        #: Upside plays priced and found not worth a move: (player, gain, why
+        #: he was priced) -- so a name on every waiver list is seen to have
+        #: been considered, with what he is worth to this roster.
+        self.passed: list[tuple[PlayerRow, float, str]] = []
         for x in self.candidates:
             best: TitleMove | None = None
             priced = [(y, self.value_now(x, y, per_sim=True)) for y in _droppable(self.me.roster, x)[: self.n_drops]]
@@ -392,12 +396,16 @@ class TitleEngine:
                                  priority_cost=0.0, verdict="skip",
                                  drop_options=options if len(options) > 1 else [])
             if best is None or best.p_now - self.base < MIN_GAIN - BLOCK_ALLOWANCE:
+                if best is not None and x.player_id in self.upside:
+                    self.passed.append((x, best.p_now - self.base, self.upside[x.player_id]))
                 continue                  # too far short for blocking to rescue
             # Standing pat is not "he stays on the wire": if he breaks out, a
             # rival claims him. What that costs you is part of adding him now.
             pat = self.stand_pat(x, best.drop)
             best.p_free, best.p_base = self.base, float(pat.mean())
             if best.gain_now < MIN_GAIN:
+                if x.player_id in self.upside:
+                    self.passed.append((x, best.gain_now, self.upside[x.player_id]))
                 continue
             claimant = self._claimant(x)
             breaks = self._breakout_week(x, best.drop) <= len(self.model.weeks)
@@ -422,6 +430,10 @@ class TitleEngine:
             out.append(best)
         rank = {"claim": 0, "lean": 1, "wait": 2}
         out.sort(key=lambda m: (rank[m.verdict], -m.net if m.verdict != "wait" else -m.gain_now))
+        # Upside plays that cleared the bar but not the top n are passed too.
+        self.passed += [(m.add, m.gain_now, self.upside[m.add.player_id]) for m in out[n:]
+                        if m.add.player_id in self.upside]
+        self.passed.sort(key=lambda t: -t[1])
         return out[:n]
 
     def _reasons(self, m: TitleMove) -> list[str]:

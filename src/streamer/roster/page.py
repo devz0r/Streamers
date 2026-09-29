@@ -330,7 +330,22 @@ def _title_moves(report: MatchupReport) -> str:
             f'<div class="meta"><span class="{css}">{label}</span>'
             f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span></div>"
             f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
-    return head + "".join(cards)
+    return head + "".join(cards) + _passed(report)
+
+
+def _passed(report: MatchupReport) -> str:
+    """The upside plays that were priced and fell short: the names on every
+    waiver list, with what each is worth to this roster."""
+    passed = getattr(report, "passed", None) or []
+    if not passed:
+        return ""
+    shown = {m.add.player_id for m in (report.title_moves or [])}
+    bits = [f"{p.name} ({p.position}, {why}): {gain * 100:+.1f}" for p, gain, why in passed
+            if p.player_id not in shown][:8]
+    if not bits:
+        return ""
+    return ('<p class="sub"><b>Also priced, not in the top moves</b> -- upside plays checked on the same '
+            f"seasons, with what each adds to your title odds: {_e('; '.join(bits))}.</p>")
 
 
 def _plans(report: MatchupReport) -> str:

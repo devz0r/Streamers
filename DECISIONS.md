@@ -1313,6 +1313,25 @@ What it is worth still depends on your lineup. For the ESPN team, Allen at
 about 9.5 a game while Hall is out competes with your flex options, so he
 priced about even. A team with a hole at RB would see it differently.
 
+### This week plays at this week's numbers
+The season simulation valued every week, the one in progress included, at
+each player's season level. That undersold exactly the pickup a waiver
+list is built around: with Breece Hall and Josh Jacobs both out, Braelon
+Allen projects 11.1 this week and would start for the ESPN team over Kenny
+Gainwell (7.7), but the simulation had him at 9.5 against Gainwell's 8.4.
+The week in progress now plays at each player's projection for it --
+matchup, the platform's and the betting market's numbers, the chance he
+sits (the simulation flips that coin itself). Later weeks keep the season
+level. For a next man up, the share of the lead's work the simulation
+already expects of him that week is netted out, so it is not counted twice.
+
+Allen still priced at about +0.1 for that team. Starting one week at RB2 is
+worth about three points in a week worth about a point of title odds per
+win, and once Hall is back he does not start there. The upside plays that
+were priced and fell short are now listed under the waiver moves with what
+each adds ("also priced"), so a name on every waiver list can be seen to
+have been considered, and what he would do for this roster.
+
 ### A season-ending injury is not a long absence
 De'Von Achane tore his ACL and was a free agent in the ESPN league, still
 worth 13.7 a game to the model: ESPN tags a season-ending injury and a

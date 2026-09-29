@@ -109,6 +109,44 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
     return np.zeros(n, int)
 
 
+def _if_plays(p: PlayerRow) -> float | None:
+    """This week's projection given he plays (the platform folds a
+    questionable tag in as a mixture; the simulation flips that coin
+    itself). None when he is out, on a bye, or has no projection."""
+    q = float(p.play_probability if p.play_probability is not None else 1.0)
+    if p.projection is None or p.is_out or q <= 0.0:
+        return None
+    return float(p.projection) / q if q < 1.0 else float(p.projection)
+
+
+def _chance_out(p: PlayerRow) -> float:
+    """Chance he misses the week in progress, as :func:`_initial_absence` draws it."""
+    if p.status in LONG_TERM_OUT_STATUSES or (p.is_out and not p.on_bye):
+        return 1.0
+    return 1.0 - float(p.play_probability if p.play_probability is not None else 1.0)
+
+
+def _this_week(players: list[PlayerRow], base: np.ndarray, heir_of: dict[int, int],
+               take: dict[str, float]) -> np.ndarray:
+    """Per player: this week's projection (if he plays) less what the
+    simulation would expect of him this week from his season level -- the
+    offset that makes the week in progress play at this week's numbers. For
+    a next man up, the expected share of his absent lead's work is part of
+    the simulation's side, so it is not counted twice."""
+    out = np.zeros(len(players))
+    for j, p in enumerate(players):
+        week = _if_plays(p)
+        if week is None:
+            continue
+        expect = float(base[j])
+        if j in heir_of:
+            lead = heir_of[j]
+            expect += (_chance_out(players[lead]) * take.get(p.position, 0.0)
+                       * max(float(base[lead]) - float(base[j]), 0.0))
+        out[j] = week - expect
+    return out
+
+
 def simulate(
     players: list[PlayerRow],
     weeks: list[int],
@@ -130,7 +168,11 @@ def simulate(
     lead loses it. The heir's ``inherited_ros`` -- the absence already priced
     into his season value -- is taken back out, since it is played out here.
     ``current`` is the index of the week in progress, whose final scores
-    are facts (earlier weeks are ones the platform has not counted yet).
+    are facts (earlier weeks are ones the platform has not counted yet). That
+    week plays at each player's projection *for it* -- his matchup, the
+    platform's and the betting market's numbers, a starter ahead of him out
+    -- rather than his season level: a back starting this week because the
+    lead is out is worth his start this week, not his season average.
     """
     conf = _params()
     rng = np.random.default_rng(seed)
@@ -166,6 +208,7 @@ def simulate(
         if players else np.zeros((n_sims, 0), int)
     share = np.zeros((n_sims, n_p))          # the heir's share of this absence
     was_out = np.zeros((n_sims, n_p), bool)
+    week_delta = _this_week(players, base, heir_of, take)
 
     sd0 = np.array([float(p.outcome_sd if p.outcome_sd is not None else (p.projection_sd or 6.0)) for p in players])
     # Young players' outlooks move more: a rookie's projection drifts 23%
@@ -211,6 +254,10 @@ def simulate(
             eff_vis[:, h] = np.where(lead_out, visible[:, h] + share[:, h]
                                      * np.maximum(visible[:, lead] - visible[:, h], 0.0), visible[:, h])
         was_out = out_now
+        if k == current:
+            # The week in progress at this week's projection, not the season's.
+            eff = np.maximum(eff + week_delta[None, :], 0.0)
+            eff_vis = np.maximum(eff_vis + week_delta[None, :], 0.0)
         levels[:, :, k] = np.where(playing, eff_vis, 0.0)
         finals = [j for j, p in enumerate(players) if k == current and p.actual_points is not None]
         for j, p in enumerate(players):

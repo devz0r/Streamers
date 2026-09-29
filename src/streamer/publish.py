@@ -770,6 +770,7 @@ def team_panels_for(
                     engine.market = {pid: s.value for pid, s in (seen or {}).items()}
                     report.season = engine.model.odds()
                     report.title_moves = engine.moves(5)
+                    report.passed = engine.passed
                     report.waiver_rank = engine.rank
                     report.stakes = engine.model.stakes(snap.my_team.team_id)
                 except Exception as exc:  # noqa: BLE001 - odds are a bonus section

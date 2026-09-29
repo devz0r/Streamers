@@ -111,3 +111,18 @@ def test_a_clear_best_drop_is_not_offered_as_a_toss_up():
     a, b = _fa("a", "WR", 5.0), _fa("b", "WR", 5.0)
     assert [q.player_id for q, _p in toss_ups([(a, base), (b, better)])] == ["b"]
     assert drop_choice(b, toss_ups([(a, base), (b, better)])) == "b"
+
+
+def test_upside_plays_that_fall_short_are_listed_with_their_value(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    lead = snap.teams[1].roster[1]
+    lead.team, lead.role, lead.ros_value = "SEA", "RB1", 18.0
+    cuff = _fa("cuff", "RB", 3.0)
+    cuff.role = "RB2"
+    snap.free_agents = [_fa("star", "RB", 24.0), _fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0),
+                        _fa("rep3", "RB", 5.5), _fa("rep4", "WR", 5.5), cuff]
+    engine = TitleEngine(snap, cfg, n_sims=1500, candidates=8)
+    shown = {m.add.player_id for m in engine.moves(1)}
+    passed = {p.player_id: (gain, why) for p, gain, why in engine.passed}
+    assert "cuff" in engine.upside and "cuff" not in shown and "cuff" in passed
+    assert "behind" in passed["cuff"][1]
