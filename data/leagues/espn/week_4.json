@@ -15832,7 +15832,7 @@
       "name": "Jam Miller",
       "position": "RB",
       "team": null,
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -19528,7 +19528,7 @@
       "name": "Terrell Jennings",
       "position": "RB",
       "team": null,
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -40602,7 +40602,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-29T21:57:29.422450+00:00",
+  "synced_at": "2026-09-29T22:13:23.253919+00:00",
   "extra": {
     "nfl_week": 4,
     "current_week": 4
