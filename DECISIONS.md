@@ -1178,6 +1178,34 @@ Pricing the extra candidates is kept affordable: the priority cost is
 computed once rather than per candidate, and each candidate is priced
 against his four likeliest drops rather than six.
 
+### Rivals on the wire
+Standing pat used to mean the free agent stays on the wire all season. In
+a real league, when he breaks out somebody claims him. Now, in each
+simulated season, each rival claims a breakout at the league's activity
+rate (the same assumption as before); among the rivals who claim, the best
+waiver priority wins, and that team gets him from the following week in
+place of its weakest player. The draws are per player, so the same rival
+does not land every breakout in a season.
+
+That changes three things. **Standing pat** includes a rival landing him.
+**Waiting** gets him only when your priority beats every rival who also
+claims; otherwise that rival has him. **Adding now** also denies him to
+everyone. A pure block -- a player who barely helps you but would help
+the team you are chasing -- is priced the same way.
+
+Measured on both leagues at week 4, it matters less than expected: a rival
+landing one of the top breakout candidates moved your title odds by -0.15
+to +0.23 points -- inside the noise, and sometimes negative, since the
+rival who lands him can beat a team you are chasing. With 10-14 teams, one
+player moves one rival a little. Blocking is priced into every move and
+named on a card only when it is worth at least 0.3 points; it should
+surface late in a tight race, against the team just above you.
+
+To keep the extra pricing affordable, the lineup simulation now keeps
+players on the last axis of its arrays (the per-slot best-player search
+runs about a third faster), and candidates too far short on their own
+merits for blocking to rescue them are not priced for it.
+
 ### A mid-week move cannot reach back into played games
 Between Sunday and the Tuesday turnover, the simulator's first week is the
 one in progress, with finished scores fixed. Pricing a pickup by putting

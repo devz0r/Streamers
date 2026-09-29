@@ -41,6 +41,13 @@ SKILL = ("QB", "RB", "WR", "TE")
 BREAKOUT_MARGIN = 2.0
 #: Title-odds gains below this (in probability) are not worth a transaction.
 MIN_GAIN = 0.002
+#: The most a rival landing one breakout has been seen to cost (0.1 points
+#: of title odds in the ESPN league at week 4), with room to spare: a move
+#: further short than this on its own merits is not priced for blocking.
+BLOCK_ALLOWANCE = 0.003
+#: Blocking is named on a card only when it is worth at least this much:
+#: smaller values sit inside the simulation's noise.
+BLOCK_NOTE = 0.003
 #: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
 UPSIDE_EACH = 3
 
@@ -57,6 +64,17 @@ class TitleMove:
     reasons: list[str] = field(default_factory=list)
     #: Simulation noise on the claim-now edge (paired standard error).
     noise: float = 0.0
+    #: P(title) if he stayed on the wire all season (nobody claims him) --
+    #: ``p_base`` is standing pat with rivals free to claim his breakout.
+    p_free: float = 0.0
+    #: Share of seasons a rival lands him if you pass, and who most often.
+    rival_share: float = 0.0
+    rival_name: str = ""
+
+    @property
+    def block_value(self) -> float:
+        """Title odds you lose when a rival, not the wire, keeps him."""
+        return self.p_free - self.p_base
 
     @property
     def gain_now(self) -> float:
@@ -152,6 +170,13 @@ class TitleEngine:
         # One set of claim-success draws for every candidate: common random
         # numbers, so candidates differ by who they are, not by luck.
         self.u = np.random.default_rng(seed + 1).random(n_sims)
+        # Waiver order for every team (1 = first claim); unknown ranks go last.
+        self.ranks = np.array([int(t.waiver_rank) if t.waiver_rank else self.n_teams
+                               for t in snapshot.teams], float)
+        self.ranks[self.mine] = self.rank
+        self._seed = seed
+        self._claimant_cache: dict[str, np.ndarray] = {}
+        self._stand_pat_cache: dict[tuple[str, str], np.ndarray] = {}
 
     @staticmethod
     def _upside_candidates(snapshot: LeagueSnapshot, pool: list[PlayerRow]) -> dict[str, str]:
@@ -179,11 +204,59 @@ class TitleEngine:
     def _title(self, roster_ids: list[str], **kw) -> float:
         return float(self._won(roster_ids, **kw).mean())
 
-    def _won(self, roster_ids: list[str], **kw) -> np.ndarray:
-        """Per simulated season: 1 if you win the title with this roster."""
+    def _won(self, roster_ids: list[str], rivals: dict[str, np.ndarray] | None = None, **kw) -> np.ndarray:
+        """Per simulated season: 1 if you win the title with this roster
+        (and ``rivals`` -- other teams' scores after they land a player)."""
         scores = self.model.team_scores(roster_ids, owner=self.me.team_id, **kw)
-        champ = self.model.odds(override={self.me.team_id: scores}).champion
+        champ = self.model.odds(override={**(rivals or {}), self.me.team_id: scores}).champion
         return (champ == self.mine).astype(float)
+
+    # -- rivals on the wire ---------------------------------------------
+    def _claimant(self, add: PlayerRow) -> np.ndarray:
+        """Per simulation: the rival (team index) whose claim would win him on
+        a breakout if you do not claim, or -1 when no rival claims. Each rival
+        claims at the league's activity rate; among claimants the best waiver
+        priority wins. Drawn per player (seeded by who he is), so the same
+        rival does not land every breakout in a season."""
+        if add.player_id in self._claimant_cache:
+            return self._claimant_cache[add.player_id]
+        idx = self.model.pid.get(add.player_id, 0)
+        rng = np.random.default_rng(self._seed * 1000 + 7 + idx)
+        claims = rng.random((self.model.n, self.n_teams)) < self.activity
+        claims[:, self.mine] = False
+        masked = np.where(claims, self.ranks[None, :], np.inf)
+        who = np.where(claims.any(axis=1), masked.argmin(axis=1), -1)
+        self._claimant_cache[add.player_id] = who
+        return who
+
+    def _rival_scores(self, add: PlayerRow, joins_at: np.ndarray, gets: np.ndarray,
+                      claimant: np.ndarray) -> dict[str, np.ndarray]:
+        """Weekly scores of every rival who lands him (in the seasons ``gets``),
+        from the week after his breakout, in place of his weakest player."""
+        out = {}
+        for t_idx in np.unique(claimant[gets & (claimant >= 0)]):
+            team = self.snapshot.teams[int(t_idx)]
+            joins = np.where(gets & (claimant == t_idx), joins_at, 10_000)
+            ids = [p.player_id for p in team.roster] + [add.player_id]
+            worst = sorted((p for p in team.roster if not p.in_ir_slot and p.position in SKILL),
+                           key=lambda p: float(p.ros_value or 0.0))
+            gone = {worst[0].player_id: joins} if worst else {}
+            out[team.team_id] = self.model.team_scores(ids, available_from={add.player_id: joins},
+                                                       gone_from=gone, owner=team.team_id)
+        return out
+
+    def stand_pat(self, add: PlayerRow, drop: PlayerRow) -> np.ndarray:
+        """Per season: you win the title if you pass on him, and a rival
+        claims him when he breaks out."""
+        key = (add.player_id, drop.player_id)
+        if key not in self._stand_pat_cache:
+            k = self._breakout_week(add, drop)
+            breaks = k <= len(self.model.weeks)
+            claimant = self._claimant(add)
+            rivals = self._rival_scores(add, k + 1, breaks, claimant)
+            champ = self.model.odds(override=rivals).champion if rivals else self.model.odds().champion
+            self._stand_pat_cache[key] = (champ == self.mine).astype(float)
+        return self._stand_pat_cache[key]
 
     def _breakout_week(self, add: PlayerRow, drop: PlayerRow) -> np.ndarray:
         """First week index (>= 1) each simulation shows him breaking out, or
@@ -199,13 +272,18 @@ class TitleEngine:
         return k
 
     def value_wait(self, add: PlayerRow, drop: PlayerRow, rank: int, per_sim: bool = False):
-        """P(title) if you hold, and claim him the week after he breaks out."""
+        """P(title) if you hold, and claim him the week after he breaks out.
+        You get him when no rival who also claims holds a better priority;
+        otherwise that rival does."""
         roster = [p.player_id for p in self.me.roster]
         k = self._breakout_week(add, drop)
-        p_win = p_win_claim(rank, self.n_teams, self.activity)
-        got = self.u < p_win
+        breaks = k <= len(self.model.weeks)
+        claimant = self._claimant(add)
+        rival_rank = np.where(claimant >= 0, self.ranks[np.maximum(claimant, 0)], np.inf)
+        got = breaks & (rank < rival_rank)
         joins = np.where(got, k + 1, 10_000)
-        won = self._won(roster + [add.player_id], available_from={add.player_id: joins},
+        rivals = self._rival_scores(add, k + 1, breaks & ~got, claimant)
+        won = self._won(roster + [add.player_id], rivals=rivals, available_from={add.player_id: joins},
                         gone_from={drop.player_id: joins})
         return won if per_sim else float(won.mean())
 
@@ -249,11 +327,24 @@ class TitleEngine:
                     continue
                 best = TitleMove(add=x, drop=y, p_now=p_now, p_wait=0.0, p_base=self.base,
                                  priority_cost=0.0, verdict="skip")
-            if best is None or best.gain_now < MIN_GAIN:
+            if best is None or best.p_now - self.base < MIN_GAIN - BLOCK_ALLOWANCE:
+                continue                  # too far short for blocking to rescue
+            # Standing pat is not "he stays on the wire": if he breaks out, a
+            # rival claims him. What that costs you is part of adding him now.
+            pat = self.stand_pat(x, best.drop)
+            best.p_free, best.p_base = self.base, float(pat.mean())
+            if best.gain_now < MIN_GAIN:
                 continue
+            claimant = self._claimant(x)
+            breaks = self._breakout_week(x, best.drop) <= len(self.model.weeks)
+            lands = breaks & (claimant >= 0)
+            best.rival_share = float(lands.mean())
+            if lands.any():
+                top = np.bincount(claimant[lands], minlength=self.n_teams).argmax()
+                best.rival_name = self.snapshot.teams[int(top)].name
             now = self.value_now(x, best.drop, per_sim=True)
             wait = self.value_wait(x, best.drop, self.rank, per_sim=True)
-            ref = wait if wait.mean() >= self.base else self.base_won
+            ref = wait if wait.mean() >= pat.mean() else pat
             best.p_wait = float(wait.mean())
             best.noise = float((now - ref).std() / np.sqrt(len(now)))
             best.priority_cost = self.priority_cost(x.player_id)
@@ -277,6 +368,9 @@ class TitleEngine:
             bits.append(f"your #{self.rank} priority is worth {m.priority_cost * 100:.1f} on future claims")
         if m.verdict == "lean":
             bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f})")
+        if m.block_value >= BLOCK_NOTE and m.rival_name:
+            bits.append(f"if you pass, a rival lands him in {m.rival_share:.0%} of seasons (most often "
+                        f"{m.rival_name}), which costs you {m.block_value * 100:.1f} of that")
         if m.add.player_id in self.upside:
             bits.append(f"upside play: {self.upside[m.add.player_id]}")
         bits.extend(m.add.signals)

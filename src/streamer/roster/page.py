@@ -194,7 +194,8 @@ def _title_moves(report: MatchupReport) -> str:
             '<p class="sub">Each pickup is priced in P(win the title) on the same simulated seasons: '
             "claiming now, against waiting and claiming only if he breaks out (you win that claim when "
             "your priority beats the other managers who also want him), less what your waiver priority "
-            "is worth on future claims. Each move is priced on its own; make one, then refresh. "
+            "is worth on future claims. Passing is not free: if he breaks out, a rival claims him, and "
+            "what that does to your title odds is counted. Each move is priced on its own; make one, then refresh. "
             "Assumes about a third of active managers chase any one breakout.</p>")
     if not moves:
         return head + '<p class="sub">No free agent raises your title odds enough to be worth a move.</p>'

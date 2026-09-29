@@ -58,3 +58,24 @@ def test_upside_plays_are_priced_even_when_their_average_is_low(cfg):
     ids = {p.player_id for p in engine.candidates}
     assert {"cuff", "rook"} <= ids
     assert "behind" in engine.upside["cuff"] and "rookie" in engine.upside["rook"]
+
+
+def test_passing_on_a_breakout_lets_a_rival_have_him(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    riser = _fa("riser", "RB", 11.0)
+    riser.ros_sd = 3.0
+    snap.free_agents = [riser, _fa("rep1", "RB", 5.0), _fa("rep2", "WR", 5.0),
+                        _fa("rep3", "RB", 4.5), _fa("rep4", "WR", 4.5)]
+    for i, t in enumerate(snap.teams):
+        t.acquisitions, t.waiver_rank = 6, i + 1
+    engine = TitleEngine(snap, cfg, n_sims=3000, candidates=8)
+    drop = sorted(engine.me.roster, key=lambda p: p.ros_value)[0]
+    pat = engine.stand_pat(riser, drop)
+    claimant = engine._claimant(riser)
+    assert (claimant >= 0).any() and not (claimant == engine.mine).any()
+    # A rival landing him can only hurt you (same seasons otherwise).
+    assert pat.mean() <= engine.base + 0.004
+    moves = {m.add.player_id: m for m in engine.moves(5)}
+    if "riser" in moves:
+        m = moves["riser"]
+        assert m.p_free == engine.base and m.rival_share > 0 and m.rival_name

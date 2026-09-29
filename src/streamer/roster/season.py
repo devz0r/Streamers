@@ -202,6 +202,8 @@ class SeasonModel:
         everyone = snapshot.all_players()
         self.futures = fut.simulate(self.players, self.weeks, byes, n_sims=n_sims, seed=seed,
                                     heirs=heirs_for(everyone), current=self.lag)
+        self._lv_t = np.ascontiguousarray(self.futures.levels.transpose(0, 2, 1), dtype=np.float32)
+        self._sc_t = np.ascontiguousarray(self.futures.scores.transpose(0, 2, 1), dtype=np.float32)
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),
                       key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]))]
         # Replacement level: what any team can pick up off the wire in a
@@ -230,8 +232,10 @@ class SeasonModel:
         if not ids:
             return np.zeros((self.n, len(self.weeks)))
         cols = [self.pid[i] for i in ids]
-        lv = self.futures.levels[:, cols, :].copy()
-        sc = self.futures.scores[:, cols, :]
+        # (sims, weeks, players): players on the last, contiguous axis, where
+        # the per-slot argmax runs -- several times faster than the middle.
+        lv = self._lv_t[:, :, cols]
+        sc = self._sc_t[:, :, cols]
         k_idx = np.arange(len(self.weeks))[None, :]
         for table, joins in ((available_from, True), (gone_from, False)):
             for pid, when in (table or {}).items():
@@ -241,10 +245,11 @@ class SeasonModel:
                 when = np.asarray(when)
                 w = when[:, None] if when.ndim else when
                 on_roster = (k_idx >= w) if joins else (k_idx < w)
-                lv[:, j, :] = np.where(on_roster, lv[:, j, :], -1.0)
+                lv[:, :, j] = np.where(on_roster, lv[:, :, j], -1.0)
         players = [self.players[c] for c in cols]
         used = np.zeros(lv.shape, bool)
         total = np.zeros((self.n, len(self.weeks)))
+        slot_ix = np.arange(len(players))[None, None, :]
         for slot, count in self.slots:
             elig = np.array([_eligible(p, slot) for p in players])
             rep = self.slot_replacement(slot)
@@ -253,14 +258,14 @@ class SeasonModel:
                 if not elig.any():
                     total += rep_score
                     continue
-                masked = np.where(elig[None, :, None] & ~used, lv, -2.0)
-                pick = masked.argmax(axis=1)                                  # (n, k)
-                best = np.take_along_axis(masked, pick[:, None, :], axis=1)[:, 0, :]
-                ok = best >= max(rep, 0.0) + 1e-9                             # beats the wire
+                masked = np.where(elig[None, None, :] & ~used, lv, np.float32(-2.0))
+                pick = masked.argmax(axis=2)                                  # (n, k)
+                best = np.take_along_axis(masked, pick[:, :, None], axis=2)[:, :, 0]
+                ok = best >= max(rep, 0.0) + 1e-6                             # beats the wire
                 ok &= best > -0.5
-                gained = np.take_along_axis(sc, pick[:, None, :], axis=1)[:, 0, :]
+                gained = np.take_along_axis(sc, pick[:, :, None], axis=2)[:, :, 0]
                 total += np.where(ok, gained, rep_score)
-                used |= (np.arange(len(players))[None, :, None] == pick[:, None, :]) & ok[:, None, :]
+                used |= (slot_ix == pick[:, :, None]) & ok[:, :, None]
         return total
 
     def _this_week_is_settled(self, owner: str, roster_ids: list[str], available_from: dict,
