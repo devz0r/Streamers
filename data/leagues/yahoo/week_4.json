@@ -515,7 +515,7 @@
             "K"
           ],
           "on_bye": false,
-          "platform_projection": 7.23,
+          "platform_projection": 7.25,
           "season_avg": null,
           "percent_owned": 26.0,
           "projection": null,
@@ -1995,7 +1995,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 15.37,
+          "platform_projection": 15.35,
           "season_avg": null,
           "percent_owned": 98.0,
           "projection": null,
@@ -2106,7 +2106,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 9.56,
+          "platform_projection": 9.54,
           "season_avg": null,
           "percent_owned": 72.0,
           "projection": null,
@@ -3916,7 +3916,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 9.16,
+          "platform_projection": 9.18,
           "season_avg": null,
           "percent_owned": 83.0,
           "projection": null,
@@ -4173,7 +4173,7 @@
             "K"
           ],
           "on_bye": false,
-          "platform_projection": 8.2,
+          "platform_projection": 8.18,
           "season_avg": null,
           "percent_owned": 24.0,
           "projection": null,
@@ -4200,7 +4200,7 @@
         },
         {
           "player_id": "100024",
-          "name": "Los Angeles",
+          "name": "Chargers",
           "position": "DST",
           "team": "LAC",
           "status": "",
@@ -5010,7 +5010,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 12.36,
+          "platform_projection": 12.35,
           "season_avg": null,
           "percent_owned": 85.0,
           "projection": null,
@@ -5305,7 +5305,7 @@
             "QB"
           ],
           "on_bye": false,
-          "platform_projection": 20.66,
+          "platform_projection": 20.62,
           "season_avg": null,
           "percent_owned": 73.0,
           "projection": null,
@@ -5368,7 +5368,7 @@
         },
         {
           "player_id": "100026",
-          "name": "Seahawks",
+          "name": "Seattle",
           "position": "DST",
           "team": "SEA",
           "status": "",
@@ -5897,7 +5897,7 @@
         },
         {
           "player_id": "100007",
-          "name": "Broncos",
+          "name": "Denver",
           "position": "DST",
           "team": "DEN",
           "status": "",
@@ -6463,7 +6463,7 @@
         },
         {
           "player_id": "100009",
-          "name": "Green Bay",
+          "name": "Packers",
           "position": "DST",
           "team": "GB",
           "status": "",
@@ -6472,7 +6472,7 @@
             "DST"
           ],
           "on_bye": false,
-          "platform_projection": 7.52,
+          "platform_projection": 7.5,
           "season_avg": null,
           "percent_owned": 32.0,
           "projection": null,
@@ -7914,7 +7914,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 8.18,
+          "platform_projection": 8.2,
           "season_avg": null,
           "percent_owned": 64.0,
           "projection": null,
@@ -11564,7 +11564,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-09-29T10:25:10.717973+00:00",
+  "synced_at": "2026-09-29T10:30:28.589782+00:00",
   "extra": {
     "source": "yahoo-web"
   },
