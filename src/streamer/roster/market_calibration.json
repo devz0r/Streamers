@@ -1,0 +1,41 @@
+{
+  "cells": [
+    {
+      "position": "QB",
+      "sign": "down",
+      "weeks": [
+        3,
+        6
+      ],
+      "k": 0.38,
+      "note": "a drop in a QB's projection this early: players like this kept about 38% of it (2022-2025, weeks 3-6)",
+      "evidence": {
+        "cases": 64,
+        "miss_ours": 3.1,
+        "miss_calibrated": 2.85
+      }
+    },
+    {
+      "position": "WR",
+      "sign": "up",
+      "weeks": [
+        3,
+        6
+      ],
+      "k": 0.24,
+      "note": "a receiver's early target surge: players like this kept about 24% of it (2022-2025, weeks 3-6)",
+      "evidence": {
+        "cases": 95,
+        "miss_ours": 2.75,
+        "miss_calibrated": 2.57
+      }
+    }
+  ],
+  "fitted": {
+    "seasons": [
+      2022,
+      2025
+    ],
+    "player_weeks": 8158
+  }
+}

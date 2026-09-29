@@ -1178,6 +1178,39 @@ Pricing the extra candidates is kept affordable: the priority cost is
 computed once rather than per candidate, and each candidate is priced
 against his four likeliest drops rather than six.
 
+### Where our season values defer to the market
+A trade the hub ranked first (Drake London for Cam Skattebo and Michael
+Wilson, +2.5 points of title odds) rested on our model valuing Wilson at
+16.1 a game against about 12.6 in the market, after one 17-target game;
+FantasyPros called it a big loss. Rather than trust either, the question
+was put to history: 2022-2025, weeks 3-13, 8,158 player-weeks of players
+with a name (4+ games last season), comparing our projection and the
+name-value view (reputation and season so far in the measured 46:13
+proportions) with what each player actually scored per game the rest of
+the season.
+
+Our projection won overall (average miss 3.01 against 3.15) and won big on
+big disagreements (3.9 against 5.8 at 3.5+ points apart): blanket
+shrinking toward the market made it worse out of sample. Two cells were
+different, out of sample as well as in (fitted on three seasons, tested on
+the fourth, each in turn):
+
+| Case | Cases | Our miss | Calibrated | Kept of our gap |
+|---|---|---|---|---|
+| Receiver we mark up, weeks 3-6 | 95 | 2.75 | 2.57 | 24% |
+| Quarterback we mark down, weeks 3-6 | 64 | 3.10 | 2.85 | 38% |
+
+Both are early-season overreactions to a few games, which is what a
+2.5-game opportunity half-life risks. In those cells only, the season value
+becomes market + k x (ours - market), with a note on the player; the
+weekly projection (lineups) is untouched. A receiver we mark *down* -- the
+London case -- stands: in 22 such cases the player scored 15.3 a game
+against our 14.9 and the market's 17.4.
+
+Wilson's season value became 13.4 and the trade +1.3. Cells are refit by
+`scripts/fit_market_calibration.py`, which keeps one only if it beats our
+projection by 3%+ on held-out seasons, with 60+ cases, and shrinks (k < 1).
+
 ### The championship hub
 The panel had grown a section per idea. The hub, at the top, puts every
 move on one list in one unit -- points of title odds -- best first:

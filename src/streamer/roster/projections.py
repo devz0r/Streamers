@@ -45,7 +45,7 @@ from ..data.nflverse import (
 )
 from ..data.odds import get_lines, lines_to_team_rows
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, LeagueSnapshot, PlayerRow
-from . import outcome
+from . import market_calibration, outcome
 from .players import build_index, match_players
 
 log = logging.getLogger(__name__)
@@ -615,6 +615,11 @@ def project_snapshot(
     }
     heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg)
     usage = recent_usage(history, snapshot.season, snapshot.week)
+    # Where our season value has been measured to overreact, defer toward
+    # the market (see market_calibration: two early-season cells).
+    market_conf = market_calibration.load()
+    market_lines = market_calibration.season_lines(history, int(snapshot.season), int(snapshot.week)) \
+        if market_conf.get("cells") else {}
 
     for p in players:
         mean: float | None = None
@@ -650,6 +655,13 @@ def project_snapshot(
                 if first is not None and np.isfinite(first) and int(first) > first_known:
                     p.experience = int(snapshot.season) - int(first)
                 ros = (vol + extra_ros) * eff + outcome.youth_drift(p.experience)
+                adj = market_calibration.calibrate(p.position, int(snapshot.week), ros, nfl_id,
+                                                   int(snapshot.season), market_lines, market_conf) \
+                    if market_lines else None
+                if adj is not None:
+                    if abs(adj.value - ros) >= 0.3:
+                        p.signals.append(f"season value tempered from {ros:.1f} to {adj.value:.1f}: {adj.note}")
+                    ros = adj.value
                 s = scale.get(p.team, 1.0) if p.team else 1.0
                 mean = (vol + extra_week) * eff * (s ** damping)
                 source = "model"
