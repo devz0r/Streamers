@@ -54,6 +54,8 @@ BLOCK_NOTE = 0.003
 DROP_TIE = 0.002
 #: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
 UPSIDE_EACH = 3
+#: Backups starting now because the man ahead of them is out, per position.
+STEPPING_EACH = 2
 
 
 @dataclass
@@ -197,9 +199,24 @@ class TitleEngine:
         only the seasons where something breaks right end in a title."""
         out: dict[str, str] = {}
         ids = {p.player_id for p in pool}
+        # The biggest waiver stories: a backup starting now because the man
+        # ahead of him is out. His season value is low -- it assumes the lead
+        # comes back -- so a ranking by it never reaches him; the season
+        # simulation prices how long the job lasts and whether he keeps it.
+        stepping = []
+        for q in pool:
+            why = next((sig for sig in q.signals if sig.startswith("next man up: ")), "")
+            if why:
+                stepping.append((q, why.removeprefix("next man up: ").split(" (")[0]))
+        stepping.sort(key=lambda t: -float(t[0].projection or 0.0))
+        per_pos: dict[str, int] = {}
+        for q, why in stepping:                      # a few at each position: QBs project highest
+            if per_pos.get(q.position, 0) < STEPPING_EACH:
+                per_pos[q.position] = per_pos.get(q.position, 0) + 1
+                out[q.player_id] = f"stepping in: {why}"
         cuffs = sorted(((pid, lead, gain) for pid, (lead, gain) in handcuffs(snapshot).items() if pid in ids),
                        key=lambda t: -t[2])
-        for pid, lead, _gain in cuffs[:UPSIDE_EACH]:
+        for pid, lead, _gain in [c for c in cuffs if c[0] not in out][:UPSIDE_EACH]:
             out[pid] = f"next in line behind {lead.name}"
         by_value = sorted(pool, key=lambda p: -float(p.ros_value or 0.0))
         for p in [q for q in by_value if q.experience == 0 and q.player_id not in out][:UPSIDE_EACH]:

@@ -387,12 +387,23 @@ roster:
   recent_efficiency_prior_points: 60.0
   recent_efficiency_weight: 0.25
   # When a regular is ruled out, the teammate at his position with the most
-  # opportunity inherits this share of the gap between them (least squares
-  # on 2021-23 absences, tested on 2024-25). Receivers: none measurable.
+  # opportunity inherits this share of the gap between them: the average
+  # (squared-error best) over first games of 2021-2025 absences, stable in
+  # every held-out season. The earlier 0.35/0.30/0.10 left backups ~2 points
+  # a game under-projected. Receivers: none measurable.
   next_man_up:
-    RB: 0.35
-    QB: 0.30
-    TE: 0.10
+    RB: 0.55
+    QB: 0.60
+    TE: 0.35
+  # How much that share varies from one absence to the next, beyond game-to-
+  # game noise (a bell-cow takeover, or someone else getting the work), and
+  # the part of his takeover the next man up keeps once the lead is back
+  # (the lead loses the same). Both measured on the same absences.
+  next_man_up_spread:
+    RB: 0.80
+    QB: 0.50
+    TE: 0.45
+  next_man_up_kept: 0.26
   # A player whose last game is more than this many weeks back is only
   # projected if the platform projects him (a return from injury); otherwise
   # he is treated as inactive. History windows count games, not time, so

@@ -81,7 +81,45 @@ def attach(snapshot: LeagueSnapshot, cfg: Config) -> int:
             p.fp_projection, hit = float(r.points), True
         matched += hit
     log.info("FantasyPros consensus matched %d players", matched)
+    if "ros" in idx:
+        log.info("out for the season by the consensus: %d players", season_over(snapshot))
     return matched
+
+
+def season_over(snapshot: LeagueSnapshot) -> int:
+    """Injured players the rest-of-season consensus no longer ranks: out for
+    the season, whatever the platform's tag says.
+
+    ESPN and Yahoo tag a torn ACL and a four-week hamstring alike (IR), and
+    the model gave both his full value back after a few games -- De'Von
+    Achane, done for the season, still carried 13.7 a game. Expert rankings
+    drop a player who will not play again this season and keep one who will
+    be back. Only players on a long-term tag whose value would put him in
+    the top half of the players the consensus ranks at his position are
+    judged, and only when the consensus is seen ranking some such injured
+    players at all (so a feed that leaves out every injured player cannot
+    zero them all). Returns how many were marked."""
+    judged = []
+    for pos in SKILL:
+        ranked = [p for p in snapshot.all_players() if p.position == pos and p.ecr_ros_pos_rank]
+        if len(ranked) < 8:
+            continue
+        bar = float(np.median([float(p.ros_value or 0.0) for p in ranked]))
+        judged += [p for p in snapshot.all_players() if p.position == pos and p.is_long_term_out
+                   and p.team and float(p.ros_value or 0.0) >= bar]
+    kept_ranked = [p for p in judged if p.ecr_ros_pos_rank]
+    if not judged or len(kept_ranked) < max(2, 0.25 * len(judged)):
+        return 0
+    marked = 0
+    for p in judged:
+        if p.ecr_ros_pos_rank:
+            continue
+        p.signals.append(f"out for the season by the FantasyPros rest-of-season consensus, which does not "
+                         f"rank him: no value this season, whatever the {p.status.lower()} tag says "
+                         f"(was {float(p.ros_value or 0.0):.1f} a game)")
+        p.ros_value, p.inherited_ros = 0.0, 0.0
+        marked += 1
+    return marked
 
 
 def our_ranks(snapshot: LeagueSnapshot) -> dict[str, int]:

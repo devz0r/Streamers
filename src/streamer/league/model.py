@@ -87,6 +87,10 @@ class PlayerRow:
     projection_source: str = ""
     #: A rest-of-season value proxy (per-game), for waiver decisions.
     ros_value: float | None = None
+    #: The part of ``ros_value`` inherited from an absent teammate's work.
+    #: The season simulation takes it back out when it plays that absence
+    #: out itself, week by week.
+    inherited_ros: float = 0.0
     #: This week's projection from our model alone, before any platform
     #: projection is blended in. Waivers fall back to it when the free agents
     #: carry no platform number, so both sides of a move are priced alike.

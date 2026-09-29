@@ -1258,6 +1258,59 @@ switch to show them, so it cannot happen by accident. The probe
 (`streamer fantasypros-probe`, or the workflow's `fantasypros-probe` job)
 prints status, field names and counts, never values or the key.
 
+### The next man up, speculated on
+Waiver pickups are bets on a change in opportunity. Braelon Allen was #1 on
+RotoBaller's and FantasyPros' lists the week Breece Hall hurt his quad
+(week-to-week, maybe a game or two, maybe more). The tool did not rank him at
+all, and the comparison turned up three problems.
+
+1. **He was never priced.** The title engine considered the best free
+   agents by season value, plus handcuffs behind healthy starters. A backup
+   starting now because the lead is out fits neither: his season value
+   assumes the lead comes back. Free agents stepping in for an absent lead
+   are now always priced (two per position; the reason reads "stepping in:
+   Breece Hall is not expected to play").
+2. **Backups take more of the job than the model gave them.** From every
+   2021-2025 absence of a lead (the team plays, he does not), the share of
+   the gap in opportunity that best predicts the next man up's first game,
+   each season held out in turn: RB 0.55, QB 0.60, TE 0.35 (it had been
+   0.35, 0.30, 0.10). Every held-out season picked about the same share, and
+   the old values had left these players about 2 points a game
+   under-projected (RB bias +2.1 -> +0.4, QB +2.2 -> +0.2, TE +2.0 -> +0.2).
+3. **How much of the job he gets is itself a gamble, and it can stick.**
+   The share varies a lot from one absence to the next, beyond game-to-game
+   noise (spread 0.8 at RB): sometimes he becomes the bell cow, sometimes a
+   third back gets the work. When the lead returns, the backup kept about a
+   quarter of what he took over (pooled, 99 returns). Backups who took 80%+
+   of the gap kept half or more of it a third of the time, the Rico
+   Dowdle case. Leads came back at 90% of their volume.
+
+The season simulation now plays this out. The lead's absence is drawn from
+the measured lengths (half last one game, a quarter four or more), so how
+long Hall is out stays uncertain. The backup's share is drawn fresh for each
+absence. When the lead returns, the backup keeps a quarter of his takeover
+and the lead loses it. The part of the backup's season value that came from
+the absence is taken out of his starting level, because the simulation now
+plays the absence out week by week and would otherwise count it twice.
+What it is worth still depends on your lineup. For the ESPN team, Allen at
+about 9.5 a game while Hall is out competes with your flex options, so he
+priced about even. A team with a hole at RB would see it differently.
+
+### A season-ending injury is not a long absence
+De'Von Achane tore his ACL and was a free agent in the ESPN league, still
+worth 13.7 a game to the model: ESPN tags a season-ending injury and a
+four-week one the same way (IR), and the simulation brought him back after a
+few games. Nothing in the platforms' feeds says "season over", but the
+FantasyPros rest-of-season rankings do: experts stop ranking a player who
+will not play again this season and keep ranking one who will be back. So
+an injured player on a long-term tag whose value would put him in the top
+half of the players ranked at his position, and whom the consensus does not
+rank, is now out for the season: no value, with a note. It only applies
+when the consensus is seen ranking some injured players (two or more, a
+quarter of those judged), so a feed that leaves out every injured player
+cannot zero them all. Players on shorter tags keep the simulated absence,
+whose length stays a draw.
+
 ### A new team is a new role
 Zach Ertz was the top waiver add in the ESPN league and on nobody's list.
 The Eagles signed him to their practice squad as a stopgap for Dallas

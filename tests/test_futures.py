@@ -56,3 +56,25 @@ def test_a_rookies_outlook_moves_more_than_a_veterans():
     k = 11
     spread = [f.levels[:, j, k][f.levels[:, j, k] > 0].std() for j in (0, 1)]
     assert spread[0] > spread[1] * 1.03
+
+
+def test_a_takeover_varies_by_absence_and_can_stick():
+    """Hall out now, Allen next up: how much of the job Allen gets is a draw
+    for each absence, and when Hall is back Allen keeps part of it."""
+    import numpy as np
+
+    lead = _p("lead", "RB", 16.0, status="OUT")
+    cuff = _p("cuff", "RB", 6.0)
+    cuff.inherited_ros = 1.0                      # already in his season value: played out here instead
+    f = simulate([lead, cuff], weeks=list(range(4, 14)), byes={}, n_sims=6000, heirs=[("lead", "cuff")],
+                 takeover={"RB": 0.55}, takeover_sd={"RB": 0.8}, kept=0.26)
+    first = f.levels[:, 1, 0][f.levels[:, 1, 0] > 0]
+    # Week one: Hall is out in every future. Allen's level is 5 (6 less the
+    # inherited point) plus a drawn share of the ~11-point gap.
+    assert 9.5 < first.mean() < 12.5
+    assert first.std() > 5.0                                  # bell cow in some futures, a bystander in others
+    assert np.quantile(first, 0.9) > 16.0
+    # Futures where Hall has been back for a while: Allen is above where he started.
+    lead_back = (f.levels[:, 0, 0] == 0) & (f.levels[:, 0, 6:] > 0).all(axis=1)
+    after = f.levels[lead_back, 1, 9]
+    assert after[after > 0].mean() > 5.0 + 0.4

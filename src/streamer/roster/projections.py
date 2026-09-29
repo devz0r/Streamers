@@ -525,12 +525,13 @@ def next_man_up(
 
     When a regular misses a game, the teammate at his position with the most
     opportunity takes over part of the gap between them. Measured on every
-    first game of an absence 2021-2025 (fit 2021-23, tested 2024-25): the
-    next-man-up running back averaged 13.9 points against 10.7 for backs
-    projected the same with no absence, and scored 20+ a quarter of the time.
-    The least-squares takeover share is ~0.35 of the gap for RBs, ~0.3 for
-    QBs, ~0.1 for TEs; receivers spread a missing WR's targets too thinly to
-    help any one of them, so they get none.
+    first game of an absence 2021-2025: the next-man-up running back
+    averaged 13.9 points against 10.7 for backs projected the same with no
+    absence, and scored 20+ a quarter of the time. The share of the gap that
+    predicts his first game best (squared error, each season held out in
+    turn) is ~0.55 for RBs, ~0.6 for QBs, ~0.35 for TEs (``next_man_up`` in
+    the config); receivers spread a missing WR's targets too thinly to help
+    any one of them, so they get none.
     """
     conf = cfg.raw["roster"]
     takeover = {k: float(v) for k, v in (conf.get("next_man_up") or {}).items()}
@@ -729,6 +730,7 @@ def project_snapshot(
         source = ""
         p.signals = []
         p.usage = ""
+        p.inherited_ros = 0.0
         p.experience = None
         platform_says_sits = p.player_id in sits
         plat = p.platform_projection
@@ -765,6 +767,7 @@ def project_snapshot(
                 if first is not None and np.isfinite(first) and int(first) > first_known:
                     p.experience = int(snapshot.season) - int(first)
                 ros = (vol + extra_ros) * eff + outcome.youth_drift(p.experience)
+                p.inherited_ros = round(extra_ros * eff, 2)
                 adj = market_calibration.calibrate(p.position, int(snapshot.week), ros, nfl_id,
                                                    int(snapshot.season), market_lines, market_conf) \
                     if market_lines else None

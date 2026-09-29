@@ -141,3 +141,33 @@ def test_the_consensus_earns_its_share_of_season_values(tmp_cfg):
     history = _season_log(tmp_cfg, 400, consensus_knows=False)
     wrong, _ = consensus.season_weight(tmp_cfg, history)
     assert n == 400 and right > prior > wrong
+
+
+def _ranked_wrs(n=20):
+    return [_wr(f"w{i}", 20.0 - 0.8 * i, i + 1) for i in range(n)]
+
+
+def _ir_snapshot(ranked_ir: bool):
+    wrs = _ranked_wrs()
+    back = _wr("back", 16.0, 4 if ranked_ir else None, status="INJURY_RESERVE")    # back in a month: ranked
+    back2 = _wr("back2", 15.5, 6 if ranked_ir else None, status="INJURY_RESERVE")
+    done = _wr("done", 17.0, None, status="INJURY_RESERVE")                        # torn ACL: unranked
+    deep = _wr("deep", 5.0, None, status="INJURY_RESERVE")                         # too deep to judge
+    mine = TeamRow(team_id="1", name="Mine", is_mine=True, roster=wrs[:5] + [back, back2, done, deep])
+    return LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L", season=2026,
+                          week=4, slots={"WR": 2}, bench_size=6, teams=[mine], free_agents=wrs[5:],
+                          matchup=None, synced_at=""), back, done, deep
+
+
+def test_an_injured_player_the_consensus_stopped_ranking_is_out_for_the_season():
+    snap, back, done, deep = _ir_snapshot(ranked_ir=True)
+    assert consensus.season_over(snap) == 1
+    assert done.ros_value == 0.0 and "out for the season" in done.signals[-1]
+    assert back.ros_value == 16.0 and deep.ros_value == 5.0
+
+
+def test_a_feed_that_ranks_no_injured_player_marks_nobody():
+    snap, back, done, _deep = _ir_snapshot(ranked_ir=False)
+    two = _wr("two", 18.0, None, status="INJURY_RESERVE")
+    snap.teams[0].roster.append(two)
+    assert consensus.season_over(snap) == 0 and done.ros_value == 17.0

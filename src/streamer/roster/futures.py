@@ -15,8 +15,13 @@ Each simulated future of a player is built from what was measured on
 * **Absences** fire at his position-and-level rate (a backup QB 46% a week,
   a 16+ back 6%), scaled for role loss, and last a measured number of games
   (half are one game; a quarter four or more).
-* **The next man up** inherits part of a lead's opportunity while he is out
-  (RB 0.35, QB 0.30, TE 0.10 of the gap).
+* **The next man up** inherits part of a lead's opportunity while he is out:
+  on average RB 0.55, QB 0.60, TE 0.35 of the gap, but drawn afresh for each
+  absence with a wide spread (sd 0.8 at RB) -- some backups become the bell
+  cow, some watch a third man get the work. When the lead comes back the
+  backup keeps a quarter of what he took over, and the lead loses it: a
+  takeover can stick (2021-2025 absences; see DECISIONS.md, "The next man
+  up, speculated on").
 * **Byes** score zero; each week's score follows the measured outcome shape.
 
 Validated before use: from any week of 2024-25, 82% of players' actual next
@@ -42,8 +47,16 @@ SKILL = ("QB", "RB", "WR", "TE")
 #: moves volume on a 2.5-game half-life and anchors to ~17 games).
 LEARN_GAMES = 4.0
 
-#: Share of a missing lead's opportunity gap the next man up inherits.
-TAKEOVER = {"RB": 0.35, "QB": 0.30, "TE": 0.10}
+#: Share of a missing lead's opportunity gap the next man up inherits, on
+#: average (the config's ``roster.next_man_up`` overrides).
+TAKEOVER = {"RB": 0.55, "QB": 0.60, "TE": 0.35}
+#: Spread of that share from one absence to the next, beyond game noise.
+TAKEOVER_SD = {"RB": 0.80, "QB": 0.50, "TE": 0.45}
+#: Bounds on a drawn share: a third man can take some of the backup's own
+#: work, and a backup can out-touch the man he replaced, but not by much.
+SHARE_RANGE = (-0.3, 1.3)
+#: Share of his takeover the next man up keeps once the lead is back.
+KEPT = 0.26
 
 
 @dataclass
@@ -104,11 +117,18 @@ def simulate(
     seed: int = 17,
     heirs: Iterable[tuple[str, str]] = (),
     current: int = 0,
+    takeover: dict[str, float] | None = None,
+    takeover_sd: dict[str, float] | None = None,
+    kept: float | None = None,
 ) -> Futures:
     """Simulate every player's next ``weeks``.
 
     ``heirs`` pairs (lead id, next-man-up id) on the same NFL team: while the
-    lead is out, the heir's level gains the takeover share of the gap.
+    lead is out, the heir's level gains a share of the gap between them,
+    drawn for each absence around ``takeover`` with spread ``takeover_sd``;
+    when the lead is back, the heir keeps ``kept`` of what he took and the
+    lead loses it. The heir's ``inherited_ros`` -- the absence already priced
+    into his season value -- is taken back out, since it is played out here.
     ``current`` is the index of the week in progress, whose final scores
     are facts (earlier weeks are ones the platform has not counted yet).
     """
@@ -120,8 +140,16 @@ def simulate(
     c = float(conf.get("persistent_error", 1.5))
     step_sd = conf.get("step", {})
 
-    base = np.array([max(float(p.ros_value if p.ros_value is not None else (p.projection or 0.0)), 0.0)
-                     for p in players])
+    take = {**TAKEOVER, **(takeover or {})}
+    take_sd = {**TAKEOVER_SD, **(takeover_sd or {})}
+    keep = KEPT if kept is None else float(kept)
+    heir_of = {players.index(next(q for q in players if q.player_id == h)): players.index(
+        next(q for q in players if q.player_id == lead))
+        for lead, h in heirs
+        if any(q.player_id == lead for q in players) and any(q.player_id == h for q in players)}
+    base = np.array([max(float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+                         - (float(p.inherited_ros or 0.0) if j in heir_of else 0.0), 0.0)
+                     for j, p in enumerate(players)])
     # Two parts to a player's level: ``walk`` -- where his projection is and
     # will move to, visible to everyone as it happens -- and ``err``, how
     # wrong today's projection is about him, which nobody sees at first and
@@ -136,10 +164,8 @@ def simulate(
     seen = np.zeros((n_sims, n_p))
     out_left = np.stack([_initial_absence(p, n_sims, rng, conf) for p in players], axis=1) \
         if players else np.zeros((n_sims, 0), int)
-    heir_of = {players.index(next(q for q in players if q.player_id == h)): players.index(
-        next(q for q in players if q.player_id == lead))
-        for lead, h in heirs
-        if any(q.player_id == lead for q in players) and any(q.player_id == h for q in players)}
+    share = np.zeros((n_sims, n_p))          # the heir's share of this absence
+    was_out = np.zeros((n_sims, n_p), bool)
 
     sd0 = np.array([float(p.outcome_sd if p.outcome_sd is not None else (p.projection_sd or 6.0)) for p in players])
     # Young players' outlooks move more: a rookie's projection drifts 23%
@@ -152,6 +178,15 @@ def simulate(
                            for p in players])
     for k, week in enumerate(weeks):
         on_bye = np.array([bool(p.team) and week in byes.get(p.team, set()) for p in players])
+        # A lead back from an absence: the heir keeps part of his takeover,
+        # and the lead has lost it.
+        for h, lead in heir_of.items():
+            back = was_out[:, lead] & (out_left[:, lead] == 0)
+            if back.any():
+                moved = np.where(back, keep * np.maximum(share[:, h], 0.0)
+                                 * np.maximum(walk[:, lead] - walk[:, h], 0.0), 0.0)
+                walk[:, h] += moved
+                walk[:, lead] -= moved
         # New absences (not on bye, not already out).
         level = np.maximum(walk + err, 0.0)
         visible = np.maximum(walk + err * seen / (seen + LEARN_GAMES), 0.0)
@@ -162,14 +197,20 @@ def simulate(
             if fresh.any():
                 out_left[fresh, j] = _durations(p.position, int(fresh.sum()), rng, conf)
         playing = (out_left == 0) & ~on_bye[None, :]
+        out_now = out_left > 0
         eff, eff_vis = level.copy(), visible.copy()
         for h, lead in heir_of.items():
-            share = TAKEOVER.get(players[h].position, 0.0)
-            lead_out = out_left[:, lead] > 0
-            eff[:, h] = np.where(lead_out, level[:, h] + share * np.maximum(level[:, lead] - level[:, h], 0.0),
+            pos = players[h].position
+            start = out_now[:, lead] & ~was_out[:, lead]
+            if start.any():
+                draw = rng.normal(take.get(pos, 0.0), take_sd.get(pos, 0.0), size=int(start.sum()))
+                share[start, h] = np.clip(draw, *SHARE_RANGE)
+            lead_out = out_now[:, lead]
+            eff[:, h] = np.where(lead_out, level[:, h] + share[:, h] * np.maximum(level[:, lead] - level[:, h], 0.0),
                                  level[:, h])
-            eff_vis[:, h] = np.where(lead_out, visible[:, h] + share * np.maximum(visible[:, lead] - visible[:, h], 0.0),
-                                     visible[:, h])
+            eff_vis[:, h] = np.where(lead_out, visible[:, h] + share[:, h]
+                                     * np.maximum(visible[:, lead] - visible[:, h], 0.0), visible[:, h])
+        was_out = out_now
         levels[:, :, k] = np.where(playing, eff_vis, 0.0)
         finals = [j for j, p in enumerate(players) if k == current and p.actual_points is not None]
         for j, p in enumerate(players):

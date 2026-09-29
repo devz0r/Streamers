@@ -366,7 +366,7 @@ def test_backup_inherits_part_of_an_injured_starters_work(cfg):
     hurt = _project_depth(_depth_snapshot(lead_status="INJURY_RESERVE"), cfg)
     gap = healthy["lead"].model_projection - healthy["cuff"].model_projection
     gain = hurt["cuff"].model_projection - healthy["cuff"].model_projection
-    assert 0.25 * gap < gain < 0.45 * gap                 # ~0.35 of the gap
+    assert 0.45 * gap < gain < 0.65 * gap                 # ~0.55 of the gap
     assert hurt["cuff"].ros_value > healthy["cuff"].ros_value   # IR: rest of season too
     assert any("next man up: Lead Back is on IR" in s for s in hurt["cuff"].signals)
     assert not healthy["cuff"].signals or all("next man up" not in s for s in healthy["cuff"].signals)

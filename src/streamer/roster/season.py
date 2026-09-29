@@ -200,8 +200,12 @@ class SeasonModel:
         self.pid = {p.player_id: i for i, p in enumerate(self.players)}
         byes = nfl_byes(snapshot, self.weeks, cfg)
         everyone = snapshot.all_players()
+        roster_conf = cfg.raw.get("roster", {})
         self.futures = fut.simulate(self.players, self.weeks, byes, n_sims=n_sims, seed=seed,
-                                    heirs=heirs_for(everyone), current=self.lag)
+                                    heirs=heirs_for(everyone), current=self.lag,
+                                    takeover=roster_conf.get("next_man_up"),
+                                    takeover_sd=roster_conf.get("next_man_up_spread"),
+                                    kept=roster_conf.get("next_man_up_kept"))
         self._lv_t = np.ascontiguousarray(self.futures.levels.transpose(0, 2, 1), dtype=np.float32)
         self._sc_t = np.ascontiguousarray(self.futures.scores.transpose(0, 2, 1), dtype=np.float32)
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),

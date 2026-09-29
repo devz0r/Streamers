@@ -407,11 +407,12 @@ class Stash:
     reasons: list[str] = field(default_factory=list)
 
 
-def handcuffs(snapshot: LeagueSnapshot) -> dict[str, tuple[PlayerRow, float]]:
+def handcuffs(snapshot: LeagueSnapshot, share: float = 0.55) -> dict[str, tuple[PlayerRow, float]]:
     """Free-agent backs next in line behind a healthy lead back: player id ->
     (the starter, the extra points a game he would inherit if the starter
-    misses time). History: the next man up averaged 13.9 points in the first
-    game of an absence, against 10.7 for backs projected the same."""
+    misses time -- ``share`` of the gap, the config's ``next_man_up`` RB).
+    History: the next man up averaged 13.9 points in the first game of an
+    absence, against 10.7 for backs projected the same."""
     everyone = snapshot.all_players()
     leads = {p.team: p for p in everyone
              if p.position == "RB" and p.role == "RB1" and not p.is_out and (p.ros_value or 0) >= 12.0}
@@ -420,7 +421,7 @@ def handcuffs(snapshot: LeagueSnapshot) -> dict[str, tuple[PlayerRow, float]]:
         if fa.position != "RB" or fa.role != "RB2" or fa.team not in leads:
             continue
         lead = leads[fa.team]
-        gain = 0.35 * max(float(lead.ros_value or 0) - float(fa.ros_value or 0), 0.0)
+        gain = share * max(float(lead.ros_value or 0) - float(fa.ros_value or 0), 0.0)
         if gain >= 1.5:
             out[fa.player_id] = (lead, gain)
     return out
