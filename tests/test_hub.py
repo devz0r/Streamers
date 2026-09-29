@@ -48,7 +48,8 @@ def test_every_kind_lands_on_one_list_best_first():
     assert all(a.gain > 0 for a in acts)                      # a move that hurts is not listed
     claim = next(a for a in acts if a.headline == "Add Claimer")
     assert abs(claim.gain - 0.008) < 1e-12                    # priority cost comes off
-    assert next(a for a in acts if a.kind == "Trade").firm is False
+    trade = next(a for a in acts if a.kind == "Trade")
+    assert trade.firm is False and abs(trade.gain - 0.6 * 0.012) < 1e-12   # expected: yes-chance x gain
 
 
 def test_no_season_model_means_no_weekly_title_value():

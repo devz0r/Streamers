@@ -1189,9 +1189,11 @@ this week moves P(win the week), and a win this week is worth a measured
 amount of title odds: the must-win calculation forces this week's game to
 a win and to a loss in every simulated season. The move's value is the
 change in P(win) times that swing. Waiver claims are listed net of the
-waiver priority they spend. A trade is listed at what you gain if he says
-yes, with the chance of a yes beside it, and set apart visually: it is not
-yours alone to make.
+waiver priority they spend. A trade adds its gain only if he says yes, so
+it is ranked by the expected gain (gain x chance of a yes), with the gain if
+accepted beside it; offers of the same players to different teams are one
+decision, listed once. (Ranked by raw gain, long-shot offers filled the top
+of the list on the first live run.)
 
 Each move is priced on its own against the roster as it stands, so the
 numbers do not add up; the advice is to make the top one and refresh. The

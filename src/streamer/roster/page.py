@@ -244,7 +244,7 @@ def _hub(report: MatchupReport, uid: str) -> str:
             '<p class="sub">Points of title odds each move adds on its own, against your roster as it '
             "stands -- they do not add up; make the top one and refresh. This week's lineup and "
             "streams are priced through what a win this week is worth to your title odds. A trade needs "
-            "a yes, so its number is what you gain if he accepts.</p>")
+            "a yes, so it is ranked by what it adds times the chance he accepts.</p>")
 
 
 _VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Close call: lean claim", "opp"),

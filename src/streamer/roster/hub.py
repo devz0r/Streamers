@@ -10,6 +10,10 @@ week), and a win this week is worth a measured amount of title odds (the
 must-win calculation: this week's game forced to a win and to a loss in
 every simulated season). Their product is the move's title-odds value.
 
+A trade adds its gain only if the other manager says yes, so it is ranked
+by the expected gain (gain x chance of a yes), with the gain if accepted
+shown beside it; offers of the same players are one decision, listed once.
+
 Each move is priced on its own, against the roster as it stands; they are
 not additive. Make the top one and refresh.
 """
@@ -90,15 +94,20 @@ def actions(report) -> list[HubAction]:
                              "waivers"))
     board = getattr(report, "trades", None)
     if board:
-        seen = set()
+        # A trade adds its gain only if he says yes, so it is ranked by the
+        # expected gain; and alternatives offering the same players are one
+        # decision, so only the best of them is listed.
+        best_by_give: dict[tuple, object] = {}
         for t in board.top + board.best + board.likely:
-            if t.key in seen:
-                continue
-            seen.add(t.key)
+            key = tuple(sorted(p.player_id for p in t.give))
+            if key not in best_by_give or t.p_accept * t.gain > best_by_give[key].p_accept * best_by_give[key].gain:
+                best_by_give[key] = t
+        for t in best_by_give.values():
             give = " + ".join(p.name for p in t.give)
             get = " + ".join(p.name for p in t.get)
-            out.append(HubAction("Trade", f"Trade {give} for {get}", f"with {t.partner.name}", t.gain,
-                                 f"chance of a yes ~{t.p_accept:.0%}" + ("; win-win" if t.win_win else ""),
-                                 "trades", firm=False))
+            out.append(HubAction("Trade", f"Trade {give} for {get}", f"with {t.partner.name}",
+                                 t.p_accept * t.gain,
+                                 f"{t.gain * 100:+.1f} if he accepts, chance of a yes ~{t.p_accept:.0%}"
+                                 + ("; win-win" if t.win_win else ""), "trades", firm=False))
     out.sort(key=lambda a: -a.gain)
     return [a for a in out if a.gain > 0]
