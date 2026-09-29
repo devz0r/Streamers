@@ -1178,6 +1178,19 @@ Pricing the extra candidates is kept affordable: the priority cost is
 computed once rather than per candidate, and each candidate is priced
 against his four likeliest drops rather than six.
 
+### A player gone for more than a season is not injured
+Brandon Aiyuk was recommended as a pickup. He last played in October 2024
+and is on the 49ers' reserve/left-squad list, but ESPN tags him OUT, and a
+player with an injury tag kept his history's value (11.9 a game) and was
+simulated as a short absence. The rule was right for a player hurt a few
+weeks ago and wrong for a holdout, the reserve/left-squad list or a long
+suspension. Now a player who has not played in more than a season (18+
+weeks) has no rest-of-season value unless his platform projects him this
+week, with a note saying so. A player hurt partway through last season
+keeps his value. Beyond Aiyuk this zeroed Joe Mixon, Tank Dell and James
+Conner (all tagged, none having played in over a season); the rest of the
+players it touches had no value already.
+
 ### Grading the projections, and the FantasyPros consensus
 "How good are the projections?" deserves a running answer, not an
 impression. Every refresh already logs, before kickoff, our model's number,
@@ -1217,9 +1230,13 @@ projection are attached to players at publish time:
 
 Their data is theirs: it is cached on the runner only
 (`data/raw/fantasypros/`, restored between runs, ignored by git), never
-committed, and the public page shows only what is derived from it --
-grades and "consensus is much lower on him" -- unless
-`fantasypros.publish_ranks` is turned on. The probe
+committed, and the public page shows only analysis derived from it --
+grades and "consensus is much lower on him" -- credited to FantasyPros.
+Their ranks and projections themselves are never displayed: under their
+API licence (personal, non-commercial use; August 2026 guidance) that is
+redistribution, which requires a Commercial agreement, while published
+analysis based on the data is allowed with conspicuous credit. There is no
+switch to show them, so it cannot happen by accident. The probe
 (`streamer fantasypros-probe`, or the workflow's `fantasypros-probe` job)
 prints status, field names and counts, never values or the key.
 
