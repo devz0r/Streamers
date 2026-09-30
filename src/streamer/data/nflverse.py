@@ -179,6 +179,36 @@ def load_rosters(seasons: list[int], cfg: Config | None = None, refresh: bool = 
     return out
 
 
+def load_snap_counts(seasons: list[int], cfg: Config | None = None, refresh: bool = False) -> pd.DataFrame:
+    """Offensive snaps per player-game (Pro Football Reference, via nflverse):
+    who is on the field, including the backups who never touch the ball --
+    which box scores cannot show. One cached parquet per season."""
+    cfg = cfg or get_config()
+    frames = []
+    newest = latest_available_season(cfg)
+    for season in sorted(set(int(s) for s in seasons)):
+        path = cfg.raw_dir / f"snap_counts_{season}.parquet"
+        if season > newest and not path.exists():
+            continue
+
+        def build(season: int = season) -> pd.DataFrame:
+            return _to_pandas(_nflreadpy().load_snap_counts(seasons=[season]))
+
+        try:
+            df = cached_frame(path, build, refresh=refresh, max_age_hours=live_max_age(season, cfg))
+        except Exception as exc:  # noqa: BLE001 - snaps refine a projection; never block one
+            log.warning("could not load snap counts for %s: %s", season, exc)
+            continue
+        frames.append(df)
+    if not frames:
+        return pd.DataFrame(columns=["season", "week", "player", "position", "team", "offense_snaps"])
+    out = pd.concat(frames, ignore_index=True)
+    out["team"] = normalize_team_series(out["team"])
+    if "game_type" in out.columns:
+        out = out[out["game_type"] == "REG"]
+    return out
+
+
 def games_frame(cfg: Config | None = None, refresh: bool = False) -> pd.DataFrame:
     """One row per team-game: team, opponent, home flag, venue, result.
 

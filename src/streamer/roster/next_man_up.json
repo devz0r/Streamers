@@ -1,0 +1,13 @@
+{
+  "RB": {
+    "base": 0.622,
+    "slope": 1.381,
+    "mean": 0.665,
+    "evidence": {
+      "absences": 93,
+      "rmse_one_share": 7.927,
+      "rmse_by_concentration": 7.463,
+      "seasons_better": "5 of 5"
+    }
+  }
+}

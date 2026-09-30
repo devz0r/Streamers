@@ -120,6 +120,14 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
     return np.zeros(n, int)
 
 
+def _takeover(heir: PlayerRow, take: dict[str, float]) -> float:
+    """The share of the lead's work this next man up is expected to take: his
+    own, from how much of the position's other snaps he has had (depth.py),
+    else the position's."""
+    own = getattr(heir, "takeover_share", None)
+    return float(own) if own is not None else float(take.get(heir.position, 0.0))
+
+
 def _if_plays(p: PlayerRow) -> float | None:
     """This week's projection given he plays (the platform folds a
     questionable tag in as a mixture; the simulation flips that coin
@@ -152,7 +160,7 @@ def _this_week(players: list[PlayerRow], base: np.ndarray, heir_of: dict[int, in
         expect = float(base[j])
         if j in heir_of:
             lead = heir_of[j]
-            expect += (_chance_out(players[lead]) * take.get(p.position, 0.0)
+            expect += (_chance_out(players[lead]) * _takeover(p, take)
                        * max(float(base[lead]) - float(base[j]), 0.0))
         out[j] = week - expect
     return out
@@ -257,7 +265,7 @@ def simulate(
             pos = players[h].position
             start = out_now[:, lead] & ~was_out[:, lead]
             if start.any():
-                draw = rng.normal(take.get(pos, 0.0), take_sd.get(pos, 0.0), size=int(start.sum()))
+                draw = rng.normal(_takeover(players[h], take), take_sd.get(pos, 0.0), size=int(start.sum()))
                 share[start, h] = np.clip(draw, *SHARE_RANGE)
             lead_out = out_now[:, lead]
             eff[:, h] = np.where(lead_out, level[:, h] + share[:, h] * np.maximum(level[:, lead] - level[:, h], 0.0),

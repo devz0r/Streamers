@@ -1313,6 +1313,46 @@ What it is worth still depends on your lineup. For the ESPN team, Allen at
 about 9.5 a game while Hall is out competes with your flex options, so he
 priced about even. A team with a hole at RB would see it differently.
 
+### Who else is in the backfield
+Every backup was expected to take the same share of an absent lead's work
+(0.55 at RB, with a wide spread). The tool read box scores and platform
+tags, and a back who never touches the ball has no row in a box score. It
+could not see that Isaiah Davis had not played an offensive snap for the
+Jets, which left Braelon Allen as the only other back.
+
+Snap counts can see it. They come free from nflverse (Pro Football
+Reference), the same provider as the box scores, and cost no API credits.
+The next man up's **concentration** is his share of the position's offensive
+snaps that did not go to the lead, over the team's last four games. On
+2021-2025 running back absences (93 with snap data, each season held out in
+turn), predicting his first game as `(volume + share x gap) x efficiency`
+with `share = 0.62 + 1.38 x (concentration - 0.66)` beat one share for
+every backup: RMSE 7.93 -> 7.46, better in all five seasons. Over whole
+absences, backups with 75%+ of the other snaps took 0.80 of the gap, and
+those under 50% took 0.33. The share is kept between 0.1 and 0.9.
+
+Tight ends did not pass. The relationship ran backwards (the second tight
+end with the most snaps is often a blocker) and held in only 3 of 5
+seasons, so they keep the one position share. A position is kept only when
+it is better overall and worse in at most one season
+(`scripts/fit_next_man_up.py` -> `next_man_up.json`). A backup whose name
+the snap data does not have is treated as unknown, not as a back who never
+plays.
+
+The concentration sets his share in this week's projection and his mean
+share in the season simulation (where it is still drawn per absence, and
+he keeps a quarter of it once the lead is back). Allen, with 100% of the
+Jets' other RB snaps, now projects 12.5 this week against 11.1 (ESPN has
+12.8). Ollie Gordon, with 92% of Miami's, is worth 12.0 a game for the
+season as the lead back once Achane is out for the year. The card says it:
+"next man up: Breece Hall is not expected to play, and 100% of his team's
+other RB snaps have been his".
+
+Sleeper's free player database (no key, about once a day) has each team's
+current depth-chart order and injury details. It is next, once a probe
+(`streamer sleeper-probe`, the workflow's `sleeper-probe` job) confirms
+what it returns: this sandbox cannot reach it, but the runner can.
+
 ### This week plays at this week's numbers
 The season simulation valued every week, the one in progress included, at
 each player's season level. That undersold exactly the pickup a waiver

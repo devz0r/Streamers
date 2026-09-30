@@ -289,6 +289,17 @@ def cmd_fantasypros_probe(args: argparse.Namespace, cfg: Config) -> int:
     return 0 if all("HTTP 200" in line for line in lines) else 1
 
 
+def cmd_sleeper_probe(args: argparse.Namespace, cfg: Config) -> int:
+    """Describe Sleeper's free player database: fields filled, a few depth
+    charts. Public data, no key."""
+    from ..data import sleeper
+
+    lines = sleeper.probe(cfg)
+    for line in lines:
+        print(line)
+    return 0 if lines and "HTTP 200" in lines[0] else 1
+
+
 def cmd_yahoo_probe(args: argparse.Namespace, cfg: Config) -> int:
     """Describe Yahoo's fantasy pages so the reader can be written against them.
 
@@ -366,6 +377,10 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
     p.add_argument("--week", type=int, default=None)
     p.add_argument("--season", type=int, default=None)
     p.set_defaults(func=cmd_fantasypros_probe)
+
+    p = sub.add_parser("sleeper-probe",
+                       help="describe Sleeper's free player database (depth charts, injury details)")
+    p.set_defaults(func=cmd_sleeper_probe)
 
     p = sub.add_parser("yahoo-probe",
                        help="describe Yahoo's fantasy pages (diagnostic, prints no secrets)")

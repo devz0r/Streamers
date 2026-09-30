@@ -45,7 +45,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe]
 
 permissions:
   contents: write
@@ -126,6 +126,12 @@ jobs:
       - name: Probe the FantasyPros API
         if: steps.mode.outputs.mode == 'fantasypros-probe'
         run: streamer fantasypros-probe --week "${{ steps.week.outputs.upcoming_week }}"
+
+      # Sleeper's free player database (no key): depth charts and injury
+      # details. Public data; the probe prints counts and a few depth charts.
+      - name: Probe Sleeper's player database
+        if: steps.mode.outputs.mode == 'sleeper-probe'
+        run: streamer sleeper-probe
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

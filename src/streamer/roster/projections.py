@@ -45,7 +45,7 @@ from ..data.nflverse import (
 )
 from ..data.odds import get_lines, lines_to_team_rows
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, LeagueSnapshot, PlayerRow
-from . import market_calibration, outcome
+from . import depth, market_calibration, outcome
 from .players import build_index, match_players
 
 log = logging.getLogger(__name__)
@@ -519,9 +519,12 @@ def next_man_up(
     season: int,
     week: int,
     cfg: Config,
+    snaps: pd.DataFrame | None = None,
 ) -> dict[str, tuple[float, float, str]]:
     """Opportunity inherited from absent teammates: platform id ->
     (extra volume this week, extra volume rest of season, reason).
+    ``snaps`` (``depth.prepare``d snap counts) set each backup's share by how
+    much of his position's other snaps he already had.
 
     When a regular misses a game, the teammate at his position with the most
     opportunity takes over part of the gap between them. Measured on every
@@ -566,6 +569,7 @@ def next_man_up(
             (w_week, w_ros, float(row["vol"]), p.name, label))
 
     out: dict[str, tuple[float, float, str]] = {}
+    fits = depth.load()
     for (team, pos), missing in absent.items():
         share = takeover.get(pos, 0.0)
         if share <= 0:
@@ -587,8 +591,46 @@ def next_man_up(
         if gap_week <= 0 and gap_ros <= 0:
             continue
         lead = max(missing, key=lambda m: m[0] * m[2])
-        out[heir.player_id] = (share * gap_week, share * gap_ros, f"next man up: {lead[3]} {lead[4]}")
+        # How much of the job he gets depends on who else is there: his share
+        # of the position's other snaps (a lone backup takes most of it, one
+        # of three takes little). See depth.py and next_man_up.json.
+        why = f"next man up: {lead[3]} {lead[4]}"
+        conc = None
+        if snaps is not None and not snaps.empty and pos in fits:
+            conc = depth.concentration(snaps, season, week, team, pos, str(by_id.loc[best_nid, "player_display_name"]),
+                                       lead[3])
+        if conc is not None:
+            share = depth.share(pos, conc, share, fits)
+            heir.backfield_share, heir.takeover_share = round(conc, 3), round(share, 3)
+            why += f", and {conc:.0%} of his team's other {pos} snaps have been his"
+        out[heir.player_id] = (share * gap_week, share * gap_ros, why)
     return out
+
+
+def _season_snaps(season: int, cfg: Config, allow_network: bool) -> pd.DataFrame | None:
+    """This season's snap counts, ready for :func:`depth.concentration`: from
+    the cache when offline, else through the loader (re-pulled when stale)."""
+    path = cfg.raw_dir / f"snap_counts_{season}.parquet"
+    try:
+        if allow_network:
+            from ..data.nflverse import load_snap_counts
+
+            frame = load_snap_counts([season], cfg)
+        elif path.exists():
+            frame = pd.read_parquet(path)
+        else:
+            return None
+    except Exception as exc:  # noqa: BLE001 - snaps refine the next man up; never block a projection
+        log.warning("snap counts unavailable: %s", exc)
+        return None
+    if frame is None or frame.empty:
+        return None
+    if "game_type" in frame.columns:
+        frame = frame[frame["game_type"] == "REG"]
+    from ..teams import normalize_team_series
+
+    frame = frame.assign(team=normalize_team_series(frame["team"]))
+    return depth.prepare(frame)
 
 
 def _opponents(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, str]:
@@ -738,7 +780,10 @@ def project_snapshot(
         if p.platform_projection is not None and p.platform_projection <= 0 and platform_covers
         and bool(p.team) and not p.on_bye and not p.in_ir_slot
     }
-    heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg)
+    for p in players:
+        p.takeover_share = p.backfield_share = None
+    heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg,
+                        snaps=_season_snaps(int(snapshot.season), cfg, allow_network))
     usage = recent_usage(history, snapshot.season, snapshot.week)
     team_weeks, played_weeks = games_missed(history, int(snapshot.season), int(snapshot.week))
     # Where our season value has been measured to overreact, defer toward

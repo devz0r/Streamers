@@ -393,3 +393,27 @@ def test_roles_and_opponents_are_attached(cfg):
     assert got["lead"].role == "RB1" and got["cuff"].role == "RB2"
     assert got["wr1"].role == "WR1"
     assert got["lead"].ros_sd is not None and got["lead"].ros_sd > 0
+
+
+def test_a_lone_backup_takes_more_of_the_job_than_one_of_three():
+    import pandas as pd
+
+    from streamer.roster import depth
+
+    def snaps(rows):
+        return depth.prepare(pd.DataFrame(
+            [{"season": 2026, "week": w, "team": "NYJ", "position": "RB", "player": n, "offense_snaps": s}
+             for w in (1, 2, 3) for n, s in rows]))
+
+    lone = snaps([("Breece Hall", 40), ("Braelon Allen", 25), ("Isaiah Davis", 0)])
+    split = snaps([("Breece Hall", 40), ("Braelon Allen", 10), ("Isaiah Davis", 10), ("Kene Nwangwu", 10)])
+    c_lone = depth.concentration(lone, 2026, 4, "NYJ", "RB", "Braelon Allen", "Breece Hall")
+    c_split = depth.concentration(split, 2026, 4, "NYJ", "RB", "Braelon Allen", "Breece Hall")
+    assert c_lone == 1.0 and abs(c_split - 1 / 3) < 1e-9
+    fit = {"RB": {"base": 0.62, "slope": 1.38, "mean": 0.665}}
+    assert depth.share("RB", c_lone, 0.55, fit) == 0.9                    # capped
+    assert depth.share("RB", c_split, 0.55, fit) < 0.25
+    assert depth.share("RB", None, 0.55, fit) == 0.55                     # no snaps: the position's share
+    assert depth.share("TE", 0.9, 0.35, fit) == 0.35                      # no fit for the position
+    # A name the snap data does not have is unknown, not a backup who never plays.
+    assert depth.concentration(lone, 2026, 4, "NYJ", "RB", "Somebody Else", "Breece Hall") is None
