@@ -5,9 +5,9 @@
       "players": 100,
       "weeks": 1,
       "pairs": 0.7068166776968895,
-      "miss": 4.8944,
+      "miss": 4.894400000000001,
       "ours_pairs": 0.7068166776968895,
-      "ours_miss": 4.8944
+      "ours_miss": 4.894400000000001
     },
     {
       "source": "Our model alone",
@@ -16,7 +16,7 @@
       "pairs": 0.686300463269358,
       "miss": 5.042200000000001,
       "ours_pairs": 0.7068166776968895,
-      "ours_miss": 4.8944
+      "ours_miss": 4.894400000000001
     },
     {
       "source": "Yahoo's projection",
