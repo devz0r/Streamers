@@ -1733,6 +1733,51 @@ is harder to sell to than the blend says, and the rostership trend is not
 in it yet (every sync's snapshot is committed, so the history to fit it on
 is building).
 
+### Evaluate any trade, on the page
+The trade lists are the engine's picks. A trade you are offered, or one you
+want to offer, is usually not on them, so the Trades section also has an
+evaluator: pick a team, tick players on both sides (any number), and both
+teams' title and playoff odds, weekly points, lineups, forced drops, his
+view of the deal and his chance of a yes appear as you tick.
+
+A page cannot play 6,000 seasons per click, so the work is split:
+
+- **Each team's odds against its weekly points** come from the full
+  simulation at publish time: every team's scores shifted by -8 to +8
+  points a week, every team's title and playoff odds read at each shift.
+- **What a trade does to a team's weekly points** is simulated in the
+  browser, 1,000 seasons in about 50 ms, from each player's week-by-week
+  chance of playing, expected points when he does, and how far that
+  expectation spreads across the seasons -- all summarised from the same
+  simulation, with the best lineup set each week.
+
+A trade moves each team's odds by its own weekly change and the other
+team's (the games they play, the places they chase), read off the curves.
+
+The obvious shortcut -- the change in static season values -- does not
+work: tested on 120 trades priced exactly (Yahoo, week 4), it tracked the
+exact change in your title odds at a correlation of only 0.45, because it
+ignores byes and injuries and overstated a trade's weekly effect by about
+half. The simulation's own weekly change, read off the curves, tracked it
+at 0.89. Shipping the simulation itself would need about 2 MB per league
+per refresh for a similar result (400 seasons: 0.84), committed with every
+page. The summary above, 110-160 KB, comes to 0.81 (Yahoo) and 0.89 (ESPN);
+without the spread of each player's expectation it was 0.53, so the spread
+is what carries it. Each refresh re-measures
+it on the trades the finder priced exactly, and the page shows the typical
+error: at publish on week 4, 0.6-0.8 points of title odds against a full
+simulation whose own noise on a trade is about 0.4. When the ticked trade
+is one the finder priced, the exact figures are shown beside the estimate.
+
+The page's script mirrors a Python reference (`trade_eval.py`) line for
+line, on the same data and the same random numbers (a hash of player,
+season and week, so both languages draw identical seasons); a test runs
+both on the same trades and requires every number and every reason to
+match. Building it found one bug in the trade finder: a two-for-one could
+drop a team's only D/ST to make room, because roster minimums were checked
+only at the skill positions. They now cover every position, capped at what
+the roster already had (a league without kickers), as waiver plans do.
+
 ### Yahoo, on the same engine
 The Yahoo sync now reads what the simulator needs, from pages a logged-in
 browser already gets:

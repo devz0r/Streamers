@@ -133,7 +133,7 @@ def render_my_team(
     if report.title_moves is not None:
         parts.append(_fold(uid, "waivers", "Waivers: single moves and plans",
                            _title_moves(report) + _plans(report)))
-        trades = _trades(report)
+        trades = _trades(report) + _trade_evaluator(report)
         if trades:
             parts.append(_fold(uid, "trades", "Trades", trades))
         moves = [m for m in moves if m.add.position in ("DST", "K")]
@@ -442,6 +442,35 @@ def _trades(report: MatchupReport) -> str:
         panes.append(f'<div class="tab-pane p{i}"><p class="sub">{note}</p>{body}</div>')
     return (head + '<div class="tabs">' + "".join(radios)
             + '<div class="tab-labels">' + "".join(labels) + "</div>" + "".join(panes) + "</div>")
+
+
+def _trade_evaluator(report: MatchupReport) -> str:
+    """Any trade with any team, evaluated for both sides as you pick players.
+
+    The data (each player's weekly chances and expected points, and every
+    team's title odds against its weekly points) comes from the same
+    simulation as the trade cards; the script draws 1,000 seasons in the
+    browser (:mod:`streamer.roster.trade_eval`)."""
+    from .trade_eval import SCRIPT
+
+    data = getattr(report, "trade_eval", None)
+    if not data:
+        return ""
+    uid = f"te-{_e(report.snapshot.profile)}"
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    script = SCRIPT.read_text(encoding="utf-8").replace("</", "<\\/")
+    return (
+        f'<details class="card" id="{uid}"><summary><strong>Evaluate a trade</strong> '
+        '<span class="opp">any players with any team: both sides\' title odds, lineups and his answer</span>'
+        "</summary>"
+        '<p class="sub">Trade with <select class="te-partner"></select></p>'
+        '<div class="te-cols"><fieldset><legend>You give</legend><div class="te-give"></div></fieldset>'
+        '<fieldset><legend>You get</legend><div class="te-get"></div></fieldset></div>'
+        '<p class="te-sum"></p><p class="sub te-dropline"></p><div class="te-out"></div>'
+        f'<script type="application/json" class="te-data">{payload}</script>'
+        f"<script>{script}\nStreamerTrade.mount('{uid}');</script>"
+        "</details>"
+    )
 
 
 def _stakes(report: MatchupReport) -> str:

@@ -159,20 +159,29 @@ def _tradeable(team: TeamRow) -> list[PlayerRow]:
             if p.position in SKILL and not p.in_ir_slot and (p.ros_value is not None or p.projection)]
 
 
-def _keeps_minimums(roster: list[PlayerRow]) -> bool:
+def _counts(roster: list[PlayerRow]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for p in roster:
         if not p.in_ir_slot:
             counts[p.position] = counts.get(p.position, 0) + 1
-    return all(counts.get(pos, 0) >= n for pos, n in MIN_KEEP.items() if pos in SKILL)
+    return counts
+
+
+def _keeps_minimums(roster: list[PlayerRow], before: list[PlayerRow]) -> bool:
+    """No position falls below its minimum -- or below what the roster had,
+    if it already had fewer (a league without kickers). Checking only the
+    skill positions let a two-for-one drop a team's only D/ST to make room."""
+    now, was = _counts(roster), _counts(before)
+    return all(now.get(pos, 0) >= min(n, was.get(pos, 0)) for pos, n in MIN_KEEP.items())
 
 
 def _make_room(roster: list[PlayerRow], extra: int, keep: set[str], key) -> tuple[list[PlayerRow], PlayerRow | None]:
     """Drop ``extra`` of the least valuable bench players on ``key`` (never one just received)."""
     dropped = None
+    before = roster
     for _ in range(extra):
         options = [p for p in roster if p.player_id not in keep and not p.in_ir_slot]
-        options = [p for p in options if _keeps_minimums([q for q in roster if q is not p])]
+        options = [p for p in options if _keeps_minimums([q for q in roster if q is not p], before)]
         if not options:
             break
         worst = min(options, key=key)
@@ -273,7 +282,7 @@ class TradeFinder:
                                          lambda p: self.ours(p) + float(p.ros_sd or 0.0))
         if len(give) > len(get):
             their_new, their_drop = _make_room(their_new, len(give) - len(get), give_ids, his)
-        if not (_keeps_minimums(my_new) and _keeps_minimums(their_new)):
+        if not (_keeps_minimums(my_new, self.me.roster) and _keeps_minimums(their_new, team.roster)):
             return None
         dv_me = self.my_roster_value(my_new) - my0
         if dv_me < MY_MIN_VALUE:
@@ -370,6 +379,7 @@ class TradeFinder:
             for t in pool:
                 chosen.setdefault(t.key, t)
         priced = [self.price(t) for t in chosen.values()]
+        self.priced = priced
         good = [t for t in priced if t.gain >= max(MIN_GAIN, 2.0 * t.noise)]
         for t in good:
             self._explain(t)

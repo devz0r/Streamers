@@ -115,6 +115,16 @@ a { color: var(--accent); }
   border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem; max-width: 100%; }
 .ed-rows select { width: 100%; }
 .ed-out { font-weight: 600; color: var(--text); }
+.te-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: .6rem 0; }
+@media (max-width: 600px) { .te-cols { grid-template-columns: 1fr; } }
+.te-cols fieldset { border: 1px solid var(--line); border-radius: 8px; padding: .4rem .6rem; margin: 0; min-width: 0; }
+.te-cols legend { font-weight: 600; font-size: .85rem; padding: 0 .3rem; }
+.te-sum { position: sticky; bottom: .5rem; z-index: 3; margin: .5rem 0; padding: .45rem .7rem;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; font-weight: 600;
+  font-size: .85rem; font-variant-numeric: tabular-nums; }
+.te-pick { display: block; font-size: .82rem; padding: .2rem 0; overflow-wrap: anywhere; }
+.te-partner, .te-dropline select { font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem; max-width: 100%; }
 details { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem .9rem; margin: .6rem 0; }
 summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
 .archive { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
@@ -783,12 +793,23 @@ def team_panels_for(
                         report.plans = PlanFinder(engine, report.title_moves, seen=seen).find(3)
                     except Exception as exc:  # noqa: BLE001
                         log.warning("waiver plans for %s skipped: %s", name, exc)
+                    finder = None
                     try:
                         from .roster.trades import TradeFinder
 
-                        report.trades = TradeFinder(snap, engine.model, seen=seen).find(5)
+                        finder = TradeFinder(snap, engine.model, seen=seen)
+                        report.trades = finder.find(5)
                     except Exception as exc:  # noqa: BLE001
                         log.warning("trade finder for %s skipped: %s", name, exc)
+                    if finder is not None:
+                        try:
+                            from .roster import trade_eval
+
+                            report.trade_eval = trade_eval.export(snap, engine.model, finder,
+                                                                  getattr(finder, "priced", []))
+                            log.info("trade evaluator for %s: %s", name, report.trade_eval.get("check"))
+                        except Exception as exc:  # noqa: BLE001 - a bonus section
+                            log.warning("trade evaluator for %s skipped: %s", name, exc)
             report.notes.extend(n for n in projected.notes if "not playing" in n)
             report.notes.extend(projected.lock_notes)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))

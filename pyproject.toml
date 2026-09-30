@@ -36,7 +36,7 @@ streamer = "streamer.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"streamer.roster" = ["outcome_model.json"]
+"streamer.roster" = ["*.json", "*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

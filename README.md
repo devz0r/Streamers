@@ -443,6 +443,15 @@ platform projection, name value from last season, this season so far,
 injuries -- in proportions measured from Yahoo's rostership. See
 DECISIONS.md, "Trades: what helps you, and what he will accept".
 
+Below the lists, **Evaluate a trade** takes any players with any team --
+an offer you received, or one you are thinking of making -- and shows,
+as you tick them, both teams' title and playoff odds before and after,
+the weekly points each gains or loses, forced drops (you can pick yours),
+how he would see it and his chance of a yes. It runs in the browser on
+data from the same simulation, and says how close it came to the full
+simulation on the trades priced that run. See DECISIONS.md, "Evaluate any
+trade, on the page".
+
 ### How waivers are priced
 
 A pickup is priced by what it does to your roster: this week, and the rest

@@ -38,6 +38,7 @@ class MatchupReport:
     #: Trade views (a :class:`TradeBoard`; None when the league structure
     #: has not been read).
     trades: object | None = None
+    trade_eval: dict | None = None
 
     @property
     def win_probability(self) -> float:
