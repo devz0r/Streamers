@@ -256,6 +256,25 @@ def test_hurt_partway_through_last_season_keeps_his_value(cfg, monkeypatch):
     assert hurt.projection_source.startswith("model") and hurt.ros_value > 5.0 and hurt.projection == 0.0
 
 
+def test_not_active_on_yahoo_is_unsigned_whatever_team_it_shows(cfg, monkeypatch):
+    """Tyreek Hill: hurt early last season, then unsigned. ESPN listed no team;
+    Yahoo showed NA beside his old team, and kept a 12-a-game season value."""
+    import streamer.roster.projections as pj
+
+    snap = _stale_snapshot("NA", None, "MIA")
+    history = _stale_history()
+    gone = history.player_id == "nfl-g1"
+    history.loc[gone, "season"] = 2025
+    history = history[~gone | (history.week <= 4)]
+    monkeypatch.setattr(pj, "_implied_scale", lambda *a, **k: ({}, "test"))
+    monkeypatch.setattr(pj, "match_players",
+                        lambda rows, index: type("M", (), {"mapping": {"g1": "nfl-g1"}, "unmatched": []})())
+    pj.project_snapshot(snap, cfg.for_profile("espn"), rankings=None, allow_network=False, history=history)
+    hill = snap.free_agents[0]
+    assert hill.unsigned and hill.projection_source.startswith("inactive") and hill.ros_value == 0.0
+    assert any("not on an NFL roster" in s for s in hill.signals)
+
+
 def _coverage_snapshot(jacobs_proj, others_proj=15.0, n_others=24):
     from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
 

@@ -59,6 +59,13 @@ IR_ELIGIBLE_STATUSES: tuple[str, ...] = LONG_TERM_OUT_STATUSES + ("OUT", "O", "I
 #: Injury/availability statuses that mean "will not play".
 OUT_STATUSES: tuple[str, ...] = LONG_TERM_OUT_STATUSES + ("OUT", "O", "NA", "COVID", "INACTIVE")
 
+#: Not on an NFL roster at all, whatever team the platform still shows.
+#: Yahoo marks unsigned, released and practice-squad players "NA" (not
+#: active) and keeps their last team beside it: Tyreek Hill, unsigned and
+#: listed with no team by ESPN, showed as NA for Miami on Yahoo and kept a
+#: 12-a-game season value there.
+NOT_ON_ROSTER_STATUSES: tuple[str, ...] = ("NA",)
+
 #: Statuses that mean "probably plays, but discount". ESPN's DAY_TO_DAY is a
 #: minor-injury tag that usually resolves to playing.
 QUESTIONABLE_STATUSES: tuple[str, ...] = ("QUESTIONABLE", "Q", "DAY_TO_DAY", "DOUBTFUL", "D")
@@ -170,6 +177,11 @@ class PlayerRow:
     @property
     def is_long_term_out(self) -> bool:
         return self.status in LONG_TERM_OUT_STATUSES
+
+    @property
+    def unsigned(self) -> bool:
+        """Not on an NFL roster: no team, or a platform's not-active tag."""
+        return not self.team or self.status in NOT_ON_ROSTER_STATUSES
 
     @property
     def ir_slot_is_valid(self) -> bool:

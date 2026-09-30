@@ -1676,11 +1676,11 @@ the sample does.
 His perceived gain is the change in his roster value on that blend (his
 best lineup plus bench depth). The chance he accepts is a logistic in it,
 even money at +1 point a game (people value what they own above what they
-are offered), shifted by 0.75 when an uneven deal gives him -- or takes
-from him -- the best player in it, and scaled by engagement (0.6 for a team
-with no pickups, 1.0 at one a week). That shape is an assumption: offers
-and refusals are not published, so it cannot be fitted. It ranks offers;
-the percentage is not a measured rate.
+are offered), shifted by up to 0.75 when an uneven deal gives him -- or
+takes from him -- a clearly best player, scaled by engagement (0.6 for a
+team with no pickups, 1.0 at one a week), and topping out at 80%. That
+shape is an assumption: offers and refusals are not published, so it
+cannot be fitted. It ranks offers; the percentage is not a measured rate.
 
 Three views of the same priced trades: **top** by expected gain (chance of
 a yes x title odds gained), **best for you** by title odds among offers
@@ -1690,6 +1690,48 @@ buy-low gaps, who he would start over, name value, a hot or cold start,
 injuries, how active he is. On the ESPN league at week 3, 999 trades
 screened and 66 priced took 20 seconds; the top offer (London for Swift)
 had an 86% yes-chance and +1.3 points of title odds.
+
+### An offer his owner would laugh at
+The Yahoo board's second trade was Xavier Worthy for Kenyon Sadiq and
+Tyreek Hill, +3.7 points of title odds, "chance of a yes ~62%" -- for a
+rookie tight end the waiver columns called the top add of the week (20% to
+29% rostered overnight) and a receiver they called droppable. Four things
+were wrong, three of them in how he was read:
+
+- **Hill was not on a team.** ESPN listed him with none; Yahoo tags such
+  players NA (not active) and keeps their old team, so on Yahoo he was a
+  Dolphin with an injury tag, projected from his 2025 games at 12.4 a
+  game. That value made the trade look like +3.7 for you, and put him in
+  four more of the top offers as a "buy low" throw-in. NA now means not on
+  an NFL roster, like no team at all: no value until the platform projects
+  him (or he signs), and the card says so.
+- **"The best player in the deal" was any lead at all.** Worthy was 0.4 a
+  game ahead of Sadiq in the market's eyes and earned the full consolidation
+  shift. It now grows with the lead and is full only at 1.7 points a game
+  (about the spread of managers' opinions of one player, the scale of the
+  rostership fit).
+- **His lineup was ignored.** Punisher started Sadiq and Darren Waller in
+  his flex spots over a healthy Brian Thomas Jr.; to him each is worth at
+  least what the market gives Thomas, whatever it gives them. A player he
+  starts over a healthy bench option who could fill that slot is now valued
+  at least at that option's market value. Only raised: a lineup can be a
+  week old, set before the news, so a bench player is never marked down for
+  sitting there. The card says it ("he starts Kenyon Sadiq over Brian Thomas
+  Jr., so he rates him above the market's 8.9 a game").
+- **No offer is a sure thing.** At a large perceived gain the curve reached
+  the manager's engagement, 97% for an active one. Offers go unseen, get
+  countered, and read worse because a rival proposed them (reactive
+  devaluation), so the ceiling is now 80% -- an assumption, like the rest
+  of the curve.
+
+On the same snapshot, without the FantasyPros blend the runner adds, the
+offer now comes out at 17%: 30% on the market's view alone, and his lineup
+takes it the rest of the way. What the market still says is worth keeping
+in view: Worthy is rostered in 65% of Yahoo leagues and Sadiq in 29%, so the
+broad market has not caught up with the columns. A manager who reads them
+is harder to sell to than the blend says, and the rostership trend is not
+in it yet (every sync's snapshot is committed, so the history to fit it on
+is building).
 
 ### Yahoo, on the same engine
 The Yahoo sync now reads what the simulator needs, from pages a logged-in

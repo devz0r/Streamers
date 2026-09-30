@@ -11,8 +11,11 @@ Two questions, answered separately because they are about different people:
    the market was measured to use (:mod:`streamer.roster.perception`). His
    perceived gain is the change in his roster value on that blend (best
    lineup plus bench depth, the way he would set it), plus a consolidation
-   effect in uneven deals (the side getting the best player feels it won),
-   turned into a rough chance he accepts and scaled by how engaged he is.
+   effect in uneven deals (the side getting a clearly best player feels it
+   won), turned into a rough chance he accepts and scaled by how engaged he
+   is. His own players are valued at least as high as his lineup says he
+   rates them: a player he starts over a healthy bench option is worth at
+   least that bench option to him, whatever the market says.
 
 The gap between the two views is the point. A player the market rates above
 our projection -- a big name in a shrinking role, a hot start on thin
@@ -42,7 +45,7 @@ import numpy as np
 from ..league.model import LeagueSnapshot, PlayerRow, TeamRow
 from . import perception
 from .season import SeasonModel, replacement_levels
-from .waivers import MIN_KEEP, _ros, lineup_slots, roster_value
+from .waivers import MIN_KEEP, _eligible, _ros, lineup_slots, roster_value
 
 SKILL = ("QB", "RB", "WR", "TE")
 
@@ -59,6 +62,42 @@ PRICE_EACH = 24
 PRICE_PER_TEAM = 5
 #: Gaps between the market's view and ours worth pointing out (points a game).
 GAP_NOTE = 1.0
+#: How much better the best player in an uneven deal must be than the best on
+#: the other side before the consolidation effect is full. A player barely
+#: ahead is not "the best player in the deal" to anyone: Xavier Worthy, 0.4 a
+#: game ahead of Kenyon Sadiq in the market's eyes, earned the full effect and
+#: a 62% chance for a two-for-one his owner would laugh at. About the spread
+#: of managers' opinions of one player (the scale of the rostership fit, 1.7
+#: points a game).
+CONSOLIDATION_GAP = 1.7
+#: Bench slots, for reading a manager's lineup.
+BENCH_SLOTS = ("BN", "BE")
+
+
+def own_view(team: TeamRow, market) -> tuple[dict[str, float], dict[str, str]]:
+    """How a manager values his own players, where his lineup says more than
+    the market does.
+
+    Starting one player over a healthy bench player who could fill that slot
+    says he rates the starter at least as high, so the starter is raised to
+    the bench player's market value. Only raised: a lineup can be a week old
+    and set before the news, so a bench player is never marked down for
+    sitting (a backup promoted by a Monday injury still sits on a bench set
+    the week before). Returns player id -> his value, for the
+    players it moves, and player id -> the bench player he starts him over.
+    """
+    values: dict[str, float] = {}
+    over: dict[str, str] = {}
+    bench = [p for p in team.roster if p.slot in BENCH_SLOTS and p.position in SKILL
+             and not p.is_out and not p.is_questionable and not p.unsigned]
+    for s in team.roster:
+        if not s.starting or s.position not in SKILL or s.is_out:
+            continue
+        rivals = [b for b in bench if _eligible(b, s.slot) and market(b) > market(s)]
+        if rivals:
+            top = max(rivals, key=market)
+            values[s.player_id], over[s.player_id] = market(top), top.name
+    return values, over
 
 
 @dataclass
@@ -71,7 +110,7 @@ class Trade:
     my_value: float           # your roster value change, points a game, our projections
     my_lineup: float          # your starting lineup change, our projections
     their_seen: float         # his roster value change as he sees it
-    consolidation: float      # +1 he gets the best player of an uneven deal, -1 he gives it up, 0
+    consolidation: float      # +1 he gets a clearly best player of an uneven deal, -1 he gives him up
     p_accept: float
     p_base: float = 0.0
     p_new: float = 0.0
@@ -159,6 +198,7 @@ class TradeFinder:
         self.replacement = replacement_levels(snapshot)
         self.seen = seen if seen is not None else perception.for_snapshot(snapshot, history)
         self.seen_replacement = self._seen_replacement()
+        self.own = {t.team_id: own_view(t, self.theirs) for t in snapshot.teams if not t.is_mine}
         self.me = snapshot.my_team
         self.mine = model.team_index[self.me.team_id]
         weeks = max(int(snapshot.week) - 1, 1)
@@ -175,11 +215,18 @@ class TradeFinder:
         s = self.seen.get(p.player_id)
         return s.value if s is not None else _ros(p)
 
+    def his(self, team: TeamRow):
+        """A manager's view: the market's, raised where his lineup rates his
+        own players higher."""
+        own = self.own.get(team.team_id, ({}, {}))[0]
+        return lambda p: own.get(p.player_id, self.theirs(p))
+
     def _seen_replacement(self) -> dict[str, float]:
         out = {}
         for pos in SKILL:
             vals = sorted((self.theirs(p) for p in self.snapshot.free_agents
-                           if p.position == pos and not p.is_long_term_out and p.team), reverse=True)
+                           if p.position == pos and not p.is_long_term_out and not p.unsigned),
+                          reverse=True)
             if vals:
                 out[pos] = vals[min(1, len(vals) - 1)]
         return out
@@ -187,8 +234,8 @@ class TradeFinder:
     def my_roster_value(self, roster: list[PlayerRow]) -> float:
         return roster_value(roster, self.slots, self.ours, self.replacement, with_upside=True)
 
-    def seen_roster_value(self, roster: list[PlayerRow]) -> float:
-        return roster_value(roster, self.slots, self.theirs, self.seen_replacement)
+    def seen_roster_value(self, roster: list[PlayerRow], key=None) -> float:
+        return roster_value(roster, self.slots, key or self.theirs, self.seen_replacement)
 
     def _lineup(self, roster: list[PlayerRow], key) -> float:
         assigned = lineup_slots(roster, self.slots, key)
@@ -205,7 +252,7 @@ class TradeFinder:
             if team.is_mine or not team.roster:
                 continue
             theirs = _tradeable(team)
-            their0 = self.seen_roster_value(team.roster)
+            their0 = self.seen_roster_value(team.roster, self.his(team))
             for n_give, n_get in ((1, 1), (2, 1), (1, 2)):
                 for give in combinations(mine, n_give):
                     for get in combinations(theirs, n_get):
@@ -215,6 +262,7 @@ class TradeFinder:
         return out
 
     def _screen_one(self, team, give, get, my0, my_l0, their0):
+        his = self.his(team)
         give_ids = {p.player_id for p in give}
         get_ids = {p.player_id for p in get}
         my_new = [p for p in self.me.roster if p.player_id not in give_ids] + get
@@ -224,27 +272,35 @@ class TradeFinder:
             my_new, my_drop = _make_room(my_new, len(get) - len(give), get_ids,
                                          lambda p: self.ours(p) + float(p.ros_sd or 0.0))
         if len(give) > len(get):
-            their_new, their_drop = _make_room(their_new, len(give) - len(get), give_ids, self.theirs)
+            their_new, their_drop = _make_room(their_new, len(give) - len(get), give_ids, his)
         if not (_keeps_minimums(my_new) and _keeps_minimums(their_new)):
             return None
         dv_me = self.my_roster_value(my_new) - my0
         if dv_me < MY_MIN_VALUE:
             return None
-        seen_gain = self.seen_roster_value(their_new) - their0
-        consolidation = 0
-        if len(give) != len(get):
-            best = max(give + get, key=self.theirs)
-            gets_fewer = len(give) < len(get)                 # he receives the smaller side
-            if gets_fewer and best in give:
-                consolidation = 1
-            elif not gets_fewer and best in get:
-                consolidation = -1
+        seen_gain = self.seen_roster_value(their_new, his) - their0
+        consolidation = self._consolidation(give, get, his)
         p = perception.p_accept(seen_gain, consolidation, self.engaged.get(team.team_id, 0.8))
         if p < MIN_ACCEPT:
             return None
         return Trade(partner=team, give=give, get=get, their_drop=their_drop, my_drop=my_drop,
                      my_value=dv_me, my_lineup=self._lineup(my_new, self.ours) - my_l0,
                      their_seen=seen_gain, consolidation=consolidation, p_accept=p)
+
+    @staticmethod
+    def _consolidation(give, get, his) -> float:
+        """+1 when he receives the smaller side of an uneven deal and it holds
+        a clearly best player, -1 when he gives that side up, in between as
+        the best player is less clearly best, 0 for an even count."""
+        if len(give) == len(get):
+            return 0.0
+        he_gets_fewer = len(give) < len(get)
+        fewer, more = (give, get) if he_gets_fewer else (get, give)
+        lead = max(map(his, fewer)) - max(map(his, more))
+        if lead <= 0:
+            return 0.0
+        clear = min(lead / CONSOLIDATION_GAP, 1.0)
+        return clear if he_gets_fewer else -clear
 
     # -- pricing ----------------------------------------------------------
     def _rosters(self, t: Trade) -> tuple[list[str], list[str]]:
@@ -344,23 +400,29 @@ class TradeFinder:
         t.why_you = you
 
         them = [f"as he would see it, his roster {t.their_seen:+.1f} a game"]
+        his = self.his(t.partner)
+        over = self.own.get(t.partner.team_id, ({}, {}))[1]
+        for p in t.get:
+            if p.player_id in over and his(p) >= self.theirs(p) + 0.3:
+                them.append(f"he starts {p.name} over {over[p.player_id]}, so he rates him above the "
+                            f"market's {self.theirs(p):.1f} a game")
         old = t.partner.roster
         new_ids = ({p.player_id for p in old} - {p.player_id for p in t.get}) | {p.player_id for p in t.give}
         if t.their_drop is not None:
             new_ids.discard(t.their_drop.player_id)
         by_id = {p.player_id: p for p in old + t.give}
         new = [by_id[i] for i in new_ids]
-        start_old = set(lineup_slots(old, self.slots, self.theirs))
-        start_new = set(lineup_slots(new, self.slots, self.theirs))
+        start_old = set(lineup_slots(old, self.slots, his))
+        start_new = set(lineup_slots(new, self.slots, his))
         benched = [by_id[i] for i in start_old & new_ids if i not in start_new]
         for p in t.give:
             if p.player_id in start_new and benched:
-                worst = min(benched, key=self.theirs)
+                worst = min(benched, key=his)
                 them.append(f"{p.name} would start for him over {worst.name}")
                 break
-        if t.consolidation > 0:
+        if t.consolidation >= 0.5:
             them.append("he gets the best player in the deal")
-        elif t.consolidation < 0:
+        elif t.consolidation <= -0.5:
             them.append("he gives up the best player in the deal, a harder sell")
         for p in t.give:
             s = self.seen.get(p.player_id)

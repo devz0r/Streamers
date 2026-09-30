@@ -153,6 +153,12 @@ ACCEPT_CENTER = 1.0
 ACCEPT_SCALE = 0.8
 #: In an uneven deal the side getting the best player tends to feel it won.
 CONSOLIDATION = 0.75
+#: No offer is a sure thing. Offers go unseen for days or get countered
+#: instead, and a proposal reads worse to a rival because he received it
+#: (reactive devaluation: the same terms are judged less favourable when the
+#: other side proposes them). An offer that looks clearly good to an active
+#: manager is put at 80%, not the 97% the curve alone gave one.
+ACCEPT_CEILING = 0.8
 
 
 def engagement(acquisitions: int | None, weeks: int) -> float:
@@ -165,12 +171,12 @@ def engagement(acquisitions: int | None, weeks: int) -> float:
 
 
 def p_accept(perceived_gain: float, consolidation: int, engaged: float) -> float:
-    """A rough chance he accepts. ``consolidation`` is +1 when he gets the
-    best player of an uneven deal, -1 when he gives it up.
+    """A rough chance he accepts. ``consolidation`` runs from +1 when he gets
+    a clearly best player of an uneven deal to -1 when he gives one up.
 
     The shape (a logistic in perceived gain, centred at a clear +1 point a
-    game) is an assumption: offers and refusals are not published, so it
-    cannot be fitted. It ranks offers; do not read the percentage as a
-    measured rate."""
+    game, topping out at ``ACCEPT_CEILING``) is an assumption: offers and
+    refusals are not published, so it cannot be fitted. It ranks offers; do
+    not read the percentage as a measured rate."""
     x = perceived_gain + consolidation * CONSOLIDATION
-    return engaged / (1.0 + math.exp(-(x - ACCEPT_CENTER) / ACCEPT_SCALE))
+    return ACCEPT_CEILING * engaged / (1.0 + math.exp(-(x - ACCEPT_CENTER) / ACCEPT_SCALE))

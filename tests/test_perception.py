@@ -41,5 +41,7 @@ def test_acceptance_rises_with_his_gain_and_the_best_player_and_his_activity():
     assert perception.p_accept(2.0, 0, 1.0) > perception.p_accept(0.0, 0, 1.0) > perception.p_accept(-2.0, 0, 1.0)
     assert perception.p_accept(0.5, 1, 1.0) > perception.p_accept(0.5, 0, 1.0) > perception.p_accept(0.5, -1, 1.0)
     assert perception.p_accept(1.0, 0, 1.0) == 2 * perception.p_accept(1.0, 0, 0.5)
+    # No offer is a sure thing, however good it looks to him.
+    assert perception.p_accept(20.0, 1, 1.0) <= perception.ACCEPT_CEILING < 1.0
     assert perception.engagement(0, 2) == 0.6 and perception.engagement(4, 2) == 1.0
     assert perception.engagement(None, 2) == 0.8

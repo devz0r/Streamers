@@ -7,7 +7,7 @@ import pytest
 from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
 from streamer.roster import season as season_mod
 from streamer.roster.season import SeasonModel
-from streamer.roster.trades import TradeFinder
+from streamer.roster.trades import CONSOLIDATION_GAP, TradeFinder, own_view
 
 
 def _p(pid, pos, v):
@@ -98,3 +98,32 @@ def test_the_page_shows_three_tabs(finder):
     assert html.count('type="radio"') == 3 and 'id="trades-espn-top"' in html
     assert all(p.name in html for t in board.top for p in t.give + t.get)
     assert _trades(SimpleNamespace(trades=None, snapshot=finder.snapshot)) == ""
+
+
+def test_the_best_player_bonus_needs_a_clearly_best_player():
+    """Worthy for Sadiq + Hill: Worthy 0.4 a game ahead is not "the best
+    player in the deal" the way a star is."""
+    value = {"worthy": 9.35, "sadiq": 8.95, "hill": 4.0, "star": 15.0}
+    his = lambda p: value[p.player_id]                                   # noqa: E731
+    P = {k: _p(k, "WR", v) for k, v in value.items()}
+    near = TradeFinder._consolidation([P["worthy"]], [P["sadiq"], P["hill"]], his)
+    assert near == pytest.approx(0.4 / CONSOLIDATION_GAP)
+    assert TradeFinder._consolidation([P["star"]], [P["sadiq"], P["hill"]], his) == 1.0
+    assert TradeFinder._consolidation([P["sadiq"], P["hill"]], [P["star"]], his) == -1.0
+    assert TradeFinder._consolidation([P["hill"]], [P["sadiq"], P["worthy"]], his) == 0.0
+    assert TradeFinder._consolidation([P["worthy"]], [P["sadiq"]], his) == 0.0
+
+
+def test_his_lineup_raises_the_players_he_starts_never_lowers_his_bench():
+    """He starts Sadiq in his flex over Brian Thomas Jr.: to him Sadiq is worth
+    at least what the market gives Thomas. Thomas is not marked down -- a
+    lineup can be a week old."""
+    sadiq = PlayerRow(player_id="s", name="Kenyon Sadiq", position="TE", team="NYJ", slot="FLEX")
+    btj = PlayerRow(player_id="b", name="Brian Thomas Jr.", position="WR", team="JAX", slot="BN")
+    hurt = PlayerRow(player_id="h", name="Hurt Guy", position="WR", team="JAX", slot="BN", status="O")
+    qb = PlayerRow(player_id="q", name="Backup QB", position="QB", team="JAX", slot="BN")
+    starter_wr = PlayerRow(player_id="w", name="Starter", position="WR", team="KC", slot="WR")
+    team = TeamRow(team_id="3", name="Punisher", roster=[sadiq, btj, hurt, qb, starter_wr])
+    market = {"s": 8.95, "b": 9.6, "h": 14.0, "q": 12.0, "w": 12.0}
+    values, over = own_view(team, lambda p: market[p.player_id])
+    assert values == {"s": 9.6} and over == {"s": "Brian Thomas Jr."}

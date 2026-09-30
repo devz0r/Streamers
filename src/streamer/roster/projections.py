@@ -826,8 +826,9 @@ def project_snapshot(
             stale = row is not None and weeks_since(row, snapshot.season, snapshot.week) > inactive_weeks
             # No NFL team means not on an NFL roster: an unsigned or retired
             # player cannot play, whatever injury tag he still carries. ESPN
-            # lists 240-odd of them in a free-agent pool and projects one.
-            unsigned = not p.team
+            # lists 240-odd of them in a free-agent pool and projects one;
+            # Yahoo tags them NA and keeps their old team.
+            unsigned = p.unsigned
             # Gone for more than a season -- a holdout, the reserve/left-squad
             # list, a long suspension -- is not an injury that heals in a few
             # weeks, whatever tag he carries: his old games say nothing about
@@ -879,6 +880,8 @@ def project_snapshot(
                 # old average. With nothing current -- no recent game and no
                 # platform projection -- he is not playing.
                 mean, ros, source = 0.0, 0.0, "inactive"
+                if unsigned:
+                    p.signals = ["not on an NFL roster: no value until he signs with a team"]
             elif plat is not None:
                 mean = float(plat)
                 ros = mean
