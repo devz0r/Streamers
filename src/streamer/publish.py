@@ -158,7 +158,7 @@ ol.steps { margin: 0 0 .4rem; padding-left: 1.2rem; color: var(--text); }
   letter-spacing: .03em; padding: .05rem .35rem; border-radius: 5px; background: var(--panel-2);
   color: var(--muted); margin-right: .25rem; }
 .kind-trade { color: var(--warn); } .kind-block { color: var(--bad); }
-.kind-lineup, .kind-stream { color: var(--accent); } .kind-waiver, .kind-plan { color: var(--good); }
+.kind-lineup, .kind-stream, .kind-pickup { color: var(--accent); } .kind-waiver, .kind-plan { color: var(--good); }
 details > summary + h3 { margin-top: .6rem; }
 ol.steps li { margin: .1rem 0; }
 
@@ -776,13 +776,19 @@ def team_panels_for(
                 try:
                     from .roster.title_moves import TitleEngine
 
-                    engine = TitleEngine(snap, bound)
+                    engine = TitleEngine(snap, bound, extra=[o.player for o in report.pickups])
                     engine.market = {pid: s.value for pid, s in (seen or {}).items()}
                     report.season = engine.model.odds()
                     report.title_moves = engine.moves(5)
                     report.passed = engine.passed
                     report.waiver_rank = engine.rank
                     report.stakes = engine.model.stakes(snap.my_team.team_id)
+                    try:
+                        from .roster.matchup import price_pickups
+
+                        price_pickups(report, engine)
+                    except Exception as exc:  # noqa: BLE001 - pickups keep their P(win) without it
+                        log.warning("pricing this week's pickups for %s skipped: %s", name, exc)
                 except Exception as exc:  # noqa: BLE001 - odds are a bonus section
                     log.warning("title engine for %s skipped: %s", name, exc)
                     engine = None

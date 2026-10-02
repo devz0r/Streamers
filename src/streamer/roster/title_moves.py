@@ -209,7 +209,11 @@ def _droppable(roster: list[PlayerRow], add: PlayerRow) -> list[PlayerRow]:
 
 class TitleEngine:
     def __init__(self, snapshot: LeagueSnapshot, cfg: Config, n_sims: int = 6000,
-                 candidates: int = 20, drops: int = 4, seed: int = 29):
+                 candidates: int = 20, drops: int = 4, seed: int = 29,
+                 extra: list[PlayerRow] | None = None):
+        """``extra``: free agents to simulate as well, so moves involving them
+        can be priced (:meth:`value_now`) -- this week's pickups -- without
+        joining the waiver candidates."""
         self.snapshot, self.cfg = snapshot, cfg
         me = snapshot.my_team
         self.me = me
@@ -228,7 +232,9 @@ class TitleEngine:
         have = {p.player_id for p in self.candidates}
         self.candidates.extend(p for p in pool if p.player_id in self.upside and p.player_id not in have)
         self.n_drops = drops
-        self.model = SeasonModel(snapshot, cfg, n_sims=n_sims, seed=seed, extra_players=self.candidates)
+        have = {p.player_id for p in self.candidates}
+        also = [p for p in extra or [] if p.player_id not in have]
+        self.model = SeasonModel(snapshot, cfg, n_sims=n_sims, seed=seed, extra_players=self.candidates + also)
         self.mine = self.model.team_index[me.team_id]
         self.base_won = (self.model.odds().champion == self.mine).astype(float)
         self.base = float(self.base_won.mean())

@@ -587,6 +587,98 @@ def stream_options(
     return out
 
 
+@dataclass
+class PickupOption:
+    """A free agent added for this week, and what he does to P(win)."""
+
+    player: PlayerRow
+    win_probability: float          # your best lineup with him in it
+    base: float                     # your best lineup as it stands, on the same draws
+    noise: float                    # standard error of the difference
+    lineup: LineupResult
+    #: Changes from your best lineup as it stands: (slot, benched, started).
+    changes: list[tuple[str, PlayerRow | None, PlayerRow]] = field(default_factory=list)
+    drop: PlayerRow | None = None
+    #: Title odds of the whole move (this week and the rest of the season,
+    #: the drop included), when the season engine priced it.
+    title_gain: float | None = None
+    title_noise: float = 0.0
+
+    @property
+    def gain(self) -> float:
+        return self.win_probability - self.base
+
+    @property
+    def moves_text(self) -> str:
+        """"start A over B; start C over D" -- every lineup change he brings."""
+        return "; ".join(f"start {s.name}" + (f" over {b.name}" if b is not None else "")
+                         for _slot, b, s in self.changes)
+
+    @property
+    def clear(self) -> bool:
+        """Better by more than the simulation can blur."""
+        return self.gain >= max(MIN_WIN_EDGE, 2.0 * self.noise)
+
+
+def pickup_options(
+    opt: Optimisation,
+    roster: list[PlayerRow],
+    slots: dict[str, int],
+    candidates: list[PlayerRow],
+    n_sims: int = 20000,
+    seed: int = 13,
+) -> list[PickupOption]:
+    """P(win) this week with each free agent on the roster.
+
+    Your best lineup is rebuilt around each candidate (he has to start to
+    help this week) and scored against the opponent's lineup on draws shared
+    by every candidate and by your lineup as it stands, so the differences
+    are the players, not the luck of the draw. The lineup is chosen on one
+    sample and scored on a fresh one, as :func:`optimise` does. Who to drop
+    is left to the caller: this week it is anyone who would not start.
+    """
+    if opt.opponent is None:
+        return []
+    roster = [p for p in roster if not p.in_ir_slot]
+    have = {p.player_id for p in roster}
+    pool = [c for c in candidates if c.player_id not in have and not c.locked and not c.is_out
+            and not c.in_ir_slot and c.projection is not None]
+    if not pool:
+        return []
+    theirs = [p for _s, p in opt.opponent.flat()]
+    everyone, seen = [], set()
+    for p in roster + theirs + pool:
+        if p.player_id not in seen:
+            seen.add(p.player_id)
+            everyone.append(p)
+    index = {p.player_id: i for i, p in enumerate(everyone)}
+    rng = np.random.default_rng(seed)
+    select = sample_points(everyone, n_sims, rng)
+    confirm = sample_points(everyone, n_sims, rng)
+    opp_sel = _totals([opt.opponent.starters], select, index)[0]
+    opp_conf = _totals([opt.opponent.starters], confirm, index)[0]
+    base_tot = _totals([opt.best_win.starters], confirm, index)[0]
+    base_ind = (base_tot > opp_conf) + 0.5 * (base_tot == opp_conf)
+    out = []
+    for c in pool:
+        lineups = [lu for lu in _with_locks(roster + [c], slots)
+                   if any(p.player_id == c.player_id for ps in lu.values() for p in ps)]
+        if not lineups:
+            continue
+        best = lineups[int(np.argmax(_win_rates(lineups, select, index, opp_sel)))]
+        tot = _totals([best], confirm, index)[0]
+        ind = (tot > opp_conf) + 0.5 * (tot == opp_conf)
+        diff = ind - base_ind
+        out.append(PickupOption(
+            player=c, win_probability=float(ind.mean()), base=float(base_ind.mean()),
+            noise=float(diff.std() / np.sqrt(n_sims)),
+            lineup=LineupResult(starters=best, expected=_projected(best), sd=float(tot.std()),
+                                win_probability=float(ind.mean())),
+            changes=diff_lineups(opt.best_win.starters, best)))
+    out.sort(key=lambda o: -o.gain)
+    return out
+
+
 def diff_lineups(
     current: dict[str, list[PlayerRow]] | None, target: dict[str, list[PlayerRow]]
 ) -> list[tuple[str, PlayerRow | None, PlayerRow]]:

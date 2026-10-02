@@ -452,6 +452,16 @@ data from the same simulation, and says how close it came to the full
 simulation on the trades priced that run. See DECISIONS.md, "Evaluate any
 trade, on the page".
 
+### Pickups for this week
+
+Under "This week's pickups, D/ST and K", every free agent who could start
+for you this week is added to your roster, your lineup rebuilt around him,
+and scored against your opponent on the same simulated games: the chance
+you win this week with him, against without. Beside it, what the whole
+move -- the drop included -- does to your title odds, since a pickup that
+wins this week can cost more later. See DECISIONS.md, "Pickups for this
+week, at every position".
+
 ### How waivers are priced
 
 A pickup is priced by what it does to your roster: this week, and the rest

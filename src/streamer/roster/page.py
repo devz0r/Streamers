@@ -138,8 +138,8 @@ def render_my_team(
             parts.append(_fold(uid, "trades", "Trades", trades))
         moves = [m for m in moves if m.add.position in ("DST", "K")]
     parts.append(f'<details id="{uid}-streams"><summary>'
-                 + ("Waiver moves, D/ST and K, stashes" if report.title_moves is None
-                    else "D/ST and K, stashes, lottery tickets") + "</summary>")
+                 + ("Waiver moves, this week's pickups, D/ST and K, stashes" if report.title_moves is None
+                    else "This week's pickups, D/ST and K, stashes, lottery tickets") + "</summary>")
     parts.append("<h3>Waiver moves</h3>" if report.title_moves is None else "<h3>D/ST and K streams</h3>")
     if not moves:
         parts.append('<p class="sub">Nothing on the wire clears the bar this week.</p>')
@@ -160,6 +160,7 @@ def render_my_team(
             )
         parts.append("".join(cards))
 
+    parts.append(_pickups(report))
     parts.append(_streams(report))
 
     tickets = stashes(snapshot, moves, n=3)
@@ -547,6 +548,44 @@ def _stream_note(report: MatchupReport, player) -> str:
         return ""
     return (f"P(win) this week {this.win_probability:.1%} against {mine.win_probability:.1%} "
             f"with {mine.player.name}")
+
+
+def _pickups(report: MatchupReport) -> str:
+    """Free agents who raise this week's P(win), with the season cost of the move."""
+    if report.optimisation.opponent is None:
+        return ""
+    head = ("<h3>Pickups for this matchup</h3>"
+            '<p class="sub">Every free agent who could start for you this week, added to your roster with '
+            "your best lineup rebuilt around him and scored against your opponent on the same simulated "
+            "games as your lineup as it stands -- the chance you win this week with him, against without. "
+            "<b>Season</b> is what the whole move, the drop included, does to your title odds, this week "
+            "and the rest of the season together: a pickup that wins this week can still cost more later "
+            "than it gains now. If he is on waivers, the claim has to clear before his game.</p>")
+    if not report.pickups:
+        return head + '<p class="sub">No free agent raises your chance of winning this week.</p>'
+    rows = []
+    for o in report.pickups:
+        p = o.player
+        season = (f"{o.title_gain * 100:+.1f}" if o.title_gain is not None else "--")
+        vs = f"{o.gain * 100:+.1f}" + ("" if o.clear else "*")
+        why = []
+        if o.changes:
+            why.append(o.moves_text)
+        if o.drop is not None:
+            why.append(f"drop {o.drop.name}")
+        if p.signals:
+            why.append(p.signals[0])
+        rows.append(
+            f"<tr><td class='unit'>{_e(p.name)}</td><td>{_e(p.position)} {_e(p.team or '')}</td>"
+            f"<td>{_e(p.nfl_opponent or '')}</td><td>{(p.projection or 0):.1f}</td>"
+            f"<td>{o.win_probability:.1%}</td><td>{vs}</td><td>{season}</td></tr>"
+            f"<tr><td class='why' colspan='7'>&#8627; {_e('; '.join(why))}</td></tr>")
+    base = report.pickups[0].base
+    return (head + '<div class="scroll"><table><thead><tr><th class="unit">Player</th><th>Pos</th><th>Opp</th>'
+            "<th>Proj</th><th>P(win)</th><th>vs now</th><th>Season</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>"
+            f'<p class="sub">Your best lineup as it stands: {base:.1%} on the same games. '
+            "* within the simulation's noise.</p>")
 
 
 def _streams(report: MatchupReport) -> str:

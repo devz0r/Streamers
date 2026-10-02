@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 from .title_moves import BLOCK_NOTE, drop_choice
 
-KINDS = ("Lineup", "Stream", "Waiver", "Block", "Plan", "Trade")
+KINDS = ("Lineup", "Stream", "Pickup", "Waiver", "Block", "Plan", "Trade")
 
 
 @dataclass
@@ -89,6 +89,24 @@ def actions(report, cfg=None) -> list[HubAction]:
             out.append(HubAction("Stream", f"Stream {best.player.name}",
                                  f"{label} for this week, over {mine.player.name}", dp * per_win,
                                  f"P(win this week) +{dp * 100:.1f}", "streams"))
+
+    # A free agent for this week: priced as the whole move where the season
+    # engine could (this week and the rest of the season, the drop
+    # included), else as this week's win alone. One already on the waiver
+    # list is left to that entry.
+    on_list = {m.add.player_id for m in report.title_moves or []}
+    for o in getattr(report, "pickups", None) or []:
+        if o.player.player_id in on_list or not o.clear:
+            continue
+        gain = o.title_gain if o.title_gain is not None else (o.gain * per_win if per_win is not None else None)
+        if gain is None:
+            continue
+        detail = "; ".join(filter(None, [
+            o.moves_text,
+            f"drop {o.drop.name}" if o.drop is not None else ""])) + second(o.player)
+        out.append(HubAction("Pickup", f"Add {o.player.name} for this week", detail, gain,
+                             f"P(win this week) {o.base:.0%} to {o.win_probability:.0%}"
+                             + ("" if o.title_gain is not None else "; this week only"), "streams"))
 
     # -- the season ------------------------------------------------------
     for m in report.title_moves or []:

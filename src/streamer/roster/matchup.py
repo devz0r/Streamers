@@ -6,7 +6,14 @@ from dataclasses import dataclass, field
 
 from ..config import Config, get_config
 from ..league.model import LeagueSnapshot, PlayerRow
-from .lineup import Optimisation, StreamOption, optimise, stream_options
+from .lineup import (
+    Optimisation,
+    PickupOption,
+    StreamOption,
+    optimise,
+    pickup_options,
+    stream_options,
+)
 
 
 @dataclass
@@ -17,6 +24,8 @@ class MatchupReport:
     notes: list[str] = field(default_factory=list)
     #: D/ST and kicker options ranked by this week's P(win) (position -> list).
     streams: dict[str, list[StreamOption]] = field(default_factory=dict)
+    #: Free agents who raise this week's P(win), best first.
+    pickups: list[PickupOption] = field(default_factory=list)
     #: Rest-of-season odds for every team (None until the league's schedule
     #: and playoff format have been read).
     season: object | None = None
@@ -94,7 +103,82 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
             streams[pos] = stream_options(result, pos, pool, n_sims=int(cfg.raw["roster"]["sims"]))
         except Exception:  # noqa: BLE001 - a bonus table never blocks the report
             streams[pos] = []
+    try:
+        pickups = this_week_pickups(snapshot, result, n_sims=int(cfg.raw["roster"]["sims"]))
+    except Exception:  # noqa: BLE001 - a bonus table never blocks the report
+        pickups = []
     return MatchupReport(
         snapshot=snapshot, optimisation=result,
-        opponent_name=opp.name if opp else "", notes=notes, streams=streams,
+        opponent_name=opp.name if opp else "", notes=notes, streams=streams, pickups=pickups,
     )
+
+
+#: Free agents tried per position: the best projections this week that come
+#: within ``PICKUP_REACH`` points of a starter they could replace.
+PICKUPS_PER_POSITION = 6
+PICKUP_REACH = 3.0
+PICKUPS_SHOWN = 6
+
+
+def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int = 20000) -> list[PickupOption]:
+    """Free agents who would raise your P(win) this week, each with the
+    player he would start over and the cheapest one to drop.
+
+    The drop is the bench player with the least rest-of-season value (as the
+    waiver engine ranks them) who would not start this week, never one whose
+    game has kicked off, never one that leaves a position short; the season
+    engine re-prices the move with its own pick of drops
+    (:func:`price_pickups`)."""
+    from ..league.model import SLOT_ELIGIBILITY
+    from .title_moves import _droppable
+
+    me = snapshot.my_team
+    pool = []
+    for pos in ("QB", "RB", "WR", "TE"):
+        # The weakest starter he could replace sets the bar he has to come near.
+        bar = [p.week_value for slot, p in opt.best_win.flat() if pos in SLOT_ELIGIBILITY.get(slot, (slot,))]
+        floor = min(bar) - PICKUP_REACH if bar else 0.0
+        at = sorted((p for p in snapshot.free_agents
+                     if p.position == pos and p.team and not p.on_bye and not p.is_out and not p.locked
+                     and p.projection is not None and p.week_value >= floor),
+                    key=lambda p: -p.week_value)
+        pool.extend(at[:PICKUPS_PER_POSITION])
+    options = pickup_options(opt, me.roster, snapshot.starting_slots, pool, n_sims=n_sims)
+    out = []
+    for o in options:
+        if o.gain <= 0:
+            continue
+        starting = {p.player_id for _s, p in o.lineup.flat()}
+        drops = [p for p in _droppable(me.roster, o.player) if p.player_id not in starting and not p.locked]
+        o.drop = drops[0] if drops else None
+        out.append(o)
+    return out[:PICKUPS_SHOWN]
+
+
+def price_pickups(report: MatchupReport, engine) -> None:
+    """Title odds of each pickup as a whole move -- this week and the rest of
+    the season, the drop included -- on the season engine (which must have
+    simulated the pickups: ``TitleEngine(..., extra=...)``). Of the few
+    cheapest drops who would not start this week, the one that keeps the
+    most title odds is taken."""
+    import numpy as np
+
+    from .title_moves import _droppable
+
+    me = report.snapshot.my_team
+    for o in report.pickups:
+        if o.player.player_id not in engine.model.pid:
+            continue
+        starting = {p.player_id for _s, p in o.lineup.flat()}
+        drops = [p for p in _droppable(me.roster, o.player)
+                 if p.player_id not in starting and not p.locked][: engine.n_drops]
+        best = None
+        for d in drops:
+            won = engine.value_now(o.player, d, per_sim=True)
+            if best is None or won.mean() > best[1].mean():
+                best = (d, won)
+        if best is None:
+            continue
+        o.drop = best[0]
+        o.title_gain = float(best[1].mean()) - engine.base
+        o.title_noise = float(np.std(best[1] - engine.base_won) / np.sqrt(len(best[1])))

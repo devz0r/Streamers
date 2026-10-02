@@ -1041,6 +1041,37 @@ Waiver D/ST and K moves quote the same P(win) figures. Found while testing:
 the same-game check only matched one direction (a's opponent is b's team);
 it is now symmetric.
 
+### Pickups for this week, at every position
+The stream check covered only D/ST and kickers. Every free agent who could
+start for you this week is now tried the same way: added to your roster,
+your best lineup rebuilt around him (he has to start to help this week),
+and scored against your opponent on draws shared with your lineup as it
+stands -- chosen on one sample and scored on a fresh one, as the optimiser
+does, so the change is the player and not the luck of the draw. Tried: up
+to six per position whose projection comes within three points of the
+weakest starter they could replace. Each shows every lineup change he
+brings, not just who he starts over, because one addition can reshuffle a
+flex.
+
+Winning this week is not the whole question. The drop is the bench
+player with the least season value who would not start this week (never
+one whose game has kicked off, never one that leaves a position short),
+and the season engine then prices the whole move -- this week and the
+rest of the season, the drop included -- choosing among the cheapest few
+drops. On the ESPN league at week 4 the best pickup (Khalil Shakir, in
+for Mike Evans) raised P(win) by 1.2 points, clear of the noise, but
+cost 0.4 points of title odds through the drop: the table shows both,
+and the hub lists a pickup only when the whole move raises title odds (or,
+where the season engine could not price him, by this week's win alone,
+and says so). On the Yahoo league no free agent beat a starter.
+
+No odds credits are spent on this. Player props are billed per game, not
+per player: one request buys every player's lines in a game, and the
+weekly pull is capped at the eight games holding most of your startable
+players. A free agent in one of those games carries the market's numbers
+for free; one elsewhere is projected by the model alone, as before.
+Game lines are one request for the whole slate.
+
 ### Which units are actually available
 Each tab's D/ST and kicker rankings mark every unit as yours, available or
 taken in that league, and dim the taken ones, so the top overall stays
