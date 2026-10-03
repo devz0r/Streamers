@@ -1215,6 +1215,33 @@ who become starters are under-forecast (0.9% simulated, 2.4% real, for
 projection stands in for them on the page. Rerun
 `python scripts/fit_ros.py` after a season is added.
 
+### A back whose work has collapsed
+Tyrone Tracy Jr. topped the ESPN waiver list in week 4 at 7.6 a game: the
+Giants' lead back late in 2025 (13-27 expected points a game), he had 2, 0
+and 1 carries in 2026 and was the No. 3 behind Skattebo and Najee Harris.
+Three games are three of the seventeen the season value leans on, so it read
+a demotion as a dip. In the replay, backs valued 4+ whose last two games
+kept under half their earlier opportunity (by 3+ expected points a game)
+returned about 86% of what the model gave them -- 0.82-0.93 in every
+held-out season -- while receivers, tight ends and quarterbacks in the same
+spot showed no such lean (and backs below 4 swung both ways). Those backs'
+season values are now cut to 86% (`roster.usage_collapse`), unless the
+drop is an injury the simulation already plays out; the card says so.
+Re-run through the replay, the corrected backs are simulated at 4.07 points
+a team game against 4.17 real (5.0 before). Tracy goes from 7.6 to 6.5.
+
+### The real depth chart decides who is next in line
+The lead at QB, RB and TE is still the player with the most season value;
+who comes *next* -- the handcuff the simulation hands the job to, and the
+backup a current absence boosts -- now follows Sleeper's depth chart where
+it has the team's room (matched by name, team and position: its ids for the
+other platforms are mostly blank), and value otherwise. The model ranked
+the Giants' backs Skattebo, Singletary, Tracy, Harris; Sleeper has Harris
+second. Sleeper lists an injured starter below his backup (Braelon Allen
+first, Breece Hall second), which is why the lead stays the lead by value.
+It cannot be replayed -- Sleeper keeps no history -- so the replay runs
+without it.
+
 ### The season simulator
 Every rostered player (and the top free agents) gets simulated futures;
 each simulated season, every team starts the best lineup it could *see*

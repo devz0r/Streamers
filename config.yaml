@@ -380,6 +380,13 @@ roster:
   # of 2022-2025 for players with old-team games in their window: average
   # miss 3.13 -> 2.99, and they had been projected 0.9 a game too high.
   old_team_weight: 0.2
+  # A back whose last two games kept under half his earlier opportunity
+  # (and fell 3+ expected points a game) returned about 86% of the season
+  # value the model gave him, for backs valued 4+ (2022-2025 replay,
+  # 0.82-0.93 in every held-out season; receivers, tight ends and
+  # quarterbacks showed no such lean). See DECISIONS.md, "A back whose
+  # work has collapsed".
+  usage_collapse: {positions: [RB], below: 0.5, min_value: 4.0, factor: 0.86}
   # Efficiency (points per expected point) mostly regresses, so it moves
   # slowly: long-run rate shrunk to the position's with this many expected
   # points of prior, and only a quarter of the weight on recent games.

@@ -99,6 +99,9 @@ class PlayerRow:
     #: lead's work that predicts for him. None when not a next man up.
     backfield_share: float | None = None
     takeover_share: float | None = None
+    #: His place on his NFL team's depth chart at his position (1 = starter),
+    #: from Sleeper; None when it is not known.
+    depth_order: int | None = None
     #: His team's games in a row, up to now this season, that he has not
     #: played: how long an absence in progress has already run.
     games_missed: int = 0

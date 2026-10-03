@@ -135,14 +135,18 @@ def project(history: pd.DataFrame, cfg: Config, season: int, week: int,
             self.mapping = {p.player_id: p.player_id for p in players}
             self.unmatched = []
 
-    saved = (projections._implied_scale, projections.match_players, locked.lock_played)
+    from ..data import sleeper
+
+    saved = (projections._implied_scale, projections.match_players, locked.lock_played, sleeper.depth_orders)
     projections._implied_scale = lambda *a, **k: ({}, "backtest")
     projections.match_players = lambda players, index: _Identity(players)
     locked.lock_played = lambda *a, **k: []
+    sleeper.depth_orders = lambda *a, **k: {}      # today's depth charts say nothing about past seasons
     try:
         projections.project_snapshot(snap, cfg, rankings=None, allow_network=True, history=prior)
     finally:
-        projections._implied_scale, projections.match_players, locked.lock_played = saved
+        (projections._implied_scale, projections.match_players, locked.lock_played,
+         sleeper.depth_orders) = saved
     return [p for p in rows if p.ros_value is not None]
 
 

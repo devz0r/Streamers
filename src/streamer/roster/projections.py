@@ -68,6 +68,8 @@ class ProjectionReport:
     sitting: list[str] = field(default_factory=list)
     #: What was locked in from games already played.
     lock_notes: list[str] = field(default_factory=list)
+    #: QBs/RBs/TEs placed on Sleeper's depth chart.
+    depth_matched: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -575,14 +577,17 @@ def next_man_up(
         if share <= 0:
             continue
         pool = by_id[by_id["position"] == pos]
-        best_nid, best_vol = None, -1.0
+        best_nid, best_vol, best_key = None, -1.0, None
         for nid, row in pool.iterrows():
             if team_of.get(nid, row["team"]) != team or nid in blocked:
                 continue
             if weeks_since(row, season, week) > inactive_weeks:
                 continue
-            if float(row["vol"]) > best_vol:
-                best_nid, best_vol = nid, float(row["vol"])
+            # Next on the depth chart where it is known, else the most work.
+            order = getattr(platform_of.get(nid), "depth_order", None)
+            key = (order is None, order or 0, -float(row["vol"]))
+            if best_key is None or key < best_key:
+                best_nid, best_vol, best_key = nid, float(row["vol"]), key
         heir = platform_of.get(best_nid) if best_nid is not None else None
         if heir is None:
             continue
@@ -644,9 +649,37 @@ def _opponents(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, str]:
     return dict(zip(wk["team"], wk["opponent"]))
 
 
+def next_in_line(members: list[PlayerRow]) -> list[PlayerRow]:
+    """A position group in order: the lead by season value, then -- where the
+    depth chart is known -- the rest in depth-chart order (a No. 3 is not
+    the handcuff because he once had the job), else by value."""
+    value = lambda q: float(q.ros_value if q.ros_value is not None else (q.projection or 0.0))  # noqa: E731
+    ranked = sorted(members, key=lambda q: -value(q))
+    if len(ranked) < 3 or not any(q.depth_order is not None for q in ranked[1:]):
+        return ranked
+    rest = sorted(ranked[1:], key=lambda q: (q.depth_order is None, q.depth_order or 0, -value(q)))
+    return [ranked[0], *rest]
+
+
+def attach_depth(players: list[PlayerRow], orders: dict[tuple[str, str, str], int]) -> int:
+    """Set each QB/RB/TE's depth-chart order where Sleeper has him on the same
+    team at the same position. Returns how many were matched."""
+    from ..teams import normalize_team
+    from .players import normalize_name
+
+    n = 0
+    for p in players:
+        p.depth_order = None
+        if p.team and p.position in ("QB", "RB", "TE"):
+            p.depth_order = orders.get((normalize_team(p.team), p.position, normalize_name(p.name)))
+            n += p.depth_order is not None
+    return n
+
+
 def assign_roles(players: list[PlayerRow]) -> None:
     """Depth-chart role per player -- QB, RB1, RB2, WR1..., TE -- by healthy
-    per-game projection among his NFL teammates in the player pool."""
+    per-game projection among his NFL teammates in the player pool; behind the
+    lead, QBs, RBs and TEs follow the real depth chart where it is known."""
     groups: dict[tuple[str, str], list[PlayerRow]] = {}
     for p in players:
         if p.position in ("DST", "K"):
@@ -654,7 +687,10 @@ def assign_roles(players: list[PlayerRow]) -> None:
         elif p.position in SKILL and p.team:
             groups.setdefault((p.team, p.position), []).append(p)
     for (_team, pos), members in groups.items():
-        members.sort(key=lambda q: -float(q.ros_value if q.ros_value is not None else (q.projection or 0.0)))
+        if pos in ("QB", "RB", "TE"):
+            members = next_in_line(members)
+        else:
+            members.sort(key=lambda q: -float(q.ros_value if q.ros_value is not None else (q.projection or 0.0)))
         for rank, p in enumerate(members, start=1):
             if pos in ("QB", "TE"):
                 p.role = pos if rank == 1 else f"{pos}{rank}"
@@ -715,6 +751,24 @@ def _trend_signal(row) -> str:
     if recent <= 0.65 * before and before - recent >= 3.0:
         return f"opportunity down: {recent:.1f} expected pts/game over his last 2 vs {before:.1f} before"
     return ""
+
+
+def _collapse_factor(row, p: PlayerRow, ros: float, conf: dict) -> float:
+    """The share of his season value to keep when his opportunity has
+    collapsed: last two games under ``below`` of the games before, by 3+
+    expected points a game, at the configured positions and value."""
+    rule = conf.get("usage_collapse") or {}
+    if p.position not in rule.get("positions", []) or ros < float(rule.get("min_value", 0.0)):
+        return 1.0
+    if p.is_out or p.is_long_term_out:
+        return 1.0                    # an injury, not a lost job: the absence is simulated
+    try:
+        recent, before = float(row["recent_exp"]), float(row["prior_exp"])
+    except (KeyError, TypeError, ValueError):
+        return 1.0
+    if not (np.isfinite(recent) and np.isfinite(before)) or before - recent < 3.0:
+        return 1.0
+    return float(rule.get("factor", 1.0)) if recent < float(rule.get("below", 0.0)) * before else 1.0
 
 
 def project_snapshot(
@@ -782,6 +836,13 @@ def project_snapshot(
     }
     for p in players:
         p.takeover_share = p.backfield_share = None
+    # The real depth chart decides who is next in line behind a lead.
+    from ..data import sleeper
+
+    try:
+        report.depth_matched = attach_depth(players, sleeper.depth_orders(cfg, allow_network))
+    except Exception as exc:  # noqa: BLE001 - a bonus source; without it the order is by value
+        log.warning("Sleeper depth charts unavailable: %s", exc)
     heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg,
                         snaps=_season_snaps(int(snapshot.season), cfg, allow_network))
     usage = recent_usage(history, snapshot.season, snapshot.week)
@@ -872,6 +933,12 @@ def project_snapshot(
                 trend = _trend_signal(row)
                 if trend:
                     p.signals.append(trend)
+                cut = _collapse_factor(row, p, ros, conf)
+                if cut < 1.0:
+                    p.signals.append(f"season value lowered from {ros:.1f} to {ros * cut:.1f}: his work has "
+                                     f"collapsed, and backs like this returned about {cut:.0%} of their value "
+                                     "(2022-2025)")
+                    ros *= cut
                 if nfl_id in usage.index:
                     p.usage = usage_line(usage.loc[nfl_id])
             elif (stale or unsigned) and plat is None:

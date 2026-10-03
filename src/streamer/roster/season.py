@@ -129,9 +129,11 @@ def heirs_for(players: list[PlayerRow]) -> list[tuple[str, str]]:
     for p in players:
         if p.position in fut.TAKEOVER and p.team:
             groups.setdefault((p.team, p.position), []).append(p)
+    from .projections import next_in_line
+
     out = []
     for members in groups.values():
-        members = sorted(members, key=lambda q: -float(q.ros_value or 0.0))
+        members = next_in_line(members)
         if len(members) >= 2:
             out.append((members[0].player_id, members[1].player_id))
     return out

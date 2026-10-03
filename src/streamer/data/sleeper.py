@@ -55,6 +55,41 @@ def players(cfg: Config, refresh: bool = False) -> dict:
     return data
 
 
+#: Positions whose depth order decides who is next in line.
+DEPTH_POSITIONS = ("QB", "RB", "TE")
+
+
+def depth_orders(cfg: Config, allow_network: bool = True) -> dict[tuple[str, str, str], int]:
+    """(team, position, normalised name) -> depth-chart order (1 = starter)
+    for QBs, RBs and TEs. Sleeper's ids for the other platforms are mostly
+    blank, so players are matched by name on the same team and position.
+    {} when Sleeper cannot be reached and nothing is cached."""
+    from ..roster.players import normalize_name
+    from ..teams import normalize_team
+
+    if allow_network:
+        data = players(cfg)
+    else:
+        path = cfg.raw_dir / "sleeper_players.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        except ValueError:
+            data = {}
+    out = {}
+    for p in (data or {}).values():
+        if not isinstance(p, dict) or not p.get("team") or p.get("depth_chart_order") is None:
+            continue
+        pos = p.get("depth_chart_position") or p.get("position")
+        if pos not in DEPTH_POSITIONS or p.get("position") not in DEPTH_POSITIONS:
+            continue
+        name = p.get("full_name") or f"{p.get('first_name', '')} {p.get('last_name', '')}"
+        try:
+            out[(normalize_team(p["team"]), p["position"], normalize_name(name))] = int(p["depth_chart_order"])
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def probe(cfg: Config) -> list[str]:
     """What Sleeper returns, for a public log: counts, how often each field
     is filled for active skill players, and a few depth charts."""
