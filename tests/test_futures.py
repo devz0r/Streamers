@@ -30,8 +30,11 @@ def test_byes_score_nothing_and_absences_happen_at_a_plausible_rate():
 
 
 def test_injured_reserve_starts_him_out_for_weeks():
-    f = simulate([_p("a", status="INJURY_RESERVE")], weeks=[4, 5, 6, 7, 8], byes={}, n_sims=2000)
-    assert (f.scores[:, 0, :4] == 0).all()
+    """Measured 2022-2025: nobody comes straight back, most never do that season."""
+    f = simulate([_p("a", status="INJURY_RESERVE")], weeks=list(range(4, 12)), byes={}, n_sims=4000)
+    assert (f.scores[:, 0, 0] == 0).all()
+    never = (f.played[:, 0, :] == 0).all(axis=1).mean()
+    assert 0.35 < never < 0.85
 
 
 def test_the_next_man_up_gains_while_the_lead_is_out():
@@ -119,3 +122,61 @@ def test_an_absence_that_has_already_run_long_tends_to_run_longer():
     assert back_next[1] < back_next[0] - 0.03
     games_out = (f.levels == 0).sum(axis=2).mean(axis=0)
     assert games_out[1] > games_out[0] + 0.4
+
+
+def _with(monkeypatch, **conf):
+    import streamer.roster.futures as fut
+
+    base = dict(fut._params())
+    base.update(conf)
+    monkeypatch.setattr(fut, "_params", lambda: base)
+
+
+def test_a_player_on_ir_follows_the_measured_return(monkeypatch):
+    ir = {"levels": [6.0, 12.0], "missed": [3, 6], "gone": [[1.0] * 3, [0.0] * 3, [0.0] * 3],
+          "wait": [0.0, 0.0, 1.0]}
+    _with(monkeypatch, ir=ir)
+    gone, back = _p("gone", ros=4.0, status="IR"), _p("back", ros=9.0, status="IR")
+    f = simulate([gone, back], weeks=list(range(4, 10)), byes={}, n_sims=500)
+    assert not f.played[:, 0, :].any()                         # a low player who is gone stays gone
+    assert not f.played[:, 1, :2].any()                        # misses exactly two games...
+    assert f.played[:, 1, 2].mean() > 0.8                      # ...then plays
+
+
+def test_a_star_simulated_below_his_number_is_not_a_backup(monkeypatch):
+    """The absence hazard reads the projection: a 20-point QB whose hidden
+    level is drawn low does not inherit a backup's 46% weekly absence."""
+    star = _p("qb", "QB", 20.0)
+    _with(monkeypatch, persistent_error=4.0, hazard_on="level")
+    by_level = simulate([star], weeks=list(range(4, 14)), byes={}, n_sims=3000).played[:, 0, :].mean()
+    _with(monkeypatch, persistent_error=4.0, hazard_on="projection")
+    by_projection = simulate([star], weeks=list(range(4, 14)), byes={}, n_sims=3000).played[:, 0, :].mean()
+    assert by_projection > by_level + 0.05
+
+
+def test_a_multiplicative_error_does_not_lift_a_low_players_average(monkeypatch):
+    low = _p("low", ros=2.0, sd=1.0)
+    common = {"persistent_error": 3.0, "hazard_scale": None, "absence_scale": 0.0, "step": {"WR": 0.0}}
+    _with(monkeypatch, error_shape="normal", **common)
+    normal = simulate([low], weeks=[4, 5, 6], byes={}, n_sims=8000).scores[:, 0, :].mean()
+    _with(monkeypatch, error_shape="lognormal", **common)
+    logn = simulate([low], weeks=[4, 5, 6], byes={}, n_sims=8000).scores[:, 0, :].mean()
+    # A normal error floored at zero: E[max(2 + 4.2z, 0)] = 2.9.
+    assert normal > logn + 0.5 and logn < 2.4
+
+
+def test_offsets_and_error_scale_move_the_level_and_the_spread(monkeypatch):
+    rb = _p("rb", "RB", 6.0)
+    flat = {"levels": [4.0, 7.0], "RB": [0.0, 0.0, 0.0]}
+    _with(monkeypatch, level_offset=flat, error_scale={"levels": [4.0, 7.0], "RB": [1.0, 1.0, 1.0]},
+          absence_scale=0.0, hazard_scale=None, step={"RB": 0.0})
+    plain = simulate([rb], weeks=[4, 5, 6, 7], byes={}, n_sims=6000).levels[:, 0, :]
+    _with(monkeypatch, level_offset={"levels": [4.0, 7.0], "RB": [0.0, -2.0, 0.0]},
+          error_scale={"levels": [4.0, 7.0], "RB": [1.0, 2.0, 1.0]}, absence_scale=0.0, hazard_scale=None,
+          step={"RB": 0.0})
+    moved = simulate([rb], weeks=[4, 5, 6, 7], byes={}, n_sims=6000).levels[:, 0, :]
+    # The week in progress plays at this week's projection; the offset is
+    # about the weeks after it.
+    assert abs(plain[:, 0].mean() - moved[:, 0].mean()) < 0.3
+    assert abs((plain[:, 1:].mean() - moved[:, 1:].mean()) - 2.0) < 0.3
+    assert moved[:, 1:].std() / moved[:, 1:].mean() > plain[:, 1:].std() / plain[:, 1:].mean()

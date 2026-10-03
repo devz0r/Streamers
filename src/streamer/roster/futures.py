@@ -24,10 +24,30 @@ Each simulated future of a player is built from what was measured on
   up, speculated on").
 * **Byes** score zero; each week's score follows the measured outcome shape.
 
-Validated before use: from any week of 2024-25, 82% of players' actual next
-six-game averages fell inside the simulated 80% band (target 80%), 52% inside
-the 50% band, misses split 9% below / 9% above, and the simulated mean was
-within 0.12 points of the actual.
+Graded on replayed seasons (``streamer.roster.ros_backtest``,
+``scripts/fit_ros.py``): every rostered player at weeks 3-10 of 2022-2025,
+projected by the production code on the games before that week, simulated to
+week 17 and scored against what holding him returned. Four calibrations came
+out of it, each fitted on two seasons and checked on the other two:
+
+* **On a reserve list, most players are gone**: 63% never played again that
+  season; the rest took about four games. The old rule (back after four)
+  had them worth 1.3-1.4 points a team game too much.
+* **The absence hazard reads the projection**, scaled by level: fringe
+  players miss twice as often as their injury rate says (roles and roster
+  spots vanish), stars rarely miss. Reading the hidden true level instead
+  gave a star drawn below his number a backup's absence rate.
+* **The persistent error is multiplicative** (a level cannot go below zero,
+  so a normal error floored there lifted a low player's average), with a
+  per-position, per-level scale -- a star's outlook is narrower than
+  sqrt(level) said, a fringe back's wider.
+* **A per-position, per-level offset** so a simulated player scores per game
+  what players like him did.
+
+Average miss on rest-of-season points per team game fell 9-10% on the
+held-out seasons (2.76 to 2.48, 2.64 to 2.40), bias from +0.34/+0.45 to
+-0.17/+0.08, and the bands now hold what they claim (10-11% below the 10th
+percentile, 9-12% above the 90th, half inside the middle half).
 """
 
 from __future__ import annotations
@@ -69,6 +89,7 @@ class Futures:
     weeks: list[int]
     scores: np.ndarray
     levels: np.ndarray        # the projection a manager would see that week (0 when out)
+    played: np.ndarray | None = None   # whether he played that week (not out, not on bye)
 
     def index(self, player_id: str) -> int:
         return self.player_ids.index(player_id)
@@ -83,6 +104,13 @@ def _hazard(pos: str, level: np.ndarray, conf: dict) -> np.ndarray:
     idx = np.digitize(level, edges)
     table = conf.get("hazard", {})
     base = np.array([table.get(f"{pos}|{i}", table.get(f"{pos}|1", 0.08)) for i in range(len(edges) + 1)])
+    scale = conf.get("hazard_scale")
+    if scale:
+        # Fitted to how often players at each level actually played the
+        # rest of the season (fringe players lose roles and get cut; stars
+        # rarely miss), replacing one flat scale for every level.
+        mult = np.asarray(scale["scale"], dtype=float)[np.digitize(level, scale["levels"])]
+        return np.minimum(base[idx] * mult, 0.95)
     return base[idx] * float(conf.get("absence_scale", 1.2))
 
 
@@ -104,12 +132,35 @@ def _durations(pos: str, n: int, rng: np.random.Generator, conf: dict, already: 
     return d - already
 
 
+#: Games left "out" for a player who does not come back this season.
+GONE = 99
+
+
+def ir_gone(ir: dict, level: float, missed: int) -> float:
+    """Chance a player on a reserve list does not play again this season, by
+    his season value and how many games in a row he has already missed."""
+    li = int(np.digitize(level, ir.get("levels", [6.0, 12.0])))
+    mi = int(np.digitize(missed, ir.get("missed", [3, 6])))
+    return float(ir["gone"][li][mi])
+
+
 def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict) -> np.ndarray:
     """Games still to miss from today's status, given how many of his team's
     games in a row he has already missed."""
     pos = p.position if p.position in SKILL else "WR"
     already = int(getattr(p, "games_missed", 0) or 0)
     if p.status in LONG_TERM_OUT_STATUSES:
+        ir = conf.get("ir")
+        if ir:
+            # Measured from every player on a reserve list at a checkpoint,
+            # 2022-2025: most never play again that season, and the ones who
+            # do take about four games (see DECISIONS.md, "Rest of season,
+            # graded").
+            level = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+            gone = rng.random(n) < ir_gone(ir, level, already)
+            pmf = np.asarray(ir["wait"], dtype=float)           # games he misses: 0, 1, 2, ...
+            wait = rng.choice(np.arange(len(pmf)), size=n, p=pmf / pmf.sum())
+            return np.where(gone, GONE, wait)
         return np.maximum(_durations(pos, n, rng, conf, already), 4)
     if p.is_out and not p.on_bye:
         return _durations(pos, n, rng, conf, already)
@@ -118,6 +169,30 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
         sits = rng.random(n) >= q
         return np.where(sits, _durations(pos, n, rng, conf, already), 0)
     return np.zeros(n, int)
+
+
+def _by_level(table: dict | None, positions: list[str], base: np.ndarray) -> np.ndarray:
+    """Per player: the table's value for his position at his level (0 where
+    the table has none)."""
+    if not table:
+        return np.zeros(len(base))
+    idx = np.digitize(base, table["levels"])
+    return np.array([float(table[pos][i]) if pos in table else 0.0 for pos, i in zip(positions, idx)])
+
+
+def _scale_by_level(table: dict | None, base: np.ndarray, positions: list[str] | None = None) -> np.ndarray:
+    """Per player: the table's multiplier at his level -- his position's row
+    where it has one, else the shared ``scale``."""
+    if not table:
+        return np.ones(len(base))
+    idx = np.digitize(base, table["levels"])
+    shared = table.get("scale")
+    out = []
+    for j, i in enumerate(idx):
+        row = table.get(positions[j]) if positions else None
+        row = row if row is not None else shared
+        out.append(float(row[i]) if row is not None else 1.0)
+    return np.asarray(out)
 
 
 def _takeover(heir: PlayerRow, take: dict[str, float]) -> float:
@@ -198,6 +273,7 @@ def simulate(
     n_p, n_w = len(players), len(weeks)
     scores = np.zeros((n_sims, n_p, n_w))
     levels = np.zeros((n_sims, n_p, n_w))
+    played = np.zeros((n_sims, n_p, n_w), bool)
     c = float(conf.get("persistent_error", 1.5))
     step_sd = conf.get("step", {})
 
@@ -217,8 +293,25 @@ def simulate(
     # which games reveal (a manager's read after k games carries
     # k / (k + LEARN_GAMES) of it). Scores come from the true level; lineups
     # and claims can only use the visible one.
-    walk = np.repeat(base[None, :], n_sims, axis=0)
-    err = c * np.sqrt(base)[None, :] * rng.standard_normal((n_sims, n_p))
+    # Two calibrations fitted on replayed seasons (scripts/fit_ros.py): an
+    # offset by position and level, so a simulated player scores per game
+    # played what players like him actually did (zero floors on levels and
+    # scores otherwise lift a low player's average), and a scale on the
+    # persistent error by level, so the bands hold what they claim (a
+    # star's outlook is narrower than sqrt(level) says).
+    shift = _by_level(conf.get("level_offset"), [p.position for p in players], base)
+    cs = c * _scale_by_level(conf.get("error_scale"), base, [p.position for p in players])
+    start = np.maximum(base + shift, 0.0)
+    walk = np.repeat(start[None, :], n_sims, axis=0)
+    z = rng.standard_normal((n_sims, n_p))
+    if conf.get("error_shape") == "lognormal":
+        # Multiplicative, mean-preserving: a level cannot go below zero, so a
+        # normal error floored at zero would raise a low player's mean.
+        rel = cs / np.sqrt(np.maximum(base, 0.25))
+        sig = np.sqrt(np.log1p(rel ** 2))[None, :]
+        err = start[None, :] * (np.exp(sig * z - 0.5 * sig ** 2) - 1.0)
+    else:
+        err = (cs * np.sqrt(base))[None, :] * z
     for j, p in enumerate(players):
         if p.position not in SKILL:
             err[:, j] = 0.0                             # D/ST and K are streamed, not held
@@ -227,7 +320,10 @@ def simulate(
         if players else np.zeros((n_sims, 0), int)
     share = np.zeros((n_sims, n_p))          # the heir's share of this absence
     was_out = np.zeros((n_sims, n_p), bool)
-    week_delta = _this_week(players, base, heir_of, take)
+    # Against the calibrated start, so the week in progress still plays at
+    # this week's projection (validated on its own) and the offset is about
+    # the weeks after it.
+    week_delta = _this_week(players, start, heir_of, take)
 
     sd0 = np.array([float(p.outcome_sd if p.outcome_sd is not None else (p.projection_sd or 6.0)) for p in players])
     # Young players' outlooks move more: a rookie's projection drifts 23%
@@ -255,7 +351,11 @@ def simulate(
         for j, p in enumerate(players):
             if p.position not in SKILL or on_bye[j]:
                 continue
-            fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < _hazard(p.position, level[:, j], conf))
+            # The hazard was measured against projections, so it reads the
+            # projection (where it has drifted to), not the hidden truth: a
+            # star simulated to be worse than his number is not a backup.
+            risk_at = np.maximum(walk[:, j], 0.0) if conf.get("hazard_on") == "projection" else level[:, j]
+            fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < _hazard(p.position, risk_at, conf))
             if fresh.any():
                 out_left[fresh, j] = _durations(p.position, int(fresh.sum()), rng, conf)
         playing = (out_left == 0) & ~on_bye[None, :]
@@ -278,6 +378,7 @@ def simulate(
             eff = np.maximum(eff + week_delta[None, :], 0.0)
             eff_vis = np.maximum(eff_vis + week_delta[None, :], 0.0)
         levels[:, :, k] = np.where(playing, eff_vis, 0.0)
+        played[:, :, k] = playing
         finals = [j for j, p in enumerate(players) if k == current and p.actual_points is not None]
         for j, p in enumerate(players):
             probs, zq = outcome.shape(p.position, float(base[j]))
@@ -298,4 +399,5 @@ def simulate(
             if p.position in SKILL:
                 walk[:, j] = walk[:, j] + float(step_sd.get(p.position, 0.95)) * walk_scale[j] \
                     * rng.standard_normal(n_sims)
-    return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks), scores=scores, levels=levels)
+    return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks), scores=scores, levels=levels,
+                   played=played)

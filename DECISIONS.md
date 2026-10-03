@@ -1121,6 +1121,100 @@ man up inheriting part of a missing lead's job; the parameters are refit by
 porting: the first fit counted weeks a player played below 5 projected
 points as missed games; the played-week set now includes every game.
 
+### Rest of season, graded
+Season-long moves -- the drop that turns out to be a breakout, the add who
+never plays -- run on the simulated futures, so they were graded the way
+they are used. `streamer.roster.ros_backtest` replays weeks 3, 4, 5, 6, 8
+and 10 of 2022-2025: every QB/RB/WR/TE on an NFL roster that week (active,
+game-day inactive or on a reserve list) gets the status a platform would
+have shown (IR, or the week's injury report), is projected by the
+production `project_snapshot` on the games before that week, simulated to
+week 17 with the real byes and every lead/backup pair, and scored on what
+holding him returned: points per team game, a missed game counting zero.
+11,848 player-weeks.
+
+What it found, before any change:
+
+| Season value | Simulated | Actual | |
+|---|---|---|---|
+| under 4 | 2.15 | 1.44 | too high |
+| 4-7 (the waiver tier) | 4.11 | 3.37 | too high |
+| 14-18 | 11.86 | 12.83 | too low |
+| 18+ | 15.72 | 16.65 | too low |
+
+and 16% of players finished below the simulated 10th percentile. Waiver
+fodder looked better than it was and stars worse -- the bias that adds bad
+players and lets good ones go. Taken apart:
+
+- **Reserve lists.** 63% of players on IR at a checkpoint never played
+  again that season (50% of those just placed there, 80% after six games
+  out; 70% below 6 points a game, 43% above 12); the ones who came back
+  took a median four games. The simulator brought nearly all of them back
+  after about four: 2.5 points a team game against 1.1 real.
+- **Availability by level.** Healthy stars played 90% of their remaining
+  games; the simulator said 78%. Fringe players played 55%; it said 68%.
+  The absence hazard was looked up by the *hidden true level*, which
+  carries a persistent error of about +-6.7 points for a 20-point player --
+  so in some seasons Josh Allen was simulated as a backup and missed games
+  at a backup's 46% a week (his 10th percentile was 3 points a game).
+- **Points per game played.** Zero floors on levels and scores lifted a
+  low player's simulated average (a 4-7 point back: 6.2 simulated against
+  5.4 projected and 5.1 real); stars' outlooks were too wide.
+
+What changed (`scripts/fit_ros.py`, each piece fitted on two seasons and
+graded on the other two, then the reverse):
+
+- a measured reserve-list model: the chance of never coming back by season
+  value and games already missed, and the wait for those who do;
+- the hazard reads the projection (where it has drifted to), with a
+  multiplier by level fitted to how often players actually played (x2.1
+  below 4 points, x0.7-0.9 above it);
+- the persistent error is multiplicative (mean-preserving, cannot go below
+  zero), scaled by position and level so the middle half of the simulated
+  range holds half the outcomes (x2 for a fringe back, x0.6 for a star
+  receiver);
+- an offset by position and level so simulated points per game played
+  match what players like him scored.
+
+| Held out | 2024-25 before | after | 2022-23 before | after |
+|---|---|---|---|---|
+| average miss, points a team game | 2.76 | **2.48** | 2.64 | **2.40** |
+| bias | +0.34 | -0.17 | +0.45 | +0.08 |
+| below the 10th percentile (10%) | 17% | 10% | 17% | 11% |
+| above the 90th (10%) | 6% | 12% | 5% | 9% |
+| inside the middle half (50%) | 49% | 48% | 50% | 49% |
+| players on IR, bias | +1.42 | -0.09 | +1.27 | -0.25 |
+
+Breakouts in the waiver tier (season value under 10, not on IR) -- the
+chance the simulation gave against how often it happened:
+
+| | before | after | happened |
+|---|---|---|---|
+| RB averages 12+ | 5.3% | 4.3% | 4.2% |
+| WR averages 10+ | 8.7% | 5.9% | 5.1% |
+| WR averages 12+ | 4.8% | 3.2% | 2.1% |
+| TE averages 8+ | 11.1% | 10.6% | 9.2% |
+
+Receiver upside was overstated by more than half and is now much closer;
+which players break out is ranked as well as before (AUC 0.84-0.90). By
+segment: backups whose lead is out now went from +0.84 to +0.44 points a
+team game too high (the bands now hold: 8% below, 10% above), rookies from
++0.45 to -0.15, everyone else from +0.26 to +0.02.
+
+Tried and left out: pulling high season values toward the position mean.
+Stars do score below their number on average (about 1.3 a game above 18),
+but out of sample the shrink lowered the miss only for receivers above 12
+(2.99 to 2.92) and raised it for every other position -- the error at the
+top is a few collapses, not a uniform overstatement.
+
+Still imperfect: what is left by level changes sign from one pair of
+seasons to the other (season-to-season variation, not a fixable lean);
+backups whose lead is out still run about 0.4 high; backup quarterbacks
+who become starters are under-forecast (0.9% simulated, 2.4% real, for
+14+). Players with no NFL games yet are not in the replay -- the platform's
+projection stands in for them on the page. Rerun
+`python scripts/fit_ros.py` after a season is added.
+
 ### The season simulator
 Every rostered player (and the top free agents) gets simulated futures;
 each simulated season, every team starts the best lineup it could *see*
