@@ -62,3 +62,12 @@ def test_sleeper_depth_charts_are_read_and_matched_by_name_team_and_position(tmp
     room = [_rb("Najee Harris", 6.4), _rb("Tyrone Tracy Jr.", 7.6), _rb("Najee Harris", 6.4, team="LAC")]
     assert attach_depth(room, orders) == 2
     assert [p.depth_order for p in room] == [2, 3, None]     # "Jr." still matches; another team does not
+
+
+def test_a_backup_already_standing_in_stays_next_in_line_over_the_depth_chart():
+    """Miami, week 4: Achane on IR, Gordon carrying the load, and Sleeper
+    listing Wright first. The one getting the work keeps the job."""
+    achane, gordon, wright = _rb("De'Von Achane", 15.0, 4, "MIA"), _rb("Ollie Gordon II", 9.0, 2, "MIA"), \
+        _rb("Jaylen Wright", 5.0, 1, "MIA")
+    gordon.inherited_ros = 2.0
+    assert heirs_for([achane, gordon, wright]) == [("De'Von Achane", "Ollie Gordon II")]

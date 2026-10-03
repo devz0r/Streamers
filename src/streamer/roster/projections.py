@@ -583,11 +583,12 @@ def next_man_up(
                 continue
             if weeks_since(row, season, week) > inactive_weeks:
                 continue
-            # Next on the depth chart where it is known, else the most work.
-            order = getattr(platform_of.get(nid), "depth_order", None)
-            key = (order is None, order or 0, -float(row["vol"]))
-            if best_key is None or key < best_key:
-                best_nid, best_vol, best_key = nid, float(row["vol"]), key
+            # The teammate with the most work: the share he inherits was
+            # measured on who actually took the snaps, and a depth chart can
+            # lag them (Miami listed Jaylen Wright ahead of Ollie Gordon II
+            # while Gordon had the backfield).
+            if best_key is None or float(row["vol"]) > best_vol:
+                best_nid, best_vol, best_key = nid, float(row["vol"]), True
         heir = platform_of.get(best_nid) if best_nid is not None else None
         if heir is None:
             continue
@@ -650,14 +651,17 @@ def _opponents(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, str]:
 
 
 def next_in_line(members: list[PlayerRow]) -> list[PlayerRow]:
-    """A position group in order: the lead by season value, then -- where the
-    depth chart is known -- the rest in depth-chart order (a No. 3 is not
-    the handcuff because he once had the job), else by value."""
+    """A position group in order: the lead by season value; then a backup
+    already standing in for an absent starter (chosen on the work he is
+    getting); then the rest in depth-chart order where it is known (a No. 3
+    is not the handcuff because he once had the job), else by value."""
     value = lambda q: float(q.ros_value if q.ros_value is not None else (q.projection or 0.0))  # noqa: E731
     ranked = sorted(members, key=lambda q: -value(q))
-    if len(ranked) < 3 or not any(q.depth_order is not None for q in ranked[1:]):
+    if len(ranked) < 2:
         return ranked
-    rest = sorted(ranked[1:], key=lambda q: (q.depth_order is None, q.depth_order or 0, -value(q)))
+    standing_in = lambda q: float(q.inherited_ros or 0.0) > 0 or q.takeover_share is not None  # noqa: E731
+    rest = sorted(ranked[1:], key=lambda q: (not standing_in(q), q.depth_order is None, q.depth_order or 0,
+                                              -value(q)))
     return [ranked[0], *rest]
 
 

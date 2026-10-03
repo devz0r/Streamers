@@ -1232,15 +1232,23 @@ a team game against 4.17 real (5.0 before). Tracy goes from 7.6 to 6.5.
 
 ### The real depth chart decides who is next in line
 The lead at QB, RB and TE is still the player with the most season value;
-who comes *next* -- the handcuff the simulation hands the job to, and the
-backup a current absence boosts -- now follows Sleeper's depth chart where
-it has the team's room (matched by name, team and position: its ids for the
-other platforms are mostly blank), and value otherwise. The model ranked
-the Giants' backs Skattebo, Singletary, Tracy, Harris; Sleeper has Harris
-second. Sleeper lists an injured starter below his backup (Braelon Allen
-first, Breece Hall second), which is why the lead stays the lead by value.
-It cannot be replayed -- Sleeper keeps no history -- so the replay runs
-without it.
+who comes *next* -- the handcuff the simulation hands the job to if the
+lead goes down -- now follows Sleeper's depth chart where it has the team's
+room (matched by name, team and position: its ids for the other platforms
+are mostly blank), and value otherwise. The model ranked the Giants' backs
+Skattebo, Singletary, Tracy, Harris; Sleeper has Harris second. Sleeper
+lists an injured starter below his backup (Braelon Allen first, Breece
+Hall second), which is why the lead stays the lead by value.
+
+When the lead is *already* out, the backup standing in is still the one
+getting the work: the share he inherits was measured on snaps, and a depth
+chart can lag them. The first version let the depth chart choose there
+too, and moved Miami's job from Ollie Gordon II (8.3 expected points a game
+over his last two, with Achane on IR) to Jaylen Wright (8% of the other
+snaps) because Sleeper listed Wright first -- Gordon's value fell from 9.4
+to 5.8 and the page told you to drop him. That backup now stays next in
+line ahead of the depth chart. The depth chart cannot be replayed --
+Sleeper keeps no history -- so the replay runs without it.
 
 ### The season simulator
 Every rostered player (and the top free agents) gets simulated futures;
