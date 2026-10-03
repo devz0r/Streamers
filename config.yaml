@@ -444,7 +444,7 @@ roster:
   scoring_basis: ppr
 
 publish:
-  site_title: "Streamer — DST & K Rankings"
+  site_title: "Streamer"
   # Number of rows shown in the primary tables on the published page.
   top_n: 16
   # A unit qualifies as a 2-week stream hold if it ranks inside this cutoff

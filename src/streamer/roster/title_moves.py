@@ -193,7 +193,10 @@ def drop_choice(drop: PlayerRow, options: list[tuple[PlayerRow, float]] | None, 
     return text
 
 
-def _droppable(roster: list[PlayerRow], add: PlayerRow) -> list[PlayerRow]:
+def _droppable(roster: list[PlayerRow], add: PlayerRow, worth: dict[str, float] | None = None) -> list[PlayerRow]:
+    """Who could go for ``add``, cheapest first: by what each is worth to your
+    title (:meth:`TitleEngine.worth`) when known, else by season value plus
+    how far it could move."""
     counts: dict[str, int] = {}
     for p in roster:
         counts[p.position] = counts.get(p.position, 0) + 1
@@ -204,7 +207,26 @@ def _droppable(roster: list[PlayerRow], add: PlayerRow) -> list[PlayerRow]:
         if p.position != add.position and counts.get(p.position, 0) - 1 < MIN_KEEP.get(p.position, 0):
             continue
         out.append(p)
-    return sorted(out, key=lambda p: float(p.ros_value or 0.0) + float(p.ros_sd or 0.0))
+
+    def upside(p: PlayerRow) -> float:
+        return float(p.ros_value or 0.0) + float(p.ros_sd or 0.0)
+
+    if worth:
+        return sorted(out, key=lambda p: (worth.get(p.player_id, 0.0), upside(p)))
+    return sorted(out, key=upside)
+
+
+def drop_candidates(roster: list[PlayerRow], add: PlayerRow, n: int,
+                    worth: dict[str, float] | None = None) -> list[PlayerRow]:
+    """The ``n`` drops worth pricing for ``add``: the cheapest to your title,
+    and always the cheapest at his own position -- the one he replaces, whose
+    loss he covers."""
+    pool = _droppable(roster, add, worth)
+    picks = pool[:n]
+    same = next((p for p in pool if p.position == add.position), None)
+    if worth and same is not None and same not in picks and n > 1:
+        picks = picks[: n - 1] + [same]
+    return picks
 
 
 class TitleEngine:
@@ -255,6 +277,7 @@ class TitleEngine:
         self.ranks[self.mine] = self.rank
         self._seed = seed
         self._claimant_cache: dict[str, np.ndarray] = {}
+        self._worth: dict[str, np.ndarray] | None = None
         self._stand_pat_cache: dict[tuple[str, str], np.ndarray] = {}
         #: Player id -> what the market sees him worth (perception); set by
         #: the caller. Used to keep tradeable players when drops tie.
@@ -321,6 +344,18 @@ class TitleEngine:
         return out
 
     # -- building blocks -------------------------------------------------
+    def worth(self) -> dict[str, np.ndarray]:
+        """Per simulated season, what each player on your roster is worth to
+        your title: won with him minus won without him, his spot filled from
+        the wire. The roster tab shows it; drops are tried cheapest first."""
+        if self._worth is None:
+            ids = [p.player_id for p in self.me.roster]
+            self._worth = {pid: self.base_won - self._won([i for i in ids if i != pid]) for pid in ids}
+        return self._worth
+
+    def worth_mean(self) -> dict[str, float]:
+        return {pid: float(w.mean()) for pid, w in self.worth().items()}
+
     def _title(self, roster_ids: list[str], **kw) -> float:
         return float(self._won(roster_ids, **kw).mean())
 
@@ -426,8 +461,9 @@ class TitleEngine:
         self._gaps = {}
         if not self.priority_waivers or self.rank >= self.n_teams:
             return self._gaps
+        worth = self.worth_mean()
         worst = sorted([p for p in self.me.roster if not p.in_ir_slot and p.position in SKILL],
-                       key=lambda p: float(p.ros_value or 0.0))
+                       key=lambda p: (worth.get(p.player_id, 0.0), float(p.ros_value or 0.0)))
         if not worst:
             return self._gaps
         drop = worst[0]
@@ -443,9 +479,11 @@ class TitleEngine:
         #: he was priced) -- so a name on every waiver list is seen to have
         #: been considered, with what he is worth to this roster.
         self.passed: list[tuple[PlayerRow, float, str]] = []
+        worth = self.worth_mean()
         for x in self.candidates:
             best: TitleMove | None = None
-            priced = [(y, self.value_now(x, y, per_sim=True)) for y in _droppable(self.me.roster, x)[: self.n_drops]]
+            priced = [(y, self.value_now(x, y, per_sim=True))
+                      for y in drop_candidates(self.me.roster, x, self.n_drops, worth)]
             won_by = {y.player_id: w for y, w in priced}
             if priced:
                 # Drops the simulation cannot tell apart are all offered.

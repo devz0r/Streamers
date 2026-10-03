@@ -29,42 +29,57 @@ def _pct(v: float | None) -> str:
     return "--" if v is None else f"{v * 100:.0f}%"
 
 
+#: The tabs a league's page is split into, in order: (key, label).
+TABS = (("hub", "Hub"), ("lineup", "Lineup"), ("roster", "Roster"), ("waivers", "Waivers"),
+        ("trades", "Trades"), ("streams", "D/ST & K"), ("season", "Season"), ("model", "Model"))
+#: Which tab explains each kind of hub move.
+_TAB_OF = {"lineup": "lineup", "streams": "streams", "waivers": "waivers", "trades": "trades"}
+
+
+def tab_link(uid: str, tab: str, text: str = "details") -> str:
+    """A link that switches to another tab of the same league (no script: a
+    label for that tab's radio)."""
+    return f'<label class="tab-link" for="sec-{uid}-{tab}">{_e(text)}</label>'
+
+
 def render_my_team(
     snapshot: LeagueSnapshot, report: MatchupReport, moves: list[Move], cfg: Config
 ) -> str:
-    """HTML for the panel; empty string if there is nothing to show."""
+    """HTML for the panel, every section in order; empty if nothing to show."""
+    return "".join(html for _key, html in team_sections(snapshot, report, moves, cfg).items())
+
+
+def team_sections(
+    snapshot: LeagueSnapshot, report: MatchupReport, moves: list[Move], cfg: Config
+) -> dict[str, str]:
+    """The panel split by tab: key (see :data:`TABS`) -> HTML."""
     me = snapshot.my_team
     opt = report.optimisation
-    parts: list[str] = [
-        "<h2>My team</h2>",
-        f'<p class="sub">{_e(snapshot.league_name or snapshot.platform.upper())} &middot; '
-        f"{_e(me.name)} ({me.wins}-{me.losses}) &middot; synced "
-        f"{_e(snapshot.synced_at[:16].replace('T', ' '))} UTC{_refresh_link()}</p>",
-    ]
+    uid = _e(snapshot.profile)
+    out: dict[str, str] = {}
 
-    # -- matchup ---------------------------------------------------------
+    # -- hub ---------------------------------------------------------------
+    head = (f'<p class="sub">{_e(snapshot.league_name or snapshot.platform.upper())} &middot; '
+            f"{_e(me.name)} ({me.wins}-{me.losses}) &middot; synced "
+            f"{_e(snapshot.synced_at[:16].replace('T', ' '))} UTC{_refresh_link()}</p>")
     cur = report.current_win_probability
     gain = "" if cur is None else f" (from {_pct(cur)} as set)"
     opp_line = ""
     if opt.opponent is not None:
         opp_line = (f"<span>you {opt.best_win.expected:.1f} &plusmn; {opt.best_win.sd:.0f}</span>"
                     f"<span>them {opt.opponent.expected:.1f} &plusmn; {opt.opponent.sd:.0f}</span>")
-    parts.append(
+    matchup = (
         '<div class="card"><div class="row"><div class="rank">&#9878;</div>'
         f'<div><span class="name">vs {_e(report.opponent_name or "?")}</span> '
         f'<span class="opp">{_e(report.verdict())}</span></div>'
         f'<div class="pts">{_pct(report.win_probability)}</div></div>'
-        f'<div class="meta"><span>P(win) with the lineup below{_e(gain)}</span>{opp_line}</div>'
+        f'<div class="meta"><span>P(win) with the recommended lineup{_e(gain)}</span>{opp_line}'
+        f"<span>{tab_link(uid, 'lineup', 'lineup')}</span></div>"
         "</div>"
     )
+    out["hub"] = head + _hub(report, uid, cfg) + matchup
 
-    uid = _e(snapshot.profile)
-    parts.insert(2, _hub(report, uid, cfg))
-    season = _season(report) + _stakes(report)
-    if season:
-        parts.append(_fold(uid, "season", "Season outlook and must-win weeks", season))
-
-    # -- lineup ----------------------------------------------------------
+    # -- lineup ------------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
     has_vegas = any(p.vegas_points is not None for p in snapshot.my_team.roster)
     rows = []
@@ -94,12 +109,14 @@ def render_my_team(
             f"<td>{spread}</td></tr>"
         )
     vegas_head = "<th>Vegas</th>" if has_vegas else ""
-    parts.append(
+    lineup = [
+        f'<p class="sub">vs {_e(report.opponent_name or "?")}: P(win) <b>{_pct(report.win_probability)}</b>'
+        f"{_e(gain)}</p>",
         "<h3>Recommended lineup</h3>"
         '<div class="scroll"><table><thead><tr><th>Slot</th><th class="unit">Player</th>'
         f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>"
-    )
+        f"<tbody>{''.join(rows)}</tbody></table></div>",
+    ]
     if opt.changes:
         items = []
         for slot, benched, started in opt.changes:
@@ -107,62 +124,38 @@ def render_my_team(
                 items.append(f"<li><strong>{_e(slot)}</strong>: start {_e(started.name)} over {_e(benched.name)}</li>")
             else:
                 items.append(f"<li><strong>{_e(slot)}</strong>: start {_e(started.name)}</li>")
-        parts.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
+        lineup.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
     else:
-        parts.append('<p class="sub">Your set lineup is already the recommended one.</p>')
-    parts.append(f'<details id="{uid}-lineup"><summary>Lineup details: bench, alternatives, try your own</summary>')
-    parts.append(_bench(snapshot, opt, has_vegas))
-    parts.append(
+        lineup.append('<p class="sub">Your set lineup is already the recommended one.</p>')
+    lineup.append(_bench(snapshot, opt, has_vegas))
+    lineup.append(
         '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
-        "percentile), with teammates and opponents correlated as they are on the field.</p>"
-    )
-    parts.append(_compare_lineups(opt))
-    parts.append(_editor(snapshot, opt))
+        "percentile), with teammates and opponents correlated as they are on the field.</p>")
+    lineup.append(_compare_lineups(opt))
+    lineup.append(_editor(snapshot, opt))
     if opt.reasons:
         items = "".join(f"<li>{_e(r)}</li>" for r in opt.reasons)
-        parts.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
-
+        lineup.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
     if has_vegas:
-        parts.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
-
+        lineup.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
     for note in report.notes:
-        parts.append(f'<p class="sub">Note: {_e(note)}.</p>')
-    parts.append("</details>")
+        lineup.append(f'<p class="sub">Note: {_e(note)}.</p>')
+    out["lineup"] = "".join(lineup)
 
-    # -- waivers ---------------------------------------------------------
+    # -- roster ------------------------------------------------------------
+    roster = _roster(report, uid)
+    if roster:
+        out["roster"] = roster
+
+    # -- waivers -----------------------------------------------------------
+    waivers = []
     if report.title_moves is not None:
-        parts.append(_fold(uid, "waivers", "Waivers: single moves and plans",
-                           _title_moves(report) + _plans(report)))
-        trades = _trades(report) + _trade_evaluator(report)
-        if trades:
-            parts.append(_fold(uid, "trades", "Trades", trades))
-        moves = [m for m in moves if m.add.position in ("DST", "K")]
-    parts.append(f'<details id="{uid}-streams"><summary>'
-                 + ("Waiver moves, this week's pickups, D/ST and K, stashes" if report.title_moves is None
-                    else "This week's pickups, D/ST and K, stashes, lottery tickets") + "</summary>")
-    parts.append("<h3>Waiver moves</h3>" if report.title_moves is None else "<h3>D/ST and K streams</h3>")
-    if not moves:
-        parts.append('<p class="sub">Nothing on the wire clears the bar this week.</p>')
+        waivers.append(_title_moves(report) + _plans(report))
+        stream_moves = [m for m in moves if m.add.position in ("DST", "K")]
     else:
-        cards = []
-        for m in moves[:6]:
-            drop = f" &middot; drop {_e(m.drop.name)}" if m.drop else ""
-            note = _stream_note(report, m.add)
-            if note:
-                m.reason = f"{m.reason}; {note}"
-            cards.append(
-                '<div class="card"><div class="row">'
-                f'<div class="rank">{_e(m.tag[:1].upper())}</div>'
-                f'<div><span class="name">{_e(m.add.name)}</span> '
-                f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")}{drop}</span></div>'
-                f'<div class="pts">+{m.score:.1f}</div></div>'
-                f'<div class="why">{_e(m.reason)}</div></div>'
-            )
-        parts.append("".join(cards))
-
-    parts.append(_pickups(report))
-    parts.append(_streams(report))
-
+        stream_moves = moves
+        waivers.append(_move_cards(report, moves, "Waiver moves"))
+    waivers.append(_pickups(report))
     tickets = stashes(snapshot, moves, n=3)
     if tickets:
         cards = []
@@ -176,28 +169,126 @@ def render_my_team(
                 f'<div class="pts">{t.ceiling:.1f}</div></div>'
                 f'<div class="why">{(p.ros_value or 0):.1f} a game now; {_e("; ".join(t.reasons))}</div></div>'
             )
-        parts.append(
+        waivers.append(
             "<h3>Upside stashes</h3>"
             '<p class="sub">Not enough projected value to clear the bar yet, but the most room '
             "to grow. The number is what he could be worth a game in a month if things break "
             "his way (85th percentile of how projections move). Worth a bench spot you would "
-            "otherwise waste.</p>" + "".join(cards)
-        )
+            "otherwise waste.</p>" + "".join(cards))
+    waivers.append(_lottery(snapshot, cfg))
+    if getattr(report, "roster_values", None):
+        from .roster_view import cheapest
 
-    parts.append(_lottery(snapshot, cfg))
+        cut = cheapest(report.roster_values, snapshot.my_team.roster, 3)
+        if cut:
+            waivers.append('<p class="sub">Drop watch, cheapest to your title odds: '
+                           + ", ".join(f"{_e(r.player.name)} ({r.title * 100:+.1f})" for r in cut)
+                           + f" &middot; {tab_link(uid, 'roster', 'Roster')}</p>")
+    else:
+        watch = drop_watch(snapshot, n=3)
+        if watch:
+            waivers.append('<p class="sub">Drop watch: '
+                           + ", ".join(f"{_e(p.name)} ({(p.projection or 0):.1f})" for p in watch) + "</p>")
+    out["waivers"] = "".join(waivers)
 
-    watch = drop_watch(snapshot, n=3)
-    if watch:
-        parts.append(
-            '<p class="sub">Drop watch: '
-            + ", ".join(f"{_e(p.name)} ({(p.projection or 0):.1f})" for p in watch)
-            + "</p>"
-        )
-    parts.append("</details>")
+    # -- trades ------------------------------------------------------------
+    trades = _trades(report) + _trade_evaluator(report)
+    if trades:
+        out["trades"] = trades
+
+    # -- D/ST and K --------------------------------------------------------
+    streams = _streams(report)
+    if report.title_moves is not None:
+        streams = _move_cards(report, stream_moves, "D/ST and K streams") + streams
+    out["streams"] = streams
+
+    # -- season ------------------------------------------------------------
+    season = _season(report) + _stakes(report)
+    if season:
+        out["season"] = season
+
     card = _scorecard(report)
     if card:
-        parts.append(_fold(uid, "scorecard", "How the projections are doing", card))
-    return "".join(parts)
+        out["model"] = "<h2>Player projections, graded</h2>" + card
+    return out
+
+
+def _move_cards(report: MatchupReport, moves: list[Move], title: str) -> str:
+    if not moves:
+        return f'<h3>{_e(title)}</h3><p class="sub">Nothing on the wire clears the bar this week.</p>'
+    cards = []
+    for m in moves[:6]:
+        drop = f" &middot; drop {_e(m.drop.name)}" if m.drop else ""
+        note = _stream_note(report, m.add)
+        if note:
+            m.reason = f"{m.reason}; {note}"
+        cards.append(
+            '<div class="card"><div class="row">'
+            f'<div class="rank">{_e(m.tag[:1].upper())}</div>'
+            f'<div><span class="name">{_e(m.add.name)}</span> '
+            f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")}{drop}</span></div>'
+            f'<div class="pts">+{m.score:.1f}</div></div>'
+            f'<div class="why">{_e(m.reason)}</div></div>'
+        )
+    return f"<h3>{_e(title)}</h3>" + "".join(cards)
+
+
+def _roster(report: MatchupReport, uid: str) -> str:
+    """Every player you have, valued for the rest of the season."""
+    from .roster_view import cheapest
+
+    vals = getattr(report, "roster_values", None)
+    if not vals:
+        return ""
+    rows = []
+    for r in vals:
+        p = r.player
+        tags = [f"{_e(p.position)} {_e(p.team or '')}"]
+        if r.starting:
+            tags.append('<span class="hold-tag">starts</span>')
+        if p.in_ir_slot:
+            tags.append("IR slot")
+        if p.status:
+            tags.append(_e(short_status(p.status)))
+        title = f"{r.title * 100:+.1f}"
+        if abs(r.title) < 2 * r.noise:
+            title = f'<span class="opp">{title}</span>'
+        market, why = "--", []
+        if r.market is not None and r.ros is not None:
+            gap = r.market - r.ros
+            cls = "pos" if gap >= 1.0 else "neg" if gap <= -1.0 else ""
+            market = f'<span class="{cls}">{r.market:.1f}</span>'
+            if gap >= 1.0:
+                why.append(f"the market sees {r.market:.1f} a game to our {r.ros:.1f}: worth more traded than held")
+            elif gap <= -1.0:
+                why.append(f"we see {r.ros:.1f} a game to the market's {r.market:.1f}: worth more to you than in a trade")
+        why.extend(p.signals[:2])
+        cls = " class='has-note'" if why else ""
+        rows.append(
+            f"<tr{cls}><td class='unit'><b>{_e(p.name)}</b>"
+            f"<div class='tags'>{' &middot; '.join(tags)}</div></td>"
+            f"<td>{(r.ros or 0):.1f}</td><td>{r.per_week:.1f}<div class='tags'>{r.low:.0f}&ndash;{r.high:.0f}</div></td>"
+            f"<td>{title}</td><td>{market}</td></tr>"
+            + (f"<tr class='note'><td colspan='5'>{_e('; '.join(why))}</td></tr>" if why else ""))
+    roster = report.snapshot.my_team.roster if getattr(report, "snapshot", None) else [r.player for r in vals]
+    cut = cheapest(vals, roster, 3)
+    cut_line = ""
+    if cut:
+        names = ", ".join(f"<b>{_e(r.player.name)}</b> ({r.title * 100:+.1f})" for r in cut)
+        cut_line = (f'<p class="sub">Cheapest to let go: {names}. Waiver drops are tried in this order; '
+                    f"see {tab_link(uid, 'waivers', 'Waivers')} and {tab_link(uid, 'trades', 'Trades')}.</p>")
+    return (
+        "<h3>Your roster, rest of season</h3>"
+        '<div class="scroll"><table class="roster-table"><thead><tr><th class="unit">Player</th><th>RoS/g</th>'
+        "<th>Pts/wk</th><th>Title</th><th>Mkt</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>{cut_line}"
+        '<p class="sub"><b>RoS/g</b>: points a game when he plays. <b>Pts/wk</b>: simulated points a '
+        "remaining week, after injuries, byes, lost jobs and the next man up, with its 10th&ndash;90th "
+        "percentile beneath. <b>Title</b>: points of your title odds lost without him, his spot filled "
+        "from the wire, on the same seasons the hub prices every move on (grey: inside the noise). "
+        "<b>Mkt</b>: what other managers see him worth a game; green above ours (sell), red below "
+        "(hold).</p>"
+    )
 
 
 def _scorecard(report: MatchupReport) -> str:
@@ -247,10 +338,6 @@ def _scorecard(report: MatchupReport) -> str:
            if any(g.source.startswith("FantasyPros") for g in card.grades) or card.ros or sw else ""))
 
 
-def _fold(uid: str, key: str, title: str, body: str) -> str:
-    return f'<details id="{uid}-{key}"><summary>{_e(title)}</summary>{body}</details>'
-
-
 _HUB_SHOWN = 8
 
 
@@ -279,8 +366,7 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
         return head + '<p class="sub">Nothing on offer raises your title odds right now.</p>'
 
     def row(i, a):
-        link = (f'<a href="#{uid}-{a.section}" '
-                f"onclick=\"document.getElementById('{uid}-{a.section}').open=true\">details</a>")
+        link = tab_link(uid, _TAB_OF.get(a.section, a.section))
         return (f'<tr><td>{i}</td><td class="unit"><span class="kind kind-{a.kind.lower()}">{a.kind}</span> '
                 f"<b>{_e(a.headline)}</b><div class='why'>{_e(a.detail)}; {_e(a.note)} &middot; {link}</div></td>"
                 f'<td class="{"pos" if a.firm else ""}">{a.gain * 100:+.1f}</td></tr>')
@@ -533,7 +619,8 @@ def _season(report: MatchupReport) -> str:
         '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th></tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
         '<p class="sub">Each player\'s future is simulated (role drift, injuries, byes, the next man up '
-        "taking over -- validated to put 82% of real six-week outcomes inside its 80% range); every team "
+        "taking over -- graded on seasons it was not fitted to, 78-80% of real rest-of-season outcomes "
+        "fell inside its 80% range and half inside its middle half); every team "
         "starts its best lineup each week on what it could see then; the season is played on the real "
         "schedule and the playoffs on the real bracket. Rosters are held as they stand.</p></details>"
     )

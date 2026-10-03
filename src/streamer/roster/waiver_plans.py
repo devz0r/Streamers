@@ -132,6 +132,7 @@ class PlanFinder:
         self.replacement = replacement_levels(self.snapshot)
         self.singles = singles or []
         self._won_cache: dict[tuple, np.ndarray] = {}
+        self._worth: dict[str, float] | None = None
 
     def value(self, roster: list[PlayerRow]) -> float:
         return roster_value(roster, self.slots, _ros, self.replacement, with_upside=True)
@@ -147,7 +148,7 @@ class PlanFinder:
         roster = self.me.roster
         base = self.value(roster)
         drops = sorted((p for p in roster if p.position in SKILL and not p.in_ir_slot),
-                       key=lambda p: _ros(p) + float(p.ros_sd or 0.0))[:DROP_POOL]
+                       key=self._cheap)[:DROP_POOL]
         best_alone: dict[str, tuple[float, PlayerRow]] = {}
         for x in self.engine.candidates:
             for y in drops:
@@ -186,8 +187,15 @@ class PlanFinder:
         """Match each add to a drop for display: the best add replaces the
         weakest drop, and so on down (the roster that results is the same)."""
         adds = sorted(adds, key=lambda p: -_ros(p))
-        drops = sorted(drops, key=lambda p: _ros(p) + float(p.ros_sd or 0.0))
+        drops = sorted(drops, key=self._cheap)
         return list(zip(adds, drops))
+
+    def _cheap(self, p: PlayerRow) -> tuple[float, float]:
+        """Cheapest to let go first: what he is worth to your title, then his
+        season value plus how far it could move."""
+        if self._worth is None:
+            self._worth = self.engine.worth_mean()
+        return self._worth.get(p.player_id, 0.0), _ros(p) + float(p.ros_sd or 0.0)
 
     # -- pricing -----------------------------------------------------------
     def find(self, n: int = 3) -> list[Plan]:

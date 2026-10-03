@@ -141,9 +141,16 @@ def test_page_carries_both_profiles_and_no_javascript(tmp_cfg):
     assert "ESPN, 10-team" in html and "Yahoo, 14-team" in html
     # One radio per profile, exactly one of them pre-selected.
     assert html.count('class="profile-radio"') == 2
-    assert html.count(" checked>") == 1
+    assert html.count('id="profile-espn" checked>') + html.count('id="profile-yahoo" checked>') == 1
     # The switch is driven purely by :checked sibling rules.
     assert "#profile-yahoo:checked ~ .wrap #panel-yahoo" in html
+    # Each league's sections are tabs the same way; without a league snapshot,
+    # only the rankings and the model's record, the rankings open.
+    for name in ("espn", "yahoo"):
+        assert f'id="sec-{name}-streams" checked>' in html
+        assert f'id="sec-{name}-model">' in html
+        assert f'id="sec-{name}-hub"' not in html
+    assert ".s5:checked ~ .q5{display:block;}" in html
 
     result = publish_profiles(ranked, tmp_cfg)
     assert result.index_path.exists()

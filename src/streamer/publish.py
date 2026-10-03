@@ -54,7 +54,7 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 .wrap { max-width: 900px; margin: 0 auto; padding: 1rem; }
-header { padding: 1.5rem 1rem 0.5rem; }
+header { padding: .6rem 0 .4rem; }
 h1 { font-size: 1.5rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
 h2 { font-size: 1.15rem; margin: 2rem 0 .75rem; letter-spacing: -0.01em; }
 h3 { font-size: 1rem; margin: 1.25rem 0 .5rem; color: var(--muted); font-weight: 600; }
@@ -135,11 +135,12 @@ summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
    control and the :checked state drives which panel is visible. No JavaScript,
    so the switch works instantly on a phone and still works with JS disabled. */
 .profile-radio { position: absolute; opacity: 0; pointer-events: none; }
+:root { --switch-h: 3.55rem; }
+.switch-bar { position: sticky; top: 0; z-index: 5; background: var(--bg);
+  margin: 0 -1rem; padding: .5rem 1rem .3rem; }
 .switch {
-  display: flex; gap: .25rem; padding: .25rem; margin: .9rem 0 .25rem;
-  background: var(--panel-2); border: 1px solid var(--line);
-  border-radius: 999px; position: sticky; top: .5rem; z-index: 5;
-  backdrop-filter: blur(8px);
+  display: flex; gap: .25rem; padding: .25rem;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
 }
 .switch label {
   flex: 1; text-align: center; padding: .45rem .5rem; border-radius: 999px;
@@ -161,6 +162,26 @@ ol.steps { margin: 0 0 .4rem; padding-left: 1.2rem; color: var(--text); }
 .kind-lineup, .kind-stream, .kind-pickup { color: var(--accent); } .kind-waiver, .kind-plan { color: var(--good); }
 details > summary + h3 { margin-top: .6rem; }
 ol.steps li { margin: .1rem 0; }
+
+/* A league's sections, as tabs: the same radio + :checked pattern, with the
+   strip sticking under the league switch. Rules per tab are generated. */
+.sec-radio { position: absolute; opacity: 0; pointer-events: none; }
+.sec-labels { display: flex; overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 4;
+  margin: 0 -1rem .5rem; padding: 0 .6rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+.sec-labels::-webkit-scrollbar { display: none; }
+.sec-labels label { flex: 0 0 auto; padding: .55rem .6rem .5rem; font-size: .85rem; font-weight: 600;
+  color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; }
+.sec-labels label:hover { color: var(--text); }
+.sec-pane { display: none; }
+.sec-pane > h2:first-child, .sec-pane > h3:first-child, .sec-pane > .card:first-child { margin-top: .4rem; }
+.roster-table td { vertical-align: top; }
+.roster-table td.unit { white-space: normal; min-width: 9rem; }
+.roster-table .tags { color: var(--muted); font-size: .72rem; font-weight: 400; }
+.roster-table tr.has-note td { border-bottom: 0; padding-bottom: .15rem; }
+.roster-table tr.note td { white-space: normal; text-align: left; padding-top: 0; color: var(--muted);
+  font-size: .75rem; }
+.tab-link { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 
 /* Tabs inside a panel (trade views): the same radio + :checked pattern. */
 .tab-radio { position: absolute; opacity: 0; pointer-events: none; }
@@ -187,6 +208,41 @@ def _switch_rules(profiles: list[str]) -> str:
         rules.append(
             f"#profile-{name}:checked ~ .wrap #panel-{name}{{display:block;}}"
         )
+    return "\n".join(rules)
+
+
+def _section_tabs(profile: str, sections: dict[str, str]) -> str:
+    """One league's sections as tabs: a hidden radio per tab, a sticky strip of
+    labels, and a pane each, switched by ``:checked`` sibling rules like the
+    league switch -- no script. Empty sections get no tab; the first one
+    present opens."""
+    from .roster.page import TABS
+
+    tabs = [(i, key, label) for i, (key, label) in enumerate(TABS) if sections.get(key)]
+    if not tabs:
+        return ""
+    name = _e(profile)
+    radios = "".join(
+        f'<input class="sec-radio s{i}" type="radio" name="sec-{name}" id="sec-{name}-{key}"'
+        f'{" checked" if n == 0 else ""}>' for n, (i, key, _label) in enumerate(tabs))
+    labels = "".join(f'<label class="l{i}" for="sec-{name}-{key}">{_e(label)}</label>'
+                     for i, key, label in tabs)
+    panes = "".join(f'<section class="sec-pane q{i}" id="{name}-{key}">{sections[key]}</section>'
+                    for i, key, _label in tabs)
+    return f'{radios}<nav class="sec-labels" aria-label="Sections">{labels}</nav>{panes}'
+
+
+def _section_rules(profiles: list[str]) -> str:
+    """The tab rules, one per tab position, and where the strip sticks: below
+    the league switch when there is one."""
+    from .roster.page import TABS
+
+    rules = []
+    for i in range(len(TABS)):
+        rules.append(f".s{i}:checked ~ .q{i}{{display:block;}}")
+        rules.append(f".s{i}:checked ~ .sec-labels .l{i}{{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}}")
+    if len(profiles) > 1:
+        rules.append(".sec-labels{top:var(--switch-h);}")
     return "\n".join(rules)
 
 
@@ -219,7 +275,7 @@ class PublishResult:
 def render_page(
     ranked: dict[str, Rankings] | Rankings,
     cfg: Config | None = None,
-    team_panels: dict[str, str] | None = None,
+    team_panels: dict[str, dict[str, str] | str] | None = None,
 ) -> str:
     """Render the whole page to an HTML string.
 
@@ -247,7 +303,7 @@ def render_page(
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
         '<meta name="color-scheme" content="dark light">',
         f"<title>{_e(conf['site_title'])} - Week {first.week}</title>",
-        f"<style>{STYLE}\n{_switch_rules(profiles)}</style>",
+        f"<style>{STYLE}\n{_switch_rules(profiles)}\n{_section_rules(profiles)}</style>",
         "</head><body>",
     ]
 
@@ -262,7 +318,7 @@ def render_page(
     parts += [
         '<div class="wrap">',
         "<header>",
-        f"<h1>Week {first.week} streaming rankings</h1>",
+        f"<h1>Week {first.week}</h1>",
         f'<p class="sub">{_e(conf["site_title"])} &middot; {first.season} season &middot; '
         f"updated {generated}</p>",
         "</header>",
@@ -274,30 +330,28 @@ def render_page(
             f'{_e(cfg.for_profile(n).profile_description)}</label>'
             for n in profiles
         )
-        parts.append(f'<div class="switch">{labels}</div>')
+        parts.append(f'<div class="switch-bar"><div class="switch">{labels}</div></div>')
 
     for name in profiles:
         bound = cfg.for_profile(name)
         rankings = ranked[name]
-        parts.append(f'<div class="profile-panel" id="panel-{_e(name)}">')
-        parts.append(_badges(rankings, bound))
-        parts.append(_notices(rankings))
-        if team_panels and team_panels.get(name):
-            parts.append(team_panels[name])
+        team = (team_panels or {}).get(name) or {}
+        if isinstance(team, str):          # a whole panel, unsplit
+            team = {"hub": team}
         units = {pos: [str(t) for t in frame["team"]] for pos, frame in (("DST", rankings.dst), ("K", rankings.kicker))
                  if frame is not None and not frame.empty and "team" in frame}
         avail = unit_availability(bound, rankings.week, units) if team_panels else {}
-        parts.append(_two_week_section(rankings, avail))
-        parts.append(
-            _ranking_section("Defense / Special Teams", rankings.dst, "DST",
-                             int(conf["top_n"]), bound, avail)
-        )
-        parts.append(
-            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound, avail)
-        )
-        parts.append(_benchmark_section(bound))
-        parts.append(_calibration_section(bound, rankings))
-        parts.append(_ledger_section(bound))
+        sections = dict(team)
+        sections["streams"] = "".join([
+            _badges(rankings, bound), _notices(rankings), team.get("streams", ""),
+            _two_week_section(rankings, avail),
+            _ranking_section("Defense / Special Teams", rankings.dst, "DST", int(conf["top_n"]), bound, avail),
+            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound, avail),
+        ])
+        sections["model"] = "".join([team.get("model", ""), _benchmark_section(bound),
+                                     _calibration_section(bound, rankings), _ledger_section(bound)])
+        parts.append(f'<div class="profile-panel" id="panel-{_e(name)}">')
+        parts.append(_section_tabs(name, sections))
         parts.append("</div>")
 
     parts.append(_archive_section(cfg))
@@ -493,7 +547,7 @@ def _benchmark_section(cfg: Config) -> str:
     frame = load_benchmark(cfg)
     if frame.empty:
         return (
-            "<h2>vs Subvertadown</h2>"
+            "<h2>D/ST and K vs Subvertadown</h2>"
             "<p class='sub'>No weeks benchmarked yet. Paste his rankings into "
             "<code>data/subvertadown_week_N.csv</code> and run "
             "<code>streamer benchmark --week N</code>.</p>"
@@ -513,7 +567,7 @@ def _benchmark_section(cfg: Config) -> str:
             f"<td>{won}/{len(grp)}</td></tr>"
         )
     return (
-        "<h2>vs Subvertadown</h2>"
+        "<h2>D/ST and K vs Subvertadown</h2>"
         "<p class='sub'>Rank correlation against actual finishes, over the units "
         "both systems ranked.</p>"
         '<div class="scroll"><table><thead><tr><th>Pos</th><th>Wks</th><th>streamer</th>'
@@ -543,7 +597,7 @@ def _calibration_section(cfg: Config, rankings: Rankings) -> str:
             f"<td>{_pct(float(np.nanmean(top5)))}</td></tr>"
         )
     return (
-        "<h2>How the model has been doing</h2>"
+        "<h2>D/ST and K rankings, graded</h2>"
         '<div class="scroll"><table><thead><tr><th>Pos</th><th>Weeks</th><th>MAE</th>'
         f"<th>Rank corr</th><th>Top-5 hit rate</th></tr></thead><tbody>{''.join(rows)}</tbody>"
         "</table></div>"
@@ -612,7 +666,7 @@ def _footer() -> str:
 def publish_profiles(
     ranked: dict[str, Rankings],
     cfg: Config | None = None,
-    team_panels: dict[str, str] | None = None,
+    team_panels: dict[str, dict[str, str] | str] | None = None,
 ) -> PublishResult:
     """Write ``docs/index.html`` and the week's archive copy.
 
@@ -656,8 +710,9 @@ def publish_profiles(
 
 def team_panels_for(
     ranked: dict[str, Rankings], cfg: Config, allow_network: bool = True
-) -> dict[str, str]:
-    """Render a My-team panel for each profile with a league snapshot.
+) -> dict[str, dict[str, str]]:
+    """Render the My-team sections (tab key -> HTML, see
+    :data:`streamer.roster.page.TABS`) for each profile with a league snapshot.
 
     Anything going wrong here -- no snapshot, a projection failure -- is logged
     and skipped, so the streaming page always publishes.
@@ -666,13 +721,13 @@ def team_panels_for(
 
     from .league.store import load_snapshot, read_status
     from .roster.matchup import build_report
-    from .roster.page import render_my_team, render_sync_failure
+    from .roster.page import render_sync_failure, team_sections
     from .roster.projections import project_snapshot
     from .roster.vegas import attach as attach_vegas
     from .roster.waivers import recommend
 
     log = logging.getLogger(__name__)
-    panels: dict[str, str] = {}
+    panels: dict[str, dict[str, str]] = {}
 
     # Load every league first, so the sportsbook props can be pulled once for
     # all of them: pulling per league bought the same games twice.
@@ -689,7 +744,7 @@ def team_panels_for(
                 # No snapshot at all. If a sync was attempted and failed, say
                 # so on the page rather than leaving a silent gap.
                 if status and not status.get("ok"):
-                    panels[name] = render_sync_failure(status, bound)
+                    panels[name] = {"hub": render_sync_failure(status, bound)}
                 continue
         loaded.append((name, bound, snap, status, rankings))
 
@@ -789,6 +844,12 @@ def team_panels_for(
                         price_pickups(report, engine)
                     except Exception as exc:  # noqa: BLE001 - pickups keep their P(win) without it
                         log.warning("pricing this week's pickups for %s skipped: %s", name, exc)
+                    try:
+                        from .roster.roster_view import roster_values
+
+                        report.roster_values = roster_values(engine, report, seen)
+                    except Exception as exc:  # noqa: BLE001 - a bonus section
+                        log.warning("roster values for %s skipped: %s", name, exc)
                 except Exception as exc:  # noqa: BLE001 - odds are a bonus section
                     log.warning("title engine for %s skipped: %s", name, exc)
                     engine = None
@@ -819,9 +880,9 @@ def team_panels_for(
             report.notes.extend(n for n in projected.notes if "not playing" in n)
             report.notes.extend(projected.lock_notes)
             moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
-            panel = render_my_team(snap, report, moves, bound)
+            panel = team_sections(snap, report, moves, bound)
             if status and not status.get("ok") and snap.week != rankings.week:
-                panel = render_sync_failure(status, bound, stale_week=snap.week) + panel
+                panel["hub"] = render_sync_failure(status, bound, stale_week=snap.week) + panel.get("hub", "")
             panels[name] = panel
         except Exception as exc:  # noqa: BLE001
             log.warning("my-team panel for %s skipped: %s", name, exc)

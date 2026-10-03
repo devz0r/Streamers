@@ -309,13 +309,12 @@ def test_matchup_without_opponent_notes_it(cfg):
 # Page panel
 # ---------------------------------------------------------------------------
 def test_my_team_panel_renders(cfg):
-    from streamer.roster.page import render_my_team
+    from streamer.roster.page import TABS, render_my_team, team_sections
 
     snap = snapshot(week=5)
     report = build_report(snap, cfg)
     moves = waivers.recommend(snap)
     html = render_my_team(snap, report, moves, cfg)
-    assert "<h2>My team</h2>" in html
     assert "Rival" in html
     assert "P(win)" in html
     # The best pickup and the dead roster spot both appear in the waiver list.
@@ -323,6 +322,13 @@ def test_my_team_panel_renders(cfg):
     # The comparison works without script; only the lineup editor uses it.
     assert "Best P(win)" in html and "Most points" in html
     assert html.count("<script") == 2 and 'class="ed-data"' in html
+    # Split by tab: every key a known tab, the lineup on its own tab, and the
+    # hub links to it by switching tabs, not by scrolling.
+    parts = team_sections(snap, report, moves, cfg)
+    assert set(parts) <= {k for k, _label in TABS}
+    assert "Recommended lineup" in parts["lineup"] and "Recommended lineup" not in parts["hub"]
+    assert 'for="sec-espn-lineup"' in parts["hub"]
+    assert moves[0].add.name in parts["waivers"] + parts["streams"]
 
 
 def test_sync_failure_panel_says_what_went_wrong(cfg):

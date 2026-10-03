@@ -106,7 +106,7 @@ def actions(report, cfg=None) -> list[HubAction]:
             f"drop {o.drop.name}" if o.drop is not None else ""])) + second(o.player)
         out.append(HubAction("Pickup", f"Add {o.player.name} for this week", detail, gain,
                              f"P(win this week) {o.base:.0%} to {o.win_probability:.0%}"
-                             + ("" if o.title_gain is not None else "; this week only"), "streams"))
+                             + ("" if o.title_gain is not None else "; this week only"), "waivers"))
 
     # -- the season ------------------------------------------------------
     for m in report.title_moves or []:

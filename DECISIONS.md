@@ -328,6 +328,28 @@ single self-contained file. The rules are generated per profile, so adding a
 third league needs only config. A page rendered with one profile omits the
 switch entirely.
 
+### A tab per section
+The page had grown to one long scroll per league: the hub, then the lineup,
+waivers, trades, the season, D/ST and K, and the grading, each a fold or a
+heading further down. Each league now has a strip of tabs -- Hub, Lineup,
+Roster, Waivers, Trades, D/ST & K, Season, Model -- that sticks under the
+league switch, so any section is one tap from anywhere on the page.
+
+They are built like the league switch: a hidden radio per tab, a label per
+radio, and generated `:checked` rules, so they need no script and work on a
+stale cache. A section with nothing to show gets no tab; a league without a
+snapshot shows only D/ST & K and Model. The hub's "details" links are labels
+for the tab that explains the move, so they switch tabs rather than
+scrolling; tapping a tab returns to the top of the page (the browser brings
+the radio, which sits at the top of the league's panel, into view). The
+rankings, their line-source badges and notices moved to D/ST & K; the
+D/ST and K grading, the benchmark and the factor ledger to Model, beside the
+player projections' own grading.
+
+The selected tab is not remembered between visits: the page opens on the
+hub, which is the summary, and remembering would take the script the page
+has avoided.
+
 ### Plain HTML, no framework, no JavaScript
 *(Amended: the My-team lineup editor is the one piece of script -- see "Try a lineup" below. Everything else,
 including the three-lineup comparison, still renders without it.)*
@@ -1372,6 +1394,33 @@ turned a +0.8 plan into +1.6). Each alternative is offered once, at the
 step where it is worth most. At week 4 in the ESPN league most drops are
 toss-ups between two to four players, which is the honest answer: at that
 level of detail the season is not predictable.
+
+### Your roster, valued on the same seasons
+The Roster tab lists every player you have with four numbers. Season value
+(points a game when he plays) and points a week -- his simulated average per
+remaining week once injuries, byes, a lost job and the next man up have
+played out, with the 10th-90th percentile of that average, his floor and his
+upside. Then his **title worth**: how many points of P(title) you lose
+without him, his spot filled from the wire, on the same simulated seasons
+the hub prices every move on. That is the number to compare across
+positions -- a kicker or a third quarterback who projects well is worth next
+to nothing to a title, because the wire or the bench covers him -- and the
+cost of dropping or trading him. Last, what other managers see him worth (the
+trade model's view): far above ours is a player worth more traded than
+held, far below a player worth more to you than in any offer. A worth inside
+twice its standard error is shown grey.
+
+Title worth also decides which drops get priced. A waiver add used to try
+the four players with the lowest season value plus spread; a third
+quarterback at 15.7 a game was never one of them, though he barely moves
+your title odds. Drops are now tried cheapest to the title first, with the
+cheapest at the add's own position always among them (the one he replaces,
+whose loss he covers), and the simulation still decides between them. The
+same order picks this week's pickup drops, the drops a waiver plan draws
+from, the drop that prices waiver priority, and the drop watch. On the
+week-4 rosters it changed no recommendation -- the drops it newly priced
+lost to the ones already chosen -- but it is now the title, not a proxy for
+it, that decides who is even considered.
 
 ### A player gone for more than a season is not injured
 Brandon Aiyuk was recommended as a pickup. He last played in October 2024

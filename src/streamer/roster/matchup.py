@@ -48,6 +48,8 @@ class MatchupReport:
     #: has not been read).
     trades: object | None = None
     trade_eval: dict | None = None
+    #: Your players valued for the rest of the season (:mod:`roster_view`).
+    roster_values: list | None = None
 
     @property
     def win_probability(self) -> float:
@@ -159,18 +161,19 @@ def price_pickups(report: MatchupReport, engine) -> None:
     """Title odds of each pickup as a whole move -- this week and the rest of
     the season, the drop included -- on the season engine (which must have
     simulated the pickups: ``TitleEngine(..., extra=...)``). Of the few
-    cheapest drops who would not start this week, the one that keeps the
-    most title odds is taken."""
+    drops cheapest to your title who would not start this week, the one that
+    keeps the most title odds is taken."""
     import numpy as np
 
     from .title_moves import _droppable
 
     me = report.snapshot.my_team
+    worth = engine.worth_mean() if report.pickups else {}
     for o in report.pickups:
         if o.player.player_id not in engine.model.pid:
             continue
         starting = {p.player_id for _s, p in o.lineup.flat()}
-        drops = [p for p in _droppable(me.roster, o.player)
+        drops = [p for p in _droppable(me.roster, o.player, worth)
                  if p.player_id not in starting and not p.locked][: engine.n_drops]
         best = None
         for d in drops:

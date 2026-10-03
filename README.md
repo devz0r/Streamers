@@ -207,8 +207,14 @@ The tool never hard-fails on a missing key.
 ## Reading it on your phone
 
 `streamer publish` renders a single self-contained page — plain HTML and CSS,
-no framework, no JavaScript, dark-mode aware — to `docs/index.html`, with each
-week archived at `docs/week_N.html`.
+no framework, dark-mode aware — to `docs/index.html`, with each week archived
+at `docs/week_N.html`. A switch at the top picks the league; under it, a strip
+of tabs picks the section: **Hub** (every move ranked by title odds),
+**Lineup**, **Roster** (every player's rest-of-season value), **Waivers**,
+**Trades** (with the trade evaluator), **D/ST & K** (the streaming
+rankings), **Season** (playoff and title odds) and **Model** (how the
+projections have graded). Both switches are CSS-only; the lineup editor and
+trade evaluator are the only script.
 
 ### One-time GitHub Pages setup
 
@@ -280,7 +286,8 @@ automated run produces.
 
 ## In-season: lineups, waivers, matchups
 
-Once the season starts the page grows a **My team** panel per league, and four
+Once the season starts each league grows its team tabs (Hub, Lineup, Roster,
+Waivers, Trades, Season), and four
 commands work from a synced snapshot of your roster, your opponent's roster
 and the free-agent pool:
 
@@ -454,13 +461,21 @@ trade, on the page".
 
 ### Pickups for this week
 
-Under "This week's pickups, D/ST and K", every free agent who could start
+On the Waivers tab, under "Pickups for this matchup", every free agent who could start
 for you this week is added to your roster, your lineup rebuilt around him,
 and scored against your opponent on the same simulated games: the chance
 you win this week with him, against without. Beside it, what the whole
 move -- the drop included -- does to your title odds, since a pickup that
 wins this week can cost more later. See DECISIONS.md, "Pickups for this
 week, at every position".
+
+### Your roster
+
+The Roster tab values everyone you have for the rest of the season: points
+a game, simulated points a week with its 10th-90th percentile, the points
+of title odds you would lose without him, and what other managers see him
+worth. Waiver drops are tried cheapest to your title first. See
+DECISIONS.md, "Your roster, valued on the same seasons".
 
 ### How waivers are priced
 
