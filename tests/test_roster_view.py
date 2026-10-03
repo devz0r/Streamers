@@ -83,3 +83,16 @@ def test_the_cheapest_to_let_go_skip_streamers_reserve_slots_and_a_last_body():
     vals = [RosterValue(player=p, ros=p.ros_value, per_week=0, low=0, high=0, title=t, noise=0)
             for p, t in zip(roster, [0.0, 0.0, 0.0, 0.0, 0.01, 0.02])]
     assert [r.player.player_id for r in cheapest(vals, roster, 3)] == ["rb", "wr"]
+
+
+def test_a_cheap_player_the_market_still_values_is_a_trade_not_a_drop():
+    from streamer.roster.page import _cut_names
+    from streamer.roster.roster_view import RosterValue
+
+    jacobs = RosterValue(player=_p("Josh Jacobs", "RB", 12.6), ros=12.6, per_week=6.7, low=1, high=13,
+                         title=0.006, noise=0.001, market=14.1)
+    fodder = RosterValue(player=_p("KC Concepcion", "WR", 9.4), ros=9.4, per_week=7.3, low=3, high=12,
+                         title=0.004, noise=0.001, market=9.3)
+    text = _cut_names([fodder, jacobs])
+    assert "KC Concepcion (+0.4)" in text
+    assert "Josh Jacobs (+0.6; trade, don't drop: the market sees 14.1 a game)" in text

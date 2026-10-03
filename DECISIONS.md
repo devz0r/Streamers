@@ -1422,6 +1422,13 @@ week-4 rosters it changed no recommendation -- the drops it newly priced
 lost to the ones already chosen -- but it is now the title, not a proxy for
 it, that decides who is even considered.
 
+Cheap to your title is not the same as worthless. On the live week-4 page
+Josh Jacobs -- three games missed, his work halved -- was the third
+cheapest on the ESPN roster at +0.6 points, while the market still saw him
+at 14.1 a game and the hub's best move was trading him. A drop candidate
+the market values a point or more above us is marked "trade, don't drop",
+in the drop watch and on the Roster tab alike.
+
 ### A player gone for more than a season is not injured
 Brandon Aiyuk was recommended as a pickup. He last played in October 2024
 and is on the 49ers' reserve/left-squad list, but ESPN tags him OUT, and a

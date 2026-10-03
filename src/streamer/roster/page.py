@@ -181,8 +181,7 @@ def team_sections(
 
         cut = cheapest(report.roster_values, snapshot.my_team.roster, 3)
         if cut:
-            waivers.append('<p class="sub">Drop watch, cheapest to your title odds: '
-                           + ", ".join(f"{_e(r.player.name)} ({r.title * 100:+.1f})" for r in cut)
+            waivers.append('<p class="sub">Drop watch, cheapest to your title odds: ' + _cut_names(cut)
                            + f" &middot; {tab_link(uid, 'roster', 'Roster')}</p>")
     else:
         watch = drop_watch(snapshot, n=3)
@@ -274,9 +273,9 @@ def _roster(report: MatchupReport, uid: str) -> str:
     cut = cheapest(vals, roster, 3)
     cut_line = ""
     if cut:
-        names = ", ".join(f"<b>{_e(r.player.name)}</b> ({r.title * 100:+.1f})" for r in cut)
-        cut_line = (f'<p class="sub">Cheapest to let go: {names}. Waiver drops are tried in this order; '
-                    f"see {tab_link(uid, 'waivers', 'Waivers')} and {tab_link(uid, 'trades', 'Trades')}.</p>")
+        cut_line = (f'<p class="sub">Cheapest to let go: {_cut_names(cut, bold=True)}. Waiver drops are tried '
+                    f"in this order; see {tab_link(uid, 'waivers', 'Waivers')} and "
+                    f"{tab_link(uid, 'trades', 'Trades')}.</p>")
     return (
         "<h3>Your roster, rest of season</h3>"
         '<div class="scroll"><table class="roster-table"><thead><tr><th class="unit">Player</th><th>RoS/g</th>'
@@ -289,6 +288,19 @@ def _roster(report: MatchupReport, uid: str) -> str:
         "<b>Mkt</b>: what other managers see him worth a game; green above ours (sell), red below "
         "(hold).</p>"
     )
+
+
+def _cut_names(cut, bold: bool = False) -> str:
+    """Drop candidates with their title worth; one the market values above
+    us is a trade chip, and says so rather than being dropped for nothing."""
+    out = []
+    for r in cut:
+        name = f"<b>{_e(r.player.name)}</b>" if bold else _e(r.player.name)
+        note = f"{r.title * 100:+.1f}"
+        if r.market is not None and r.ros is not None and r.market - r.ros >= 1.0:
+            note += f"; trade, don't drop: the market sees {r.market:.1f} a game"
+        out.append(f"{name} ({note})")
+    return ", ".join(out)
 
 
 def _scorecard(report: MatchupReport) -> str:
