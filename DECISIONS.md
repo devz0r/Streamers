@@ -565,9 +565,15 @@ reuses everything already bought rather than the first eight.
 Other free sources were looked at:
 
 - **SportsGameOdds** (free plan: 2,500 games a month, all props per game
-  counted once, nine bookmakers on the free plan per its own pages). It
-  would allow props on any day, but it needs an account and a key, and
-  its bookmakers have to be seen before its numbers are trusted.
+  counted once, nine bookmakers on the free plan per its own pages). It is
+  read as a second feed when its key is set (`streamer.data.sgo`), merged
+  into the same consensus: a price both feeds have for a player, stat and
+  book counts once, and pick'em sites (PrizePicks and the like) are left
+  out, since their lines are not sportsbook prices. The reference covered
+  yardage and reception stat IDs but not touchdowns or interceptions, so
+  several spellings are accepted and an `sgo-probe` job prints the stat
+  IDs, bet types and books the feed really carries before its numbers
+  are relied on. A cache of six hours keeps refreshes within the plan.
 - ESPN's public API documents no player-props endpoint, and nflverse
   carries none.
 - Scraping sportsbooks or pick'em sites directly is against their terms.

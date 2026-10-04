@@ -289,6 +289,16 @@ def cmd_fantasypros_probe(args: argparse.Namespace, cfg: Config) -> int:
     return 0 if all("HTTP 200" in line for line in lines) else 1
 
 
+def cmd_sgo_probe(args: argparse.Namespace, cfg: Config) -> int:
+    """Describe SportsGameOdds' NFL feed: books, stat IDs, field names."""
+    from ..data import sgo
+
+    lines = sgo.probe(cfg)
+    for line in lines:
+        print(line)
+    return 0 if lines and "HTTP 200" in lines[0] else 1
+
+
 def cmd_sleeper_probe(args: argparse.Namespace, cfg: Config) -> int:
     """Describe Sleeper's free player database: fields filled, a few depth
     charts. Public data, no key."""
@@ -377,6 +387,10 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
     p.add_argument("--week", type=int, default=None)
     p.add_argument("--season", type=int, default=None)
     p.set_defaults(func=cmd_fantasypros_probe)
+
+    p = sub.add_parser("sgo-probe",
+                       help="describe SportsGameOdds' NFL feed (diagnostic, prints no prices or names)")
+    p.set_defaults(func=cmd_sgo_probe)
 
     p = sub.add_parser("sleeper-probe",
                        help="describe Sleeper's free player database (depth charts, injury details)")

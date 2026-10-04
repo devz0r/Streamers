@@ -293,6 +293,13 @@ odds:
     # most midweek_events (Thursday night's, inside the window), holding
     # midweek_reserve_events a run back for them. max_events caps a run
     # (0 = no cap); fallback_events applies when the credit count is unknown.
+    # SportsGameOdds (SPORTSGAMEODDS_API_KEY secret): a second feed, billed per
+    # game (2,500 a month free), merged into the same consensus. Pick'em
+    # sites are not sportsbook prices and are left out.
+    sportsgameodds:
+      enabled: true
+      cache_minutes: 360
+      exclude_books: [prizepicks, underdog, sleeper, dabble]
     max_events: 0
     midweek_events: 2
     midweek_reserve_events: 1

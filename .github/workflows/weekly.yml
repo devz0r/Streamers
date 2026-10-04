@@ -45,7 +45,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe]
 
 permissions:
   contents: write
@@ -76,6 +76,7 @@ jobs:
       YAHOO_COOKIE: ${{ secrets.YAHOO_COOKIE }}
       YAHOO_TEAM_ID: ${{ secrets.YAHOO_TEAM_ID }}
       FANTASYPROS_API_KEY: ${{ secrets.FANTASYPROS_API_KEY }}
+      SPORTSGAMEODDS_API_KEY: ${{ secrets.SPORTSGAMEODDS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -129,6 +130,12 @@ jobs:
 
       # Sleeper's free player database (no key): depth charts and injury
       # details. Public data; the probe prints counts and a few depth charts.
+      # SportsGameOdds' NFL feed: which books, stat IDs and fields it carries.
+      # Prints counts and names of fields, never prices, players or the key.
+      - name: Probe SportsGameOdds
+        if: steps.mode.outputs.mode == 'sgo-probe'
+        run: streamer sgo-probe
+
       - name: Probe Sleeper's player database
         if: steps.mode.outputs.mode == 'sleeper-probe'
         run: streamer sleeper-probe

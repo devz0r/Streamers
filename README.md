@@ -337,6 +337,13 @@ agents who might start for you). Midweek runs buy at most two games inside
 was bought. The panel prints the balance the API reports. Set
 `odds.props.max_events` to cap a run.
 
+A second feed, SportsGameOdds, is read when the `SPORTSGAMEODDS_API_KEY`
+secret is set. It bills each game once, whatever its markets and books
+(2,500 games a month free), so it prices the whole slate on any day. Its
+books join the same consensus; a price both feeds have counts once, and
+pick'em sites are left out. Run the `sgo-probe` job once to see which books
+and stat names the free plan carries (it prints no prices, names or key).
+
 **Refreshing by hand.** Each panel has a "refresh" link. It opens the
 workflow on GitHub; tap *Run workflow* and leave the job on `refresh`. In
 about two minutes the page is rebuilt from a fresh sync of both leagues --

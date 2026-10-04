@@ -759,6 +759,23 @@ def team_panels_for(
                      shared.events, shared.requested, shared.reused)
         except Exception as exc:  # noqa: BLE001 - props are a bonus column
             log.warning("player props skipped: %s", exc)
+        # A second, per-game-priced feed: more books, any day of the week.
+        try:
+            from datetime import UTC as _UTC
+            from datetime import datetime as _dt
+
+            from .data import sgo
+            from .data.props import PropsResult
+
+            extra, note = sgo.props_frame(loaded[0][1])
+            log.info("SportsGameOdds props: %s", note)
+            if not extra.empty:
+                if shared is None:
+                    shared = PropsResult(extra.iloc[:0], _dt.now(_UTC))
+                shared.frame = sgo.merge(shared.frame, extra, loaded[0][1])
+                shared.events = max(shared.events, int(shared.frame["event_id"].nunique()))
+        except Exception as exc:  # noqa: BLE001 - a second source never blocks the page
+            log.warning("SportsGameOdds props skipped: %s", exc)
 
     week_w = None
     if loaded:
