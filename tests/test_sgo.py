@@ -79,3 +79,44 @@ def test_without_a_key_it_says_so_and_returns_nothing(cfg, monkeypatch, tmp_path
     frame, note = sgo.props_frame(cfg)
     assert frame.empty and "SPORTSGAMEODDS_API_KEY" in note
     assert sgo.probe(cfg) == ["SPORTSGAMEODDS_API_KEY is not set"]
+
+
+def test_only_this_weeks_games_are_asked_for_and_the_month_is_tallied(cfg, monkeypatch, tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    import requests
+
+    monkeypatch.setenv("SPORTSGAMEODDS_API_KEY", "k")
+    monkeypatch.setattr(sgo, "_cache", lambda c: tmp_path / "events.json")
+    soon = (datetime.now(UTC) + timedelta(hours=20)).isoformat()
+    later = (datetime.now(UTC) + timedelta(days=12)).isoformat()
+    asked = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [_event() | {"status": {"startsAt": soon}},
+                             _event() | {"eventID": "ev2", "status": {"startsAt": later}}]}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        asked.append(params)
+        return Resp()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    evs, note = sgo.events(cfg)
+    assert "startsBefore" in asked[0] and "startsAfter" in asked[0]
+    assert [e["eventID"] for e in evs] == ["ev1"]                  # the far game is dropped
+    assert sgo.used_this_month(cfg) == 2                           # but both were counted
+    import json
+
+    cached = json.loads((tmp_path / "events.json").read_text())
+    cached["events"].append(_event() | {"eventID": "ev3", "status": {"startsAt": later}})
+    (tmp_path / "events.json").write_text(json.dumps(cached))
+    assert [e["eventID"] for e in sgo.events(cfg)[0]] == ["ev1"]   # the cache is windowed too
+    # Over the month's budget: nothing is fetched.
+    (tmp_path / "events.json").unlink()
+    monkeypatch.setitem(cfg.raw["odds"]["props"].setdefault("sportsgameodds", {}), "monthly_budget", 2)
+    evs, note = sgo.events(cfg)
+    assert evs == [] and "budget" in note and len(asked) == 1

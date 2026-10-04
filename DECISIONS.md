@@ -579,6 +579,12 @@ Other free sources were looked at:
   receptions under `receiving_receptions`, and touchdowns priced both as
   yes/no and as over 0.5 by the same book -- kept once, as the over/under,
   so one book is one opinion.
+  Its first real fetch returned 173 games: every NFL game already priced,
+  weeks ahead, each counted against the 2,500. Props for later weeks
+  were also averaged into this week's for the players in them. The fetch
+  now asks only for games starting in the next 96 hours (`startsAfter`,
+  `startsBefore`), drops any outside that window from the cache too, and
+  keeps a month's tally that stops fetching at 2,300.
 - ESPN's public API documents no player-props endpoint, and nflverse
   carries none.
 - Scraping sportsbooks or pick'em sites directly is against their terms.

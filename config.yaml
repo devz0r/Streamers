@@ -299,6 +299,11 @@ odds:
     sportsgameodds:
       enabled: true
       cache_minutes: 360
+      # Only games starting within this many hours: the feed otherwise
+      # returns every game already priced weeks ahead, and each counts.
+      window_hours: 96
+      # The free plan's 2,500 games a month, less a margin for the probe.
+      monthly_budget: 2300
       exclude_books: [prizepicks, underdog, sleeper, dabble]
     max_events: 0
     midweek_events: 2

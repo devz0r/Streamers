@@ -129,43 +129,106 @@ def _cache(cfg: Config):
     return path / "events.json"
 
 
+def _usage_path(cfg: Config):
+    return _cache(cfg).with_name("usage.json")
+
+
+def used_this_month(cfg: Config, now: datetime | None = None) -> int:
+    """Games returned to us this calendar month (the plan counts each one)."""
+    now = now or datetime.now(UTC)
+    try:
+        return int(json.loads(_usage_path(cfg).read_text(encoding="utf-8")).get(now.strftime("%Y-%m"), 0))
+    except (OSError, ValueError):
+        return 0
+
+
+def _count(cfg: Config, n: int, now: datetime) -> None:
+    path = _usage_path(cfg)
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, ValueError):
+        blob = {}
+    month = now.strftime("%Y-%m")
+    blob = {month: int(blob.get(month, 0)) + n}
+    try:
+        path.write_text(json.dumps(blob), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
-    """This week's NFL events with odds, from the cache when it is fresh
-    enough (``cache_minutes``, default 360: the free plan counts each game
-    returned, 2,500 a month). Returns (events, where they came from)."""
+    """The NFL games starting in the next ``window_hours`` (default 96) with
+    odds, from the cache when it is fresh enough (``cache_minutes``, default
+    360). The free plan counts every game returned, 2,500 a month: without
+    the window the feed returns every game already priced weeks ahead (173
+    on the first call), so the window is asked for and checked, and a
+    month's tally stops fetching at ``monthly_budget``. Returns (events,
+    where they came from)."""
+    from datetime import timedelta
+
     import requests
 
+    c = conf(cfg)
     path = _cache(cfg)
-    max_age = float(conf(cfg).get("cache_minutes", 360))
+    max_age = float(c.get("cache_minutes", 360))
+    now = datetime.now(UTC)
+    until = now + timedelta(hours=float(c.get("window_hours", 96)))
     if path.exists():
         try:
             blob = json.loads(path.read_text(encoding="utf-8"))
-            age = (datetime.now(UTC) - datetime.fromisoformat(blob["fetched_at"])).total_seconds() / 60
+            age = (now - datetime.fromisoformat(blob["fetched_at"])).total_seconds() / 60
             if age <= max_age:
-                return blob["events"], f"cached {age:.0f} min ago"
+                return _upcoming(blob["events"], now, until), f"cached {age:.0f} min ago"
         except (OSError, ValueError, KeyError):
             pass
     key = api_key()
     if not key:
         return [], "no SPORTSGAMEODDS_API_KEY"
+    budget = int(c.get("monthly_budget", 2300))
+    used = used_this_month(cfg, now)
+    if used >= budget:
+        return [], f"monthly budget reached ({used} of {budget} games)"
     out, cursor = [], None
-    for _ in range(int(conf(cfg).get("max_pages", 4))):
-        params = {"leagueID": "NFL", "oddsAvailable": "true", "limit": int(conf(cfg).get("page_size", 50))}
+    for _ in range(int(c.get("max_pages", 2))):
+        params = {"leagueID": "NFL", "oddsAvailable": "true", "limit": int(c.get("page_size", 30)),
+                  "startsAfter": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                  "startsBefore": until.strftime("%Y-%m-%dT%H:%M:%SZ")}
         if cursor:
             params["cursor"] = cursor
         resp = requests.get(f"{BASE}/events", params=params, headers={"x-api-key": key}, timeout=timeout)
         resp.raise_for_status()
         body = resp.json() or {}
-        out.extend(body.get("data") or [])
+        page = body.get("data") or []
+        out.extend(page)
+        _count(cfg, len(page), now)
         cursor = body.get("nextCursor")
         if not cursor:
             break
-    out = [e for e in out if not (e.get("status") or {}).get("started")]
+    returned = len(out)
+    out = _upcoming(out, now, until)
     try:
-        path.write_text(json.dumps({"fetched_at": datetime.now(UTC).isoformat(), "events": out}), encoding="utf-8")
+        path.write_text(json.dumps({"fetched_at": now.isoformat(), "events": out}), encoding="utf-8")
     except OSError:
         pass
-    return out, f"{len(out)} games fetched"
+    return out, f"{len(out)} games fetched ({returned} counted; {used + returned} this month)"
+
+
+def _upcoming(evs: list[dict], now: datetime, until: datetime | None = None) -> list[dict]:
+    """Games not yet started, and (when given) starting before ``until``."""
+    out = []
+    for e in evs:
+        st = e.get("status") or {}
+        if st.get("started") or st.get("ended"):
+            continue
+        if until is not None and st.get("startsAt"):
+            try:
+                when = datetime.fromisoformat(str(st["startsAt"]).replace("Z", "+00:00"))
+                if when > until:
+                    continue
+            except ValueError:
+                pass
+        out.append(e)
+    return out
 
 
 #: Books whose names differ between the two feeds.
