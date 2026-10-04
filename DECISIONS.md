@@ -544,6 +544,34 @@ Capped at eight events, that is ~56 credits a run and ~480 a month across the
 two weekly publishes. The reported balance is printed on the page, because a
 quota that runs out silently in week 11 is worse than one you can watch.
 
+### Spend the month's credits, not a fixed eight games
+Props were capped at eight games a run to stay inside the free 500 credits.
+On the week-4 Sunday that bought 8 of 16 games, ranked by how many of
+your players were in each across both leagues, and left the ESPN lineup
+with props for 7 of 14 startable players: Ollie Gordon (MIA), Dalton
+Schultz (HOU), Drake Maye (NE) and KC Concepcion (CLE) were in games
+nobody bought. The month had 448 credits left and three more Sundays,
+with the midweek runs costing about 14 credits a week.
+
+Credits reset on the first of the month, and the free event list reports
+the balance. A Sunday run now buys
+`(credits left - midweek runs to come x 1 game x 7) / (Sundays left x 7)`
+games: 14 on 4 October, and the whole slate on the last Sunday. Your
+games go first, then the rest. Your opponent's players and the free
+agents who could start for you are in those, and the blend uses their
+props too. Other days buy at most two games, and a credit-free refresh
+reuses everything already bought rather than the first eight.
+
+Other free sources were looked at:
+
+- **SportsGameOdds** (free plan: 2,500 games a month, all props per game
+  counted once, nine bookmakers on the free plan per its own pages). It
+  would allow props on any day, but it needs an account and a key, and
+  its bookmakers have to be seen before its numbers are trusted.
+- ESPN's public API documents no player-props endpoint, and nflverse
+  carries none.
+- Scraping sportsbooks or pick'em sites directly is against their terms.
+
 ### Do not buy props nobody has posted yet
 The first live pull spent its budget on a Tuesday and came back with two
 Buffalo bench players. The event cap was taking the earliest kickoffs, which

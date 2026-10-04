@@ -326,14 +326,16 @@ players the two projections disagree about most. Disagreement is the useful
 part: the market sees beat-reporter news about a snap count days before it
 reaches a box score, so a large gap is worth a look before you set the lineup.
 
-Props are billed per market per event, so the pull is deliberately frugal:
-only games with a startable player of yours, only games kicking off within 72
-hours (books do not post Sunday's props on a Tuesday, so asking buys nothing),
-and at most eight games. In practice the midweek runs cost a handful of
-credits and the Sunday-morning run pays for real coverage -- roughly 330 a
-month against the free tier's 500. The panel prints the balance the API
-reports. Lower `odds.props.max_events` or `window_hours`, drop a market, or
-set `odds.props.enabled` to `false` in config.yaml to spend less.
+Props are billed per market per event (7 credits a game here), and the
+free tier's 500 credits reset on the 1st. A Sunday run buys as many games
+as the month can afford: the credits left, less what the midweek runs still
+to come will need, over the Sundays left (the event list is free and
+reports the balance). That is the whole slate in most months. Games with
+your players go first, then the rest (your opponent's players and the free
+agents who might start for you). Midweek runs buy at most two games inside
+72 hours, usually Thursday night's; a refresh buys nothing and reuses what
+was bought. The panel prints the balance the API reports. Set
+`odds.props.max_events` to cap a run.
 
 **Refreshing by hand.** Each panel has a "refresh" link. It opens the
 workflow on GitHub; tap *Run workflow* and leave the job on `refresh`. In

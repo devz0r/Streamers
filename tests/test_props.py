@@ -336,6 +336,11 @@ def _fake_api(monkeypatch, events, credits=400):
 
     monkeypatch.setattr(odds_mod, "odds_api_key", lambda c=None: "key")
     monkeypatch.setattr(requests, "get", fake_get)
+    # A midweek clock: Sunday runs also buy games with none of your players.
+    from datetime import UTC, datetime, timedelta
+
+    t = datetime.now(UTC)
+    monkeypatch.setattr(props_mod, "_now", lambda: t + timedelta(days=1) if t.weekday() == 6 else t)
     props_mod._MEMORY.clear()
     return bought
 
@@ -471,3 +476,45 @@ def test_a_credit_free_refresh_does_not_pull_game_lines(tmp_cfg, monkeypatch):
     monkeypatch.setenv("ODDS_API_KEY", "test-key")
     with pytest.raises(RuntimeError, match="credit-free"):
         fetch_odds_api(tmp_cfg)
+
+
+def test_a_game_costs_a_credit_per_market_and_ten_books_count_as_one_region():
+    from streamer.data.props import event_cost
+
+    assert event_cost(["a"] * 7, ["pinnacle", "fanduel", "williamhill_us", "caesars"], "us") == 7
+    assert event_cost(["a"] * 7, [f"b{i}" for i in range(11)], "us") == 14
+    assert event_cost(["a"] * 2, [], "us,uk") == 4
+
+
+def test_sunday_spends_the_months_credits_over_the_sundays_left():
+    from datetime import UTC, datetime
+
+    from streamer.data.props import event_cap
+
+    conf = {"max_events": 0, "midweek_events": 2, "midweek_reserve_events": 1, "fallback_events": 8}
+    oct4 = datetime(2026, 10, 4, 8, 17, tzinfo=UTC)           # Sundays left: 4, 11, 18, 25
+    # 448 credits, 8 Tuesday/Wednesday runs to come at 7 each: (448 - 56) / (4 * 7) = 14 games.
+    assert event_cap(448, 7, oct4, conf) == 14
+    assert event_cap(448, 7, datetime(2026, 10, 25, 8, 17, tzinfo=UTC), conf) == 62     # the last Sunday: two midweek runs left
+    assert event_cap(448, 7, datetime(2026, 10, 7, 7, 17, tzinfo=UTC), conf) == 2      # a Wednesday
+    assert event_cap(10, 7, oct4, conf) == 0                                            # nothing to spare
+    assert event_cap(None, 7, oct4, conf) == 8
+    assert event_cap(448, 7, oct4, conf | {"max_events": 10}) == 10
+
+
+def test_on_sunday_games_without_your_players_are_bought_after_yours(monkeypatch, tmp_cfg):
+    from datetime import UTC, datetime, timedelta
+
+    import streamer.data.props as props_mod
+
+    bought = _fake_api(monkeypatch, _soon_events())
+    t = datetime.now(UTC)
+    sunday = t + timedelta(days=(6 - t.weekday()) % 7)
+    monkeypatch.setattr(props_mod, "_now", lambda: sunday)
+    events = _soon_events()
+    for e in events:
+        e["commence_time"] = (sunday + timedelta(hours=5)).isoformat()
+    bought = _fake_api(monkeypatch, events)
+    monkeypatch.setattr(props_mod, "_now", lambda: sunday)
+    props_mod.fetch_props(tmp_cfg.for_profile("espn"), teams={"BAL": 1})
+    assert bought == ["e1", "e2"]                    # yours first, then the rest

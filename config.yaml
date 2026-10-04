@@ -285,8 +285,18 @@ odds:
       - player_receptions
       - player_reception_yds
       - player_anytime_td
-    # Only pull events with at least one startable player; 0 = the whole slate.
-    max_events: 8
+    # How many games' props a run buys is paced by the month's credits (they
+    # reset on the 1st; see props.event_cap): a Sunday run spends what is
+    # left, less the midweek runs still to come, over the Sundays left --
+    # the whole slate in most months on the free 500. Games with your
+    # players first, then the rest (opponents, pickups). Midweek runs buy at
+    # most midweek_events (Thursday night's, inside the window), holding
+    # midweek_reserve_events a run back for them. max_events caps a run
+    # (0 = no cap); fallback_events applies when the credit count is unknown.
+    max_events: 0
+    midweek_events: 2
+    midweek_reserve_events: 1
+    fallback_events: 8
     # Books post props a day or two out, so a midweek request about Sunday
     # comes back empty. Events further away than this are not requested at
     # all, which is what keeps the midweek runs nearly free and concentrates

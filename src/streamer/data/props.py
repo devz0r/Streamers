@@ -347,6 +347,45 @@ def store_event(cfg: Config, event_id: str, payload: dict) -> None:
         log.debug("could not cache props for %s: %s", event_id, exc)
 
 
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def event_cost(markets: list[str], bookmakers: list[str], regions: str) -> int:
+    """Credits one game's props cost: a credit per market for each region,
+    where up to ten named bookmakers count as one region."""
+    units = -(-len(bookmakers) // 10) if bookmakers else len([r for r in str(regions).split(",") if r.strip()])
+    return max(1, len(markets)) * max(1, units)
+
+
+def event_cap(credits_left: int | None, cost: int, now: datetime, pconf: dict) -> int:
+    """How many games this run may buy.
+
+    Credits reset on the first of the month. Sunday morning is when props
+    are posted for the whole slate and the lineup is set, so a Sunday run
+    spends its share of what is left -- the remaining credits, less what the
+    midweek runs still to come will need, over the Sundays left in the month
+    (today's included). Other days buy at most ``midweek_events`` games:
+    usually Thursday night's, the only one inside the window. ``max_events``
+    (0 for none) caps either. Without a credit count, ``fallback_events``.
+    """
+    import calendar
+
+    ceiling = int(pconf.get("max_events") or 0) or 10 ** 6
+    midweek = int(pconf.get("midweek_events", 2))
+    if credits_left is None:
+        return min(int(pconf.get("fallback_events", 8)), ceiling)
+    if now.weekday() != 6:
+        return max(0, min(midweek, credits_left // cost, ceiling))
+    last = calendar.monthrange(now.year, now.month)[1]
+    later = [now.day + i for i in range(1, last - now.day + 1)]
+    sundays = 1 + sum(1 for d in later if datetime(now.year, now.month, d).weekday() == 6)
+    # Each later week's scheduled midweek runs (Tuesday and Wednesday).
+    midweek_runs = sum(1 for d in later if datetime(now.year, now.month, d).weekday() in (1, 2))
+    spare = credits_left - midweek_runs * int(pconf.get("midweek_reserve_events", 1)) * cost
+    return max(0, min(spare // (sundays * cost), ceiling))
+
+
 def fetch_props(
     cfg: Config | None = None,
     teams: set[str] | dict[str, int] | None = None,
@@ -354,8 +393,9 @@ def fetch_props(
 ) -> PropsResult:
     """Pull player props for this week's events.
 
-    Props are billed per market per event, so ``teams`` narrows the pull to
-    games involving players that matter and ``odds.props.max_events`` caps it.
+    Props are billed per market per event, so ``teams`` ranks the pull by
+    games involving players that matter and :func:`event_cap` sets how many
+    the month's credits allow.
     A game already fetched recently is served from the cache for free.
     """
     import requests
@@ -366,7 +406,7 @@ def fetch_props(
     cfg = cfg or get_config()
     conf = cfg.odds
     pconf = conf.get("props") or {}
-    now = datetime.now(UTC)
+    now = _now()
     if not pconf.get("enabled", True):
         return PropsResult(pd.DataFrame(), now, warnings=["player props are disabled in config"])
     key = odds_api_key(cfg)
@@ -380,6 +420,9 @@ def fetch_props(
         events = resp.json() or []
     except Exception as exc:  # noqa: BLE001
         return PropsResult(pd.DataFrame(), now, warnings=[f"event list unavailable: {exc}"])
+    # The event list costs nothing and says how many credits are left.
+    left = (getattr(resp, "headers", None) or {}).get("x-requests-remaining")
+    credits_left = int(float(left)) if left not in (None, "") else None
 
     # Books post a game's props a day or two before kickoff, so asking on a
     # Tuesday about Sunday buys nothing -- the request either comes back empty
@@ -404,9 +447,14 @@ def fetch_props(
                 kept.append(e)
         events = kept
 
-    # Spend the cap where it buys the most: rank events by how many of the
+    free = credit_free()
+    sunday = now.weekday() == 6
+    # Spend the budget where it buys the most: rank events by how many of the
     # players we care about are in them, not by kickoff time. Taking the
     # earliest games instead would buy Thursday night and miss the lineup.
+    # On Sunday, games with none of them follow (your opponent's players and
+    # the free agents who might start for you are in them); midweek, they
+    # are not bought.
     if teams:
         weights = teams if isinstance(teams, dict) else {t: 1 for t in teams}
         scored = []
@@ -414,19 +462,21 @@ def fetch_props(
             home = normalize_team(e.get("home_team"))
             away = normalize_team(e.get("away_team"))
             n = weights.get(home, 0) + weights.get(away, 0)
-            if n:
+            if n or sunday or free:
                 scored.append((n, e))
         scored.sort(key=lambda ne: -ne[0])
         events = [e for _n, e in scored]
-    cap = int(pconf.get("max_events") or 0)
-    if cap > 0:
-        events = events[:cap]
 
     markets = ",".join(pconf.get("markets") or [])
     books = ",".join(pconf.get("bookmakers") or [])
-    payloads, warnings, remaining = [], [], None
+    cost = event_cost(pconf.get("markets") or [], pconf.get("bookmakers") or [], conf.get("regions", "us"))
+    if not free:
+        # A credit-free refresh reuses every game already bought; a paying
+        # run buys as many as the month's credits allow.
+        cap = event_cap(credits_left, cost, now, pconf)
+        events = events[:cap]
+    payloads, warnings, remaining = [], [], credits_left
     max_age = float(pconf.get("cache_minutes", 180))
-    free = credit_free()
     if free:
         # A refresh that must not spend: whatever was bought this week, however
         # old, beats nothing, and nothing new is bought.
