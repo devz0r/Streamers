@@ -1237,6 +1237,95 @@ who become starters are under-forecast (0.9% simulated, 2.4% real, for
 projection stands in for them on the page. Rerun
 `python scripts/fit_ros.py` after a season is added.
 
+### Form that fades, and a read that lags
+The hub talked the ESPN team into three quarterbacks. Drake Maye was the
+only one through week 3. Then Jacoby Brissett and Jordan Love were
+recommended as close-call adds (+0.5 to +0.9 points of title odds each) and
+both were claimed. The simulation said the three were worth 21.2 points a
+week in the QB slot, against 17.9 for Brissett alone with a waiver-wire
+quarterback covering his absences. That is a 3.3-point weekly edge from
+holding QBs you mostly do not start.
+
+That was checked against what happened. In 2022-2025, from weeks 3-6, every
+trio of healthy quarterbacks within two points of each other (14.5-18.5 a
+game; 2,037 trios) was played out week by week. Each week the manager
+started whichever had the best mix of his projection and his points since,
+and a wire QB (14.9) when none could play. Then the same trios were run
+through the simulator:
+
+| QB slot, points a week | Real | Simulated (before) |
+|---|---|---|
+| second QB adds | +0.57 (+0.33 covering absences, +0.24 picking) | +2.05 (+0.28, +1.77) |
+| third QB adds | +0.29 | +1.56 |
+
+Covering for an absent starter was right; picking was not. Simulated
+managers picked the better of two near-identical quarterbacks far better
+than real ones did. Following our own production projections instead of
+points-so-far, real managers did worse still (+0.48 and +0.20). Taken apart
+on all positions, it was three things:
+
+- **Form lasted too long.** A player's points per game over his next four
+  games, against his season value, said this much about the games after
+  them: QB 0.33 real, 0.75 simulated; RB 0.46 / 0.65; WR 0.32 / 0.49; TE
+  0.29 / 0.57. Per-game levels were also too spread out: half of real QBs
+  should land in the middle half of the simulated points per game played,
+  and 66% did. The per-player error had been fitted to the spread of
+  rest-of-season points per *team* game, which mixes in absences. A level
+  error widened to cover them also made form permanent.
+- **The read was too clean.** Simulated managers learned how wrong a
+  projection was from games without the luck of those games. Now a read
+  after k games carries k / (k + 4) of what the games showed, luck
+  included.
+- **Simulated managers saw too much.** When our production projection for
+  a player moved between checkpoints three to five weeks apart, the move
+  showed up in what he scored afterwards only in part: QB 0.35 of it, RB
+  0.94, WR 0.63, TE 0.66. The moves themselves were smaller than the
+  simulator's: QB 2.9 points against 4.1, RB 2.4 / 3.8, WR 1.9 / 3.0, TE
+  1.6 / 2.7. A real projection is slow and partial, and it moves on noise.
+
+`scripts/fit_ros.py` now fits four things together (each fitted on two
+seasons, graded on the other two). It already fitted availability by level
+and points per game played by position and level. The per-player error now
+targets the spread of points per game played among players who kept
+playing. Two new dials are added:
+
+- **Visibility.** The share of a player's real change (drift, and what
+  games revealed) a manager's read catches. Fitted: QB 0.33, RB 0.46,
+  WR 0.32, TE 0.34.
+- **Projection noise.** Moves in the read that are not moves in the player,
+  fading at the projection's own 2.5-game half-life. Fitted: QB 1.7, RB
+  0.9, WR 1.0, TE 0.9 a week.
+
+A simulated move is visibility times the real change plus the noise, so
+the move's size and its share that holds up give both dials directly.
+
+Held out, against the previous model:
+
+| | Real | Before | After |
+|---|---|---|---|
+| early form carries on, QB / RB / WR / TE | 0.23-0.46 / 0.45-0.47 / 0.26-0.40 / 0.23-0.33 | 0.75 / 0.65 / 0.49 / 0.57 | 0.32-0.44 / 0.49-0.52 / 0.33-0.41 / 0.31-0.44 |
+| projection move, size QB / RB / WR / TE | 2.5-3.1 / 2.4 / 1.8-1.9 / 1.6-1.7 | 4.0-4.2 / 3.7-3.8 / 3.0 / 2.7 | 2.7-3.0 / 2.3-2.7 / 1.8-1.9 / 1.6-1.7 |
+| points per game in the middle half (50%) | | 50-72% | 43-57% |
+| QB slot: second / third QB adds | +0.57 / +0.29 | +2.05 / +1.56 | +0.60 / +0.25 |
+| waiver-tier breakouts, WR 12+ a game | 2.1% | 3.3% | 2.3% |
+
+The average miss on rest-of-season points per team game is unchanged
+(2.48 and 2.41 held out). One thing got worse in appearance: 73-76% of
+rest-of-season outcomes now fall inside the 80% band, against 78-79%, and
+the misses are low. Of the 15% below the 10th percentile, 11 points are
+players who played less than half of their remaining games. The simulator
+loses the right share of half-seasons overall (WR 10% against 10%, QB 34%
+against 37%), but not to the right players: who is about to lose his job
+or his season is not in its inputs. The old, wider error hid that by
+widening every band, at the cost of the persistence above. Telling those
+players apart is the next thing to model.
+
+On the ESPN roster, the third quarterback is now worth 0.13 points of title
+odds. The QB slot gets 17.8 a week from all three against 17.0 from
+Brissett alone, and no waiver add is a quarterback. Title odds as a whole
+fell with the change. A long shot's title rests on upside, and upside
+that lasts is rarer than the simulator thought.
+
 ### A back whose work has collapsed
 Tyrone Tracy Jr. topped the ESPN waiver list in week 4 at 7.6 a game: the
 Giants' lead back late in 2025 (13-27 expected points a game), he had 2, 0

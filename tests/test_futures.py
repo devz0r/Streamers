@@ -82,10 +82,13 @@ def test_the_week_in_progress_plays_at_this_weeks_projection():
     assert abs(g.scores[:, 0, 0][playing].mean() - 10.0) < 1.0
 
 
-def test_a_takeover_varies_by_absence_and_can_stick():
+def test_a_takeover_varies_by_absence_and_can_stick(monkeypatch):
     """Hall out now, Allen next up: how much of the job Allen gets is a draw
-    for each absence, and when Hall is back Allen keeps part of it."""
+    for each absence, and when Hall is back Allen keeps part of it. (Read in
+    full: what a manager sees of a change is a separate test.)"""
     import numpy as np
+
+    _with(monkeypatch, visibility={}, projection_noise={})
 
     lead = _p("lead", "RB", 16.0, status="OUT")
     cuff = _p("cuff", "RB", 6.0)
@@ -180,3 +183,50 @@ def test_offsets_and_error_scale_move_the_level_and_the_spread(monkeypatch):
     assert abs(plain[:, 0].mean() - moved[:, 0].mean()) < 0.3
     assert abs((plain[:, 1:].mean() - moved[:, 1:].mean()) - 2.0) < 0.3
     assert moved[:, 1:].std() / moved[:, 1:].mean() > plain[:, 1:].std() / plain[:, 1:].mean()
+
+
+def _quiet(monkeypatch, **conf):
+    """No absences, no drift and almost no hidden error: what a manager sees
+    can only move by luck or by the projection's own noise."""
+    base = {"persistent_error": 0.01, "absence_scale": 0.0, "hazard_scale": None, "step": {"WR": 0.0},
+            "level_offset": None, "error_scale": None, "projection_noise": {}, "visibility": {}}
+    base.update(conf)
+    _with(monkeypatch, **base)
+
+
+def test_a_managers_read_of_a_player_mixes_in_the_luck_of_his_games(monkeypatch):
+    """Three hot games move what a manager sees even when the player is
+    exactly his projection -- and nothing about the hot games carries on."""
+    import numpy as np
+
+    _quiet(monkeypatch)
+    f = simulate([_p("a", ros=14.0)], weeks=list(range(4, 14)), byes={}, n_sims=4000)
+    seen, later = f.levels[:, 0, 4], f.scores[:, 0, 5:].mean(axis=1)
+    assert seen.std() > 1.0                                    # games moved his read
+    assert abs(np.corrcoef(seen, later)[0, 1]) < 0.1           # but said nothing about what came next
+
+
+def test_projection_noise_moves_what_a_manager_sees_not_the_player(monkeypatch):
+    import numpy as np
+
+    _quiet(monkeypatch, visibility={"WR": 0.0})
+    still = simulate([_p("a", ros=14.0)], weeks=list(range(4, 12)), byes={}, n_sims=3000)
+    assert still.levels[:, 0, 5].std() < 0.2
+    _quiet(monkeypatch, visibility={"WR": 0.0}, projection_noise={"WR": 2.0})
+    noisy = simulate([_p("a", ros=14.0)], weeks=list(range(4, 12)), byes={}, n_sims=3000)
+    seen, later = noisy.levels[:, 0, 5], noisy.scores[:, 0, 6:].mean(axis=1)
+    assert seen.std() > 2.0 and abs(np.corrcoef(seen, later)[0, 1]) < 0.1
+    assert abs(later.mean() - still.scores[:, 0, 6:].mean()) < 0.3     # the player himself is unchanged
+
+
+def test_a_manager_sees_only_part_of_how_a_player_has_changed(monkeypatch):
+    import numpy as np
+
+    _with(monkeypatch, visibility={"WR": 1.0}, projection_noise={})
+    full = simulate([_p("a", ros=14.0)], weeks=list(range(4, 12)), byes={}, n_sims=3000, seed=4)
+    _with(monkeypatch, visibility={"WR": 0.4}, projection_noise={})
+    part = simulate([_p("a", ros=14.0)], weeks=list(range(4, 12)), byes={}, n_sims=3000, seed=4)
+    on = (full.levels[:, 0, 6] > 0) & (part.levels[:, 0, 6] > 0)
+    assert part.levels[on, 0, 6].std() < 0.6 * full.levels[on, 0, 6].std()
+    # The player is the same either way; only the read of him changed.
+    assert np.allclose(full.scores, part.scores)

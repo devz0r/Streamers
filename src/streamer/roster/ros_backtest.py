@@ -151,7 +151,7 @@ def project(history: pd.DataFrame, cfg: Config, season: int, week: int,
 
 
 def simulate(players: list[PlayerRow], cfg: Config, weeks: list[int], bye: dict[str, set[int]],
-             n_sims: int = 2000, seed: int = 17) -> dict[str, np.ndarray]:
+             n_sims: int = 2000, seed: int = 17, move_week: int | None = None) -> dict[str, np.ndarray]:
     """Per player: simulated points per team game over ``weeks`` (byes left
     out), one per simulated season; and, under ``(id, "avail")``, the share
     of those games he played."""
@@ -168,13 +168,36 @@ def simulate(players: list[PlayerRow], cfg: Config, weeks: list[int], bye: dict[
         if live.any():
             out[p.player_id] = fut.scores[:, j, live].mean(axis=1)
             out[(p.player_id, "avail")] = fut.played[:, j, live].mean(axis=1)
+            sc, pl = fut.scores[:, j, live], fut.played[:, j, live]
+            games = pl.sum(axis=1)
+            out[(p.player_id, "pg")] = np.where(games >= PG_GAMES, sc.sum(axis=1) / np.maximum(games, 1), np.nan)
+            ge, gl = pl[:, :EARLY_GAMES].sum(axis=1), pl[:, EARLY_GAMES:].sum(axis=1)
+            out[(p.player_id, "early")] = np.where(ge >= EARLY_MIN, sc[:, :EARLY_GAMES].sum(axis=1)
+                                                   / np.maximum(ge, 1), np.nan)
+            out[(p.player_id, "late")] = np.where(gl >= LATE_MIN, sc[:, EARLY_GAMES:].sum(axis=1)
+                                                  / np.maximum(gl, 1), np.nan)
+            if move_week in weeks:
+                kb = weeks.index(move_week)
+                vis = fut.levels[:, j, kb]
+                after = live & (np.arange(len(weeks)) >= kb)
+                ga = fut.played[:, j, after].sum(axis=1)
+                out[(p.player_id, "vis_move")] = np.where(vis > 0, vis, np.nan)
+                out[(p.player_id, "late_move")] = np.where(ga >= LATE_MIN, fut.scores[:, j, after].sum(axis=1)
+                                                           / np.maximum(ga, 1), np.nan)
     return out
 
 
+#: Games a player must play for his points per game played to be graded --
+#: in the replay and in each simulated season alike.
+PG_GAMES = 4
+
+
 def realized(history: pd.DataFrame, players: list[PlayerRow], season: int, weeks: list[int],
-             bye: dict[str, set[int]]) -> pd.DataFrame:
+             bye: dict[str, set[int]], move_week: int | None = None) -> pd.DataFrame:
     """Per player: points per team game over ``weeks`` (0 for a game he
-    missed), per game played, and the counts behind them."""
+    missed), per game played, and the counts behind them; and, from
+    ``move_week`` on, points per game played (to grade how much of a move in
+    the projection by then held up)."""
     h = history[(history["season"] == season) & history["week"].isin(weeks)]
     pts = h.groupby(["player_id", "week"])["fantasy_points_ppr"].sum()
     rows = []
@@ -182,10 +205,34 @@ def realized(history: pd.DataFrame, players: list[PlayerRow], season: int, weeks
         team_weeks = [w for w in weeks if w not in bye.get(p.team or "", set())]
         got = [float(pts.get((p.player_id, w), np.nan)) for w in team_weeks]
         played = [x for x in got if not np.isnan(x)]
+        early = [x for x in got[:EARLY_GAMES] if not np.isnan(x)]
+        late = [x for x in got[EARLY_GAMES:] if not np.isnan(x)]
         rows.append({"player_id": p.player_id, "team_games": len(team_weeks), "games": len(played),
                      "per_team_game": (sum(played) / len(team_weeks)) if team_weeks else np.nan,
-                     "per_game": (sum(played) / len(played)) if played else np.nan})
+                     "per_game": (sum(played) / len(played)) if played else np.nan,
+                     "early_pg": float(np.mean(early)) if len(early) >= EARLY_MIN else np.nan,
+                     "late_pg": float(np.mean(late)) if len(late) >= LATE_MIN else np.nan,
+                     "late_move_pg": _after(got, team_weeks, move_week)})
     return pd.DataFrame(rows).set_index("player_id")
+
+
+def _after(got: list[float], team_weeks: list[int], move_week: int | None) -> float:
+    if move_week is None:
+        return np.nan
+    after = [x for x, w in zip(got, team_weeks) if w >= move_week and not np.isnan(x)]
+    return float(np.mean(after)) if len(after) >= LATE_MIN else np.nan
+
+
+def move_week_for(week: int, checkpoints) -> int | None:
+    """The checkpoint three to five weeks on, where the projection is read
+    again to see how far it moved."""
+    return min((w for w in checkpoints if 3 <= w - week <= 5), default=None)
+
+
+#: How much early form says about the rest of the season: points per game
+#: over a player's next EARLY_GAMES team games (at least EARLY_MIN played)
+#: against the games after them (at least LATE_MIN played).
+EARLY_GAMES, EARLY_MIN, LATE_MIN = 4, 3, 4
 
 
 def prepared(history: pd.DataFrame, cfg: Config, season: int, week: int, schedules: pd.DataFrame):
@@ -199,9 +246,9 @@ def prepared(history: pd.DataFrame, cfg: Config, season: int, week: int, schedul
 
 
 def checkpoint(history: pd.DataFrame, cfg: Config, season: int, week: int, schedules: pd.DataFrame,
-               n_sims: int = 2000, ready=None) -> Checkpoint:
+               n_sims: int = 2000, ready=None, move_week: int | None = None) -> Checkpoint:
     players, weeks, bye, real = ready or prepared(history, cfg, season, week, schedules)
-    sim = simulate(players, cfg, weeks, bye, n_sims=n_sims, seed=17 + season * 100 + week)
+    sim = simulate(players, cfg, weeks, bye, n_sims=n_sims, seed=17 + season * 100 + week, move_week=move_week)
     return Checkpoint(season, week, players, sim, real)
 
 
@@ -210,7 +257,7 @@ PROBS = tuple(round(0.05 * i, 2) for i in range(1, 20))
 THRESHOLDS = (4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
 
 
-def frame(cp: Checkpoint, probs=PROBS) -> pd.DataFrame:
+def frame(cp: Checkpoint, probs=PROBS, ros_next: dict | None = None) -> pd.DataFrame:
     """One row per player: what we said (season value, the simulated
     distribution of points per team game) and what happened."""
     rows = []
@@ -232,6 +279,35 @@ def frame(cp: Checkpoint, probs=PROBS) -> pd.DataFrame:
                "pit": float((sim < r["per_team_game"]).mean() + 0.5 * (sim == r["per_team_game"]).mean())}
         for pr, v in zip(probs, q):
             row[f"q{int(round(pr * 100))}"] = float(v)
+        # Points per game played, in the seasons where he played enough: the
+        # spread of a player's level once absences are set aside.
+        pg = cp.simulated.get((p.player_id, "pg"))
+        pg = pg[np.isfinite(pg)] if pg is not None else np.array([])
+        for name, pr in (("pg_q25", 0.25), ("pg_q50", 0.5), ("pg_q75", 0.75)):
+            row[name] = float(np.quantile(pg, pr)) if len(pg) >= 30 else np.nan
+        # Early form against the rest, as moments over the simulated seasons
+        # where both were played, for pooling across players.
+        row["early_real"] = float(r.get("early_pg", np.nan))
+        row["late_real"] = float(r.get("late_pg", np.nan))
+        e, la = cp.simulated.get((p.player_id, "early")), cp.simulated.get((p.player_id, "late"))
+        both = np.isfinite(e) & np.isfinite(la) if e is not None and la is not None else np.array([False])
+        if both.sum() >= 30:
+            e, la = e[both], la[both]
+            row.update(el_n=int(both.sum()), e_mean=float(e.mean()), l_mean=float(la.mean()),
+                       e_var=float(e.var()), el_cov=float(((e - e.mean()) * (la - la.mean())).mean()))
+        else:
+            row.update(el_n=0, e_mean=np.nan, l_mean=np.nan, e_var=np.nan, el_cov=np.nan)
+        # The projection a few weeks on, against what came after it.
+        row["ros_next"] = float((ros_next or {}).get(p.player_id, np.nan))
+        row["late_move_real"] = float(r.get("late_move_pg", np.nan))
+        v, la = cp.simulated.get((p.player_id, "vis_move")), cp.simulated.get((p.player_id, "late_move"))
+        both = np.isfinite(v) & np.isfinite(la) if v is not None and la is not None else np.array([False])
+        if both.sum() >= 30:
+            v, la = v[both], la[both]
+            row.update(mv_mean=float(v.mean()), ml_mean=float(la.mean()), mv_var=float(v.var()),
+                       ml_cov=float(((v - v.mean()) * (la - la.mean())).mean()))
+        else:
+            row.update(mv_mean=np.nan, ml_mean=np.nan, mv_var=np.nan, ml_cov=np.nan)
         for t in THRESHOLDS:
             row[f"p{t}"] = float((sim >= t).mean())
         rows.append(row)
@@ -255,11 +331,52 @@ def prepare_all(cfg: Config, seasons=SEASONS, checkpoints=CHECKPOINTS, log=print
     return out
 
 
+def persistence(d: pd.DataFrame) -> tuple[float, float, int]:
+    """How much early form carries into the rest of the season: the slope of
+    later points per game on early points per game, both against the season
+    value, real and simulated (pooled over the players' simulated seasons).
+    Returns (real, simulated, players)."""
+    g = d.dropna(subset=["early_real", "late_real", "e_mean"])
+    if len(g) < 20:
+        return np.nan, np.nan, len(g)
+    er, lr = g.early_real - g.ros_value, g.late_real - g.ros_value
+    real = float(np.cov(er, lr)[0, 1] / er.var())
+    em, lm = g.e_mean - g.ros_value, g.l_mean - g.ros_value
+    cov = g.el_cov.mean() + float(np.cov(em, lm)[0, 1])
+    var = g.e_var.mean() + float(em.var())
+    return real, float(cov / var), len(g)
+
+
+def moves(d: pd.DataFrame) -> dict:
+    """How far the projection moved a few weeks on, and how much of the move
+    held up in the points per game that followed -- real (the production
+    projection at the later checkpoint) and simulated (the level a manager
+    sees then), pooled over players and simulated seasons."""
+    g = d.dropna(subset=["ros_next", "late_move_real", "mv_mean"])
+    if len(g) < 20:
+        return {"n": len(g)}
+    x, y = g.ros_next - g.ros_value, g.late_move_real - g.ros_value
+    mx, my = g.mv_mean - g.ros_value, g.ml_mean - g.ros_value
+    var = g.mv_var.mean() + float(mx.var())
+    cov = g.ml_cov.mean() + float(np.cov(mx, my)[0, 1])
+    return {"n": len(g), "real_sd": float(x.std()), "real_slope": float(np.cov(x, y)[0, 1] / x.var()),
+            "sim_sd": float(np.sqrt(var)), "sim_slope": float(cov / var)}
+
+
 def run(cfg: Config, seasons=SEASONS, checkpoints=CHECKPOINTS, n_sims: int = 2000, log=print,
-        ready: dict | None = None) -> pd.DataFrame:
+        ready: dict | None = None, history: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Every checkpoint, simulated and graded. With ``history``, each is also
+    read against the next checkpoint a few weeks on (:func:`moves`)."""
     ready = ready or prepare_all(cfg, seasons, checkpoints, log=log)
     frames = []
     for (season, week), prep in ready.items():
-        cp = checkpoint(None, cfg, season, week, None, n_sims=n_sims, ready=prep)
-        frames.append(frame(cp))
+        b = move_week_for(week, [w for s, w in ready if s == season]) if history is not None else None
+        ros_next = None
+        if b is not None:
+            players, weeks, bye, _real = prep
+            ros_next = {p.player_id: float(p.ros_value or 0.0) for p in ready[(season, b)][0]
+                        if p.status in ("", "Q")}
+            prep = (players, weeks, bye, realized(history, players, season, weeks, bye, move_week=b))
+        cp = checkpoint(None, cfg, season, week, None, n_sims=n_sims, ready=prep, move_week=b)
+        frames.append(frame(cp, ros_next=ros_next))
     return pd.concat([f for f in frames if not f.empty], ignore_index=True)

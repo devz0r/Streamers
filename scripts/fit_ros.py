@@ -41,6 +41,10 @@ ROUNDS = 3
 #: season, graded"): the absence hazard reads the projection, not the hidden
 #: true level, and the persistent error is multiplicative.
 STRUCTURE = {"hazard_on": "projection", "error_shape": "lognormal"}
+#: Fitted alongside the calibrations, and written with them.
+FITTED = ("ir", "hazard_scale", "level_offset", "error_scale", "visibility", "projection_noise")
+#: Weeks between the two reads of the projection (checkpoints 3-5 apart).
+MOVE_GAP = 4
 IR_MISSED = [3, 6]
 WAIT_GAMES = 12
 #: Pseudo-cases pulling a thin cell of the gone table toward the whole.
@@ -84,22 +88,31 @@ def fit_ir(r: pd.DataFrame) -> dict:
 
 
 CAL_LEVELS = [4.0, 7.0, 10.0, 14.0, 18.0]
+#: Games played for a player's points per game to be graded (the replay's
+#: own threshold, :data:`streamer.roster.ros_backtest.PG_GAMES`).
+PG_GAMES = 4
 POSITIONS = ("QB", "RB", "WR", "TE")
 
 
-def calibrate(simulated, conf: dict, seasons, rounds: int = 4) -> dict:
+def calibrate(simulated, conf: dict, seasons, rounds: int = 6) -> dict:
     """Three calibrations fitted together, a round at a time on the same
     simulated seasons, each nudged toward what happened:
 
     * ``hazard_scale`` -- how often healthy players at each level played;
     * ``level_offset`` -- what they scored per game played, by position and
       level;
-    * ``error_scale`` -- how wide their rest-of-season outcomes ran: the
-      middle half of the simulated range should hold half of them.
+    * ``error_scale`` -- how far their level runs from the projection: the
+      middle half of the simulated points per game played should hold half
+      of what players who kept playing scored. Points per team game would
+      mix in absences, which have their own fit; a level error widened to
+      cover them made early form far too persistent (a QB's weeks 5-8
+      predicted his weeks 9-17 at 0.77 simulated, 0.16 real).
     """
     from scipy.stats import norm
 
     conf = dict(conf)
+    conf.setdefault("visibility", {pos: 1.0 for pos in POSITIONS})
+    conf.setdefault("projection_noise", {pos: 0.0 for pos in POSITIONS})
     nh, nc = len(HAZARD_LEVELS) + 1, len(CAL_LEVELS) + 1
     conf["hazard_scale"] = {"levels": HAZARD_LEVELS, "scale": [1.2] * nh}
     conf["level_offset"] = {"levels": CAL_LEVELS, **{pos: [0.0] * nc for pos in POSITIONS}}
@@ -116,7 +129,6 @@ def calibrate(simulated, conf: dict, seasons, rounds: int = 4) -> dict:
                 hs[i] = float(np.clip(hs[i] * miss_act / max(miss_sim, 1e-3), 0.2, 6.0))
         conf["hazard_scale"] = {"levels": HAZARD_LEVELS, "scale": [round(x, 3) for x in hs]}
         off = {pos: list(conf["level_offset"][pos]) for pos in POSITIONS}
-        lv = np.digitize(d.ros_value, CAL_LEVELS)
         played = d[d.games >= 2]
         lp = np.digitize(played.ros_value, CAL_LEVELS)
         for pos in POSITIONS:
@@ -128,17 +140,43 @@ def calibrate(simulated, conf: dict, seasons, rounds: int = 4) -> dict:
                     off[pos][i] = round(off[pos][i] + float((w * (g.actual_per_game - sim_pg)).sum() / w.sum()), 3)
         conf["level_offset"] = {"levels": CAL_LEVELS, **off}
         es = {pos: list(conf["error_scale"][pos]) for pos in POSITIONS}
+        kept = d[(d.games >= PG_GAMES) & d.pg_q25.notna()]
+        lk = np.digitize(kept.ros_value, CAL_LEVELS)
         for pos in POSITIONS:
             for i in range(nc):
                 # A thin cell borrows its level's whole-league evidence.
-                g = d[(lv == i) & (d.position == pos)]
+                g = kept[(lk == i) & (kept.position == pos)]
                 if len(g) < 80:
-                    g = d[lv == i]
+                    g = kept[lk == i]
                 if len(g) >= 80:
-                    in50 = float(((g.actual >= g.q25) & (g.actual <= g.q75)).mean())
+                    in50 = float(((g.actual_per_game >= g.pg_q25) & (g.actual_per_game <= g.pg_q75)).mean())
                     ratio = 0.6745 / norm.ppf(0.5 + min(max(in50, 0.05), 0.95) / 2)
-                    es[pos][i] = round(float(np.clip(es[pos][i] * ratio ** 0.7, 0.3, 2.5)), 3)
+                    es[pos][i] = round(float(np.clip(es[pos][i] * ratio ** 0.7, 0.05, 2.5)), 3)
         conf["error_scale"] = {"levels": CAL_LEVELS, **es}
+        # What a manager sees, against what a real projection did a few weeks
+        # on: how far it moved, and how much of the move held up in the points
+        # that followed. A simulated move is ``v`` times the player's real
+        # change (covariance C0 with what follows, variance V0) plus the
+        # projection's own noise (variance N), so the two real numbers give
+        # both: v = slope * sd^2 / C0, N = sd^2 - v^2 V0.
+        from streamer.roster.futures import PROJECTION_NOISE_PERSIST as rho
+        from streamer.roster.ros_backtest import moves
+
+        vis, noise = dict(conf["visibility"]), dict(conf["projection_noise"])
+        spread = (1 - rho ** (2 * MOVE_GAP)) / (1 - rho ** 2)       # noise variance over the gap, per unit step
+        for pos in POSITIONS:
+            mv = moves(d[(d.position == pos) & (d.ros_value >= 6) & d.status.isin(["", "Q"])])
+            if mv.get("n", 0) < 100:
+                continue
+            v0, n0 = max(vis[pos], 0.05), spread * noise[pos] ** 2
+            c_true = mv["sim_slope"] * mv["sim_sd"] ** 2 / v0
+            v_true = max(mv["sim_sd"] ** 2 - n0, 1e-6) / v0 ** 2
+            target = mv["real_sd"] ** 2
+            v_new = float(np.clip(max(mv["real_slope"], 0.0) * target / max(c_true, 1e-6), 0.1, 1.0))
+            n_new = max(target - v_new ** 2 * v_true, 0.0)
+            vis[pos] = round(0.5 * (vis[pos] + v_new), 3)
+            noise[pos] = round(0.5 * (noise[pos] + float(np.sqrt(n_new / spread))), 3)
+        conf["visibility"], conf["projection_noise"] = vis, noise
     return conf
 
 
@@ -169,6 +207,20 @@ def grade(d: pd.DataFrame) -> pd.Series:
            "in80": ((d.actual >= d.q10) & (d.actual <= d.q90)).mean(), "below10": (d.actual < d.q10).mean(),
            "above90": (d.actual > d.q90).mean(), "in50": ((d.actual >= d.q25) & (d.actual <= d.q75)).mean(),
            "IR bias": (ir.sim_mean - ir.actual).mean() if len(ir) else np.nan}
+    kept = d[(d.games >= PG_GAMES) & d.pg_q25.notna() & (d.status != "IR")] if "pg_q25" in d else d.iloc[:0]
+    for pos, g in kept.groupby("position"):
+        out[f"pg in50 {pos}"] = ((g.actual_per_game >= g.pg_q25) & (g.actual_per_game <= g.pg_q75)).mean()
+    from streamer.roster.ros_backtest import moves, persistence
+
+    for pos in POSITIONS:
+        g = d[(d.position == pos) & (d.ros_value >= 6) & d.status.isin(["", "Q"])]
+        if "e_mean" in g:
+            out[f"early->late {pos} real"], out[f"early->late {pos} sim"], _n = persistence(g)
+        if "mv_mean" in g:
+            mv = moves(g)
+            if mv.get("n", 0) >= 20:
+                out[f"move holds {pos} real"], out[f"move holds {pos} sim"] = mv["real_slope"], mv["sim_slope"]
+                out[f"move sd {pos} real"], out[f"move sd {pos} sim"] = mv["real_sd"], mv["sim_sd"]
     for k, g in d.groupby(lvl, observed=True):
         out[f"bias {k}"] = (g.sim_mean - g.actual).mean()
     for k, g in d[d.status != "IR"].groupby(lvl, observed=True):
@@ -204,7 +256,8 @@ def main() -> int:
         saved = outcome.load
         outcome.load = lambda: trial
         try:
-            return rb.run(cfg, ready={k: v for k, v in ready.items() if k[0] in seasons}, n_sims=args.sims)
+            return rb.run(cfg, ready={k: v for k, v in ready.items() if k[0] in seasons}, n_sims=args.sims,
+                          history=history)
         finally:
             outcome.load = saved
 
@@ -221,7 +274,7 @@ def main() -> int:
     print(pd.DataFrame(rows).round(3).to_string())
 
     final = fitted(rb.SEASONS)
-    print(json.dumps({k: final[k] for k in ("ir", "hazard_scale", "level_offset", "error_scale", *STRUCTURE)}))
+    print(json.dumps({k: final[k] for k in (*FITTED, *STRUCTURE)}))
     if args.dry_run:
         return 0
     model["futures"] = final

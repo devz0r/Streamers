@@ -632,8 +632,9 @@ def _season(report: MatchupReport) -> str:
         '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th></tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
         '<p class="sub">Each player\'s future is simulated (role drift, injuries, byes, the next man up '
-        "taking over -- graded on seasons it was not fitted to, 78-80% of real rest-of-season outcomes "
-        "fell inside its 80% range and half inside its middle half); every team "
+        "taking over -- graded on 2022-2025 seasons it was not fitted to: points per game land in its "
+        "middle half half the time, early form carries on as far as it really did, and what a manager can "
+        "see of a player moves as much, and means as little, as a real projection did); every team "
         "starts its best lineup each week on what it could see then; the season is played on the real "
         "schedule and the playoffs on the real bracket. Rosters are held as they stand.</p></details>"
     )

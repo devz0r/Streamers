@@ -41,3 +41,26 @@ def test_the_ir_fit_tables_never_coming_back_and_the_wait():
     assert ir["gone"][0][0] > ir["gone"][2][0]                     # low players stay gone more often
     assert abs(sum(ir["wait"]) - 1.0) < 1e-3 and ir["wait"][0] == 0.0
     assert ir["evidence"]["cases"] == 6
+
+
+def test_early_form_and_a_later_read_are_graded_against_what_followed():
+    hist = pd.DataFrame({"player_id": ["p"] * 10, "season": [2024] * 10, "week": list(range(5, 15)),
+                         "fantasy_points_ppr": [20.0, 20.0, 20.0, 20.0, 10.0, 10.0, 10.0, 10.0, 12.0, 12.0]})
+    p = PlayerRow(player_id="p", name="p", position="WR", team="KC")
+    r = rb.realized(hist, [p], 2024, list(range(5, 15)), {}, move_week=9).loc["p"]
+    assert r["early_pg"] == 20.0 and r["late_pg"] == 64.0 / 6
+    assert r["late_move_pg"] == 64.0 / 6
+    assert rb.move_week_for(4, [3, 4, 5, 6, 8, 10]) == 8 and rb.move_week_for(10, [3, 4, 10]) is None
+
+
+def test_the_share_of_a_move_that_held_up_is_pooled_over_simulated_seasons():
+    rng = np.random.default_rng(3)
+    n = 400
+    move = rng.normal(0, 2, n)
+    d = pd.DataFrame({"ros_value": 10.0, "ros_next": 10.0 + move,
+                      "late_move_real": 10.0 + 0.5 * move + rng.normal(0, 1, n),
+                      # simulated: each player's seasons see a move that holds up fully
+                      "mv_mean": 10.0 + move, "ml_mean": 10.0 + move, "mv_var": 1.0, "ml_cov": 1.0})
+    m = rb.moves(d)
+    assert abs(m["real_slope"] - 0.5) < 0.1 and abs(m["sim_slope"] - 1.0) < 0.02
+    assert abs(m["sim_sd"] - np.sqrt(4.0 + 1.0)) < 0.2

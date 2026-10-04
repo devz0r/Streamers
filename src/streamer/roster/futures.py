@@ -46,8 +46,23 @@ out of it, each fitted on two seasons and checked on the other two:
 
 Average miss on rest-of-season points per team game fell 9-10% on the
 held-out seasons (2.76 to 2.48, 2.64 to 2.40), bias from +0.34/+0.45 to
--0.17/+0.08, and the bands now hold what they claim (10-11% below the 10th
-percentile, 9-12% above the 90th, half inside the middle half).
+-0.17/+0.08.
+
+**What a manager sees** decides what holding similar players is worth: you
+can only start the better one if you can tell which he is. Lineups and
+claims read a player through a lens fitted to how our real projection
+behaved (DECISIONS.md, "Form that fades, and a read that lags"):
+
+* the persistent error is sized to the spread of points per game played,
+  not per team game, so early form lasts as long as it really did;
+* a read after k games carries k / (k + LEARN_GAMES) of what they showed,
+  the luck of those games included;
+* only a share of a player's real change shows (``visibility``, about a
+  third; RB 0.46), and the read also moves on its own noise
+  (``projection_noise``), fading at the projection's 2.5-game half-life.
+
+Fitted that way, a second quarterback of the same standing is worth what
+it was on 2022-2025 (+0.6 a week, not +2.1), and a third +0.25.
 """
 
 from __future__ import annotations
@@ -66,6 +81,11 @@ SKILL = ("QB", "RB", "WR", "TE")
 #: preseason-style projection was about a player (the production projection
 #: moves volume on a 2.5-game half-life and anchors to ~17 games).
 LEARN_GAMES = 4.0
+
+#: Week-to-week persistence of the projection's own noise -- moves in what a
+#: manager sees that are not moves in the player -- matching the production
+#: projection's 2.5-game half-life on recent volume.
+PROJECTION_NOISE_PERSIST = 0.5 ** (1 / 2.5)
 
 #: Share of a missing lead's opportunity gap the next man up inherits, on
 #: average (the config's ``roster.next_man_up`` overrides).
@@ -290,9 +310,10 @@ def simulate(
     # Two parts to a player's level: ``walk`` -- where his projection is and
     # will move to, visible to everyone as it happens -- and ``err``, how
     # wrong today's projection is about him, which nobody sees at first and
-    # which games reveal (a manager's read after k games carries
-    # k / (k + LEARN_GAMES) of it). Scores come from the true level; lineups
-    # and claims can only use the visible one.
+    # which games reveal: a manager's read after k games carries
+    # k / (k + LEARN_GAMES) of what those games showed -- his error plus the
+    # luck of those k games, which nobody can separate from it. Scores come
+    # from the true level; lineups and claims can only use the visible one.
     # Two calibrations fitted on replayed seasons (scripts/fit_ros.py): an
     # offset by position and level, so a simulated player scores per game
     # played what players like him actually did (zero floors on levels and
@@ -316,6 +337,20 @@ def simulate(
         if p.position not in SKILL:
             err[:, j] = 0.0                             # D/ST and K are streamed, not held
     seen = np.zeros((n_sims, n_p))
+    luck = np.zeros((n_sims, n_p))          # summed game-to-game noise in what was seen
+    # The projection's own noise: what a manager sees moves by more than the
+    # player does (fitted per position on how much of a real projection move
+    # held up; scripts/fit_ros.py). Zero at the start: today's projection is
+    # the reference.
+    noise_sd = np.array([float((conf.get("projection_noise") or {}).get(p.position, 0.0))
+                         if p.position in SKILL else 0.0 for p in players])
+    # How much of the change in a player a manager's read catches: the
+    # projection is slow and partial, so only this share of where he has
+    # really moved (drift, and what games revealed) shows (fitted per
+    # position, 1 where not).
+    vis_share = np.array([float((conf.get("visibility") or {}).get(p.position, 1.0)) for p in players])[None, :]
+    anchor = start.copy()
+    shade = np.zeros((n_sims, n_p))
     out_left = np.stack([_initial_absence(p, n_sims, rng, conf) for p in players], axis=1) \
         if players else np.zeros((n_sims, 0), int)
     share = np.zeros((n_sims, n_p))          # the heir's share of this absence
@@ -347,7 +382,9 @@ def simulate(
                 walk[:, lead] -= moved
         # New absences (not on bye, not already out).
         level = np.maximum(walk + err, 0.0)
-        visible = np.maximum(walk + err * seen / (seen + LEARN_GAMES), 0.0)
+        shown = err + luck / np.maximum(seen, 1.0)
+        read = walk - anchor + shown * seen / (seen + LEARN_GAMES)
+        visible = np.maximum(anchor + vis_share * read + shade, 0.0)
         for j, p in enumerate(players):
             if p.position not in SKILL or on_bye[j]:
                 continue
@@ -391,6 +428,8 @@ def simulate(
         for j in finals:
             # This week's game is over: his score is a fact.
             scores[:, j, k] = float(players[j].actual_points)
+        # What each game showed beyond his level is read as part of it.
+        luck += np.where(playing, scores[:, :, k] - eff, 0.0)
         # A game passes: absences tick down (a bye does not use one up), and
         # the true level drifts.
         out_left = np.where(on_bye[None, :], out_left, np.maximum(out_left - 1, 0))
@@ -399,5 +438,8 @@ def simulate(
             if p.position in SKILL:
                 walk[:, j] = walk[:, j] + float(step_sd.get(p.position, 0.95)) * walk_scale[j] \
                     * rng.standard_normal(n_sims)
+        if noise_sd.any():
+            shade = PROJECTION_NOISE_PERSIST * shade + (noise_sd * walk_scale)[None, :] \
+                * rng.standard_normal((n_sims, n_p))
     return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks), scores=scores, levels=levels,
                    played=played)
