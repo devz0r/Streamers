@@ -219,14 +219,16 @@ def _pickup_pointer(report: MatchupReport, uid: str) -> str:
     if report.optimisation.opponent is None:
         return ""
     link = tab_link(uid, "waivers", "pickups")
-    if report.pickups:
-        o = report.pickups[0]
-        more = f" ({len(report.pickups)} help)" if len(report.pickups) > 1 else ""
+    clear = [o for o in report.pickups if o.clear]
+    if clear:
+        o = clear[0]
+        more = f" ({len(clear)} clearly help)" if len(clear) > 1 else ""
         return (f'<p class="sub">Free agent pickup: <b>{_e(o.player.name)}</b> raises P(win) '
                 f"{o.gain * 100:+.1f}{more} &middot; {link}</p>")
-    near = getattr(report, "pickup_near", None) or []
-    best = f" (closest: {_e(near[0].player.name)}, {near[0].gain * 100:+.1f})" if near else ""
-    return f'<p class="sub">No free agent raises P(win) this week{best} &middot; {link}</p>'
+    near = list(report.pickups) + list(getattr(report, "pickup_near", None) or [])
+    best = (f" (closest: {_e(near[0].player.name)}, {near[0].gain * 100:+.1f}"
+            + (", within the noise" if near[0].gain > 0 else "") + ")") if near else ""
+    return f'<p class="sub">No free agent clearly raises P(win) this week{best} &middot; {link}</p>'
 
 
 def _move_cards(report: MatchupReport, moves: list[Move], title: str) -> str:

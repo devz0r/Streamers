@@ -84,5 +84,5 @@ def test_when_no_pickup_helps_the_closest_are_still_shown(cfg):
     assert all(o.gain <= 0 for o in report.pickup_near)
     parts = team_sections(snap, report, [], cfg)
     assert "Closest:" in parts["waivers"] and "WR Player 306" in parts["waivers"]
-    assert "No free agent raises P(win) this week (closest: WR Player 306" in parts["lineup"]
+    assert "No free agent clearly raises P(win) this week (closest: WR Player 306" in parts["lineup"]
     assert 'for="sec-espn-waivers"' in parts["lineup"]
