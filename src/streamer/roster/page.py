@@ -138,6 +138,7 @@ def team_sections(
         lineup.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
     if has_vegas:
         lineup.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
+    lineup.append(_sources(snapshot, cfg))
     for note in report.notes:
         lineup.append(f'<p class="sub">Note: {_e(note)}.</p>')
     out["lineup"] = "".join(lineup)
@@ -980,16 +981,64 @@ def _vegas_section(snapshot, opt, cfg: Config, report=None) -> str:
             f"{_e(p.name)} {'+' if d > 0 else ''}{d:.1f}" for p, d in gaps
         )
         bits.append(f"Biggest disagreements (market minus ours): {detail}.")
-    weights = [p.market_weight for p in snapshot.my_team.roster if p.market_weight > 0]
-    if weights:
-        bits.append(
-            f"Where a book priced a player, his projection blends in the market at up to "
-            f"{max(weights):.0%} (less when fewer books posted him); the weight is refit as "
-            "this season's results come in.")
     credits = getattr(snapshot, "_vegas_credits", None)
     if credits is not None:
         bits.append(f"Odds API credits left: {credits}.")
     return f'<p class="sub">{" ".join(bits)}</p>'
+
+
+def _weight_basis(games: int, need: int) -> str:
+    return (f"measured on {games} graded games" if games >= need
+            else f"a starting weight until {need} games are graded, {games} so far")
+
+
+def _sources(snapshot, cfg: Config) -> str:
+    """Where this week's projections come from, with what weight, and what
+    else uses them -- so a missing source is said, not silently dropped."""
+    weights = getattr(snapshot, "_week_weights", None)
+    if weights is None:
+        return ""
+    from ..data import fantasypros as fp
+
+    pconf = cfg.odds.get("props") or {}
+    fconf = fp.conf(cfg)
+    roster = [p for p in snapshot.my_team.roster if p.position not in ("K", "DST") and not p.in_ir_slot]
+    platform = {"espn": "ESPN", "yahoo": "Yahoo"}.get(snapshot.platform, snapshot.platform.upper())
+    w_plat = float(cfg.raw["roster"].get("platform_projection_weight", 0.5))
+    priced = sum(1 for p in roster if p.market_weight > 0)
+    expert = sum(1 for p in roster if p.consensus_weight > 0)
+    items = [f"<li>our model and {_e(platform)}'s projection, {1 - w_plat:.0%} and {w_plat:.0%};</li>"]
+    if priced:
+        items.append(f"<li>the betting market's implied points, <b>{weights.market:.0%}</b> where books priced him "
+                     f"(less when only one or two did; {priced} of your {len(roster)} players this week), "
+                     f"{_weight_basis(weights.market_games, int(pconf.get('blend_min_games', 150)))};</li>")
+    else:
+        items.append(f"<li>the betting market's implied points, <b>{weights.market:.0%}</b> where books price him "
+                     "-- <b>none in this week's numbers yet</b>: books post a game's props a day or two before "
+                     "kickoff, the Sunday-morning run buys them, and a refresh spends no credits, so it uses only "
+                     "props already bought;</li>")
+    if expert:
+        items.append(f"<li>the FantasyPros consensus projection, <b>{weights.consensus:.0%}</b> "
+                     f"({expert} of your {len(roster)} players), "
+                     f"{_weight_basis(weights.consensus_games, int(fconf.get('week_min_games', 150)))}.</li>")
+    else:
+        items.append(f"<li>the FantasyPros consensus projection, <b>{weights.consensus:.0%}</b> "
+                     "-- not available this run.</li>")
+    season = getattr(snapshot, "_season_weight", None)
+    ros = (f" Season values move <b>{season[0]:.0%}</b> of the way toward the FantasyPros rest-of-season "
+           f"consensus ({_weight_basis(season[1], int(fconf.get('season_min_games', 150)))}), and every "
+           "season-long number uses them." if season else "")
+    return (
+        "<h3>Where this week's projections come from</h3>"
+        f'<p class="sub">Each player\'s number blends, where he has one from each:</p><ul class="sub">'
+        f"{''.join(items)}</ul>"
+        '<p class="sub">Each weight is the one that would have been most accurate on this season\'s '
+        "finished games, pulled toward its starting value until enough are graded. The same numbers "
+        "set the lineup, P(win), this week's pickups and streams, and this week's part of every "
+        f"title-odds number on the page: waiver adds and drops, trades, the roster.{ros}</p>"
+        + ('<p class="sub">Consensus projections and rankings: analysis based on data from '
+           '<a href="https://www.fantasypros.com">FantasyPros</a>.</p>' if expert or season else "")
+    )
 
 
 def render_sync_failure(status: dict, cfg: Config, stale_week: int | None = None) -> str:

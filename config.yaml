@@ -341,6 +341,12 @@ fantasypros:
   season_weight_prior: 0.3
   season_prior_games: 300
   season_min_games: 150
+  # The consensus projection as a second forecast of this week: fitted
+  # together with the betting market's weight (odds.props.blend_*), the
+  # same way, from the projection logs. The prior matches the season one.
+  week_weight_prior: 0.3
+  week_prior_games: 300
+  week_min_games: 150
 
 weather:
   # Manual CSV override: data/weather_week_N.csv

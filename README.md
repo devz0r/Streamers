@@ -312,8 +312,14 @@ A blank means no book posted that player, which is not the same as zero --
 kickers, defences and deep bench players are rarely priced.
 
 The market also feeds the projection: where a book priced a player it is
-blended in (40% to start, less with fewer books), and that weight is refit
-each run from how ours and the market's numbers actually did this season.
+blended in (40% to start, less with fewer books), and so is the FantasyPros
+consensus projection (30% to start). Both weights are refit together each
+run from how ours, the market's and the consensus's numbers actually did
+this season. Under the lineup, "Where this week's projections come from"
+lists each source, its weight and how many of your players it covered --
+and says so when a source is missing, as props are until the Sunday run buys
+them. The same numbers feed the lineup, P(win), pickups and this week's part
+of every title-odds number (waiver adds and drops, trades, the roster).
 
 The panel also says what lineup the market's numbers would start and which
 players the two projections disagree about most. Disagreement is the useful

@@ -1720,6 +1720,40 @@ title odds. The rest-of-season benchmark still grades our own values
 against their ranks, so the weight and the benchmark answer the same
 question from two sides.
 
+### The consensus projection as a second forecast of this week
+The FantasyPros weekly projection was pulled, logged and graded on the
+scorecard, but no decision used it: this week's numbers blended our model,
+the platform's projection and the betting market, and stopped there. It now
+joins the market as a second forecast of this week, the same way:
+
+- **One fit for both.** This week's projection is
+  `ours + w_m (market - ours) + w_c (consensus - ours)`, where a player has
+  each, so the two weights are fitted together on the logged games -- two
+  sources that agree are not counted twice. Each is shrunk toward its prior
+  by its own graded games (300 games of evidence), and the prior stands
+  until 150 are graded: 0.4 for the market as before, 0.3 for the
+  consensus, matching its season weight. At week 4 the market's weight
+  had been measured down to 0.26; the consensus had 13 graded games, so its
+  prior stands.
+- **If he plays.** Both are blended on the if-he-plays number and the
+  injury discount re-applied, as props were. A consensus projection near
+  zero says he sits; the platform's tag carries that, so it is not blended.
+- **Everywhere this week's number is used.** The lineup, P(win), this
+  week's pickups and streams, and the week in progress of every simulated
+  season -- so waiver adds and drops, trades and the roster's title worth
+  all see it. The season values carry the rest-of-season consensus as
+  before; the betting market has no rest-of-season number, so it reaches
+  season-long decisions only through this week.
+
+The Lineup tab says what went in: each source, its weight, how many of your
+players it covered, and what the weight rests on. A source missing from a
+run is said rather than dropped silently. That came from a real gap. From
+Thursday night to Sunday morning of week 4, every page ran without betting
+props and showed no Vegas column, with no reason given. Refreshes spend no
+credits; Wednesday's run had bought only the Thursday game, the one inside
+the 72-hour window, and the Sunday run had not yet fired. GitHub was running
+it four hours late.
+
 ### Where our season values defer to the market
 A trade the hub ranked first (Drake London for Cam Skattebo and Michael
 Wilson, +2.5 points of title odds) rested on our model valuing Wilson at

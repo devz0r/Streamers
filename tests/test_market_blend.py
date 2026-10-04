@@ -66,3 +66,64 @@ def test_market_lineup_keeps_locked_starters_and_final_scores(cfg):
     lu = vegas_lineup(snap, cfg)
     assert [p.player_id for p in lu.starters["TE"]] == ["9"]   # locked in his slot
     assert "7" not in lu.player_ids                             # cannot come off the bench
+
+
+def test_the_consensus_projection_is_blended_beside_the_market(cfg):
+    both = PlayerRow(player_id="b", name="b", position="WR", projection=10.0, vegas_points=14.0, vegas_books=3,
+                     fp_projection=12.0)
+    expert = PlayerRow(player_id="e", name="e", position="RB", projection=8.0, fp_projection=10.0)
+    benched = PlayerRow(player_id="z", name="z", position="RB", projection=6.0, fp_projection=0.0)
+    hurt = PlayerRow(player_id="h", name="h", position="WR", projection=7.5, play_probability=0.75,
+                     fp_projection=12.0)
+    snap = snapshot(week=3)
+    snap.free_agents = [both, expert, benched, hurt]
+    blend_market(snap, cfg, weight=0.3, consensus_weight=0.25)
+    assert both.projection == round(10.0 + 0.3 * 4.0 + 0.25 * 2.0, 2)
+    assert (both.market_weight, both.consensus_weight) == (0.3, 0.25)
+    assert expert.projection == 8.5 and expert.market_weight == 0.0
+    assert benched.projection == 6.0 and benched.consensus_weight == 0.0     # a zero says he sits
+    assert hurt.projection == round(0.75 * (10.0 + 0.25 * 2.0), 2)            # on the if-he-plays number
+
+
+def test_both_weights_are_fitted_together_from_the_logs(tmp_cfg):
+    from streamer.data import fantasypros as fp
+    from streamer.roster.vegas import fit_week_weights
+
+    rng = np.random.default_rng(1)
+    n = 900
+    truth = rng.uniform(4, 20, n)
+    week = np.repeat(np.arange(1, 10), 100)
+    ids = [f"n{i}" for i in range(n)]
+    priced = rng.random(n) < 0.5                                   # the market prices half of them
+    log_ = pd.DataFrame({"season": 2026, "week": week, "player_id": ids, "nfl_id": ids,
+                         "projection": truth + rng.normal(0, 4, n),
+                         "vegas_points": np.where(priced, truth + rng.normal(0, 3, n), np.nan)})
+    path = tmp_cfg.results_dir / "skill_log.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log_.to_parquet(path)
+    pd.DataFrame({"season": 2026, "week": week, "nfl_id": ids,
+                  "fp_projection": truth + rng.normal(0, 1, n)}).to_parquet(fp.cache_dir(tmp_cfg) / "log.parquet")
+    hist = pd.DataFrame({"player_id": ids, "season": 2026, "week": week,
+                         "fantasy_points_ppr": truth + rng.normal(0, 0.5, n)})
+    w = fit_week_weights(tmp_cfg, history=hist)
+    assert w.market_games == priced.sum() and w.consensus_games == n
+    assert w.consensus > 0.6 and w.consensus > w.market          # the sharper source earns more
+    # Too few graded games: the starting weights.
+    small = fit_week_weights(tmp_cfg, history=hist[hist.week == 1])
+    assert (small.market, small.consensus) == (0.4, 0.3)
+
+
+def test_the_lineup_says_where_its_numbers_come_from_and_what_is_missing(cfg):
+    from streamer.roster.page import _sources
+    from streamer.roster.vegas import WeekWeights
+
+    snap = snapshot(week=3)
+    snap._week_weights = WeekWeights(market=0.26, market_games=201, consensus=0.3, consensus_games=13)
+    for p in snap.my_team.roster[:5]:
+        p.consensus_weight = 0.3
+    text = _sources(snap, cfg)
+    assert "none in this week's numbers yet" in text                 # no props bought
+    assert "<b>30%</b> (5 of your" in text and "13 so far" in text
+    assert "FantasyPros" in text and "waiver adds and drops" in text
+    snap.my_team.roster[0].market_weight = 0.26
+    assert "measured on 201 graded games" in _sources(snap, cfg)

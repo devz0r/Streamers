@@ -181,71 +181,144 @@ def vegas_lineup(snapshot: LeagueSnapshot, cfg: Config | None = None):
 BOOK_DEPTH = {1: 0.6, 2: 0.85}
 
 
-def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
-    """The market's blend weight, and how many finished games it rests on.
+@dataclass
+class WeekWeights:
+    """How far this week's projection moves toward each second forecast, and
+    the graded games behind each weight (below the minimum, the prior)."""
 
-    Joins the projection log to actual PPR points and finds the weight that
-    minimises squared error of ``(1-w) * ours + w * market``, then shrinks
-    it toward the prior by ``blend_prior_games``. Below ``blend_min_games``
-    the prior stands: there is no free archive of player props, so the
-    evidence has to accumulate from this season's own logs.
+    market: float
+    market_games: int = 0
+    consensus: float = 0.0
+    consensus_games: int = 0
+
+
+#: A consensus projection this low says he will not play; the platform's tag
+#: carries that, so it is not blended as a points forecast.
+NO_PROJECTION = 0.5
+
+
+def _shrunk(n: int, fitted: float, prior: float, k: float, need: int) -> float:
+    return prior if n < need else (n * fitted + k * prior) / (n + k)
+
+
+def fit_week_weights(cfg: Config, history=None) -> WeekWeights:
+    """The weights this week's projection gives the betting market and the
+    FantasyPros consensus projection, fitted together.
+
+    Joins the projection log (ours before either blend, and the market's
+    number) and the consensus log (their projection) to actual PPR points,
+    and finds the pair minimising squared error of
+    ``ours + w_m (market - ours) + w_c (consensus - ours)`` -- a source a
+    player has no number from adds nothing for him -- then shrinks each
+    toward its prior by its own graded games. Below each minimum the prior
+    stands: there is no free archive of props or expert projections, so the
+    evidence accumulates from this season's own logs.
     """
     import numpy as np
     import pandas as pd
 
+    from ..data import fantasypros as fp
+
     pconf = cfg.odds.get("props") or {}
-    prior = float(pconf.get("blend_weight_prior", 0.4))
-    k = float(pconf.get("blend_prior_games", 300))
-    need = int(pconf.get("blend_min_games", 150))
+    fconf = fp.conf(cfg)
+    pm, km, nm = (float(pconf.get("blend_weight_prior", 0.4)), float(pconf.get("blend_prior_games", 300)),
+                  int(pconf.get("blend_min_games", 150)))
+    pc, kc, nc = (float(fconf.get("week_weight_prior", 0.3)), float(fconf.get("week_prior_games", 300)),
+                  int(fconf.get("week_min_games", 150)))
+    prior = WeekWeights(market=pm, consensus=pc)
     frames = []
     for d in sorted({cfg.results_dir.parent / name for name in ("espn", "yahoo")} | {cfg.results_dir}):
         path = d / "skill_log.parquet"
         if path.exists():
             frames.append(pd.read_parquet(path))
     if not frames:
-        return prior, 0
-    log_ = pd.concat(frames).dropna(subset=["vegas_points", "projection", "nfl_id"])
+        return prior
+    log_ = pd.concat(frames).dropna(subset=["projection", "nfl_id"])
     log_ = log_.drop_duplicates(["season", "week", "nfl_id"])
     if log_.empty:
-        return prior, 0
+        return prior
+    if "vegas_points" not in log_:
+        log_["vegas_points"] = np.nan
+    cpath = fp.cache_dir(cfg) / "log.parquet"
+    if cpath.exists():
+        c = pd.read_parquet(cpath)
+        if "fp_projection" in c:
+            c = c.dropna(subset=["fp_projection"]).drop_duplicates(["season", "week", "nfl_id"])
+            log_ = log_.merge(c[["season", "week", "nfl_id", "fp_projection"]],
+                              on=["season", "week", "nfl_id"], how="left")
+    if "fp_projection" not in log_:
+        log_["fp_projection"] = np.nan
     if history is None:
         from .projections import load_history
 
         history = load_history(cfg)
     actual = history[["player_id", "season", "week", "fantasy_points_ppr"]].rename(columns={"player_id": "nfl_id"})
     j = log_.merge(actual, on=["nfl_id", "season", "week"], how="inner")
-    n = len(j)
-    if n < need:
-        return prior, n
-    ours, mkt, y = (j["projection"].to_numpy(float), j["vegas_points"].to_numpy(float),
-                    j["fantasy_points_ppr"].to_numpy(float))
+    has_m = j["vegas_points"].notna().to_numpy()
+    has_c = (j["fp_projection"].notna() & (j["fp_projection"].astype(float) > NO_PROJECTION)).to_numpy()
+    keep = has_m | has_c
+    j, has_m, has_c = j[keep], has_m[keep], has_c[keep]
+    n_m, n_c = int(has_m.sum()), int(has_c.sum())
+    if n_m < nm and n_c < nc:
+        return WeekWeights(pm, n_m, pc, n_c)
+    ours, y = j["projection"].to_numpy(float), j["fantasy_points_ppr"].to_numpy(float)
+    dm = np.where(has_m, j["vegas_points"].to_numpy(float) - ours, 0.0)
+    dc = np.where(has_c, j["fp_projection"].to_numpy(float) - ours, 0.0)
     grid = np.linspace(0.0, 1.0, 21)
-    errs = [float(np.mean(((1 - w) * ours + w * mkt - y) ** 2)) for w in grid]
-    w_fit = float(grid[int(np.argmin(errs))])
-    return (n * w_fit + k * prior) / (n + k), n
+    best, fit = np.inf, (pm, pc)
+    for wm in grid:
+        for wc in grid:
+            if wm + wc > 1.0 + 1e-9:
+                continue
+            err = float(np.mean((ours + wm * dm + wc * dc - y) ** 2))
+            if err < best:
+                best, fit = err, (float(wm), float(wc))
+    return WeekWeights(market=_shrunk(n_m, fit[0], pm, km, nm), market_games=n_m,
+                       consensus=_shrunk(n_c, fit[1], pc, kc, nc), consensus_games=n_c)
 
 
-def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = None) -> float:
-    """Blend sportsbook-implied points into every priced player's projection.
+def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
+    """The market's blend weight, and how many finished games it rests on
+    (:func:`fit_week_weights`)."""
+    w = fit_week_weights(cfg, history)
+    return w.market, w.market_games
 
-    Props assume the player suits up, so the blend is done on the
+
+def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = None,
+                 consensus_weight: float = 0.0) -> float:
+    """Blend the second forecasts into every player's projection for this
+    week: sportsbook-implied points by ``weight`` (less where few books
+    priced him) and the FantasyPros consensus projection by
+    ``consensus_weight``, each where the player has one.
+
+    Both assume the player suits up, so the blend is done on the
     if-he-plays number and the injury discount re-applied. Players already
     locked, out, or whom the platform has ruled out are left alone. Returns
-    the weight used.
+    the market weight used.
     """
     if weight is None:
         weight, _n = fit_market_weight(cfg)
     for p in snapshot.all_players():
         p.pre_market_projection = p.projection
         p.market_weight = 0.0
-        if (p.vegas_points is None or p.projection is None or p.locked or p.is_out
+        p.consensus_weight = 0.0
+        if (p.projection is None or p.locked or p.is_out
                 or p.play_probability <= 0 or "sits" in (p.projection_source or "")):
             continue
-        w = weight * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0)
+        wm = weight * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0) if p.vegas_points is not None else 0.0
+        wc = consensus_weight if p.fp_projection is not None and p.fp_projection > NO_PROJECTION else 0.0
+        if wm <= 0 and wc <= 0:
+            continue
         q = p.play_probability if p.play_probability else 1.0
         if_plays = float(p.projection) / q
-        p.projection = round(q * ((1 - w) * if_plays + w * float(p.vegas_points)), 2)
-        p.market_weight = round(w, 3)
+        blended = if_plays
+        if wm > 0:
+            blended += wm * (float(p.vegas_points) - if_plays)
+        if wc > 0:
+            blended += wc * (float(p.fp_projection) - if_plays)
+        p.projection = round(q * blended, 2)
+        p.market_weight = round(wm, 3)
+        p.consensus_weight = round(wc, 3)
     return weight
 
 
@@ -296,6 +369,7 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
             "status": p.status,
             "projection": p.pre_market_projection if p.pre_market_projection is not None else p.projection,
             "blended_projection": p.projection, "market_weight": p.market_weight,
+            "consensus_weight": p.consensus_weight,
             "model_projection": p.model_projection,
             "platform_projection": p.platform_projection, "vegas_points": p.vegas_points,
             "vegas_books": p.vegas_books, "logged_at": stamp,

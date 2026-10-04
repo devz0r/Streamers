@@ -760,15 +760,16 @@ def team_panels_for(
         except Exception as exc:  # noqa: BLE001 - props are a bonus column
             log.warning("player props skipped: %s", exc)
 
-    market_w = None
+    week_w = None
     if loaded:
         try:
-            from .roster.vegas import fit_market_weight
+            from .roster.vegas import fit_week_weights
 
-            market_w, n_fit = fit_market_weight(loaded[0][1])
-            log.info("market blend weight %.2f (%d logged games with results)", market_w, n_fit)
+            week_w = fit_week_weights(loaded[0][1])
+            log.info("this week's blend: market %.2f (%d graded games), FantasyPros projection %.2f (%d)",
+                     week_w.market, week_w.market_games, week_w.consensus, week_w.consensus_games)
         except Exception as exc:  # noqa: BLE001
-            log.warning("market weight fit failed, using the prior: %s", exc)
+            log.warning("blend weight fit failed, using the priors: %s", exc)
     for name, bound, snap, status, rankings in loaded:
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
@@ -777,12 +778,25 @@ def team_panels_for(
                              prefetched=shared)
             except Exception as exc:  # noqa: BLE001 - props are a bonus column
                 log.warning("player props for %s skipped: %s", name, exc)
+            # The FantasyPros consensus first: its projection is one of this
+            # week's second forecasts, its rankings one of the season's.
+            has_fp = False
+            try:
+                from .roster import consensus
+
+                has_fp = consensus.attach(snap, bound) > 0
+                if has_fp:
+                    consensus.log_week(snap, bound)       # our own numbers, before any blend
+            except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
+                log.warning("FantasyPros consensus for %s skipped: %s", name, exc)
             try:
                 from .roster.vegas import blend_market
 
-                blend_market(snap, bound, weight=market_w)
-            except Exception as exc:  # noqa: BLE001 - the market is a bonus input
-                log.warning("market blend for %s skipped: %s", name, exc)
+                blend_market(snap, bound, weight=week_w.market if week_w else None,
+                             consensus_weight=week_w.consensus if week_w else 0.0)
+                snap._week_weights = week_w
+            except Exception as exc:  # noqa: BLE001 - the second forecasts are bonus inputs
+                log.warning("this week's blend for %s skipped: %s", name, exc)
             try:
                 from .roster.vegas import log_projections
 
@@ -790,19 +804,18 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)
             season_w = None
-            try:
-                from .roster import consensus
-
-                if consensus.attach(snap, bound):
-                    consensus.log_week(snap, bound)       # our own numbers, before the blend
+            if has_fp:
+                try:
+                    from .roster import consensus
                     from .roster.projections import load_history
 
                     season_w = consensus.season_weight(bound, load_history(bound))
                     moved = consensus.blend_season(snap, season_w[0])
+                    snap._season_weight = season_w
                     log.info("consensus weight in season values %.2f (%d graded games); %d players moved",
                              season_w[0], season_w[1], moved)
-            except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
-                log.warning("FantasyPros consensus for %s skipped: %s", name, exc)
+                except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
+                    log.warning("FantasyPros season blend for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
             try:
                 from .roster import scorecard
