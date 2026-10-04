@@ -27,8 +27,13 @@ def _event():
                                                                    "fanduel": _book("-115", "264.5")}},
             f"passing_yards-{pid}-game-ou-under": {"byBookmaker": {"pinnacle": _book("-110", "265.5"),
                                                                     "fanduel": _book("-105", "264.5")}},
-            f"receptions-{wr}-game-ou-over": {"byBookmaker": {"draftkings": _book("+105", "5.5")}},
-            f"receptions-{wr}-game-ou-under": {"byBookmaker": {"draftkings": _book("-125", "5.5")}},
+            f"receiving_receptions-{wr}-game-ou-over": {"byBookmaker": {"draftkings": _book("+105", "5.5")}},
+            f"receiving_receptions-{wr}-game-ou-under": {"byBookmaker": {"draftkings": _book("-125", "5.5")}},
+            # The same book's touchdown as over 0.5 too: one opinion, kept once.
+            f"touchdowns-{wr}-game-ou-over": {"byBookmaker": {"draftkings": _book("+145", "0.5"),
+                                                               "fanduel": _book("+140", "0.5")}},
+            f"touchdowns-{wr}-game-ou-under": {"byBookmaker": {"draftkings": _book("-185", "0.5"),
+                                                                "fanduel": _book("-175", "0.5")}},
             f"touchdowns-{wr}-game-yn-yes": {"byBookmaker": {"draftkings": _book("+150")}},
             f"touchdowns-{wr}-game-yn-no": {"byBookmaker": {"draftkings": _book("-190")}},
             # Ignored: first half, a closed market, a team market.
@@ -45,9 +50,12 @@ def test_player_markets_become_rows_like_the_first_feeds(cfg):
     py = f[f.stat == "passing_yards"]
     assert sorted(py.bookmaker) == ["fanduel", "pinnacle"] and set(py.player) == {"Patrick Mahomes"}
     assert py.set_index("bookmaker").loc["pinnacle", "line"] == 265.5
-    td = f[f.stat == "anytime_td"].iloc[0]
+    assert set(f[f.stat == "receptions"].bookmaker) == {"draftkings"}
+    tds = f[f.stat == "anytime_td"]
+    assert sorted(tds.bookmaker) == ["draftkings", "fanduel"]           # yes/no dropped for draftkings
+    td = tds.set_index("bookmaker").loc["draftkings"]
     assert td.player == "Rashee Rice" and td.kind == "poisson" and td.line == 0.5
-    assert td.over_price == 150.0 and td.under_price == -190.0
+    assert td.over_price == 145.0 and td.under_price == -185.0
     # Through the same pipeline as The Odds API's rows.
     pts = to_fantasy_points(consensus(implied_means(f, cfg), cfg), cfg.for_profile("espn"))
     assert set(pts.player) == {"Patrick Mahomes", "Rashee Rice"}

@@ -38,6 +38,7 @@ STATS: dict[str, tuple[str, str]] = {
     "rushing_yards": ("rushing_yards", "normal"),
     "receiving_yards": ("receiving_yards", "normal"),
     "receptions": ("receptions", "normal"),
+    "receiving_receptions": ("receptions", "normal"),     # the feed's name (probe, week 4)
     "passing_touchdowns": ("passing_tds", "poisson"),
     "passing_tds": ("passing_tds", "poisson"),
     "passing_interceptions": ("passing_interceptions", "poisson"),
@@ -101,7 +102,12 @@ def parse(events: list[dict]) -> pd.DataFrame:
                 slot[side] = _price(b.get("odds"))
                 if b.get("overUnder") is not None:
                     slot["line"] = _price(b.get("overUnder"))
+        # A book that prices a stat both ways (touchdowns: yes/no and over
+        # 0.5) is one opinion: keep the over/under.
+        have_ou = {(STATS[k[0]][0], k[1], k[3]) for k in sides if k[2] == "ou"}
         for (stat_id, entity, bet, book), slot in sides.items():
+            if bet == "yn" and (STATS[stat_id][0], entity, book) in have_ou:
+                continue
             stat, kind = STATS[stat_id]
             if bet == "yn":
                 line, over, under, yes = 0.5, slot.get("yes"), slot.get("no"), None

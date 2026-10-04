@@ -574,6 +574,11 @@ Other free sources were looked at:
   several spellings are accepted and an `sgo-probe` job prints the stat
   IDs, bet types and books the feed really carries before its numbers
   are relied on. A cache of six hours keeps refreshes within the plan.
+  The first probe (week 4): six books on player markets on the free plan
+  (FanDuel, DraftKings, ESPN Bet, Bovada, Caesars, BetMGM; no Pinnacle),
+  receptions under `receiving_receptions`, and touchdowns priced both as
+  yes/no and as over 0.5 by the same book -- kept once, as the over/under,
+  so one book is one opinion.
 - ESPN's public API documents no player-props endpoint, and nflverse
   carries none.
 - Scraping sportsbooks or pick'em sites directly is against their terms.
