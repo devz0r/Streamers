@@ -467,13 +467,15 @@ trade, on the page".
 
 ### Pickups for this week
 
-On the Waivers tab, under "Pickups for this matchup", every free agent who could start
+On the Waivers tab, under "Pickups for this matchup" (and in one line under the
+P(win) on the Lineup tab), every free agent who could start
 for you this week is added to your roster, your lineup rebuilt around him,
 and scored against your opponent on the same simulated games: the chance
 you win this week with him, against without. Beside it, what the whole
 move -- the drop included -- does to your title odds, since a pickup that
 wins this week can cost more later. See DECISIONS.md, "Pickups for this
-week, at every position".
+week, at every position". When none helps, the closest few are listed with
+what they would have done, so an empty answer still shows who was tried.
 
 ### Your roster
 

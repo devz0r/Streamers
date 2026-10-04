@@ -112,6 +112,7 @@ def team_sections(
     lineup = [
         f'<p class="sub">vs {_e(report.opponent_name or "?")}: P(win) <b>{_pct(report.win_probability)}</b>'
         f"{_e(gain)}</p>",
+        _pickup_pointer(report, uid),
         "<h3>Recommended lineup</h3>"
         '<div class="scroll"><table><thead><tr><th>Slot</th><th class="unit">Player</th>'
         f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
@@ -211,6 +212,21 @@ def team_sections(
     if card:
         out["model"] = "<h2>Player projections, graded</h2>" + card
     return out
+
+
+def _pickup_pointer(report: MatchupReport, uid: str) -> str:
+    """One line on the lineup tab: can a free agent raise this week's P(win)?"""
+    if report.optimisation.opponent is None:
+        return ""
+    link = tab_link(uid, "waivers", "pickups")
+    if report.pickups:
+        o = report.pickups[0]
+        more = f" ({len(report.pickups)} help)" if len(report.pickups) > 1 else ""
+        return (f'<p class="sub">Free agent pickup: <b>{_e(o.player.name)}</b> raises P(win) '
+                f"{o.gain * 100:+.1f}{more} &middot; {link}</p>")
+    near = getattr(report, "pickup_near", None) or []
+    best = f" (closest: {_e(near[0].player.name)}, {near[0].gain * 100:+.1f})" if near else ""
+    return f'<p class="sub">No free agent raises P(win) this week{best} &middot; {link}</p>'
 
 
 def _move_cards(report: MatchupReport, moves: list[Move], title: str) -> str:
@@ -663,7 +679,18 @@ def _pickups(report: MatchupReport) -> str:
             "and the rest of the season together: a pickup that wins this week can still cost more later "
             "than it gains now. If he is on waivers, the claim has to clear before his game.</p>")
     if not report.pickups:
-        return head + '<p class="sub">No free agent raises your chance of winning this week.</p>'
+        near = getattr(report, "pickup_near", None) or []
+        closest = ""
+        if near:
+            closest = " Closest: " + "; ".join(
+                f"{_e(o.player.name)} ({_e(o.player.position)}, {(o.player.projection or 0):.1f} this week"
+                + (f", {_e(o.moves_text)}" if o.changes else "") + f"): {o.gain * 100:+.1f}"
+                for o in near) + " points of P(win)."
+        locked = sum(1 for p in report.snapshot.free_agents if p.locked and p.position in ("QB", "RB", "WR", "TE"))
+        played = (f" Free agents whose games have kicked off ({locked}) can no longer help this week."
+                  if locked else "")
+        return head + ('<p class="sub"><b>No free agent raises your chance of winning this week:</b> none '
+                       f"projects above the starter he would replace.{closest}{played}</p>")
     rows = []
     for o in report.pickups:
         p = o.player

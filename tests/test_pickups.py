@@ -69,3 +69,20 @@ def test_the_hub_prices_a_pickup_as_the_whole_move():
     assert "this week only" in acts["Add Week for this week"].note
     assert "Add Costly for this week" not in acts                               # wins the week, costs the season
     assert "Add Noise for this week" not in acts and "Add Listed for this week" not in acts
+
+
+def test_when_no_pickup_helps_the_closest_are_still_shown(cfg):
+    """A section that only says "none" reads as missing: the closest free
+    agents tried are listed, on the waivers tab and in a line on the lineup."""
+    from streamer.roster.matchup import build_report
+    from streamer.roster.page import team_sections
+
+    snap = snapshot(week=3)
+    snap.free_agents = [_player(306, "WR", 9.0, 6.0, "SEA", slot="FA"), _player(307, "RB", 3.0, 3.0, "ATL", slot="FA")]
+    report = build_report(snap, cfg)
+    assert report.pickups == [] and report.pickup_near
+    assert all(o.gain <= 0 for o in report.pickup_near)
+    parts = team_sections(snap, report, [], cfg)
+    assert "Closest:" in parts["waivers"] and "WR Player 306" in parts["waivers"]
+    assert "No free agent raises P(win) this week (closest: WR Player 306" in parts["lineup"]
+    assert 'for="sec-espn-waivers"' in parts["lineup"]

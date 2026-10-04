@@ -26,6 +26,8 @@ class MatchupReport:
     streams: dict[str, list[StreamOption]] = field(default_factory=dict)
     #: Free agents who raise this week's P(win), best first.
     pickups: list[PickupOption] = field(default_factory=list)
+    #: The closest free agents when none helps, so the page shows who was tried.
+    pickup_near: list[PickupOption] = field(default_factory=list)
     #: Rest-of-season odds for every team (None until the league's schedule
     #: and playoff format have been read).
     season: object | None = None
@@ -105,13 +107,15 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
             streams[pos] = stream_options(result, pos, pool, n_sims=int(cfg.raw["roster"]["sims"]))
         except Exception:  # noqa: BLE001 - a bonus table never blocks the report
             streams[pos] = []
+    near: list[PickupOption] = []
     try:
-        pickups = this_week_pickups(snapshot, result, n_sims=int(cfg.raw["roster"]["sims"]))
+        pickups = this_week_pickups(snapshot, result, n_sims=int(cfg.raw["roster"]["sims"]), near=near)
     except Exception:  # noqa: BLE001 - a bonus table never blocks the report
         pickups = []
     return MatchupReport(
         snapshot=snapshot, optimisation=result,
         opponent_name=opp.name if opp else "", notes=notes, streams=streams, pickups=pickups,
+        pickup_near=near,
     )
 
 
@@ -120,9 +124,11 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
 PICKUPS_PER_POSITION = 6
 PICKUP_REACH = 3.0
 PICKUPS_SHOWN = 6
+PICKUPS_NEAR = 3
 
 
-def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int = 20000) -> list[PickupOption]:
+def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int = 20000,
+                      near: list | None = None) -> list[PickupOption]:
     """Free agents who would raise your P(win) this week, each with the
     player he would start over and the cheapest one to drop.
 
@@ -130,7 +136,8 @@ def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int =
     waiver engine ranks them) who would not start this week, never one whose
     game has kicked off, never one that leaves a position short; the season
     engine re-prices the move with its own pick of drops
-    (:func:`price_pickups`)."""
+    (:func:`price_pickups`). ``near``, if given, receives the closest few
+    that would not help."""
     from ..league.model import SLOT_ELIGIBILITY
     from .title_moves import _droppable
 
@@ -146,6 +153,8 @@ def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int =
                     key=lambda p: -p.week_value)
         pool.extend(at[:PICKUPS_PER_POSITION])
     options = pickup_options(opt, me.roster, snapshot.starting_slots, pool, n_sims=n_sims)
+    if near is not None:
+        near.extend([o for o in options if o.gain <= 0][:PICKUPS_NEAR])
     out = []
     for o in options:
         if o.gain <= 0:
