@@ -220,7 +220,31 @@ def _blend(frame: pd.DataFrame, pos_mean: pd.Series, pos_eff: pd.Series, conf: d
 
 TABLE_COLUMNS = ["player_id", "player_display_name", "position", "team", "blend", "vol", "eff",
                  "n", "last_season", "last_week", "recent_exp", "prior_exp", "first_season",
-                 "team_games", "old_team", "vol_all_teams"]
+                 "team_games", "old_team", "vol_all_teams", "vol_ros", "vol_before_back", "back_from"]
+
+
+def _window_volume(last: pd.DataFrame, weight, exp, conf: dict, pos_mean: pd.Series) -> pd.Series:
+    """Per player: the volume :func:`_volume_efficiency` gives from his window
+    of games (``last``: his last ``long_games``, with ``age`` = how many of
+    his games ago), each counting ``weight`` at expected points ``exp`` --
+    so a correction can say how far re-weighting or re-reading some of his
+    games moves it."""
+    k, k_vol = float(conf["shrink_games"]), float(conf.get("volume_prior_games", 2.0))
+    alpha = 1.0 - 0.5 ** (1.0 / float(conf.get("volume_halflife_games", 2.5)))
+    n_short = int(conf["trailing_games"])
+    wt = np.asarray(weight, float)
+    x = np.asarray(exp, float)
+    age = last["age"].to_numpy()
+    ew = (1.0 - alpha) ** age * wt
+    f = pd.DataFrame({"player_id": last["player_id"].to_numpy(), "ew": ew, "ewx": ew * x, "wt": wt, "wtx": wt * x,
+                      "short": np.where(age < n_short, wt, 0.0),
+                      "pos_mean": last["position"].map(pos_mean).to_numpy()})
+    s = f.groupby("player_id").agg(ew=("ew", "sum"), ewx=("ewx", "sum"), c_long=("wt", "sum"),
+                                   e_long=("wtx", "sum"), c_short=("short", "sum"), pos_mean=("pos_mean", "first"))
+    recent = s["ewx"] / s["ew"].where(s["ew"] > 1e-9)
+    vol_long = (s["e_long"] + k * s["pos_mean"]) / (s["c_long"] + k)
+    vol = (s["c_short"] * recent + k_vol * vol_long) / (s["c_short"] + k_vol)
+    return vol.where(recent.notna(), vol_long)
 
 
 def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, str] | None,
@@ -272,24 +296,9 @@ def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, s
     out["old_team"] = out["player_id"].map(moved.groupby("player_id")["_team"].last())
     last = last[last["player_id"].isin(moved["player_id"].unique())]
     last["_exp"] = last["total_fantasy_points_exp"].fillna(last["fantasy_points_ppr"])
-    last["_pos_mean"] = last["position"].map(pos_mean)
-    k, k_vol = float(conf["shrink_games"]), float(conf.get("volume_prior_games", 2.0))
-    alpha = 1.0 - 0.5 ** (1.0 / float(conf.get("volume_halflife_games", 2.5)))
-    n_short = int(conf["trailing_games"])
 
     def volume(w: float) -> pd.Series:
-        wt = np.where(last["same"], 1.0, w)
-        ew = (1.0 - alpha) ** last["age"].to_numpy() * wt
-        x = pd.DataFrame({"player_id": last["player_id"].to_numpy(), "ew": ew, "ewx": ew * last["_exp"].to_numpy(),
-                          "wt": wt, "wtx": wt * last["_exp"].to_numpy(),
-                          "short": np.where(last["age"].to_numpy() < n_short, wt, 0.0),
-                          "pos_mean": last["_pos_mean"].to_numpy()})
-        s = x.groupby("player_id").agg(ew=("ew", "sum"), ewx=("ewx", "sum"), c_long=("wt", "sum"),
-                                       e_long=("wtx", "sum"), c_short=("short", "sum"), pos_mean=("pos_mean", "first"))
-        recent = s["ewx"] / s["ew"].where(s["ew"] > 1e-9)
-        vol_long = (s["e_long"] + k * s["pos_mean"]) / (s["c_long"] + k)
-        vol = (s["c_short"] * recent + k_vol * vol_long) / (s["c_short"] + k_vol)
-        return vol.where(recent.notna(), vol_long)
+        return _window_volume(last, np.where(last["same"], 1.0, w), last["_exp"], conf, pos_mean)
 
     ratio = (volume(w_old) / volume(1.0)).replace([np.inf, -np.inf], np.nan)
     factor = out["player_id"].map(ratio).fillna(1.0).clip(0.0, 1.5)
@@ -297,12 +306,126 @@ def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, s
     return out
 
 
+def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[float, float]],
+               conf: dict, pos_mean: pd.Series, season: int) -> pd.DataFrame:
+    """A teammate back from an absence takes his work back.
+
+    The games a player had this season while a regular at his position --
+    one playing again now -- was out show more work than he will get with
+    him back. Each is read less what he was expected to absorb then:
+    ``bigger`` of the gap between them when the man coming back had the
+    bigger role (the next man up handing the job back; the gap from the
+    player's volume in the games they shared), ``smaller`` of the returning
+    man's volume when he had the smaller one (``teammate_back`` in the
+    config, per position). ``back`` -- nflverse id -> (chance he plays this
+    week, share of the rest of the season he plays), from the injury tag --
+    scales it: ``vol`` becomes this week's volume, ``vol_ros`` the rest of
+    the season's. Measured on 2022-2025; see scripts/fit_teammate_back.py
+    and DECISIONS.md, "A teammate back from an absence".
+
+    Adds ``vol_ros``, ``vol_before_back`` and ``back_from`` (the teammate
+    whose return moves him most).
+    """
+    from ..teams import normalize_team
+
+    out = target.copy()
+    out["vol_before_back"] = out["vol"]
+    out["vol_ros"] = out["vol"]
+    out["back_from"] = None
+    rule = conf.get("teammate_back") or {}
+    bigger, smaller = rule.get("bigger") or {}, rule.get("smaller") or {}
+    positions = [q for q in rule.get("positions", []) if bigger.get(q) or smaller.get(q)]
+    if not positions or not back or out.empty:
+        return out
+    regular = float(rule.get("regular", 5.0))
+    pool = out[out["position"].isin(positions) & out["vol"].notna()]
+    returning = pool[pool["player_id"].map(lambda q: max(back.get(q, (0.0, 0.0))) > 0)
+                     & (pool["vol"] >= regular)]
+    if returning.empty:
+        return out
+    cur = prior[prior["season"] == season]
+    played = set(zip(cur["week"].astype(int), cur["team"].map(normalize_team), cur["player_id"]))
+    this_season = set(zip(cur["team"].map(normalize_team), cur["player_id"]))
+    groups: dict[tuple[str, str], list] = {}
+    for r in returning.itertuples():
+        # Only a teammate who has played for this team this season: a player
+        # carried on a roster without a snap (Salvon Ahmed, last seen in 2023,
+        # listed by Miami without an injury tag) is not one coming back.
+        if (r.team, r.player_id) in this_season:
+            groups.setdefault((r.team, r.position), []).append(r)
+    if not groups:
+        return out
+    ids = pool[[(t, q) in groups for t, q in zip(pool["team"], pool["position"])]]["player_id"]
+    n_long = int(conf.get("long_games", 17))
+    last = prior[prior["player_id"].isin(ids)].sort_values(["season", "week"])
+    last = last.groupby("player_id").tail(n_long).copy()
+    if last.empty:
+        return out
+    last["_team"] = last["team"].map(normalize_team)
+    last["age"] = last.groupby("player_id").cumcount(ascending=False)
+    last["_exp"] = last["total_fantasy_points_exp"].fillna(last["fantasy_points_ppr"]).astype(float)
+    team_now = out.set_index("player_id")["team"]
+    w_old = float(conf.get("old_team_weight", 1.0))
+    base = np.where(last["_team"].to_numpy() == last["player_id"].map(team_now).to_numpy(), 1.0, w_old)
+    vol_now = out.set_index("player_id")["vol"]
+    pid_arr, season_arr = last["player_id"].to_numpy(), last["season"].to_numpy()
+    week_arr, team_arr = last["week"].to_numpy().astype(int), last["_team"].to_numpy()
+    pos_arr = last["player_id"].map(out.set_index("player_id")["position"]).to_numpy()
+    # Per game of each player's window: which returning teammates missed it.
+    missing: list[list] = [[] for _ in range(len(last))]
+    for x in range(len(last)):
+        if season_arr[x] != season or team_arr[x] != team_now.get(pid_arr[x]):
+            continue
+        for r in groups.get((team_arr[x], pos_arr[x]), []):
+            if r.player_id != pid_arr[x] and (week_arr[x], team_arr[x], r.player_id) not in played:
+                missing[x].append(r)
+    flagged = np.array([bool(m) for m in missing])
+    if not flagged.any():
+        return out
+    sel = last["player_id"].isin(last["player_id"][flagged].unique()).to_numpy()
+    sub, base_s, miss_s = last[sel], base[sel], [m for m, k in zip(missing, sel) if k]
+    flag_s = flagged[sel]
+    exp = sub["_exp"].to_numpy()
+    full = _window_volume(sub, base_s, exp, conf, pos_mean)
+    shared = _window_volume(sub, np.where(flag_s, 0.0, base_s), exp, conf, pos_mean)
+    has_shared = pd.Series(~flag_s, index=sub.index).groupby(sub["player_id"]).any()
+    # His volume in the games they shared: what the gap is measured from.
+    with_them = (vol_now.reindex(full.index) * shared / full).where(has_shared.reindex(full.index), vol_now)
+    cut_week, cut_ros = np.zeros(len(sub)), np.zeros(len(sub))
+    lead: dict[str, tuple[float, str]] = {}
+    for x, (pid, ms) in enumerate(zip(sub["player_id"].to_numpy(), miss_s)):
+        mine = float(with_them.get(pid, np.nan))
+        for r in ms:
+            vj = float(r.vol)
+            if not np.isfinite(mine):
+                continue
+            took = (float(bigger.get(r.position, 0.0)) * (vj - mine) if vj > mine
+                    else float(smaller.get(r.position, 0.0)) * vj)
+            pw, pr = back.get(r.player_id, (0.0, 0.0))
+            cut_week[x] += pw * took
+            cut_ros[x] += pr * took
+            if took * pr > lead.get(pid, (0.0, ""))[0]:
+                lead[pid] = (took * pr, str(r.player_display_name))
+    f_week = (_window_volume(sub, base_s, np.maximum(exp - cut_week, 0.0), conf, pos_mean) / full)
+    f_ros = (_window_volume(sub, base_s, np.maximum(exp - cut_ros, 0.0), conf, pos_mean) / full)
+    f_week = f_week.replace([np.inf, -np.inf], np.nan).clip(0.0, 1.0)
+    f_ros = f_ros.replace([np.inf, -np.inf], np.nan).clip(0.0, 1.0)
+    out["vol"] = out["vol"] * out["player_id"].map(f_week).fillna(1.0)
+    out["vol_ros"] = out["vol_before_back"] * out["player_id"].map(f_ros).fillna(1.0)
+    out["back_from"] = out["player_id"].map({pid: name for pid, (_c, name) in lead.items()})
+    return out
+
+
 def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config,
-                 teams: dict[str, str] | None = None) -> pd.DataFrame:
+                 teams: dict[str, str] | None = None,
+                 back: dict[str, tuple[float, float]] | None = None) -> pd.DataFrame:
     """Per nflverse player: the projection as of (season, week), before any
     matchup scaling, with the volume and efficiency behind it. ``teams``
     (nflverse id -> current team) says who plays where now, when a platform
-    knows it before the box scores do."""
+    knows it before the box scores do. ``back`` (nflverse id -> chance he
+    plays this week, share of the rest of the season he plays) lets a
+    teammate back from an absence take his work back (:func:`_returning`):
+    ``vol`` is then this week's volume and ``vol_ros`` the season's."""
     conf = cfg.raw["roster"]
     n_games = int(conf["trailing_games"])
     long_games = int(conf.get("long_games", 17))
@@ -335,6 +458,7 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config,
     target["vol"], target["eff"] = _volume_efficiency(target, pos_mean, pos_eff, conf)
     target["team_games"], target["old_team"], target["vol_all_teams"] = np.nan, None, target["vol"]
     target = _team_discount(prior, target, teams, conf, pos_mean_all)
+    target = _returning(prior, target, back or {}, conf, pos_mean_all, season)
     target["blend"] = target["vol"] * target["eff"]
     target = target[target["blend"].notna()]
     # Opportunity over the last two games against the games before them: the
@@ -726,13 +850,31 @@ def _missed_in_a_row(team_weeks: list[int], played: set[int]) -> int:
     return n
 
 
+def _back_signal(row, ros: float) -> str:
+    """A teammate back from an absence: his season value with the games that
+    teammate missed read down, against without."""
+    who = row.get("back_from")
+    if not isinstance(who, str) or not who:
+        return ""
+    try:
+        cut = (float(row["vol_before_back"]) - float(row["vol_ros"])) * float(row["eff"])
+    except (KeyError, TypeError, ValueError):
+        return ""
+    if not np.isfinite(cut) or cut < 0.3:
+        return ""
+    words = [w for w in who.split() if w.rstrip(".").upper() not in ("JR", "SR", "II", "III", "IV", "V")]
+    return (f"{who} is back: the games {(words or [who])[-1]} missed count for less "
+            f"({ros + cut:.1f} -> {ros:.1f} a game)")
+
+
 def _moved_signal(row) -> str:
     """A new team: how far his old role was discounted."""
     old = row.get("old_team")
     if not isinstance(old, str) or not old:
         return ""
     try:
-        now, before, games = float(row["vol"]), float(row["vol_all_teams"]), int(row["team_games"])
+        now = float(row["vol_before_back"]) if pd.notna(row.get("vol_before_back")) else float(row["vol"])
+        before, games = float(row["vol_all_teams"]), int(row["team_games"])
         eff = float(row["eff"])
     except (KeyError, TypeError, ValueError):
         return ""
@@ -807,8 +949,6 @@ def project_snapshot(
     # The platform knows who plays where before the box scores do.
     current_teams = {matched.mapping[p.player_id]: p.team for p in players
                      if p.team and p.player_id in matched.mapping}
-    table = player_table(history, snapshot.season, snapshot.week, cfg, teams=current_teams)
-    by_id = table.set_index("player_id") if not table.empty else pd.DataFrame()
     pos_mean = history.groupby("position")["fantasy_points_ppr"].mean() if not history.empty else pd.Series(dtype=float)
 
     # D/ST and K from the streaming model.
@@ -838,6 +978,17 @@ def project_snapshot(
         if p.platform_projection is not None and p.platform_projection <= 0 and platform_covers
         and bool(p.team) and not p.on_bye and not p.in_ir_slot
     }
+    # Who is playing: a teammate back from an absence takes his work back
+    # (``_returning``), at his chance of playing this week and his share of
+    # the rest of the season -- the same reading of tags as the next man up.
+    back: dict[str, tuple[float, float]] = {}
+    for p in players:
+        nid = matched.mapping.get(p.player_id)
+        if nid is not None and p.position in SKILL:
+            w_week, w_ros, _label = _absence(p, p.player_id in sits, cfg)
+            back[nid] = (1.0 - w_week, 1.0 - w_ros)
+    table = player_table(history, snapshot.season, snapshot.week, cfg, teams=current_teams, back=back)
+    by_id = table.set_index("player_id") if not table.empty else pd.DataFrame()
     for p in players:
         p.takeover_share = p.backfield_share = None
     # The real depth chart decides who is next in line behind a lead.
@@ -910,11 +1061,15 @@ def project_snapshot(
             # or any unsigned one, needs a platform projection to count.
             elif row is not None and not unsigned and (not stale or p.status):
                 vol, eff = float(row["vol"]), float(row["eff"])
+                vol_ros = float(row.get("vol_ros", vol)) if pd.notna(row.get("vol_ros", vol)) else vol
                 extra_week, extra_ros, why = heirs.get(p.player_id, (0.0, 0.0, ""))
                 first = row.get("first_season")
                 if first is not None and np.isfinite(first) and int(first) > first_known:
                     p.experience = int(snapshot.season) - int(first)
-                ros = (vol + extra_ros) * eff + outcome.youth_drift(p.experience)
+                ros = (vol_ros + extra_ros) * eff + outcome.youth_drift(p.experience)
+                returned = _back_signal(row, ros)
+                if returned:
+                    p.signals.append(returned)
                 p.inherited_ros = round(extra_ros * eff, 2)
                 adj = market_calibration.calibrate(p.position, int(snapshot.week), ros, nfl_id,
                                                    int(snapshot.season), market_lines, market_conf) \

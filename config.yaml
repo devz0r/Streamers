@@ -415,6 +415,22 @@ roster:
   # quarterbacks showed no such lean). See DECISIONS.md, "A back whose
   # work has collapsed".
   usage_collapse: {positions: [RB], below: 0.5, min_value: 4.0, factor: 0.86}
+  # A teammate back from an absence takes his work back. The games a player
+  # had this season while a regular at his position (5+ expected points a
+  # game) was out are read less what he was expected to absorb: `bigger` of
+  # the gap between them when the man coming back had the bigger role (the
+  # next man up handing the job back), `smaller` of the returning man's
+  # volume when he had the smaller one, at his chance of playing. Walk-
+  # forward 2022-2025 on the player-weeks it moves, every season better: RB
+  # 6.14 -> 6.06 RMSE (bias -0.67 -> -0.07), WR 6.61 -> 6.58, TE 5.13 -> 5.09
+  # (scripts/fit_teammate_back.py; DECISIONS.md, "A teammate back from an
+  # absence"). Quarterbacks are left out: a backup who does not play leaves
+  # no box score, so an absence cannot be told from a seat on the bench.
+  teammate_back:
+    positions: [RB, WR, TE]
+    regular: 5.0
+    bigger: {RB: 0.65, WR: 0.35, TE: 0.35}
+    smaller: {RB: 0.1, WR: 0.0, TE: 0.1}
   # Efficiency (points per expected point) mostly regresses, so it moves
   # slowly: long-run rate shrunk to the position's with this many expected
   # points of prior, and only a quarter of the weight on recent games.

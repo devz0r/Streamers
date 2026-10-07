@@ -513,7 +513,11 @@ opportunity just jumped. **Drop watch** is the roster spots that cost least.
 The waiver reasons say what moved: "next man up: X is on IR (+3.1
 projected)", "opportunity up: 13.1 expected pts/game over his last 2 vs 9.0
 before", "rookie". A points streak with no more opportunity behind it is not
-flagged -- measured, those mostly fade.
+flagged -- measured, those mostly fade. The reverse of the next man up is
+priced too: when a teammate comes back from an absence, the games a player
+had without him count for less ("X is back: the games X missed count for
+less (8.6 -> 7.9 a game)") -- a backup hands most of the job back, a lead
+gives back little.
 
 ### Syncing your leagues
 

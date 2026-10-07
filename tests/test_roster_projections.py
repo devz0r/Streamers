@@ -436,3 +436,125 @@ def test_a_lone_backup_takes_more_of_the_job_than_one_of_three():
     assert depth.share("TE", 0.9, 0.35, fit) == 0.35                      # no fit for the position
     # A name the snap data does not have is unknown, not a backup who never plays.
     assert depth.concentration(lone, 2026, 4, "NYJ", "RB", "Somebody Else", "Breece Hall") is None
+
+
+# ---------------------------------------------------------------------------
+# A teammate back from an absence
+# ---------------------------------------------------------------------------
+
+
+def _return_history(lead_seen_2026: bool = True) -> pd.DataFrame:
+    """KC, 2025 and weeks 1-4 of 2026. The lead back (16) misses weeks 3-4 and
+    his backup (4) gets 12 in them; the lead receiver (15) misses weeks 3-4 and
+    the second receiver (6) gets 10; the starting quarterback misses week 4.
+    In PIT a lead back (13) gets 16 while his 9-point partner misses weeks 3-4.
+    A back last seen in 2025 never plays in 2026."""
+    rows = []
+
+    def add(pid, pos, team, season, week, exp):
+        rows.append({"player_id": pid, "player_display_name": pid.replace("-", " ").title(), "position": pos,
+                     "season": season, "week": week, "team": team,
+                     "fantasy_points_ppr": exp, "total_fantasy_points_exp": exp})
+
+    for season in (2025, 2026):
+        for week in range(1, 18 if season == 2025 else 5):
+            out = season == 2026 and week in (3, 4)
+            if not out and (lead_seen_2026 or season == 2025):
+                add("lead-back", "RB", "KC", season, week, 16.0)
+            add("cuff-back", "RB", "KC", season, week, 12.0 if out else 4.0)
+            if not out:
+                add("lead-receiver", "WR", "KC", season, week, 15.0)
+            add("second-receiver", "WR", "KC", season, week, 10.0 if out else 6.0)
+            if not (season == 2026 and week == 4):
+                add("starter-qb", "QB", "KC", season, week, 18.0)
+            if season == 2026 and week == 4:
+                add("backup-qb", "QB", "KC", season, week, 15.0)
+            if not out:
+                add("partner-back", "RB", "PIT", season, week, 9.0)
+            add("main-back", "RB", "PIT", season, week, 16.0 if out else 13.0)
+            if season == 2025:
+                add("gone-back", "RB", "PIT", season, week, 8.0)
+    return pd.DataFrame(rows).sort_values(["player_id", "season", "week"]).reset_index(drop=True)
+
+
+ALL_BACK = {pid: (1.0, 1.0) for pid in ("lead-back", "lead-receiver", "starter-qb", "partner-back", "gone-back")}
+
+
+def test_a_backup_hands_most_of_the_job_back_when_the_lead_returns(cfg):
+    hist = _return_history()
+    away = player_table(hist, 2026, 5, cfg).set_index("player_id")
+    back = player_table(hist, 2026, 5, cfg, back=ALL_BACK).set_index("player_id")
+    cuff = back.loc["cuff-back"]
+    assert cuff["back_from"] == "Lead Back"
+    assert cuff["vol_before_back"] == pytest.approx(away.loc["cuff-back", "vol"])
+    # Two of his last games were 8 over his usual 4, with the lead out; with
+    # him back they are read at about 12 - 0.65 x (16 - 4).
+    assert cuff["vol_ros"] < away.loc["cuff-back", "vol"] - 2.0
+    assert cuff["vol"] == pytest.approx(cuff["vol_ros"])
+    # Still out: nothing moves (the next man up prices his absence instead).
+    still_out = player_table(hist, 2026, 5, cfg, back={**ALL_BACK, "lead-back": (0.0, 0.0)}).set_index("player_id")
+    assert still_out.loc["cuff-back", "vol"] == pytest.approx(away.loc["cuff-back", "vol"])
+    # Questionable: this week at his chance of playing, the season nearly all.
+    q = player_table(hist, 2026, 5, cfg, back={**ALL_BACK, "lead-back": (0.6, 0.94)}).set_index("player_id")
+    assert cuff["vol_ros"] < q.loc["cuff-back", "vol_ros"] < q.loc["cuff-back", "vol"] < away.loc["cuff-back", "vol"]
+    # The lead himself is untouched: he was the one missing.
+    assert back.loc["lead-back", "vol"] == pytest.approx(away.loc["lead-back", "vol"])
+
+
+def test_a_lead_gives_back_only_a_little_when_his_partner_returns(cfg):
+    """Measured: a lead whose second back was out kept nearly all of his
+    work; only a tenth of the partner's volume comes back off his games."""
+    hist = _return_history()
+    away = player_table(hist, 2026, 5, cfg).set_index("player_id")
+    back = player_table(hist, 2026, 5, cfg, back=ALL_BACK).set_index("player_id")
+    cut = away.loc["main-back", "vol"] - back.loc["main-back", "vol_ros"]
+    assert back.loc["main-back", "back_from"] == "Partner Back"
+    assert 0.0 < cut < 1.0
+
+
+def test_receivers_hand_back_less_and_quarterbacks_are_left_alone(cfg):
+    hist = _return_history()
+    away = player_table(hist, 2026, 5, cfg).set_index("player_id")
+    back = player_table(hist, 2026, 5, cfg, back=ALL_BACK).set_index("player_id")
+    wr_cut = away.loc["second-receiver", "vol"] - back.loc["second-receiver", "vol_ros"]
+    rb_cut = away.loc["cuff-back", "vol"] - back.loc["cuff-back", "vol_ros"]
+    assert 0.0 < wr_cut < rb_cut
+    assert back.loc["backup-qb", "vol_ros"] == pytest.approx(away.loc["backup-qb", "vol"])
+
+
+def test_a_teammate_who_has_not_played_this_season_is_not_coming_back(cfg):
+    """Salvon Ahmed, last seen in 2023 and carried by Miami without a tag,
+    was read as a back returning to take Ollie Gordon II's work."""
+    hist = _return_history(lead_seen_2026=False)
+    away = player_table(hist, 2026, 5, cfg).set_index("player_id")
+    back = player_table(hist, 2026, 5, cfg, back=ALL_BACK).set_index("player_id")
+    assert back.loc["cuff-back", "vol_ros"] == pytest.approx(away.loc["cuff-back", "vol"])
+    assert not isinstance(back.loc["cuff-back", "back_from"], str)
+
+
+def test_the_season_value_and_the_card_say_the_lead_is_back(cfg):
+    from streamer.roster import projections
+
+    def project(status):
+        snap = LeagueSnapshot(
+            platform="espn", profile="espn", league_id="1", league_name="t", season=2026, week=5,
+            slots={"RB": 1}, bench_size=2,
+            teams=[TeamRow(team_id="1", name="me", is_mine=True, roster=[
+                PlayerRow(player_id="lead", name="Lead Back", position="RB", team="KC", status=status)])],
+            free_agents=[PlayerRow(player_id="cuff", name="Cuff Back", position="RB", team="KC", slot="FA")],
+            matchup=None, synced_at="")
+        projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=_return_history())
+        return {p.player_id: p for p in snap.all_players()}
+
+    back, hurt = project(""), project("INJURY_RESERVE")
+    assert back["cuff"].ros_value < hurt["cuff"].ros_value
+    assert any(s.startswith("Lead Back is back: the games Back missed count for less") for s in back["cuff"].signals)
+    assert not any("is back" in s for s in hurt["cuff"].signals)
+
+
+def test_the_card_names_the_teammate_without_his_suffix():
+    from streamer.roster.projections import _back_signal
+
+    row = {"back_from": "Marvin Harrison Jr.", "vol_before_back": 10.0, "vol_ros": 9.0, "eff": 1.0}
+    assert _back_signal(row, 9.0) == "Marvin Harrison Jr. is back: the games Harrison missed count for less (10.0 -> 9.0 a game)"
+    assert _back_signal({**row, "vol_ros": 9.9}, 9.9) == ""          # under 0.3: not worth a line

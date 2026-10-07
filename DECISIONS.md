@@ -1812,6 +1812,71 @@ the note says why. Movers are still a little high after the change (about
 0.5 a game): some move because they are declining, which the discount does
 not try to read.
 
+### A teammate back from an absence
+Asked about a trade for Jaylen Warren: Rico Dowdle had missed weeks 3-4,
+Warren's carries had gone from 10-11 a game to 17, and Dowdle was due
+back. The volume model reads a player's own games, the recent ones most;
+it did not know who else was on the field. The next man up covered one
+direction -- a lead out now, his backup inherits part of the gap -- but not
+the other: when the man comes back he takes his work back, and the games
+his teammates had without him kept them valued as if he were still out.
+
+On 2022-2025, against players of the same projected volume, players whose
+last four games included one a regular teammate at their position (5+
+expected points a game) missed this season, and who was playing again:
+
+- a player who had stood in for the bigger role -- the next man up handing
+  the job back -- was projected too high by 1.2 a game at RB (+-0.2), 0.8
+  at TE, 0.3 at WR;
+- a lead whose second back returned, 0.4 (+-0.35), not clearly different
+  from zero: the 17-game anchor and the 2.5-game half-life already fade a
+  two-game bump. Leads whose work rose 2+ expected points while the other
+  man was out ran 0.8-1.0 high, on few cases.
+
+What a teammate absorbs in the first game of an absence: the busiest
+remaining back takes 0.52 of the gap when the lead is out (the next man
+up's 0.55), and the lead takes 0.32 of a missing second back's volume --
+about 2 expected points a game, which nothing priced. Receivers spread a
+missing receiver's targets too thinly to see in any one of them.
+
+So those games are now read less what he was expected to absorb in them:
+`bigger` of the gap when the man coming back had the bigger role (measured
+from the player's volume in the games they shared), `smaller` of the
+returning man's volume when he had the smaller one, scaled by the returning
+man's chance of playing -- this week from his tag, the rest of the season
+nearly all of it (`roster.teammate_back`). Fitted walk-forward
+(`scripts/fit_teammate_back.py`), each position's pair picked on three
+seasons and scored on the fourth, on the player-weeks it moves:
+
+| | bigger | smaller | next-week RMSE | bias |
+|---|---|---|---|---|
+| RB | 0.65 | 0.10 | 6.14 -> 6.06 | -0.67 -> -0.07 |
+| WR | 0.35 | 0 | 6.61 -> 6.58 | -0.17 -> +0.11 |
+| TE | 0.35 | 0.10 | 5.13 -> 5.09 | -0.35 -> -0.06 |
+
+each better in all four seasons. Replayed through the season checkpoints
+(weeks 3-10, real injury tags), against rest-of-season points per game
+played: RB bias -0.75 -> -0.18 (RMSE 3.32 -> 3.20), WR -0.55 -> -0.11
+(3.05 -> 2.97), TE -0.23 -> +0.12 (2.52 -> 2.48), every season better at
+every position; for the players cut 0.3+ -- the ones whose card says so --
+-0.80 -> -0.03. TE first fitted at 0.5 overshot in the replay (+0.22) and
+was set to 0.35, which was better in every season in both tests.
+
+Two guards. Quarterbacks are left out: a backup who does not play leaves no
+box score, so his absence cannot be told from a seat on the bench. And only
+a teammate who has played for the team this season counts: Salvon Ahmed,
+last seen in 2023 and listed by Miami without a tag, was read as a back
+coming back to take Ollie Gordon II's work.
+
+Warren goes from 13.6 to 13.3 a game (Dowdle is questionable, so this week
+counts 72% of it). Davante Adams, who drew 10 and 13 targets while Puka
+Nacua missed weeks 2-3 and 6 and 9 with him, goes from 16.6 to 16.3.
+Michael Mayer, with Brock Bowers back, from 8.6 to 7.9. Not done: in the
+season simulation a lead still gains nothing when his second back misses a
+future game (only a backup inherits from a lead); his season value,
+measured on games that include his partner's usual absences, carries that
+on average.
+
 ### The consensus as a second forecast of season value
 Ownership and name value track what people expect a player to score, so
 when the model rates a well-known receiver far below the market (Brian
