@@ -1877,6 +1877,27 @@ future game (only a backup inherits from a lead); his season value,
 measured on games that include his partner's usual absences, carries that
 on average.
 
+### The next man up, later in an absence: tried, not adopted
+Once a backup has three or more games in the job, his own recent games carry
+the takeover and the inherited share is added on top: on 2022-2025 (2021
+included for the fit), running backs in the fourth game of an absence or later
+were projected 1.6 a game too high, while in games one and two they were
+still 1.4 and 0.5 too low. Three fixes were tried on the same absences:
+
+- the share taken from his volume before the absence began (0.55-0.8 of
+  that gap): bias by game evened out, but the error grew (RMSE 7.90 ->
+  8.04-8.23 at RB, 4.83 -> 5.07-5.41 at TE) -- what he has actually been
+  given since the lead went down says who got the job, and throwing it away
+  costs more than the double count;
+- the larger of that and his current volume: also worse (7.94, 4.97);
+- a share by game of the absence, fitted on four seasons and scored on the
+  fifth (RB about 0.6, 0.4, then 0): RB 7.90 -> 7.79 overall but better in
+  only 2 of 5 seasons; TE worse (4.83 -> 4.89).
+
+None passed the rule used everywhere else (better overall, worse in at most
+one season), so the next man up stays as it is. About 60 backs a season
+reach a fourth game in the job; revisit with more seasons.
+
 ### The consensus as a second forecast of season value
 Ownership and name value track what people expect a player to score, so
 when the model rates a well-known receiver far below the market (Brian
