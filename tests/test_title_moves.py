@@ -113,6 +113,22 @@ def test_a_clear_best_drop_is_not_offered_as_a_toss_up():
     assert drop_choice(b, toss_ups([(a, base), (b, better)])) == "b"
 
 
+def test_drops_the_simulation_cannot_separate_go_cheapest_first():
+    """Noise does not order a toss-up: a 2-point bench back is cut before a
+    10-point receiver whose drop happened to price a hair higher."""
+    import numpy as np
+
+    rng = np.random.default_rng(3)
+    won = (rng.random(4000) < 0.1).astype(float)
+    noisy = won.copy()
+    # Wins 30 seasons the other does not and loses 22 it does: a hair better, inside the noise.
+    noisy[rng.choice(np.flatnonzero(won == 0), 30, replace=False)] = 1.0
+    noisy[rng.choice(np.flatnonzero(won == 1), 22, replace=False)] = 0.0
+    receiver, back = _fa("receiver", "WR", 9.9), _fa("back", "RB", 2.2)
+    got = toss_ups([(receiver, noisy), (back, won)], market=lambda p: {"receiver": 11.5, "back": 2.0}[p.player_id])
+    assert [q.player_id for q, _p in got] == ["back", "receiver"]
+
+
 def test_upside_plays_that_fall_short_are_listed_with_their_value(cfg):
     snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
     lead = snap.teams[1].roster[1]

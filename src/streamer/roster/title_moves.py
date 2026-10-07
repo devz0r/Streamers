@@ -166,9 +166,12 @@ def toss_ups(options: list[tuple[PlayerRow, np.ndarray]],
              market=lambda p: 0.0) -> list[tuple[PlayerRow, float]]:
     """Of several choices priced on the same simulated seasons (per-season
     title wins), the best and every one the simulation cannot tell from it:
-    (player, P(title)), best first. A gap inside ``TOSS_UP_SE`` paired
-    standard errors is noise. Exact ties list the player the market values
-    least first -- the one to cut, since the other can still be traded."""
+    (player, P(title)). A gap inside ``TOSS_UP_SE`` paired standard errors is
+    noise, so the order among them is not read from it: the player worth
+    least -- the higher of our season value and the market's -- comes first,
+    the one to cut, since the others still start or can be traded. (Sione
+    Vaki, 2.2 a game, was listed behind Emeka Egbuka, 9.9, on a 0.2-point
+    gap the simulation could not tell from noise.)"""
     if not options:
         return []
     _best, best_w = max(options, key=lambda t: float(t[1].mean()))
@@ -178,7 +181,7 @@ def toss_ups(options: list[tuple[PlayerRow, np.ndarray]],
         se = float(diff.std()) / np.sqrt(len(diff))
         if float(diff.mean()) <= TOSS_UP_SE * se:
             out.append((q, float(w.mean())))
-    return sorted(out, key=lambda t: (-round(t[1], 6), market(t[0])))
+    return sorted(out, key=lambda t: (max(float(market(t[0]) or 0.0), float(t[0].ros_value or 0.0)), -t[1]))
 
 
 def drop_choice(drop: PlayerRow, options: list[tuple[PlayerRow, float]] | None, shown: int = 3) -> str:
