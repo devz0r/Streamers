@@ -96,3 +96,12 @@ def test_a_cheap_player_the_market_still_values_is_a_trade_not_a_drop():
     text = _cut_names([fodder, jacobs])
     assert "KC Concepcion (+0.4)" in text
     assert "Josh Jacobs (+0.6; trade, don't drop: the market sees 14.1 a game)" in text
+
+
+def test_a_toss_up_drop_reads_as_your_odds_if_he_goes_not_as_his_rating():
+    from streamer.roster.title_moves import toss_up_text
+
+    kc, jm = _p("KC Concepcion", "WR", 9.9), _p("Jakobi Meyers", "WR", 9.8)
+    text = toss_up_text([(kc, 0.061), (jm, 0.059)], lambda q: {"KC Concepcion": 10.4, "Jakobi Meyers": 9.8}[q.name])
+    assert "KC Concepcion (title 6.1% if he goes; we see 9.9 a game, the market 10.4)" in text
+    assert "Jakobi Meyers (title 5.9% if he goes; we and the market see 9.8 a game)" in text

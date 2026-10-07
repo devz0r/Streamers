@@ -29,7 +29,7 @@ import numpy as np
 
 from ..league.model import PlayerRow
 from .season import replacement_levels
-from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, drop_choice, toss_ups
+from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, drop_choice, toss_up_text, toss_ups
 from .waivers import MIN_KEEP, _ros, roster_value
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -362,9 +362,7 @@ class PlanFinder:
         for new, old, p in plan.alternatives[:2]:
             bits.append(f"about as good: {new.name} instead of {old.name} (title {p:.1%})")
         for options in plan.drop_options.values():
-            bits.append("which to drop is a toss-up the simulation cannot separate, so it is your call: "
-                        + "; ".join(f"{q.name} (title {v:.1%}; the market sees {self.market_value(q):.1f} a game)"
-                                    for q, v in options))
+            bits.append(toss_up_text(options, self.market_value))
         for d in plan.drops:
             s = self.seen.get(d.player_id)
             if s is not None and s.value >= _ros(d) + TRADE_VALUE_NOTE:

@@ -193,6 +193,19 @@ def drop_choice(drop: PlayerRow, options: list[tuple[PlayerRow, float]] | None, 
     return text
 
 
+def toss_up_text(options: list[tuple[PlayerRow, float]], market) -> str:
+    """The drops the simulation cannot separate, each with your title odds if
+    he is the one to go -- not a rating of him -- and his season value as we
+    and the market see it."""
+    def one(q: PlayerRow, v: float) -> str:
+        ours, theirs = float(q.ros_value or 0.0), float(market(q))
+        seen = (f"we and the market see {ours:.1f} a game" if abs(theirs - ours) < 0.05
+                else f"we see {ours:.1f} a game, the market {theirs:.1f}")
+        return f"{q.name} (title {v:.1%} if he goes; {seen})"
+    return ("which to drop is a toss-up the simulation cannot separate, so it is your call: "
+            + "; ".join(one(q, v) for q, v in options))
+
+
 def _droppable(roster: list[PlayerRow], add: PlayerRow, worth: dict[str, float] | None = None) -> list[PlayerRow]:
     """Who could go for ``add``, cheapest first: by what each is worth to your
     title (:meth:`TitleEngine.worth`) when known, else by season value plus
@@ -545,9 +558,7 @@ class TitleEngine:
         bits.append(f"about a {anyone:.0%} chance another manager claims him this week"
                     + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))
         if m.drop_options:
-            bits.append("which to drop is a toss-up the simulation cannot separate, so it is your call: "
-                        + "; ".join(f"{q.name} (title {v:.1%}; the market sees {self.market_value(q):.1f} a game)"
-                                    for q, v in m.drop_options))
+            bits.append(toss_up_text(m.drop_options, self.market_value))
         if m.block_value >= BLOCK_NOTE and m.rival_name:
             bits.append(f"if you pass, a rival lands him in {m.rival_share:.0%} of seasons (most often "
                         f"{m.rival_name}), which costs you {m.block_value * 100:.1f} of that")
