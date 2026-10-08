@@ -521,6 +521,13 @@ gives back little. A free agent on no NFL roster is worth nothing until the
 news has him near a team: ESPN's player news (and Sleeper, which moves a
 signing first) is read for talks, a deal close, or a signing, and he is then
 priced on his new team at the chance he signs and plays ("news Oct 05: ...;
+
+**Breaking news** sits at the bottom of each league's hub: the last 48 hours
+of news about every player in the league -- yours first, then your
+opponent's, then everyone rostered, then free agents -- tagged (out, injury,
+healthy, role up, role down, move, legal) and linked. A player ruled out this
+week is set out before the platform's tag catches up. The page refreshes
+every two hours through the day and hourly on Sundays.
 priced at 11.1 a game for KC when he plays, 38% to play this season").
 
 ### Syncing your leagues

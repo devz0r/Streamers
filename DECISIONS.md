@@ -1898,6 +1898,43 @@ None passed the rule used everywhere else (better overall, worse in at most
 one season), so the next man up stays as it is. About 60 backs a season
 reach a fourth game in the job; revisit with more seasons.
 
+### Breaking news, for everyone
+Injury tags, depth charts and box scores reach the model through the
+platforms and nflverse, hours or days after the news. The page now carries
+the news itself, about every player in the league, and refreshes often
+enough for it to matter.
+
+**Who has news.** No free source lists every player's news in one call:
+ESPN's fantasy news answers one player at a time (its bulk forms return
+500/400/404), ESPN's NFL headlines are 50 stories not tied to players,
+Pro Football Rumors' and RotoWire's RSS carry 15 and 5 items. FantasyPros'
+news feed does -- its latest 100 items league-wide, each with a player id
+-- and the key is already there. It is used only to know *who* has news:
+FantasyPros' text is never shown (its licence), so a player it flags who
+cannot be found on ESPN appears as "news at FantasyPros" with a link.
+
+**What the news says.** ESPN's player feed (RotoWire's blurbs and ESPN's
+headlines, free) for every player FantasyPros flags in the last two days,
+re-asked when the flag is newer than the copy kept, and for your roster and
+your opponent's every run. Each headline is tagged -- out, injury, healthy,
+role up, role down, move, legal -- and listed on the hub: yours first, then
+your opponent's, then everyone rostered, then free agents, newest first.
+
+**What it changes.** One thing, because it is unambiguous: a RotoWire
+headline published this NFL week that rules a player out of his next game
+("Jefferson (ankle) ruled out for Sunday") sets him OUT (IR when it says
+so) before the platform's tag catches up, unless his game has started or
+the headline is about an in-game injury ("won't return"). The rest -- a
+limited practice, a new starter, a benching -- is shown, not priced: the
+injury-tag odds, depth charts and opportunity model already read those
+once the platforms and box scores have them, and a keyword is not evidence
+enough to move a projection on its own.
+
+**How often.** A credit-free refresh every two hours through the US day and
+hourly on Sunday mornings and afternoons. GitHub has started this
+workflow's scheduled runs hours late, so the times drift; the page stays
+within a few hours of the news, and the Refresh link is immediate.
+
 ### Free agents the news has close to signing
 Tyreek Hill, unsigned after a dislocated knee in 2025, was on a bench in
 both leagues and worth exactly nothing to the model: no team, last game

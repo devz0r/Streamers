@@ -182,6 +182,13 @@ ol.steps li { margin: .1rem 0; }
 .roster-table tr.note td { white-space: normal; text-align: left; padding-top: 0; color: var(--muted);
   font-size: .75rem; }
 .tab-link { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.news { list-style: none; padding: 0; margin: .4rem 0; }
+.news li { padding: .45rem 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
+.news a { color: var(--text); }
+.news .tag { display: inline-block; font-size: .72rem; padding: 0 .4rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-right: .25rem; }
+.news .t-out, .news .t-legal { color: var(--bad); border-color: var(--bad); }
+.news .t-healthy, .news .t-role-up { color: var(--good); border-color: var(--good); }
+.news .t-injury, .news .t-role-down { color: var(--warn); border-color: var(--warn); }
 
 /* Tabs inside a panel (trade views): the same radio + :checked pattern. */
 .tab-radio { position: absolute; opacity: 0; pointer-events: none; }
@@ -794,10 +801,24 @@ def team_panels_for(
 
     espn_ids = {normalize_name(p.name): p.player_id for _n, _b, lg, _s, _r in loaded
                 if lg.platform == "espn" for p in lg.all_players()}
+    fp_names: dict[str, str] = {}
+    if loaded:
+        try:
+            from .data import fantasypros as fp
+
+            first = loaded[0]
+            ros = fp.rankings(first[1], first[2].season, first[2].week, "ros")
+            fp_names = {str(i): str(n) for i, n in zip(ros["fp_id"], ros["name"]) if i is not None and n}
+        except Exception as exc:  # noqa: BLE001
+            log.warning("FantasyPros ids for news unavailable: %s", exc)
     for name, bound, snap, _status, _rankings in loaded:
         try:
             for line in news.attach(snap, bound, espn_ids, allow_network=allow_network):
                 log.info("%s news: %s", name, line)
+            snap._news = news.breaking(snap, bound, espn_ids, fp_names, allow_network=allow_network)
+            acted = [f"{n.name}: {n.acted}" for n in snap._news if n.acted]
+            log.info("%s breaking news: %d items%s", name, len(snap._news),
+                     f"; {'; '.join(acted)}" if acted else "")
         except Exception as exc:  # noqa: BLE001 - news is a bonus; never block the page
             log.warning("player news for %s skipped: %s", name, exc)
     for name, bound, snap, status, rankings in loaded:

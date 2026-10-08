@@ -312,9 +312,11 @@ def read(items: list[dict], name: str, now: datetime, lookback_days: float = 14.
     return best
 
 
-def _cached_get(cfg: Config, name: str, url: str, params: dict, allow_network: bool) -> dict:
+def _cached_get(cfg: Config, name: str, url: str, params: dict, allow_network: bool,
+                stale_before: float | None = None) -> dict:
     path = cfg.raw_dir / "news" / f"{name}.json"
-    fresh = path.exists() and time.time() - path.stat().st_mtime < CACHE_HOURS * 3600
+    fresh = (path.exists() and time.time() - path.stat().st_mtime < CACHE_HOURS * 3600
+             and (stale_before is None or path.stat().st_mtime >= stale_before))
     if fresh or (path.exists() and not allow_network):
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -337,9 +339,12 @@ def _cached_get(cfg: Config, name: str, url: str, params: dict, allow_network: b
     return data
 
 
-def player_items(cfg: Config, espn_id: str, allow_network: bool = True) -> list[dict]:
-    """ESPN's news about one player (its id), newest first."""
-    data = _cached_get(cfg, f"espn_{espn_id}", ESPN_PLAYER_NEWS, {"playerId": espn_id, "limit": 15}, allow_network)
+def player_items(cfg: Config, espn_id: str, allow_network: bool = True,
+                 newer_than: datetime | None = None) -> list[dict]:
+    """ESPN's news about one player (its id), newest first; asked again when
+    something says there is news newer than the copy kept."""
+    data = _cached_get(cfg, f"espn_{espn_id}", ESPN_PLAYER_NEWS, {"playerId": espn_id, "limit": 15}, allow_network,
+                       stale_before=newer_than.timestamp() if newer_than else None)
     return list(data.get("feed") or [])
 
 
@@ -439,3 +444,172 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
         notes.append(f"{p.name}: {sig.stage}{' with ' + sig.team if sig.team else ''}, "
                      f"{odds:.0%} to play this season, {p.signing_share:.0%} of the rest of it")
     return notes
+
+
+# ---------------------------------------------------------------------------
+# Breaking news, for everyone
+# ---------------------------------------------------------------------------
+#: Hours FantasyPros' league-wide feed (its latest 100 items) is reused: it
+#: says who has news; ESPN's player feed says what it is, in words the page
+#: can show (FantasyPros' own text is never shown).
+FEED_HOURS = 1.0
+#: How far back the page lists news.
+SHOW_HOURS = 48
+#: What a headline is about, checked in this order (a RotoWire headline
+#: carries the injury in parentheses -- "Hill (knee)" -- so "practiced
+#: fully" must be read before the body part).
+TAGS = (
+    ("out", re.compile(r"\b(ruled out|won't play|will not play|won't suit up|inactive for|placed on (?:injured reserve|IR)\b|"
+                       r"(?:moved|headed|going) to (?:injured reserve|IR)\b|season-ending|"
+                       r"out for (?:the )?(?:season|year|week|sunday|monday|thursday|saturday))", re.I)),
+    ("healthy", re.compile(r"\b(full participant|practiced fully|full practice|cleared|expected to play|will play|"
+                           r"off the injury report|activated|returns? to practice|no injury designation)\b", re.I)),
+    ("legal", LEGAL),
+    ("move", re.compile(r"\b(traded|signs|signed|re-signs|released|waived|claimed|cut by|agree\w* to terms)\b", re.I)),
+    ("role up", re.compile(r"\b(will start|named (?:the )?starter|starting (?:role|job|nod)|first-team|promoted|"
+                           r"lead back|takes? over|top option)\b", re.I)),
+    ("role down", re.compile(r"\b(benched|demoted|loses? (?:the |his )?(?:starting|job)|backup role|healthy scratch|"
+                             r"reduced role)\b", re.I)),
+    ("injury", re.compile(r"\b(doubtful|questionable|game-time decision|limited|did not practice|didn't practice|"
+                          r"no practice|DNP|injur\w*|sprain\w*|strain\w*|concussion|MRI)\b|\(\w[\w ]*\)", re.I)),
+)
+#: An in-game injury ("won't return") is not news about the next game.
+IN_GAME = re.compile(r"\b(won't return|will not return|remainder|rest of the game|for the rest of)\b", re.I)
+
+
+@dataclass
+class NewsItem:
+    """One piece of news about one player, for the page."""
+
+    name: str
+    position: str
+    team: str
+    published: datetime
+    headline: str
+    link: str
+    source: str
+    tag: str = ""
+    whose: str = ""           # "yours", "opponent", "rostered", "free agent"
+    acted: str = ""           # what the model did with it
+
+
+def tag_of(headline: str) -> str:
+    for tag, pattern in TAGS:
+        if pattern.search(headline or ""):
+            return tag
+    return ""
+
+
+def fp_feed(cfg: Config, allow_network: bool = True) -> list[dict]:
+    """FantasyPros' latest 100 news items, league-wide (who has news)."""
+    from .fantasypros import api_key
+
+    path = cfg.raw_dir / "news" / "fantasypros.json"
+    fresh = path.exists() and time.time() - path.stat().st_mtime < FEED_HOURS * 3600
+    if fresh or not allow_network or not api_key():
+        try:
+            return list(json.loads(path.read_text(encoding="utf-8")).get("items") or []) if path.exists() else []
+        except ValueError:
+            return []
+    try:
+        r = _get(FANTASYPROS_NEWS, headers={"x-api-key": api_key()}, params={"limit": 100})
+        r.raise_for_status()
+        data = r.json()
+    except Exception as exc:  # noqa: BLE001 - a bonus source
+        log.warning("FantasyPros news failed: %s", type(exc).__name__)
+        return []
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return list(data.get("items") or [])
+
+
+def _fp_when(item: dict) -> datetime | None:
+    raw = str(item.get("created") or "")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.strptime(raw[:19], fmt).replace(tzinfo=UTC)
+        except ValueError:
+            continue
+    return _when({"published": raw})
+
+
+def week_start(now: datetime) -> datetime:
+    """Tuesday 10:00 UTC before ``now``: the NFL week turns over once Monday
+    night is done."""
+    days = (now.weekday() - 1) % 7
+    start = (now - timedelta(days=days)).replace(hour=10, minute=0, second=0, microsecond=0)
+    return start if start <= now else start - timedelta(days=7)
+
+
+def breaking(snapshot, cfg: Config, espn_ids: dict[str, str], fp_names: dict[str, str],
+             allow_network: bool = True, now: datetime | None = None) -> list[NewsItem]:
+    """The last :data:`SHOW_HOURS` of news about every player in this league
+    -- yours, your opponent's, every rostered player and every free agent the
+    platform lists -- newest first within each group.
+
+    Who has news comes from FantasyPros' league-wide feed (``fp_names``:
+    FantasyPros player id -> name); your roster and your opponent's are asked
+    about every run as well. What the news says comes from ESPN's player
+    feed (RotoWire's blurbs, ESPN's headlines), shown with a link. One thing
+    it changes: a RotoWire headline this week that rules a player out of his
+    next game sets him OUT before the platform's tag catches up."""
+    from ..roster.players import normalize_name
+
+    now = now or datetime.now(UTC)
+    since = now - timedelta(hours=SHOW_HOURS)
+    start = week_start(now)
+    me = snapshot.my_team
+    opp = snapshot.opponent
+    mine = {p.player_id for p in me.roster}
+    theirs = {p.player_id for p in opp.roster} if opp is not None else set()
+    rostered = {p.player_id for t in snapshot.teams for p in t.roster}
+    by_name: dict[str, object] = {}
+    for p in snapshot.all_players():
+        if p.position in ("QB", "RB", "WR", "TE"):
+            by_name.setdefault(normalize_name(p.name), p)
+    flagged: dict[str, dict] = {}
+    for it in fp_feed(cfg, allow_network):
+        when = _fp_when(it)
+        name = fp_names.get(str(it.get("player_id") or ""))
+        if when is None or when < since or not name:
+            continue
+        key = normalize_name(name)
+        if key in by_name and (key not in flagged or when > _fp_when(flagged[key])):
+            flagged[key] = it
+    ask = set(flagged) | {normalize_name(p.name) for p in snapshot.all_players()
+                          if p.player_id in mine | theirs and p.position in ("QB", "RB", "WR", "TE")}
+    out: list[NewsItem] = []
+    for key in ask:
+        p = by_name.get(key)
+        if p is None:
+            continue
+        whose = ("yours" if p.player_id in mine else "opponent" if p.player_id in theirs
+                 else "rostered" if p.player_id in rostered else "free agent")
+        espn_id = espn_ids.get(key)
+        flag_time = _fp_when(flagged[key]) if key in flagged else None
+        items = player_items(cfg, espn_id, allow_network, newer_than=flag_time) if espn_id else []
+        last = p.name.split()[-1]
+        shown = 0
+        for it in items:
+            when = _when(it)
+            head = str(it.get("headline") or "")
+            if when is None or when < since or it.get("type") not in PLAYER_TYPES or last not in head:
+                continue
+            link = ((it.get("links") or {}).get("web") or {}).get("href", "") if isinstance(it.get("links"), dict) else ""
+            item = NewsItem(p.name, p.position, p.team or "FA", when, _short(head, 220), link,
+                            "RotoWire via ESPN" if it.get("type") == "Rotowire" else "ESPN", tag_of(head), whose)
+            if (item.tag == "out" and it.get("type") == "Rotowire" and head.startswith(last) and when >= start
+                    and not IN_GAME.search(head) and not p.locked and p.actual_points is None
+                    and p.status not in ("OUT", "O") and not p.is_long_term_out):
+                long_term = re.search(r"injured reserve|\bIR\b|season-ending|out for (?:the )?(?:season|year)", head, re.I)
+                p.status = "IR" if long_term else "OUT"
+                item.acted = "set out for this week" + (" and on IR" if long_term else "") + ", ahead of the platform"
+            out.append(item)
+            shown += 1
+        if not shown and key in flagged:
+            it = flagged[key]
+            out.append(NewsItem(p.name, p.position, p.team or "FA", _fp_when(it), "news at FantasyPros",
+                                str(it.get("link") or ""), "FantasyPros", "", whose))
+    order = {"yours": 0, "opponent": 1, "rostered": 2, "free agent": 3}
+    out.sort(key=lambda n: (order.get(n.whose, 4), -n.published.timestamp()))
+    return out

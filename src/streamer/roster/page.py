@@ -77,7 +77,7 @@ def team_sections(
         f"<span>{tab_link(uid, 'lineup', 'lineup')}</span></div>"
         "</div>"
     )
-    out["hub"] = head + _hub(report, uid, cfg) + matchup
+    out["hub"] = head + _hub(report, uid, cfg) + matchup + _news(snapshot)
 
     # -- lineup ------------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
@@ -1092,3 +1092,43 @@ def render_sync_failure(status: dict, cfg: Config, stale_week: int | None = None
         f'<div class="why">{_e(lead)} {_e(reason)}'
         f'{(" Last attempt " + _e(when) + " UTC.") if when else ""}</div></div>'
     )
+
+
+#: Breaking news shown open on the hub; the rest sit behind "more".
+NEWS_SHOWN = 12
+NEWS_MAX = 80
+
+
+def _news(snapshot: LeagueSnapshot, now=None) -> str:
+    """The last two days of news about every player in the league: yours
+    first, then your opponent's, then everyone rostered, then free agents."""
+    from datetime import UTC, datetime
+
+    items = getattr(snapshot, "_news", None) or []
+    if not items:
+        return ""
+    now = now or datetime.now(UTC)
+
+    def ago(t) -> str:
+        mins = max((now - t).total_seconds() / 60, 0)
+        return f"{mins:.0f}m ago" if mins < 60 else f"{mins / 60:.0f}h ago"
+
+    def row(n) -> str:
+        tag = f'<span class="tag t-{_e(n.tag.replace(" ", "-"))}">{_e(n.tag)}</span> ' if n.tag else ""
+        head = f'<a href="{_e(n.link)}" rel="noopener">{_e(n.headline)}</a>' if n.link else _e(n.headline)
+        acted = f' <b>&middot; {_e(n.acted)}</b>' if n.acted else ""
+        return (f"<li>{tag}<b>{_e(n.name)}</b> <span class=\"opp\">{_e(n.position)} {_e(n.team)} &middot; "
+                f"{_e(n.whose)} &middot; {_e(ago(n.published))}</span><br>{head} "
+                f'<span class="opp">({_e(n.source)})</span>{acted}</li>')
+
+    items = items[:NEWS_MAX]
+    body = "".join(row(n) for n in items[:NEWS_SHOWN])
+    more = ""
+    if len(items) > NEWS_SHOWN:
+        more = (f"<details><summary>{len(items) - NEWS_SHOWN} more</summary><ul class=\"news\">"
+                + "".join(row(n) for n in items[NEWS_SHOWN:]) + "</ul></details>")
+    return ('<h3>Breaking news</h3><p class="sub">The last 48 hours, about every player in the league: '
+            "yours first, then your opponent's, then everyone rostered, then free agents. Headlines from "
+            "RotoWire and ESPN; FantasyPros flags who has news. A player ruled out this week is set out "
+            "before the platform's tag catches up; the rest is for you to weigh.</p>"
+            f'<ul class="news">{body}</ul>{more}')

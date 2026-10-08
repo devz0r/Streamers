@@ -134,8 +134,9 @@ def rankings(cfg: Config, season: int, week: int, kind: str) -> pd.DataFrame:
                 "rank": _num(_first(r, "rank_ecr", "rank")),
                 "pos_rank": _pos_rank(r),
                 "yahoo_id": _first(r, "player_yahoo_id"),
+                "fp_id": _first(r, "player_id", "id"),
             })
-    return pd.DataFrame(rows, columns=["name", "team", "position", "rank", "pos_rank", "yahoo_id"])
+    return pd.DataFrame(rows, columns=["name", "team", "position", "rank", "pos_rank", "yahoo_id", "fp_id"])
 
 
 def projections(cfg: Config, season: int, week: int) -> pd.DataFrame:

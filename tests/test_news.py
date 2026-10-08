@@ -125,3 +125,78 @@ def test_the_projection_prices_a_signing_free_agent_and_zeroes_this_week(cfg, mo
     assert talks.ros_value > 5.0 and talks.projection == 0.0
     assert talks.signals[0].startswith("news Oct 05") and "for KC when he plays" in talks.signals[0]
     assert not any("no value until" in s for s in talks.signals)
+
+
+# -- breaking news, for everyone ---------------------------------------------
+def _matchup_league():
+    from streamer.league.model import LeagueSnapshot, Matchup, PlayerRow, TeamRow
+
+    mine = TeamRow(team_id="1", name="Me", is_mine=True, roster=[
+        PlayerRow(player_id="e1", name="Justin Jefferson", position="WR", team="MIN", status="QUESTIONABLE")])
+    opp = TeamRow(team_id="2", name="Them", roster=[
+        PlayerRow(player_id="e2", name="Bijan Robinson", position="RB", team="ATL")])
+    other = TeamRow(team_id="3", name="Else", roster=[
+        PlayerRow(player_id="e3", name="Ladd McConkey", position="WR", team="LAC")])
+    fa = [PlayerRow(player_id="e4", name="Keon Coleman", position="WR", team="BUF", slot="FA"),
+          PlayerRow(player_id="e5", name="Quiet Guy", position="TE", team="NYG", slot="FA")]
+    return LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L", season=2026, week=6,
+                          slots={"WR": 2}, bench_size=5, teams=[mine, opp, other], free_agents=fa,
+                          matchup=Matchup(week=6, my_team_id="1", opponent_team_id="2"), synced_at="")
+
+
+ESPN = {
+    "e1": [_item("Jefferson (ankle) ruled out for Sunday", when="2026-10-09T20:00:00Z")],
+    "e2": [_item("Robinson (knee) practiced fully Thursday", when="2026-10-09T18:00:00Z")],
+    "e3": [_item("McConkey (hamstring) won't return Sunday", when="2026-10-09T17:00:00Z"),
+           _item("McConkey (hamstring) did not practice", when="2026-10-01T17:00:00Z")],
+    "e4": [],
+}
+FP = [{"player_id": "fp4", "created": "2026-10-09 21:00:00", "link": "https://example.test/coleman"},
+      {"player_id": "fp3", "created": "2026-10-09 17:30:00", "link": "https://example.test/mcconkey"}]
+
+
+def _breaking(cfg, monkeypatch):
+    asked = []
+    monkeypatch.setattr(news, "fp_feed", lambda c, allow_network=True: FP)
+
+    def items(c, espn_id, allow_network=True, newer_than=None):
+        asked.append(espn_id)
+        return ESPN.get(espn_id, [])
+
+    monkeypatch.setattr(news, "player_items", items)
+    snap = _matchup_league()
+    ids = {"justin jefferson": "e1", "bijan robinson": "e2", "ladd mcconkey": "e3", "keon coleman": "e4",
+           "quiet guy": "e5"}
+    got = news.breaking(snap, cfg, ids, {"fp4": "Keon Coleman", "fp3": "Ladd McConkey"}, allow_network=False,
+                        now=datetime(2026, 10, 10, 12, tzinfo=UTC))
+    return snap, got, asked
+
+
+def test_news_for_everyone_yours_first_and_only_who_has_news_is_asked(cfg, monkeypatch):
+    snap, got, asked = _breaking(cfg, monkeypatch)
+    assert [n.whose for n in got] == ["yours", "opponent", "rostered", "free agent"]
+    assert sorted(asked) == ["e1", "e2", "e3", "e4"]          # the quiet free agent is never asked about
+    tags = {n.name: n.tag for n in got}
+    assert tags["Justin Jefferson"] == "out" and tags["Bijan Robinson"] == "healthy"
+    coleman = next(n for n in got if n.name == "Keon Coleman")
+    assert coleman.source == "FantasyPros" and coleman.headline == "news at FantasyPros"   # its text is never shown
+    assert [n.headline for n in got if n.name == "Ladd McConkey"] == ["McConkey (hamstring) won't return Sunday"]
+
+
+def test_ruled_out_this_week_sets_him_out_but_an_in_game_injury_does_not(cfg, monkeypatch):
+    snap, got, _asked = _breaking(cfg, monkeypatch)
+    jj = snap.my_team.roster[0]
+    assert jj.status == "OUT"
+    assert next(n for n in got if n.name == "Justin Jefferson").acted.startswith("set out for this week")
+    assert snap.teams[2].roster[0].status == ""                              # "won't return": last game
+
+
+def test_the_hub_lists_the_news(cfg, monkeypatch):
+    from streamer.roster.page import _news
+
+    snap, got, _asked = _breaking(cfg, monkeypatch)
+    snap._news = got
+    html = _news(snap, now=datetime(2026, 10, 10, 12, tzinfo=UTC))
+    assert "Breaking news" in html and html.count("<li>") == 4
+    assert "t-out" in html and "set out for this week" in html and "16h ago" in html
+    assert _news(_matchup_league()) == ""

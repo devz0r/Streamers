@@ -34,6 +34,12 @@ on:
     - cron: "17 7 * * 2"   # Tuesday — score the week, publish the next
     - cron: "17 7 * * 3"   # Wednesday — rank + publish after waivers
     - cron: "17 8 * * 0"   # Sunday — republish with props and injury reports
+    # Breaking news: a credit-free refresh every two hours through the US day
+    # (08:41 ET to 00:41 ET), and hourly on Sundays from 09:11 ET while the
+    # inactives come out. With GitHub's delays the exact times drift, but the
+    # page stays within a few hours of the news; the Refresh link is instant.
+    - cron: "41 0,2,4,12,14,16,18,20,22 * * *"
+    - cron: "11 13-21 * * 0"
   workflow_dispatch:
     inputs:
       week:
@@ -113,6 +119,8 @@ jobs:
               "17 7 * * 2") MODE=both ;;
               "17 7 * * 3") MODE=publish ;;
               "17 8 * * 0") MODE=publish ;;
+              "41 0,2,4,12,14,16,18,20,22 * * *") MODE=refresh ;;
+              "11 13-21 * * 0") MODE=refresh ;;
               *)            MODE=both ;;
             esac
           fi
