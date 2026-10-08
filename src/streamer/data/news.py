@@ -159,13 +159,62 @@ def _fantasypros(lines: list[str]) -> None:
         try:
             data = r.json()
             lines.append(f"  top level: {_keys(data)}")      # field names only: never shown
+            items = data.get("items") or []
+            lines.append(f"  {data.get('count')} items; fields {_keys(items[0]) if items else '-'}")
         except ValueError:
             lines.append("  not JSON")
+    try:
+        r = _get(FANTASYPROS_NEWS, headers={"x-api-key": key}, params={"limit": 100})
+        n = len((r.json() or {}).get("items") or []) if r.status_code == 200 else 0
+        lines.append(f"FantasyPros news, limit 100: HTTP {r.status_code}, {n} items")
+    except Exception as exc:  # noqa: BLE001
+        lines.append(f"FantasyPros news, limit 100: {type(exc).__name__}")
+
+
+#: Ways to ask ESPN for many players' news at once (the plain latest-news
+#: call answers 500).
+BULK_TRIES = (
+    (ESPN_PLAYER_NEWS, {"limit": 50, "days": 1}),
+    (ESPN_PLAYER_NEWS, {"limit": 50, "offset": 0}),
+    (ESPN_PLAYER_NEWS, {"playerId": "3116406,4426502,4362628", "limit": 30}),
+    ("https://site.web.api.espn.com/apis/fantasy/v2/games/ffl/news/players", {"limit": 50}),
+    ("https://site.api.espn.com/apis/fantasy/v2/games/ffl/news", {"limit": 50}),
+    ("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news", {"limit": 100}),
+)
+
+
+def _bulk(lines: list[str]) -> None:
+    for url, params in BULK_TRIES:
+        label = f"{url.split('//')[1][:60]} {params}"
+        try:
+            r = _get(url, params=params)
+        except Exception as exc:  # noqa: BLE001
+            lines.append(f"{label}: {type(exc).__name__}")
+            continue
+        lines.append(f"{label}: HTTP {r.status_code}, {len(r.content) / 1e3:.0f} kB")
+        if r.status_code != 200:
+            continue
+        try:
+            data = r.json()
+        except ValueError:
+            continue
+        items = next((data[k] for k in ("feed", "articles", "items") if isinstance(data.get(k), list)), [])
+        kinds: dict[str, int] = {}
+        for it in items:
+            kinds[str(it.get("type"))] = kinds.get(str(it.get("type")), 0) + 1
+        when = sorted(str(it.get("published") or "") for it in items)
+        lines.append(f"  {len(items)} items, types {kinds}, from {when[0] if when else '-'} to {when[-1] if when else '-'}")
+        ids = {str(a.get("id")) for it in items for a in (it.get("athletes") or it.get("related") or [])
+               if isinstance(a, dict)}
+        lines.append(f"  player ids tagged: {len(ids)}; playerId field on {sum(1 for it in items if it.get('playerId'))}")
+        for it in items[:4]:
+            lines.append(f"    {it.get('published')} | {it.get('type')} | {_short(it.get('headline'), 110)}")
 
 
 def probe(cfg: Config) -> list[str]:
     """What each free news source returns, for a public log."""
     lines: list[str] = []
+    _bulk(lines)
     _espn(lines)
     _sleeper(cfg, lines)
     _rss("Pro Football Rumors RSS", PFR_FEED, lines)
