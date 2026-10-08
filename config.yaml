@@ -426,6 +426,15 @@ roster:
   # (scripts/fit_teammate_back.py; DECISIONS.md, "A teammate back from an
   # absence"). Quarterbacks are left out: a backup who does not play leaves
   # no box score, so an absence cannot be told from a seat on the bench.
+  # A player on no NFL roster whom the news has close to a team (ESPN's
+  # player news, Sleeper's database; DECISIONS.md, "Free agents the news has
+  # close to signing"). The chance he signs by the latest news, and the weeks
+  # before he does, are judgment -- there is no free archive of this news to
+  # measure them on; what follows a signing is measured (roster.futures).
+  free_agent_news:
+    lookback_days: 14
+    stage_odds: {signed: 1.0, close: 0.8, talks: 0.5}
+    stage_lag: {signed: 0, close: 1, talks: 2}
   teammate_back:
     positions: [RB, WR, TE]
     regular: 5.0

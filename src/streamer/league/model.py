@@ -105,6 +105,16 @@ class PlayerRow:
     #: His team's games in a row, up to now this season, that he has not
     #: played: how long an absence in progress has already run.
     games_missed: int = 0
+    #: For a player on no NFL roster whom the news has close to signing
+    #: (``data.news``): the team when one is named, his chance of signing and
+    #: playing this season, the games before he could, the share of the rest
+    #: of the season he is expected to play, and what the news said. None /
+    #: empty without recent news: he is worth nothing until he signs.
+    signing_team: str | None = None
+    signing_odds: float | None = None
+    signing_wait: int = 0
+    signing_share: float | None = None
+    news: str = ""
     #: The part of ``ros_value`` inherited from an absent teammate's work.
     #: The season simulation takes it back out when it plays that absence
     #: out itself, week by week.

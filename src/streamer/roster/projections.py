@@ -51,6 +51,8 @@ from .players import build_index, match_players
 log = logging.getLogger(__name__)
 
 SKILL = ("QB", "RB", "WR", "TE")
+#: The team of a player the news has signing somewhere it does not name.
+FREE_AGENT = "FA"
 
 #: Projection-level buckets for the sd calibration, per position.
 SD_BUCKETS = (0.0, 5.0, 8.0, 12.0, 16.0, 20.0, 99.0)
@@ -280,6 +282,8 @@ def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, s
     for pid, team in (teams or {}).items():
         if pid in current.index and normalize_team(team):
             current[pid] = normalize_team(team)
+        elif pid in current.index and team == FREE_AGENT:
+            current[pid] = FREE_AGENT       # signing somewhere not yet named: every game is old-team
     out["team"] = out["player_id"].map(current).fillna(out["team"])
     last = prior[prior["player_id"].isin(out["player_id"])].sort_values(["season", "week"])
     last = last.groupby("player_id").tail(n_long).copy()
@@ -949,6 +953,11 @@ def project_snapshot(
     # The platform knows who plays where before the box scores do.
     current_teams = {matched.mapping[p.player_id]: p.team for p in players
                      if p.team and p.player_id in matched.mapping}
+    # A free agent the news has close to signing plays for his new team (or
+    # one not yet named), not his old one (``data.news``).
+    for p in players:
+        if p.signing_odds is not None and p.player_id in matched.mapping:
+            current_teams[matched.mapping[p.player_id]] = p.signing_team or FREE_AGENT
     pos_mean = history.groupby("position")["fantasy_points_ppr"].mean() if not history.empty else pd.Series(dtype=float)
 
     # D/ST and K from the streaming model.
@@ -1051,7 +1060,8 @@ def project_snapshot(
             # this season. Brandon Aiyuk (last game October 2024, listed OUT)
             # kept an 11.9-a-game value and was recommended as a pickup.
             gone = row is not None and weeks_since(row, snapshot.season, snapshot.week) > long_gone_weeks
-            if gone and plat is None:
+            signing = p.signing_odds is not None and row is not None
+            if gone and plat is None and not signing:
                 mean, ros, source = 0.0, 0.0, "inactive"
                 p.signals.append(f"has not played since {int(row['last_season'])} week "
                                  f"{int(row['last_week'])}: no value until he is back on the field")
@@ -1059,7 +1069,7 @@ def project_snapshot(
             # his history still speaks to rest-of-season value (this week is
             # zeroed by the status adjustment). A stale player with no status,
             # or any unsigned one, needs a platform projection to count.
-            elif row is not None and not unsigned and (not stale or p.status):
+            elif row is not None and (not unsigned or signing) and (not stale or p.status or signing):
                 vol, eff = float(row["vol"]), float(row["eff"])
                 vol_ros = float(row.get("vol_ros", vol)) if pd.notna(row.get("vol_ros", vol)) else vol
                 extra_week, extra_ros, why = heirs.get(p.player_id, (0.0, 0.0, ""))
@@ -1151,6 +1161,17 @@ def project_snapshot(
         own = model_mean if model_mean is not None else mean
         own, _own_sd = _status_adjust(own, sd or 0.0, p, cfg)
         mean, sd = _status_adjust(mean, sd or 0.0, p, cfg)
+        if p.signing_odds is not None and p.position in SKILL:
+            # Not on a roster yet: nothing this week; his season is his value
+            # when he plays, at the chance and timing the simulation draws.
+            own = mean = sd = 0.0
+            p.play_probability = 0.0
+            if ros is not None and p.news:
+                where = f"for {p.signing_team}" if p.signing_team else "on a new team"
+                p.signals = [f"{p.news}; priced at {ros:.1f} a game {where} when he plays, "
+                             f"{p.signing_odds:.0%} to play this season, about {p.signing_share or 0:.0%} "
+                             "of the rest of it"] + [q for q in p.signals if not any(
+                                   w in q for w in ("no value until", "not on an NFL roster", "has missed his team"))]
         if platform_says_sits and p.position not in ("DST", "K"):
             own = mean = sd = 0.0
             p.play_probability = 0.0

@@ -517,7 +517,11 @@ flagged -- measured, those mostly fade. The reverse of the next man up is
 priced too: when a teammate comes back from an absence, the games a player
 had without him count for less ("X is back: the games X missed count for
 less (8.6 -> 7.9 a game)") -- a backup hands most of the job back, a lead
-gives back little.
+gives back little. A free agent on no NFL roster is worth nothing until the
+news has him near a team: ESPN's player news (and Sleeper, which moves a
+signing first) is read for talks, a deal close, or a signing, and he is then
+priced on his new team at the chance he signs and plays ("news Oct 05: ...;
+priced at 11.1 a game for KC when he plays, 38% to play this season").
 
 ### Syncing your leagues
 

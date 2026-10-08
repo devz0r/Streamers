@@ -98,6 +98,13 @@ SHARE_RANGE = (-0.3, 1.3)
 #: Share of his takeover the next man up keeps once the lead is back.
 KEPT = 0.26
 
+#: Veterans signed in season after weeks on no roster, 2022-2025 (17): the
+#: share who played that season, and how many weeks after signing the 13
+#: who did played their first game (0, 1, 2, ... weeks). Prices a free agent
+#: the news has close to signing (``PlayerRow.signing_odds``).
+PLAYS_AFTER_SIGNING = 13 / 17
+DEBUT_WAIT = (5, 3, 0, 0, 1, 0, 1, 2, 0, 1)
+
 
 @dataclass
 class Futures:
@@ -169,6 +176,14 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
     games in a row he has already missed."""
     pos = p.position if p.position in SKILL else "WR"
     already = int(getattr(p, "games_missed", 0) or 0)
+    odds = getattr(p, "signing_odds", None)
+    if odds is not None:
+        # On no roster, with news of a team: he plays only if he signs and
+        # makes it onto the field, after the weeks to sign and the measured
+        # wait for a first game.
+        pmf = np.asarray(DEBUT_WAIT, dtype=float)
+        wait = int(getattr(p, "signing_wait", 0) or 0) + rng.choice(np.arange(len(pmf)), size=n, p=pmf / pmf.sum())
+        return np.where(rng.random(n) < float(odds), np.maximum(wait, 1), GONE)
     if p.status in LONG_TERM_OUT_STATUSES:
         ir = conf.get("ir")
         if ir:

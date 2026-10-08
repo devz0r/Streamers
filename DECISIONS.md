@@ -1898,6 +1898,46 @@ None passed the rule used everywhere else (better overall, worse in at most
 one season), so the next man up stays as it is. About 60 backs a season
 reach a fourth game in the job; revisit with more seasons.
 
+### Free agents the news has close to signing
+Tyreek Hill, unsigned after a dislocated knee in 2025, was on a bench in
+both leagues and worth exactly nothing to the model: no team, last game
+more than a season ago. Meanwhile the Chiefs had reached out to his agent,
+his agent was negotiating with several teams, and his Yahoo ownership had
+gone 5% -> 22% -> 31% in three weeks. The box scores and the platforms only
+catch up once he has signed.
+
+The news now feeds the price (`data/news.py`). For every player on no NFL
+roster who is on a fantasy roster, 2%+ owned or among Sleeper's most-added
+of the day, ESPN's news about him -- RotoWire's blurbs and ESPN's headlines,
+free, no key -- is read for its most advanced stage in the last two weeks:
+**signed** (a headline naming a team), **close** ("expected to sign",
+"closing in", "finalizing"), **talks** (negotiations, visits, workouts, a
+team reaching out). Sleeper's database, which moves a signing within hours,
+can say signed before the platforms do. A legal case in the news is
+flagged. Pro Football Rumors' and RotoWire's RSS feeds were probed and left
+out: they carry only the last 15 and 5 items.
+
+He is then valued as if on the new team (his old games at the old-team
+weight, so Hill's 12.5 becomes 11.1 for Kansas City, or the same discount
+for a team not yet named), worth nothing this week, and played in the
+season simulation only if he signs and gets on the field:
+
+- what follows a signing is measured: of 17 veterans signed in season after
+  weeks on no roster (2022-2025), 13 played that season; 8 of those within a
+  week of signing, the rest 4-9 weeks later. After their debut they scored
+  7.7 a game against 8.8 projected at signing -- a small sample, so no
+  further discount is applied;
+- the chance he signs by stage (signed 1.0, close 0.8, talks 0.5) and the
+  weeks before he does (0, 1, 2) are judgment, not measured: there is no
+  free archive of this news to fit them on. They are in the config and on
+  the card.
+
+The waiver and trade screens, which read season value without the
+simulation, count him for the share of the rest of the season he is
+expected to play. Hill today: talks with Kansas City, 11.1 a game when he
+plays, 38% to play this season, about a quarter of the rest of it -- 2.7 a
+game to the screens, against 0 before. The card says what the news said.
+
 ### The consensus as a second forecast of season value
 Ownership and name value track what people expect a player to score, so
 when the model rates a well-known receiver far below the market (Brian

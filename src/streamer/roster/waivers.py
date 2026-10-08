@@ -131,6 +131,10 @@ def next_week_basis(snapshot: LeagueSnapshot):
 
 
 def _ros(p: PlayerRow) -> float:
+    if p.signing_share is not None:
+        # On no roster yet: his value when he plays, for the share of the
+        # rest of the season the news says he is likely to.
+        return float(p.ros_value or 0.0) * float(p.signing_share)
     if p.is_long_term_out:
         return 0.0
     base = p.ros_value if p.ros_value is not None else (p.projection or 0.0)

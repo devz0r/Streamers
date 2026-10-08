@@ -787,6 +787,19 @@ def team_panels_for(
                      week_w.market, week_w.market_games, week_w.consensus, week_w.consensus_games)
         except Exception as exc:  # noqa: BLE001
             log.warning("blend weight fit failed, using the priors: %s", exc)
+    # Free agents the news has close to signing: ESPN's news is asked for by
+    # ESPN id, so a Yahoo player is found by name in the ESPN league.
+    from .data import news
+    from .roster.players import normalize_name
+
+    espn_ids = {normalize_name(p.name): p.player_id for _n, _b, lg, _s, _r in loaded
+                if lg.platform == "espn" for p in lg.all_players()}
+    for name, bound, snap, _status, _rankings in loaded:
+        try:
+            for line in news.attach(snap, bound, espn_ids, allow_network=allow_network):
+                log.info("%s news: %s", name, line)
+        except Exception as exc:  # noqa: BLE001 - news is a bonus; never block the page
+            log.warning("player news for %s skipped: %s", name, exc)
     for name, bound, snap, status, rankings in loaded:
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
