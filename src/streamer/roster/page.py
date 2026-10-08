@@ -1121,7 +1121,11 @@ def _news(snapshot: LeagueSnapshot, now=None) -> str:
                 f"{_e(n.whose)} &middot; {_e(ago(n.published))}</span><br>{head} "
                 f'<span class="opp">({_e(n.source)})</span>{acted}</li>')
 
-    items = items[:NEWS_MAX]
+    # Each player's latest first, so a few busy players do not fill the list;
+    # their earlier items follow under "more".
+    seen: set[str] = set()
+    latest = [n for n in items if not (n.name in seen or seen.add(n.name))]
+    items = (latest + [n for n in items if n not in latest])[:NEWS_MAX]
     body = "".join(row(n) for n in items[:NEWS_SHOWN])
     more = ""
     if len(items) > NEWS_SHOWN:

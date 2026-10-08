@@ -200,3 +200,16 @@ def test_the_hub_lists_the_news(cfg, monkeypatch):
     assert "Breaking news" in html and html.count("<li>") == 4
     assert "t-out" in html and "set out for this week" in html and "16h ago" in html
     assert _news(_matchup_league()) == ""
+
+
+def test_each_player_shows_once_before_anyone_repeats():
+    from streamer.roster.page import NEWS_SHOWN, _news
+
+    snap = _matchup_league()
+    t = datetime(2026, 10, 10, 11, tzinfo=UTC)
+    busy = [news.NewsItem("Busy Guy", "WR", "MIN", t, f"Guy item {i}", "", "ESPN", "injury", "yours") for i in range(15)]
+    other = news.NewsItem("Other Guy", "RB", "ATL", t, "Guy other", "", "ESPN", "", "rostered")
+    snap._news = busy + [other]
+    html = _news(snap, now=datetime(2026, 10, 10, 12, tzinfo=UTC))
+    top = html.split("<details>")[0]
+    assert top.count("Busy Guy") == NEWS_SHOWN - 1 and "Other Guy" in top
