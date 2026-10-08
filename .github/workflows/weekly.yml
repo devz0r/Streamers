@@ -45,7 +45,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe]
 
 permissions:
   contents: write
@@ -139,6 +139,13 @@ jobs:
       - name: Probe Sleeper's player database
         if: steps.mode.outputs.mode == 'sleeper-probe'
         run: streamer sleeper-probe
+
+      # Free player news (ESPN's fantasy feed, Sleeper, Pro Football Rumors,
+      # RotoWire): status, field names and a few public headlines. FantasyPros
+      # is checked for status and field names only.
+      - name: Probe player news
+        if: steps.mode.outputs.mode == 'news-probe'
+        run: streamer news-probe
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

@@ -299,6 +299,16 @@ def cmd_sgo_probe(args: argparse.Namespace, cfg: Config) -> int:
     return 0 if lines and "HTTP 200" in lines[0] else 1
 
 
+def cmd_news_probe(args: argparse.Namespace, cfg: Config) -> int:
+    """Describe the free player-news sources: ESPN's fantasy news, Sleeper's
+    team field and trending adds, Pro Football Rumors and RotoWire RSS."""
+    from ..data import news
+
+    for line in news.probe(cfg):
+        print(line)
+    return 0
+
+
 def cmd_sleeper_probe(args: argparse.Namespace, cfg: Config) -> int:
     """Describe Sleeper's free player database: fields filled, a few depth
     charts. Public data, no key."""
@@ -391,6 +401,10 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
     p = sub.add_parser("sgo-probe",
                        help="describe SportsGameOdds' NFL feed (diagnostic, prints no prices or names)")
     p.set_defaults(func=cmd_sgo_probe)
+
+    p = sub.add_parser("news-probe",
+                       help="describe the free player-news sources (ESPN, Sleeper, Pro Football Rumors)")
+    p.set_defaults(func=cmd_news_probe)
 
     p = sub.add_parser("sleeper-probe",
                        help="describe Sleeper's free player database (depth charts, injury details)")
