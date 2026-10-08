@@ -86,16 +86,19 @@ def test_selling_a_player_the_market_overrates_is_called_out(cfg):
     assert selling and all(any("sell high" in r for r in t.why_you) for t in selling)
 
 
-def test_the_page_shows_three_tabs(finder):
+def test_the_page_shows_four_views_one_per_team(finder):
     from types import SimpleNamespace
 
     from streamer.roster.page import _trades
 
     board = finder.find(3)
     html = _trades(SimpleNamespace(trades=board, snapshot=finder.snapshot))
-    for label in ("Top trades", "Best for you", "Most likely yes"):
+    for label in ("Top trades", "Best for you", "Most likely yes", "By team"):
         assert label in html
-    assert html.count('type="radio"') == 3 and 'id="trades-espn-top"' in html
+    assert html.count('type="radio"') == 4 and 'id="trades-espn-top"' in html
+    others = [t for t in finder.snapshot.teams if not t.is_mine]
+    assert set(board.by_team) == {t.team_id for t in others}
+    assert all(html.count(f"<strong>{t.name}</strong>") >= 1 for t in others)
     assert all(p.name in html for t in board.top for p in t.give + t.get)
     assert _trades(SimpleNamespace(trades=None, snapshot=finder.snapshot)) == ""
 
@@ -127,3 +130,14 @@ def test_his_lineup_raises_the_players_he_starts_never_lowers_his_bench():
     market = {"s": 8.95, "b": 9.6, "h": 14.0, "q": 12.0, "w": 12.0}
     values, over = own_view(team, lambda p: market[p.player_id])
     assert values == {"s": 9.6} and over == {"s": "Brian Thomas Jr."}
+
+
+def test_each_team_gets_its_own_best_offers_beyond_the_league_lists(finder):
+    board = finder.find(3)
+    listed = {t.key for t in board.top + board.best + board.likely}
+    for team_id, trades in board.by_team.items():
+        assert all(t.partner.team_id == team_id for t in trades)
+        assert [t.expected for t in trades] == sorted((t.expected for t in trades), reverse=True)
+        assert len(trades) <= 5
+    extra = [t for ts in board.by_team.values() for t in ts if t.key not in listed]
+    assert extra or all(len(ts) <= 2 for ts in board.by_team.values())

@@ -60,6 +60,11 @@ BEST_MIN_ACCEPT = 0.15
 #: Offers priced in the simulator for each list, and per partner in each.
 PRICE_EACH = 24
 PRICE_PER_TEAM = 5
+#: Offers priced for every team on top of the league-wide shortlists, so a
+#: team picked on the page has its own best trades, not only the ones that
+#: made the league's top lists; and how many of them are shown.
+TEAM_PRICED = 6
+TEAM_SHOWN = 5
 #: Gaps between the market's view and ours worth pointing out (points a game).
 GAP_NOTE = 1.0
 #: How much better the best player in an uneven deal must be than the best on
@@ -149,6 +154,9 @@ class TradeBoard:
     likely: list[Trade]
     screened: int = 0
     priced: int = 0
+    #: Per team (id): its best priced trades, by expected gain -- every team,
+    #: an empty list where nothing with him clearly raises your title odds.
+    by_team: dict[str, list[Trade]] = field(default_factory=dict)
 
     def __bool__(self) -> bool:
         return bool(self.top or self.best or self.likely)
@@ -374,6 +382,10 @@ class TradeFinder:
             self._shortlist([t for t in screened if t.my_value >= 2 * MY_MIN_VALUE],
                             lambda t: t.p_accept, PRICE_EACH, PRICE_PER_TEAM),
         ]
+        for team in self.snapshot.teams:
+            if not team.is_mine:
+                pools.append(self._shortlist([t for t in screened if t.partner.team_id == team.team_id],
+                                             lambda t: t.p_accept * t.my_value, TEAM_PRICED, TEAM_PRICED))
         chosen: dict[tuple, Trade] = {}
         for pool in pools:
             for t in pool:
@@ -387,7 +399,10 @@ class TradeFinder:
             top=self._distinct(good, lambda t: t.expected, n),
             best=self._distinct([t for t in good if t.p_accept >= BEST_MIN_ACCEPT], lambda t: t.gain, n),
             likely=self._distinct(good, lambda t: t.p_accept, n),
-            screened=len(screened), priced=len(priced))
+            screened=len(screened), priced=len(priced),
+            by_team={team.team_id: self._distinct([t for t in good if t.partner.team_id == team.team_id],
+                                                  lambda t: t.expected, TEAM_SHOWN, TEAM_SHOWN)
+                     for team in self.snapshot.teams if not team.is_mine})
 
     # -- reasons ----------------------------------------------------------
     def _explain(self, t: Trade) -> None:

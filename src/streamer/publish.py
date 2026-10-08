@@ -198,9 +198,10 @@ ol.steps li { margin: .1rem 0; }
   font-size: .8rem; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none;
   -webkit-tap-highlight-color: transparent; }
 .tab-pane { display: none; }
-.t0:checked ~ .p0, .t1:checked ~ .p1, .t2:checked ~ .p2 { display: block; }
+.t0:checked ~ .p0, .t1:checked ~ .p1, .t2:checked ~ .p2, .t3:checked ~ .p3 { display: block; }
 .t0:checked ~ .tab-labels label:nth-child(1), .t1:checked ~ .tab-labels label:nth-child(2),
-.t2:checked ~ .tab-labels label:nth-child(3) { background: var(--accent); color: #fff; }
+.t2:checked ~ .tab-labels label:nth-child(3),
+.t3:checked ~ .tab-labels label:nth-child(4) { background: var(--accent); color: #fff; }
 """
 
 

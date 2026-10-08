@@ -2238,6 +2238,17 @@ injuries, how active he is. On the ESPN league at week 3, 999 trades
 screened and 66 priced took 20 seconds; the top offer (London for Swift)
 had an 86% yes-chance and +1.3 points of title odds.
 
+### Trades with a team you pick
+The trade lists priced the league's 24 most promising offers on each of
+three orderings, at most five per team, so a team that never made those
+lists had nothing priced -- and you could not ask "what is the best I can
+do with Team Morris?". Each team's six most promising screened offers (by
+the chance of a yes times what they add to your roster) are now priced as
+well, and the Trades tab has a fourth view, **By team**: one card per team,
+best offer first, its up-to-five best trades by expected gain, or a line
+saying none clearly raises your title odds. On the ESPN league that prices
+82 offers instead of about 50, in under half a minute.
+
 ### An offer his owner would laugh at
 The Yahoo board's second trade was Xavier Worthy for Kenyon Sadiq and
 Tyreek Hill, +3.7 points of title odds, "chance of a yes ~62%" -- for a

@@ -529,6 +529,8 @@ _TRADE_TABS = (
     ("top", "Top trades", "By expected gain: the chance he says yes times the title odds you gain."),
     ("best", "Best for you", "By title odds gained, among offers with at least a 15% chance of a yes."),
     ("likely", "Most likely yes", "By the chance he says yes, among offers that clearly raise your title odds."),
+    ("by_team", "By team", "Pick a team: its best offers, by expected gain -- each team's most promising "
+                           "deals are priced, not only the ones that made the league-wide lists."),
 )
 
 
@@ -550,13 +552,15 @@ def _trades(report: MatchupReport) -> str:
     uid = _e(report.snapshot.profile)
     radios, labels, panes = [], [], []
     for i, (key, label, note) in enumerate(_TRADE_TABS):
-        trades = getattr(board, key)
         tid = f"trades-{uid}-{key}"
         radios.append(f'<input class="tab-radio t{i}" type="radio" name="trades-{uid}" id="{tid}"'
                       f'{" checked" if i == 0 else ""}>')
         labels.append(f'<label for="{tid}">{label}</label>')
-        body = "".join(_trade_card(t) for t in trades) or \
-            '<p class="sub">Nothing clears this bar.</p>'
+        if key == "by_team":
+            body = _trades_by_team(report)
+        else:
+            body = "".join(_trade_card(t) for t in getattr(board, key)) or \
+                '<p class="sub">Nothing clears this bar.</p>'
         panes.append(f'<div class="tab-pane p{i}"><p class="sub">{note}</p>{body}</div>')
     return (head + '<div class="tabs">' + "".join(radios)
             + '<div class="tab-labels">' + "".join(labels) + "</div>" + "".join(panes) + "</div>")
@@ -1136,3 +1140,31 @@ def _news(snapshot: LeagueSnapshot, now=None) -> str:
             "RotoWire and ESPN; FantasyPros flags who has news. A player ruled out this week is set out "
             "before the platform's tag catches up; the rest is for you to weigh.</p>"
             f'<ul class="news">{body}</ul>{more}')
+
+def _trades_by_team(report: MatchupReport) -> str:
+    """One card per team, best offer first, opened to its trades."""
+    from .trades import acceptance_label
+
+    board = report.trades
+    teams = [t for t in report.snapshot.teams if not t.is_mine]
+    lists = getattr(board, "by_team", {}) or {}
+
+    def best(t):
+        got = lists.get(t.team_id) or []
+        return max((x.expected for x in got), default=-1.0)
+
+    out = []
+    for team in sorted(teams, key=lambda t: -best(t)):
+        got = lists.get(team.team_id) or []
+        if got:
+            top = got[0]
+            summary = (f"{len(got)} offer{'s' if len(got) != 1 else ''}; best {top.gain * 100:+.1f} title odds, "
+                       f"{acceptance_label(top.p_accept)}")
+            body = "".join(_trade_card(x) for x in got)
+        else:
+            summary = "nothing that clearly raises your title odds"
+            body = ('<p class="sub">No 1-for-1, 2-for-1 or 1-for-2 with him clears the bar. '
+                    "Try your own idea in Evaluate a trade below.</p>")
+        out.append(f'<details class="card"><summary><strong>{_e(team.name)}</strong> '
+                   f'<span class="opp">{_e(summary)}</span></summary>{body}</details>')
+    return "".join(out)
