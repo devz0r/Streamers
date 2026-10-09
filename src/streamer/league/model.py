@@ -107,6 +107,9 @@ class PlayerRow:
     games_missed: int = 0
     #: A photo of him (or his team's logo, for a D/ST) for the page; empty: none.
     photo: str = ""
+    #: FantasyPros' chance he plays this week, for a questionable or doubtful
+    #: player (:mod:`streamer.roster.play_odds`); None: not listed.
+    fp_play: float | None = None
     #: Chance an absence that starts from here ends his season -- a lost job,
     #: a release, a long injury -- read from his season so far
     #: (:func:`streamer.roster.futures.season_loss`); None: the simulator's

@@ -353,6 +353,13 @@ fantasypros:
   # which needs a Commercial API agreement.
   scoring: PPR
   cache_hours: 6
+  # Their chance a questionable or doubtful player plays ("Are they
+  # playing?", the /injuries endpoint, refreshed every injury_cache_hours).
+  # Logged each run beside ours and graded on who played; ours moves the
+  # Brier-best share of the way toward theirs, shrunk toward prior by
+  # prior_cases, and not at all below min_cases. Never shown on the page.
+  injury_cache_hours: 2
+  play_odds: {prior: 0.0, prior_cases: 40, min_cases: 40}
   # The consensus as a second forecast of season value: every season value
   # moves this share of the way toward the consensus's order of players.
   # A prior, shrunk toward what the log measures (weight minimising squared

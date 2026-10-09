@@ -737,7 +737,24 @@ def team_panels_for(
                      f"; {'; '.join(acted)}" if acted else "")
         except Exception as exc:  # noqa: BLE001 - news is a bonus; never block the page
             log.warning("player news for %s skipped: %s", name, exc)
+    from .roster import play_odds
+
+    try:
+        from .roster.projections import load_history as _hist
+
+        play_odds.WEIGHT, graded = play_odds.fit_weight(cfg.for_profile(loaded[0][0]), _hist(loaded[0][1])) \
+            if loaded else (0.0, 0)
+        log.info("FantasyPros chance to play: weight %.2f (%d graded player-weeks)", play_odds.WEIGHT, graded)
+    except Exception as exc:  # noqa: BLE001 - a bonus input
+        play_odds.WEIGHT = 0.0
+        log.warning("FantasyPros chance-to-play weight skipped: %s", exc)
     for name, bound, snap, status, rankings in loaded:
+        try:
+            if allow_network:
+                log.info("%s: FantasyPros chance to play for %d tagged players", name,
+                         play_odds.attach(snap, bound))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("FantasyPros chance to play for %s skipped: %s", name, exc)
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
             snap._platform_weight = (projected.platform_weight, projected.platform_games)
@@ -765,6 +782,10 @@ def team_panels_for(
                 snap._week_weights = week_w
             except Exception as exc:  # noqa: BLE001 - the second forecasts are bonus inputs
                 log.warning("this week's blend for %s skipped: %s", name, exc)
+            try:
+                play_odds.record(snap, bound)
+            except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                log.warning("chance-to-play log for %s skipped: %s", name, exc)
             try:
                 from .roster.vegas import log_projections
 

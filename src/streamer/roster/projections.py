@@ -724,6 +724,18 @@ def practice_reports(season: int, week: int, cfg: Config, allow_network: bool) -
 
 
 def _play_probability(player: PlayerRow, cfg: Config) -> float:
+    """Chance the player suits up this week: from his injury tag and last
+    practice, moved toward FantasyPros' chance as far as it has earned
+    (:mod:`.play_odds`)."""
+    from . import play_odds
+
+    ours = tag_probability(player, cfg)
+    if 0.0 < ours < 1.0 and player.fp_play is not None:
+        return play_odds.blend(ours, player.fp_play)
+    return ours
+
+
+def tag_probability(player: PlayerRow, cfg: Config) -> float:
     """Chance the player suits up this week, from his injury tag."""
     conf = cfg.raw["roster"]
     if player.is_out:
@@ -1330,8 +1342,12 @@ def project_snapshot(
         p.play_probability = _play_probability(p, cfg)
         if p.is_questionable and p.practice and not p.is_out:
             words = {"DNP": "no practice", "Limited": "a limited practice", "Full": "a full practice"}
+            from . import play_odds
+
+            read = (" and FantasyPros' read of the news" if p.fp_play is not None and play_odds.WEIGHT > 0
+                    else "")
             p.signals.append(f"questionable after {words[p.practice]}: {p.play_probability:.0%} to play "
-                             "(questionable players like him, 2022-2025)")
+                             f"(questionable players like him, 2022-2025{read})")
         own = model_mean if model_mean is not None else mean
         own, _own_sd = _status_adjust(own, sd or 0.0, p, cfg)
         mean, sd = _status_adjust(mean, sd or 0.0, p, cfg)

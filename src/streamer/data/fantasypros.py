@@ -54,11 +54,12 @@ def cache_dir(cfg: Config) -> Path:
     return d
 
 
-def _get(path: str, params: dict[str, Any], cfg: Config, timeout: float = 20.0) -> dict | None:
+def _get(path: str, params: dict[str, Any], cfg: Config, timeout: float = 20.0,
+         hours: float | None = None) -> dict | None:
     """One API call through the cache. None when there is no key or it fails."""
     name = path.strip("/").replace("/", "_") + "_" + "_".join(f"{k}-{v}" for k, v in sorted(params.items()))
     cached = cache_dir(cfg) / f"{name}.json"
-    hours = float(conf(cfg).get("cache_hours", 6))
+    hours = float(conf(cfg).get("cache_hours", 6)) if hours is None else float(hours)
     if cached.exists() and time.time() - cached.stat().st_mtime < hours * 3600:
         try:
             return json.loads(cached.read_text(encoding="utf-8"))
@@ -138,6 +139,33 @@ def rankings(cfg: Config, season: int, week: int, kind: str) -> pd.DataFrame:
                 "fp_id": _first(r, "player_id", "id"),
             })
     return pd.DataFrame(rows, columns=["name", "team", "position", "rank", "pos_rank", "yahoo_id", "fp_id"])
+
+
+def players(cfg: Config) -> pd.DataFrame:
+    """FantasyPros' player list: name, team, position, fp_id -- to put names
+    on records that carry only their id (the injury report)."""
+    rows = []
+    for r in _players(_get("/players", {}, cfg, hours=24)):
+        rows.append({"name": _first(r, "player_name", "name"), "team": _first(r, "team_id", "player_team_id"),
+                     "position": _first(r, "position_id", "player_position_id"), "fp_id": _first(r, "player_id")})
+    return pd.DataFrame(rows, columns=["name", "team", "position", "fp_id"])
+
+
+def injuries(cfg: Config) -> pd.DataFrame:
+    """FantasyPros' injury report: fp_id, status, and their chance he plays
+    this week (0-1) -- the site's "Are they playing?". Refreshed every two
+    hours (``injury_cache_hours``): it moves with each practice report."""
+    data = _get("/injuries", {}, cfg, hours=float(conf(cfg).get("injury_cache_hours", 2)))
+    rows = []
+    for r in (data or {}).get("injuries") or []:
+        if not isinstance(r, dict):
+            continue
+        prob = _num(r.get("probability_of_playing"))
+        if prob is None:
+            continue
+        rows.append({"fp_id": _first(r, "player_id"), "status": _first(r, "status_short", "status"),
+                     "play": prob / 100.0 if prob > 1.0 else prob, "updated": _first(r, "injury_update_date")})
+    return pd.DataFrame(rows, columns=["fp_id", "status", "play", "updated"])
 
 
 def projections(cfg: Config, season: int, week: int) -> pd.DataFrame:

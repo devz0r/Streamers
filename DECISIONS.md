@@ -1034,6 +1034,17 @@ better in every held-out season (Brier 0.184->0.182, 0.216->0.204,
 Before the final report, the single rate stands: a Wednesday rest day is not
 a Friday miss.
 
+FantasyPros publishes its own chance to play ("Are they playing?", the
+`/injuries` endpoint's `probability_of_playing`), which can carry what a
+practice report cannot -- a coach's word, a beat reporter's. There is no
+archive of it to test on, so it starts with no say: each run logs ours and
+theirs for every questionable or doubtful player whose game is still to come
+(`results/<league>/play_log.parquet`, the last read before kickoff kept), each
+played week grades both against who has a box score, and ours moves the
+Brier-best share of the way toward theirs, shrunk toward 0 by 40 cases and
+not at all below 40 (`fantasypros.play_odds`). Their number is never shown;
+the card notes when it helped set ours.
+
 ### How much this week's number leans on the platform's
 Our model and the platform's projection were blended 50/50 by assumption.
 Each league's log now holds ours and the platform's number for every rostered
