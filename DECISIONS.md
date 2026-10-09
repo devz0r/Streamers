@@ -2066,6 +2066,47 @@ of what those carried, and depth rank is read from the role. The shipped
 values stay: they are the ones graded end to end above. After a refit,
 `scripts/fit_ros.py` matches the hazard by level again.
 
+### The top of the season range, and the backup who takes the job
+With who loses his season in, 11.6% of rest-of-season outcomes still fell
+above the 90th percentile (QB 15.3%). Replayed on 2022-2025 (11,848
+player-checkpoints):
+
+- **Not the level.** Points per game played were above the simulated 75th
+  percentile 25.5% of the time, below the 25th 23.6%: the spread of how
+  well a player plays is right.
+- **The games.** Players above the range played 86% of their team's games
+  against 59% simulated, at a season value of 6.1: depth players who won a
+  role. Depth players who went on to play 90%+ of games scored 1.3-1.5x
+  their season value a game; those who played under half, 0.75x. The
+  simulator draws whether he plays separately from how good he is.
+- **One season.** Above the range by season: 11.2, 10.1, 14.8, 10.2%. In
+  2024 nearly everyone outscored his projection (+0.39 a game); a shift in
+  scoring across the league is not something a player's range can know.
+
+Tried, each a lasting tilt per simulated season on a player's absence
+hazard (`role_spread`, a mean-one lognormal), tied by `role_corr` to how
+wrong his projection is, with `role_scale` putting back the games a spread
+adds. Scored by quantile loss over the whole range (a proper score: a
+range too wide costs as well as one too narrow), picked on three seasons
+and scored on the fourth:
+
+| | quantile loss | above / below range | held-out seasons better |
+|---|---|---|---|
+| before | 1.7171 | 11.6 / 8.7% | |
+| RB, WR spread 0.5, tied to level | 1.7141 | 10.4 / 7.8% | 2 of 4 |
+| all positions 0.5-0.8 | 1.7153-1.7199 | 9.0-10.1 / 7.0-7.7% | |
+| a backup's hazard read at his stepped-up level | 1.7185 | 11.3 / 8.8% | |
+| **QB spread 0.8, scale 1.3, tie 0.5** | QB 2.508 -> 2.483 | QB 15.3 / 13.5% -> 11.4 / 9.9% | **3 of 4** |
+
+At running back and receiver the gain did not hold (2023 and 2025 worse)
+and the bottom of the range, already short of 10%, got shorter. At
+quarterback it did: a backup takes the job and keeps it (Jaxson Dart, Drake
+Maye, Bryce Young, Jacoby Brissett in the replay) or barely plays, and the
+simulator had scattered his games instead. QB ranges now hold 79% of
+outcomes (71% before); simulated QB availability is unchanged on average
+(-0.018 -> 0.000), the mean error flat (4.803 -> 4.805). Overall 80.7% fall
+inside the 80% range, 11.0% above it. Backs and receivers stay as they were.
+
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
 platforms and nflverse, hours or days after the news. The page now carries

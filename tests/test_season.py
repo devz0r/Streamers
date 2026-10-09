@@ -189,3 +189,21 @@ def test_season_loss_reads_this_season_and_last_from_the_box_scores():
     a.nfl_id, b.nfl_id, gone.nfl_id = "a", "b", "c"
     got = season_loss_counts([a, b, gone], history, 2026, 5)
     assert got == {"ea": (3, 4, 6), "eb": (4, 4, None)}      # b: no games last season; c: on no team
+
+
+def test_a_backup_quarterback_takes_the_job_or_sits_not_a_scattering_of_games(monkeypatch):
+
+    from streamer.roster import futures
+
+    conf = futures._params()
+    qb = PlayerRow(player_id="q", name="Q", position="QB", team="SEA", ros_value=6.0, projection=6.0)
+
+    def seasons(extra):
+        monkeypatch.setattr(futures, "_params", lambda: {**conf, "role_spread": {}, **extra})
+        played = futures.simulate([qb], list(range(6, 18)), {}, n_sims=4000, seed=3).played[:, 0, :].mean(axis=1)
+        return played.mean(), (played >= 0.9).mean() + (played <= 0.1).mean()
+
+    flat_mean, flat_ends = seasons({})
+    held_mean, held_ends = seasons({k: conf[k] for k in ("role_spread", "role_scale", "role_corr")})
+    assert held_ends > flat_ends + 0.05                       # all or nothing more often
+    assert abs(held_mean - flat_mean) < 0.05                  # about as many games on average

@@ -21,6 +21,11 @@ Each simulated future of a player is built from what was measured on
   sits deep on the depth chart or plays tight end loses the rest of his
   season far more often than his level says (``season_loss``; DECISIONS.md,
   "Who loses his season").
+* **A backup quarterback takes the job or sits**: each simulated season
+  gives a quarterback a lasting tilt toward playing or not (``role_spread``,
+  tied to how wrong his projection is by ``role_corr``), so his games come
+  in a run rather than scattered (DECISIONS.md, "The top of the season
+  range").
 * **The next man up** inherits part of a lead's opportunity while he is out:
   on average RB 0.55, QB 0.60, TE 0.35 of the gap, but drawn afresh for each
   absence with a wide spread (sd 0.8 at RB) -- some backups become the bell
@@ -416,6 +421,21 @@ def simulate(
     shade = np.zeros((n_sims, n_p))
     out_left = np.stack([_initial_absence(p, n_sims, rng, conf) for p in players], axis=1) \
         if players else np.zeros((n_sims, 0), int)
+    # A role that holds: in each simulated season a player keeps a lasting
+    # tilt toward playing or sitting (``role_spread`` by position, a
+    # mean-one lognormal on his absence hazard), tied by ``role_corr`` to how
+    # wrong his projection is -- a depth player whose true level is above
+    # his number is the one who earns the snaps.
+    spread = conf.get("role_spread") or {}
+    rho = float(conf.get("role_corr", 0.0))
+    tilt = np.ones((n_sims, n_p))
+    if spread:
+        sig_r = np.array([float(spread.get(p.position, 0.0)) for p in players])[None, :]
+        u = -rho * z + np.sqrt(max(1.0 - rho ** 2, 0.0)) * rng.standard_normal((n_sims, n_p))
+        # ``role_scale`` puts back the games the spread adds: a spread hazard
+        # leaves more players playing every week than it sidelines.
+        scale_r = np.array([float((conf.get("role_scale") or {}).get(p.position, 1.0)) for p in players])[None, :]
+        tilt = scale_r * np.exp(sig_r * u - 0.5 * sig_r ** 2)
     share = np.zeros((n_sims, n_p))          # the heir's share of this absence
     was_out = np.zeros((n_sims, n_p), bool)
     # Against the calibrated start, so the week in progress still plays at
@@ -455,7 +475,8 @@ def simulate(
             # projection (where it has drifted to), not the hidden truth: a
             # star simulated to be worse than his number is not a backup.
             risk_at = np.maximum(walk[:, j], 0.0) if conf.get("hazard_on") == "projection" else level[:, j]
-            fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < _hazard(p.position, risk_at, conf))
+            fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < np.minimum(
+                _hazard(p.position, risk_at, conf) * tilt[:, j], 1.0))
             if fresh.any():
                 dur = _durations(p.position, int(fresh.sum()), rng, conf)
                 # Some absences end his season (a lost job, a release, a long
