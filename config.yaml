@@ -440,17 +440,19 @@ roster:
     # min_cases resolved, its odds are the observed rate shrunk toward the
     # judgment above by prior_cases.
     learn: {resolve_days: 28, min_cases: 5, prior_cases: 10}
-  # This week only: a receiver group's projected volume scaled toward the
-  # team's usual total for it (last 8 games), to the 0.3 power, the ratio
-  # capped at +-30% (so at most about +-10%) -- when a receiver is out the
-  # rest take his targets in proportion, and a group projected for more than
-  # the team throws is trimmed. Better in every held-out season of 2022-2025
-  # (RMSE 6.034 -> 6.016). Backs are left to the next man up, which already
-  # covers a missing lead; tight ends were worse. See DECISIONS.md, "A team's
-  # targets are shared".
+  # This week only: a receiver or running-back group's projected volume
+  # scaled toward the team's usual total for it (last 8 games), to the
+  # position's power, the ratio capped at +-30% -- when a player is out the
+  # rest take his work in proportion, and a group projected for more than the
+  # team gives it is trimmed. WR (power 0.3): better in every held-out season
+  # of 2022-2025 (RMSE 6.034 -> 6.016). RB (power 0.5, on top of the next man
+  # up, whose boost it scales around and does not double count: the heir was
+  # still under-projected by +2.4 a game): 6.100 -> 6.058, better in 4 of 4
+  # held-out seasons, power picked on the other three each time. Tight ends
+  # were worse. See DECISIONS.md, "A team's targets are shared".
   team_share:
-    positions: [WR]
-    power: 0.3
+    positions: [WR, RB]
+    power: {WR: 0.3, RB: 0.5}
     cap: 0.3
     games: 8
   teammate_back:

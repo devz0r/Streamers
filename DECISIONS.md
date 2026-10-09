@@ -1947,10 +1947,30 @@ receiver moves more than about 10% (against 16%), and 13% move 8% or more
 (against 31%). Counting only this season's games once four are in, or
 weighting last season's at half, changed nothing.
 
-Tight ends were worse: one tight end's role is not the next one's. Backs
-gain, but the next man up (above) already hands a missing lead's work to the
-backup, so scaling the group on top of it would count the same carries
-twice; it waits on a test of the two together.
+Tight ends were worse: one tight end's role is not the next one's.
+
+Backs were then tested on top of the next man up, which already hands a
+missing lead's work to the backup -- the worry was counting it twice. Same
+replay, 5,033 RB player-weeks, the next man up applied as production does
+(171 team-weeks with a lead out), the group scaled around his boost:
+
+| | RMSE | heirs: bias |
+|---|---|---|
+| next man up alone (production) | 6.100 | +2.38 |
+| team share alone | 6.107 (1/4 seasons) | |
+| both, power 0.3 | 6.068 (4/4) | |
+| both, power 0.5 | 6.058 (4/4) | +1.56 |
+
+No double count: with the next man up the heir is still projected 2.4 a
+game low, and the other backs on those weeks about 1.0 low, with nothing
+handing them anything. Leaving the heir out of the scaling was about 0.01
+worse. Power picked on three seasons and scored on the fourth chose 0.5
+every time (2022 6.268 -> 6.245, 2023 5.941 -> 5.872, 2024 5.941 -> 5.894,
+2025 6.226 -> 6.195), so backs use 0.5 and receivers 0.3. Backs move more:
+about a quarter of RB weeks by 8%+, at most 16%. The replay knew who
+played; live, a questionable back counts at his chance of playing, so a
+backfield of two questionable backs lifts each a little in case the other
+sits.
 
 This week only. The season value is unchanged: who is out by then is not
 known, and the season simulator already plays each absence.

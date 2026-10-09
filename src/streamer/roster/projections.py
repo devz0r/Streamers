@@ -624,7 +624,7 @@ def team_share(table: pd.DataFrame, history: pd.DataFrame, back: dict[str, tuple
     """This week's volume multiplier for each player in a position group
     (``team_share.positions``): the team's usual total for the group (its last
     ``games`` games) over what the players expected to play this week are
-    projected for together, to the power ``power``, capped at +-``cap``. When a
+    projected for together, to the position's ``power``, capped at +-``cap``. When a
     receiver is out, the ones left take his targets in proportion to their own
     roles; when the group is projected for more than the team throws them,
     each is trimmed. Measured on 2022-2025 (DECISIONS.md, "A team's targets
@@ -635,7 +635,9 @@ def team_share(table: pd.DataFrame, history: pd.DataFrame, back: dict[str, tuple
     positions = rule.get("positions") or []
     if not positions or table.empty or history.empty:
         return {}
-    power, cap, n_games = float(rule.get("power", 0.5)), float(rule.get("cap", 0.3)), int(rule.get("games", 8))
+    # ``power`` is one number or a position -> power map (WR 0.3, RB 0.5).
+    powers = rule.get("power", 0.5)
+    cap, n_games = float(rule.get("cap", 0.3)), int(rule.get("games", 8))
     inactive = int(conf.get("inactive_weeks", 4))
     prior = history[((history["season"] < season) | ((history["season"] == season) & (history["week"] < week)))
                     & history["position"].isin(positions)]
@@ -664,6 +666,7 @@ def team_share(table: pd.DataFrame, history: pd.DataFrame, back: dict[str, tuple
         projected = float((g["vol"].to_numpy() * present).sum())
         if not np.isfinite(total) or projected <= 0:
             continue
+        power = float(powers.get(pos, 0.5)) if isinstance(powers, dict) else float(powers)
         factor = float(np.clip(total / projected, 1 - cap, 1 + cap) ** power)
         for pid in g["player_id"]:
             out[pid] = factor
@@ -1230,8 +1233,9 @@ def project_snapshot(
                 share = shares.get(nfl_id, 1.0)
                 mean = (vol * share + extra_week) * eff * (s ** damping)
                 if abs(share - 1.0) >= 0.08:
-                    p.signals.append(f"{'more' if share > 1 else 'less'} of his team's targets this week: "
-                                     f"{'a teammate is out' if share > 1 else 'the receivers are projected for more than the team throws them'} "
+                    work, group = ("backfield work", "backs") if p.position == "RB" else ("targets", "receivers")
+                    p.signals.append(f"{'more' if share > 1 else 'less'} of his team's {work} this week: "
+                                     f"{'a teammate is out or questionable' if share > 1 else f'the {group} are projected for more than the team gives them'} "
                                      f"({share - 1:+.0%})")
                 source = "model"
                 # Only worth saying when it moves him: a questionable starter

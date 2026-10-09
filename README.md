@@ -522,10 +522,10 @@ news has him near a team: ESPN's player news (and Sleeper, which moves a
 signing first) is read for talks, a deal close, or a signing, and he is then
 priced on his new team at the chance he signs and plays ("news Oct 05: ...;
 priced at 11.0 a game for KC when he plays, 38% to play this season").
-A receiver group is held to what its team throws them: when one is out the
-rest take his targets in proportion, and a group projected for more than
-the team's usual total is trimmed ("more of his team's targets this week:
-a teammate is out (+8%)").
+A receiver or backfield group is held to what its team gives it: when one is
+out the rest take his work in proportion, and a group projected for more
+than the team's usual total is trimmed ("more of his team's targets this
+week: a teammate is out or questionable (+8%)").
 
 **Breaking news** sits at the bottom of each league's hub: the last 48 hours
 of news about every player in the league -- yours first, then your
