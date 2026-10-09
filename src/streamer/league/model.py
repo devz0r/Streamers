@@ -110,6 +110,9 @@ class PlayerRow:
     #: FantasyPros' chance he plays this week, for a questionable or doubtful
     #: player (:mod:`streamer.roster.play_odds`); None: not listed.
     fp_play: float | None = None
+    #: Weeks to come -> a factor on his level for who he faces
+    #: (:mod:`streamer.roster.schedule`); empty: the schedule is not priced.
+    schedule: dict = field(default_factory=dict)
     #: Chance an absence that starts from here ends his season -- a lost job,
     #: a release, a long injury -- read from his season so far
     #: (:func:`streamer.roster.futures.season_loss`); None: the simulator's

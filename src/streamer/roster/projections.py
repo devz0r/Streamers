@@ -1385,6 +1385,21 @@ def project_snapshot(
     counts = season_loss_counts(players, history, int(snapshot.season), int(snapshot.week))
     for p in players:
         p.season_loss = season_loss(p, *counts[p.player_id], fut_conf) if p.player_id in counts else None
+    # Who he faces in the weeks to come (quarterbacks and backs, as measured):
+    # a factor per future week the season simulator plays.
+    from ..teams import normalize_team as _norm
+    from . import schedule as sched_mod
+
+    try:
+        by_team = sched_mod.factors(cfg, int(snapshot.season), int(snapshot.week), history)
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("schedule factors unavailable: %s", exc)
+        by_team = {}
+    for p in players:
+        p.schedule = dict(by_team.get((_norm(p.team), p.position), {})) if p.team else {}
+        note = sched_mod.describe(p.schedule)
+        if note:
+            p.signals.append(note)
     from .locked import lock_played
 
     report.lock_notes = lock_played(snapshot, cfg, history, now=now)

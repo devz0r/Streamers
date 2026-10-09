@@ -2155,6 +2155,36 @@ outcomes (71% before); simulated QB availability is unchanged on average
 (-0.018 -> 0.000), the mean error flat (4.803 -> 4.805). Overall 80.7% fall
 inside the 80% range, 11.0% above it. Backs and receivers stay as they were.
 
+### Who he plays the rest of the way
+A season value is a level measured on the games a player has played, against
+whoever he played; the season simulator then played every week at that
+level, so a back with three soft run defences in weeks 15-17 was worth the
+same as one with three hard ones (only byes and the league's own schedule
+were counted). Measured on 2022-2025 checkpoints (weeks 3-10, 69,499 future
+player-games, points per game played), each week's level scaled by
+`factor ** b`, `b` fitted on three seasons and scored on the fourth:
+
+| signal | QB | RB | WR | TE |
+|---|---|---|---|---|
+| the future games' closing implied totals (a ceiling: not known in advance) | 4/4 | 4/4 | 3/4 | 2/4 |
+| implied totals predicted from past lines (offence + defence + home, ridge) | 4/4 | 3/4 | 0/4 | 2/4 |
+| the opponent's points allowed to the position, shrunk 6 games | 2/4 | 4/4 | 0/4 | 3/4 |
+| both, fitted together | **4/4** | **3/4** (4/4 simpler form) | 0/4 | 2/4 |
+
+Even the ceiling moves little (overall 6.52 -> 6.49 a game): one game's
+opponent is a small part of a week's noise. But it is consistent at
+quarterback (7.53 -> 7.42, 7.86 -> 7.85, 8.53 -> 8.51, 8.96 -> 8.89) and for
+backs, and weeks 15-17 improve with it (QB 8.71 -> 8.65). Receivers do not
+follow their opponents at all, and tight ends only weakly, so they stay
+schedule-neutral. In use: QB `implied 0.6, allowed 0.3`, RB `0.2, 0.3`
+(`roster.schedule`), a factor per future week (this week's own lines already
+price this week) that spreads QBs by about +-7% over the rest of the season
+and backs by +-4.5%, averaging 1.007 and 1.002 as in the replay. It enters
+the season simulator only -- title odds, title-priced waivers and trades,
+roster values -- so the season value stays the schedule-neutral level it is
+measured as; a card says when the rest of the way, or weeks 15-17, are 4%+
+easier or harder.
+
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
 platforms and nflverse, hours or days after the news. The page now carries

@@ -457,6 +457,20 @@ roster:
   # still under-projected by +2.4 a game): 6.100 -> 6.058, better in 4 of 4
   # held-out seasons, power picked on the other three each time. Tight ends
   # were worse. See DECISIONS.md, "A team's targets are shared".
+  # Who a player faces in the weeks to come, as a factor on his level in the
+  # season simulator: (predicted game environment / his team's trailing
+  # implied total) ** implied * (opponent's points allowed to his position,
+  # shrunk by allowed_k games) ** allowed. Fitted on 2022-2025, each season
+  # scored by a fit on the others: QB 4/4 seasons better, RB 3/4 (4/4 in the
+  # simpler form); WR 0/4 and TE 2/4, so they are left out. See DECISIONS.md,
+  # "Who he plays the rest of the way".
+  schedule:
+    positions:
+      QB: {implied: 0.6, allowed: 0.3}
+      RB: {implied: 0.2, allowed: 0.3}
+    ridge: 4.0
+    previous_season_weight: 0.5
+    allowed_k: 6
   team_share:
     positions: [WR, RB]
     power: {WR: 0.3, RB: 0.5}

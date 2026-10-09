@@ -502,6 +502,14 @@ def simulate(
             eff_vis[:, h] = np.where(lead_out, visible[:, h] + share[:, h]
                                      * np.maximum(visible[:, lead] - visible[:, h], 0.0), visible[:, h])
         was_out = out_now
+        # Who he faces this week (``schedule``: quarterbacks and backs).
+        for j, p in enumerate(players):
+            sched = getattr(p, "schedule", None)
+            if sched and k != current:
+                f = sched.get(week, sched.get(str(week)))
+                if f:
+                    eff[:, j] = eff[:, j] * float(f)
+                    eff_vis[:, j] = eff_vis[:, j] * float(f)
         if k == current:
             # The week in progress at this week's projection, not the season's.
             eff = np.maximum(eff + week_delta[None, :], 0.0)
