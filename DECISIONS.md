@@ -1039,7 +1039,8 @@ FantasyPros publishes its own chance to play ("Are they playing?", the
 practice report cannot -- a coach's word, a beat reporter's. There is no
 archive of it to test on, so it starts with no say: each run logs ours and
 theirs for every questionable or doubtful player whose game is still to come
-(`results/<league>/play_log.parquet`, the last read before kickoff kept), each
+(`data/raw/fantasypros/play_log.parquet`, with their other data on the runner -- never committed --
+the last read before kickoff kept), each
 played week grades both against who has a box score, and ours moves the
 Brier-best share of the way toward theirs, shrunk toward 0 by 40 cases and
 not at all below 40 (`fantasypros.play_odds`). Their number is never shown;

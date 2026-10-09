@@ -25,7 +25,15 @@ from ..league.model import LeagueSnapshot
 
 log = logging.getLogger(__name__)
 
+#: Kept with FantasyPros' other data on the runner (data/raw/fantasypros,
+#: cached between runs, never committed): their numbers are not published.
 LOG = "play_log.parquet"
+
+
+def log_path(cfg: Config):
+    from ..data import fantasypros as fp
+
+    return fp.cache_dir(cfg) / LOG
 TAGGED = ("QUESTIONABLE", "Q", "DOUBTFUL", "D")
 #: The weight this run's chances use (set by the publish step; 0: ours alone).
 WEIGHT = 0.0
@@ -80,7 +88,7 @@ def record(snapshot: LeagueSnapshot, cfg: Config, now: datetime | None = None) -
                      "ours": tag_probability(p, cfg), "theirs": p.fp_play, "at": now.isoformat()})
     if not rows:
         return 0
-    path = cfg.results_dir / LOG
+    path = log_path(cfg)
     old = pd.read_parquet(path) if path.exists() else pd.DataFrame()
     out = pd.concat([old, pd.DataFrame(rows)], ignore_index=True)
     out = out.sort_values("at").drop_duplicates(["season", "week", "nfl_id"], keep="last")
@@ -92,8 +100,8 @@ def record(snapshot: LeagueSnapshot, cfg: Config, now: datetime | None = None) -
 def graded(cfg: Config, history: pd.DataFrame) -> pd.DataFrame:
     """Every logged player-week, both leagues, whose week has been played:
     ``played`` is whether he has a box score that week."""
-    frames = [pd.read_parquet(d / LOG) for d in {cfg.results_dir.parent / n for n in ("espn", "yahoo")}
-              | {cfg.results_dir} if (d / LOG).exists()]
+    path = log_path(cfg)                 # both leagues share it: one row per player-week
+    frames = [pd.read_parquet(path)] if path.exists() else []
     if not frames or history is None or history.empty:
         return pd.DataFrame()
     log_ = pd.concat(frames).sort_values("at").drop_duplicates(["season", "week", "nfl_id"], keep="last")

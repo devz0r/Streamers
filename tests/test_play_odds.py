@@ -48,7 +48,8 @@ def test_ours_moves_toward_theirs_only_by_the_earned_weight(cfg, monkeypatch):
 def test_logged_reads_are_graded_on_who_played_and_the_weight_follows(cfg, tmp_path, monkeypatch):
     import types
 
-    bound = types.SimpleNamespace(raw=cfg.raw, results_dir=tmp_path / "espn")
+    bound = types.SimpleNamespace(raw=cfg.raw)
+    monkeypatch.setattr(play_odds, "log_path", lambda c: tmp_path / "espn" / play_odds.LOG)
     rows = []
     for i in range(60):                       # theirs right, ours flat: half of them sit
         plays = i % 2 == 0
