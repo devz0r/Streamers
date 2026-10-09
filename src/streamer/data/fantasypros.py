@@ -245,7 +245,9 @@ def probe(cfg: Config, season: int, week: int) -> list[str]:
              (f"/{season}/injuries", {}),
              (f"/{season}/injuries", {"week": week}),
              ("/news", {"limit": 5, "category": "injury"}),
-             ("/players", {"limit": 5})]
+             ("/players", {"limit": 5}),
+             (f"/{season - 1}/consensus-rankings", {"position": "DST", "type": "WEEKLY", "week": 10}),
+             (f"/{season - 2}/consensus-rankings", {"position": "K", "type": "WEEKLY", "week": 10})]
     for path, params in calls:
         try:
             resp = requests.get(f"{BASE}{path}", params=params, headers={"x-api-key": key}, timeout=20)
