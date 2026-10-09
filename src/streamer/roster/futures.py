@@ -148,32 +148,43 @@ def _hazard(pos: str, level: np.ndarray, conf: dict) -> np.ndarray:
     return base[idx] * float(conf.get("absence_scale", 1.2))
 
 
-def season_loss(p: PlayerRow, played: int, team_games: int, prev_games: int | None,
-                conf: dict) -> float | None:
-    """Chance an absence that starts from here ends his season, from what a
-    manager can see now: the share of his team's games he has played, the
-    games in a row he has missed, how much of last season he played, his
-    place on the depth chart, his position and his season value. Fitted on
-    2022-2025 (a logistic on "plays under half of his team's remaining
-    games", over what the simulator already expected), centred so the base
-    share holds on average. None -- the base share -- when he is out or
-    doubtful (his absence is drawn from his status) or too few of his
-    team's games have been played to read."""
-    sl = conf.get("season_loss")
-    if not sl or p.position not in SKILL or team_games < 2:
-        return None
-    if p.status in OUT_STATUSES or p.status in ("D", "DOUBTFUL"):      # not a bye: that is no absence
-        return None
-    c = sl["coef"]
+def season_loss_inputs(p: PlayerRow, played: int, team_games: int, prev_games: int | None) -> dict[str, float]:
+    """What says a player is about to lose his season, as a manager can see
+    it now (``scripts/fit_season_loss.py`` fits on exactly these): the share
+    of his team's games he has played, none at all, the games in a row he
+    has missed, the share of last season he missed or no games in it, his
+    place on the depth chart, his position and his season value."""
     m = re.search(r"(\d+)$", p.role or "")
     rank = min(max(int(m.group(1)) if m else 1, 1), 5) - 1
     level = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
-    x = {"avail": min(played / team_games, 1.0), "no_games": float(played == 0),
-         "games_missed": float(min(max(p.games_missed or 0, 0), 4)),
-         "prev_missed": min(max((17 - prev_games) / 17, 0.0), 1.0) if prev_games is not None else 0.0,
-         "no_prev": float(prev_games is None), "rank": float(rank),
-         "TE": float(p.position == "TE"), "QB": float(p.position == "QB"), "RB": float(p.position == "RB"),
-         "log_level": float(np.log1p(max(level, 0.0)))}
+    return {"avail": min(played / team_games, 1.0) if team_games else 0.0, "no_games": float(played == 0),
+            "games_missed": float(min(max(p.games_missed or 0, 0), 4)),
+            "prev_missed": min(max((17 - prev_games) / 17, 0.0), 1.0) if prev_games is not None else 0.0,
+            "no_prev": float(prev_games is None), "rank": float(rank),
+            "TE": float(p.position == "TE"), "QB": float(p.position == "QB"), "RB": float(p.position == "RB"),
+            "log_level": float(np.log1p(max(level, 0.0)))}
+
+
+def season_loss_applies(p: PlayerRow, team_games: int) -> bool:
+    """Read for healthy and questionable skill players once his team has
+    played two games; one out or doubtful has his absence drawn from his
+    tag, and a bye is not an absence."""
+    return p.position in SKILL and team_games >= 2 and not (
+        p.status in OUT_STATUSES or p.status in ("D", "DOUBTFUL"))
+
+
+def season_loss(p: PlayerRow, played: int, team_games: int, prev_games: int | None,
+                conf: dict) -> float | None:
+    """Chance an absence that starts from here ends his season: the base
+    share scaled by his :func:`season_loss_inputs` (a logistic on "plays
+    under half of his team's remaining games", over what the simulator with
+    the base share already expected), centred so the base share holds on
+    average, capped. None -- the base share -- where it does not apply."""
+    sl = conf.get("season_loss")
+    if not sl or not season_loss_applies(p, team_games):
+        return None
+    c = sl["coef"]
+    x = season_loss_inputs(p, played, team_games, prev_games)
     eta = sum(float(c[k]) * v for k, v in x.items()) - float(sl["centre"])
     return float(min(float(sl["base"]) * np.exp(eta), float(sl.get("cap", 0.9))))
 

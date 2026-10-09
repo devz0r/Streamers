@@ -2054,10 +2054,17 @@ out or doubtful has his absence drawn from his tag instead, and a bye is
 not an absence. The high tail (11.5% above the 90th percentile, QB 15%) is
 what is left.
 
-The fit was run from the rest-of-season backtest's checkpoints
-(`roster.ros_backtest`); there is no refit script yet, so the coefficients
-in `outcome_model.json` (`futures.season_loss`) carry their evidence.
-`scripts/fit_ros.py` refits the hazard by level with this in place.
+`scripts/fit_season_loss.py` refits it from the rest-of-season backtest's
+checkpoints, on the same inputs production reads
+(`futures.season_loss_inputs`, counted by `projections.season_loss_counts`),
+over a simulator already at the base share. Run in week 5 of 2026, it
+reproduced the study (the same 10,135 cases; held-out AUC 0.835, 0.849,
+0.826, 0.826 against the simulator's 0.764-0.790) with coefficients close to
+the shipped ones except QB (-0.54 -> -0.19), RB (-0.19 -> -0.05) and season
+value (0.80 -> 0.67) -- the base share in the simulator already covers part
+of what those carried, and depth rank is read from the role. The shipped
+values stay: they are the ones graded end to end above. After a refit,
+`scripts/fit_ros.py` matches the hazard by level again.
 
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the

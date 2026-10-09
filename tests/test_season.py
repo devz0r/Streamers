@@ -172,3 +172,20 @@ def test_who_loses_his_season_is_read_from_his_season_so_far():
     assert season_loss(star, played=5, team_games=5, prev_games=17, conf=conf) == a   # a bye is not an absence
     star.status = "OUT"
     assert season_loss(star, played=5, team_games=5, prev_games=17, conf=conf) is None
+
+
+def test_season_loss_reads_this_season_and_last_from_the_box_scores():
+    import pandas as pd
+
+    from streamer.roster.projections import season_loss_counts
+
+    rows = [{"player_id": "a", "team": "SEA", "season": 2026, "week": w} for w in (1, 2, 4)] + \
+        [{"player_id": "b", "team": "SEA", "season": 2026, "week": w} for w in (1, 2, 3, 4)] + \
+        [{"player_id": "a", "team": "SEA", "season": 2025, "week": w} for w in range(1, 7)]
+    history = pd.DataFrame(rows)
+    a = PlayerRow(player_id="ea", name="A", position="WR", team="SEA")
+    b = PlayerRow(player_id="eb", name="B", position="WR", team="SEA")
+    gone = PlayerRow(player_id="ec", name="C", position="WR", team=None)
+    a.nfl_id, b.nfl_id, gone.nfl_id = "a", "b", "c"
+    got = season_loss_counts([a, b, gone], history, 2026, 5)
+    assert got == {"ea": (3, 4, 6), "eb": (4, 4, None)}      # b: no games last season; c: on no team

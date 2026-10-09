@@ -673,6 +673,29 @@ def team_share(table: pd.DataFrame, history: pd.DataFrame, back: dict[str, tuple
     return out
 
 
+def season_loss_counts(players: list[PlayerRow], history: pd.DataFrame, season: int,
+                       week: int) -> dict[str, tuple[int, int, int | None]]:
+    """Per skill player on a team (by league id, matched to nflverse via
+    ``nfl_id``): the games he has played this season, his team's games, and
+    his games last season (None: none) -- what
+    :func:`futures.season_loss_inputs` reads."""
+    from ..teams import normalize_team
+
+    team_weeks, played_weeks = games_missed(history, season, week)
+    prev = history[history["season"] == season - 1].groupby("player_id").size() \
+        if not history.empty else pd.Series(dtype=int)
+    out = {}
+    for p in players:
+        nid = getattr(p, "nfl_id", None)
+        if p.position not in SKILL or not p.team or nid is None:
+            continue
+        tw = team_weeks.get(normalize_team(p.team))
+        if tw:
+            g = prev.get(str(nid))
+            out[p.player_id] = (len(played_weeks.get(str(nid), set())), len(tw), int(g) if g is not None else None)
+    return out
+
+
 def practice_reports(season: int, week: int, cfg: Config, allow_network: bool) -> dict[str, str]:
     """nflverse id -> his last practice this week ("DNP", "Limited", "Full"),
     for players whose final report -- the one that carries a game status --
@@ -1340,22 +1363,12 @@ def project_snapshot(
     assign_roles(players)
     # Who is about to lose his season (a job, a roster spot, a long injury):
     # read from his season so far, priced by the season simulator.
-    from ..teams import normalize_team as _norm
     from .futures import season_loss
 
     fut_conf = outcome.load().get("futures", {})
-    prev_games = history[history["season"] == int(snapshot.season) - 1].groupby("player_id").size() \
-        if not history.empty else pd.Series(dtype=int)
+    counts = season_loss_counts(players, history, int(snapshot.season), int(snapshot.week))
     for p in players:
-        p.season_loss = None
-        if p.position not in SKILL or not p.team or p.nfl_id is None:
-            continue
-        tw = team_weeks.get(_norm(p.team))
-        if not tw:
-            continue
-        prev = prev_games.get(str(p.nfl_id))
-        p.season_loss = season_loss(p, len(played_weeks.get(str(p.nfl_id), set())), len(tw),
-                                    int(prev) if prev is not None else None, fut_conf)
+        p.season_loss = season_loss(p, *counts[p.player_id], fut_conf) if p.player_id in counts else None
     from .locked import lock_played
 
     report.lock_notes = lock_played(snapshot, cfg, history, now=now)
