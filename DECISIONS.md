@@ -2024,7 +2024,15 @@ season simulation only if he signs and gets on the field:
 - the chance he signs by stage (signed 1.0, close 0.8, talks 0.5) and the
   weeks before he does (0, 1, 2) are judgment, not measured: there is no
   free archive of this news to fit them on. They are in the config and on
-  the card.
+  the card. Each run now logs every stage the news reaches for a free agent
+  (`results/signing_log.parquet`, first sighting of each) and resolves it:
+  he turns up on a team (Sleeper or the league), or is still unsigned four
+  weeks on. Once a stage has 5 resolved sightings its odds become the
+  observed rate shrunk toward the judgment by 10 cases
+  (`free_agent_news.learn`), so the guess gives way to the record. The weeks
+  before signing stay judgment. (The FantasyPros weekly weight already
+  learns the same way: refitted each run on the logged games, 0.15 on 286
+  in week 5.)
 
 The waiver and trade screens, which read season value without the
 simulation, count him for the share of the rest of the season he is

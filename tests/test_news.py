@@ -213,3 +213,30 @@ def test_each_player_shows_once_before_anyone_repeats():
     html = _news(snap, now=datetime(2026, 10, 10, 12, tzinfo=UTC))
     top = html.split("<details>")[0]
     assert top.count("Busy Guy") == NEWS_SHOWN - 1 and "Other Guy" in top
+
+
+def test_sightings_are_logged_once_and_resolved_signed_or_not(tmp_path):
+    from datetime import timedelta
+
+    path = tmp_path / "signing_log.parquet"
+    news.record_signings(path, [("Tyreek Hill", "WR", "talks", "KC"), ("Old Vet", "RB", "talks", None)], {}, NOW)
+    news.record_signings(path, [("Tyreek Hill", "WR", "talks", "KC")], {}, NOW + timedelta(days=1))
+    later = NOW + timedelta(days=30)
+    news.record_signings(path, [], {("tyreek hill", "WR"): "KC"}, later)
+    d = news._read_log(path).set_index("name")
+    assert len(d) == 2                                                  # one row per player and stage
+    assert d.loc["Tyreek Hill", "signed"] == 1.0 and d.loc["Tyreek Hill", "signed_team"] == "KC"
+    assert d.loc["Old Vet", "signed"] == 0.0                            # unsigned four weeks on
+
+
+def test_stage_odds_move_to_what_the_sightings_did_once_there_are_enough(tmp_path):
+    path = tmp_path / "signing_log.parquet"
+    rows = [(f"P{i}", "WR", "talks", None) for i in range(10)]
+    news.record_signings(path, rows, {(f"p{i}", "WR"): "KC" for i in range(8)}, NOW)
+    assert news.fitted_stage_odds(path, {"talks": 0.5})["talks"][1] == 8      # two still open
+    from datetime import timedelta
+
+    news.record_signings(path, [], {}, NOW + timedelta(days=29))
+    got = news.fitted_stage_odds(path, {"talks": 0.5, "close": 0.8}, k=10, need=5)
+    assert got["talks"] == (pytest.approx((8 + 10 * 0.5) / 20), 10)
+    assert got["close"] == (0.8, 0)                                     # nothing logged: the judgment stands

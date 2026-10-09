@@ -381,6 +381,71 @@ def expected_share(odds: float, lag: int, weeks_left: int) -> float:
     return odds * left / max(weeks_left, 1)
 
 
+# -- what the stage odds learn from -------------------------------------------
+#: Every stage the news reached for a free agent (first sighting of each),
+#: resolved later: signed (he turns up on a team) or not (still unsigned
+#: ``resolve_days`` after). Shared by both leagues.
+SIGNING_LOG = "signing_log.parquet"
+LOG_COLUMNS = ["name", "position", "stage", "team", "seen", "signed", "signed_team", "resolved"]
+
+
+def signing_log_path(cfg: Config):
+    return cfg.results_dir.parent / SIGNING_LOG
+
+
+def _read_log(path):
+    import pandas as pd
+
+    if path.exists():
+        try:
+            return pd.read_parquet(path)
+        except Exception as exc:  # noqa: BLE001 - a log; start again rather than block
+            log.warning("signing log unreadable: %s", exc)
+    return pd.DataFrame(columns=LOG_COLUMNS)
+
+
+def record_signings(path, sightings: list[tuple[str, str, str, str | None]], on_team: dict[tuple[str, str], str],
+                    now: datetime, resolve_days: float = 28.0) -> None:
+    """Add the first sighting of each (player, stage) and resolve open ones:
+    ``on_team`` (normalized name, position) -> team for every player now on
+    an NFL team. Unsigned ``resolve_days`` after the sighting counts as no."""
+    import pandas as pd
+
+    from ..roster.players import normalize_name
+
+    d = _read_log(path)
+    have = set(zip(d["name"], d["stage"]))
+    new = [{"name": n, "position": pos, "stage": st, "team": tm or "", "seen": now.isoformat(),
+            "signed": float("nan"), "signed_team": "", "resolved": ""}
+           for n, pos, st, tm in sightings if (n, st) not in have]
+    if new:
+        d = pd.concat([d, pd.DataFrame(new)], ignore_index=True)
+    if d.empty:
+        return
+    for i, r in d[d["resolved"].fillna("") == ""].iterrows():
+        team = on_team.get((normalize_name(r["name"]), r["position"]))
+        if team:
+            d.loc[i, ["signed", "signed_team", "resolved"]] = [1.0, team, now.isoformat()]
+        elif now - datetime.fromisoformat(r["seen"]) > timedelta(days=resolve_days):
+            d.loc[i, ["signed", "resolved"]] = [0.0, now.isoformat()]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    d.to_parquet(path, index=False)
+
+
+def fitted_stage_odds(path, prior: dict[str, float], k: float = 10.0, need: int = 5) -> dict[str, tuple[float, int]]:
+    """Each stage's chance of signing: the resolved sightings' rate, shrunk
+    toward the configured judgment by ``k`` cases once ``need`` are in."""
+    d = _read_log(path)
+    d = d[d["resolved"].fillna("") != ""] if not d.empty else d
+    out = {}
+    for stage, p0 in prior.items():
+        got = d[d["stage"] == stage]["signed"].astype(float) if not d.empty else []
+        n = len(got)
+        out[stage] = ((float(got.sum()) + k * float(p0)) / (n + k), n) if n >= need else (float(p0), n)
+    return out
+
+
+
 def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool = True,
            now: datetime | None = None) -> list[str]:
     """Mark the players on no NFL roster whom the news has close to a team.
@@ -390,8 +455,9 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
     (RotoWire's blurbs and ESPN's headlines) from the last ``lookback_days``
     is read for its most advanced stage -- signed, close, talks -- and
     Sleeper's database can say he has signed before the platforms do. The
-    chance he signs by stage, and the weeks until he does, are judgment
-    (``roster.free_agent_news``); what happens after signing is measured
+    chance he signs by stage starts as judgment (``roster.free_agent_news``)
+    and is refitted from the logged sightings as they resolve
+    (:func:`fitted_stage_odds`); the weeks until he does are judgment; what happens after signing is measured
     (:data:`roster.futures.PLAYS_AFTER_SIGNING`, ``DEBUT_WAIT``). Returns a
     line per player marked."""
     from ..roster.futures import PLAYS_AFTER_SIGNING
@@ -406,7 +472,15 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
         return []
     now = now or datetime.now(UTC)
     lookback = float(conf.get("lookback_days", 14))
-    odds_by, lag_by = conf.get("stage_odds") or {}, conf.get("stage_lag") or {}
+    odds_by, lag_by = dict(conf.get("stage_odds") or {}), conf.get("stage_lag") or {}
+    learn = conf.get("learn") or {}
+    path = signing_log_path(cfg)
+    if allow_network and learn:
+        # The judgment by stage gives way to what the logged sightings did.
+        for stage, (rate, n) in fitted_stage_odds(path, odds_by, float(learn.get("prior_cases", 10)),
+                                                  int(learn.get("min_cases", 5))).items():
+            if n >= int(learn.get("min_cases", 5)):
+                odds_by[stage] = rate
     rostered = {p.player_id for t in snapshot.teams for p in t.roster}
     watch = [p for p in snapshot.all_players() if p.position in ("QB", "RB", "WR", "TE") and p.unsigned]
     if not watch:
@@ -421,7 +495,7 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
                 signed_on[(normalize_name(q["full_name"]), q.get("position"))] = normalize_team(q["team"])
     headlines = league_items(cfg, allow_network)
     weeks_left = max(LAST_WEEK - int(snapshot.week) + 1, 1)
-    notes = []
+    notes, sightings = [], []
     for p in watch:
         key = normalize_name(p.name)
         if not (p.player_id in rostered or (p.percent_owned or 0) >= 2 or key in trending):
@@ -435,6 +509,7 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
             sig = Signing("signed", team, now, f"Sleeper lists him with {team}", legal=bool(sig and sig.legal))
         if sig is None or sig.stage not in odds_by:
             continue
+        sightings.append((p.name, p.position, sig.stage, sig.team))
         odds = float(odds_by[sig.stage]) * PLAYS_AFTER_SIGNING
         lag = int(lag_by.get(sig.stage, 0))
         p.signing_team, p.signing_odds, p.signing_wait = sig.team, round(odds, 3), lag
@@ -443,6 +518,15 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
                   + (" -- a legal case is also in the news" if sig.legal else ""))
         notes.append(f"{p.name}: {sig.stage}{' with ' + sig.team if sig.team else ''}, "
                      f"{odds:.0%} to play this season, {p.signing_share:.0%} of the rest of it")
+    if allow_network and learn:
+        on_team = dict(signed_on)
+        for q in snapshot.all_players():
+            if q.team and not q.unsigned:
+                on_team.setdefault((normalize_name(q.name), q.position), normalize_team(q.team))
+        try:
+            record_signings(path, sightings, on_team, now, float(learn.get("resolve_days", 28)))
+        except Exception as exc:  # noqa: BLE001 - a log; never block the page
+            log.warning("signing log not written: %s", exc)
     return notes
 
 

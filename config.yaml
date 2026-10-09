@@ -435,6 +435,11 @@ roster:
     lookback_days: 14
     stage_odds: {signed: 1.0, close: 0.8, talks: 0.5}
     stage_lag: {signed: 0, close: 1, talks: 2}
+    # Each sighting is logged (results/signing_log.parquet) and resolved:
+    # on a team later, or still unsigned resolve_days after. Once a stage has
+    # min_cases resolved, its odds are the observed rate shrunk toward the
+    # judgment above by prior_cases.
+    learn: {resolve_days: 28, min_cases: 5, prior_cases: 10}
   # This week only: a receiver group's projected volume scaled toward the
   # team's usual total for it (last 8 games), to the 0.3 power, the ratio
   # capped at +-30% (so at most about +-10%) -- when a receiver is out the
