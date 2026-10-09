@@ -2197,6 +2197,31 @@ our five outscored theirs. Their rankings are never shown. The consensus
 for the current week refreshes until the week turns over, so on Sunday it
 may carry later news than ours did -- a slight edge to them, not us.
 
+### Blending the expert consensus into D/ST and K: tried, not adopted
+Four weeks of 2026 had the FantasyPros consensus ahead on top-five points, so
+the obvious move -- mix it into ours -- was tested on 2023-2025, where the
+API still serves each week's consensus (`streamer dstk-blend`, run on the
+runner: their rankings stay in its cache, the log carries aggregates only).
+Our walk-forward predictions with the shipped settings, against theirs, on
+the units both ranked:
+
+| 2023-2025 | rank corr | top-5 points | top 5 finishing top 12 |
+|---|---|---|---|
+| D/ST, ours | **0.356** | 14.89 | 65% |
+| D/ST, consensus | 0.332 | **15.03** | 66% |
+| D/ST, Vegas baseline | 0.341 | 14.46 | 63% |
+| K, ours | **0.201** | **10.08** | **75%** |
+| K, consensus | 0.143 | 9.60 | 71% |
+| K, Vegas baseline | 0.102 | 9.25 | 70% |
+
+Blends (percentile mix, weight picked on two seasons and scored on the
+third, on correlation or on top-five points) were worse in two of three
+held-out seasons at both positions (D/ST 2024 0.373 -> 0.365, 2025 0.355 ->
+0.350; K 2025 0.215 -> 0.203). Over three seasons ours ranks both fields
+better and picks better kickers; their D/ST top five edges ours by 0.14 a
+unit, inside the noise. This season's four weeks are a small sample; the
+Model tab keeps grading both.
+
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
 platforms and nflverse, hours or days after the news. The page now carries
