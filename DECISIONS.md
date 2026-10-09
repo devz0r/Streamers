@@ -1999,6 +1999,12 @@ too high). Not adopted; the simulator reproduces the effect correctly
 One thing it surfaced: simulated leads fall 0.59 a team game short of what
 they scored but only 0.15 a game played -- the gap is mostly in how often
 they play, so the absence rate for lead backs may be a little high.
+Rechecked after "Who loses his season" refitted the hazard by level: lead
+backs are simulated to play 86.8% of their team's games against 87.6%
+real. Leads valued 16+ still play 2-5% more than simulated in each season,
+but that is about 15 players a season and it does not show in their
+points (season-value error -1.3 to +1.7 by season), so no separate rate
+for them.
 
 ### Who loses his season
 Rest-of-season 80% bands held 75% of outcomes, short on both sides (12.2%
