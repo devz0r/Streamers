@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -158,6 +159,29 @@ def projections(cfg: Config, season: int, week: int) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["name", "team", "position", "points"])
 
 
+#: Field names that could carry a chance to play (names only are printed).
+PLAY_FIELD = re.compile(r"chance|prob|pct|percent|likel|play|injur|status|practice|designation|game_?status", re.I)
+
+
+def _key_names(data, depth: int = 4) -> set[str]:
+    """Every field name in a JSON document, a few levels deep -- names only."""
+    names: set[str] = set()
+
+    def walk(x, d):
+        if d > depth:
+            return
+        if isinstance(x, dict):
+            for k, v in x.items():
+                names.add(str(k))
+                walk(v, d + 1)
+        elif isinstance(x, list):
+            for v in x[:20]:
+                walk(v, d + 1)
+
+    walk(data, 0)
+    return names
+
+
 def probe(cfg: Config, season: int, week: int) -> list[str]:
     """What the API returns, in terms safe for a public log: status, field
     names and counts -- never values, never the key."""
@@ -167,9 +191,14 @@ def probe(cfg: Config, season: int, week: int) -> list[str]:
     if not key:
         return ["FANTASYPROS_API_KEY is not set"]
     out = []
-    calls = [(f"/{season}/consensus-rankings", {"position": "QB", "type": "ROS", "scoring": "PPR"}),
-             (f"/{season}/consensus-rankings", {"position": "WR", "type": "WEEKLY", "scoring": "PPR", "week": week}),
-             (f"/{season}/projections", {"position": "RB", "week": week, "scoring": "PPR"})]
+    # Where a chance to play could live (the site's "Are they playing?"): an
+    # injuries endpoint, or fields on the news and player records. The
+    # rankings and projections calls this probe first made are in use now.
+    calls = [("/injuries", {}),
+             (f"/{season}/injuries", {}),
+             (f"/{season}/injuries", {"week": week}),
+             ("/news", {"limit": 5, "category": "injury"}),
+             ("/players", {"limit": 5})]
     for path, params in calls:
         try:
             resp = requests.get(f"{BASE}{path}", params=params, headers={"x-api-key": key}, timeout=20)
@@ -191,5 +220,10 @@ def probe(cfg: Config, season: int, week: int) -> list[str]:
                 stats = rows[0].get("stats")
                 if isinstance(stats, dict):
                     line += f", stats fields {sorted(stats)[:30]}"
+        if isinstance(data, (dict, list)):
+            names = _key_names(data)
+            line += f", {len(names)} distinct field names"
+            hits = sorted(n for n in names if PLAY_FIELD.search(n))
+            line += f", play/injury fields {hits[:30] if hits else 'none'}"
         out.append(line)
     return out
