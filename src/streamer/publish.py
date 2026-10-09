@@ -502,6 +502,57 @@ def _calibration_section(cfg: Config, rankings: Rankings) -> str:
         '<div class="scroll"><table><thead><tr><th>Pos</th><th>Weeks</th><th>MAE</th>'
         f"<th>Rank corr</th><th>Top-5 hit rate</th></tr></thead><tbody>{''.join(rows)}</tbody>"
         "</table></div>"
+        + _consensus_section(cfg, season)
+    )
+
+
+def _consensus_section(cfg: Config, history: pd.DataFrame) -> str:
+    """Ours against the FantasyPros expert consensus on the same weeks: rank
+    correlation, and each week's top five."""
+    from .dstk_consensus import compare, load
+
+    try:
+        cmp = compare(history, load(cfg), cfg.startable_rank)
+    except Exception:  # noqa: BLE001 - a benchmark; never block the page
+        return ""
+    if cmp.empty:
+        return ""
+    k = cfg.startable_rank
+    summary = []
+    for pos, g in cmp.groupby("position"):
+        better = int((g["ours_top5_pts"] > g["fp_top5_pts"]).sum())
+        worse = int((g["ours_top5_pts"] < g["fp_top5_pts"]).sum())
+        summary.append(
+            f"<tr><td>{_e(pos)}</td><td>{len(g)}</td>"
+            f"<td>{_num(g['ours_corr'].mean(), 3)}</td><td>{_num(g['fp_corr'].mean(), 3)}</td>"
+            f"<td>{_num(g['ours_top5_pts'].mean())}</td><td>{_num(g['fp_top5_pts'].mean())}</td>"
+            f"<td>{_pct(g['ours_top5_hits'].sum() / (5 * len(g)))}</td><td>{_pct(g['fp_top5_hits'].sum() / (5 * len(g)))}</td>"
+            f"<td>{better}&ndash;{worse}</td></tr>")
+    weekly = []
+    for r in cmp.sort_values(["week", "position"], ascending=[False, True]).itertuples():
+        diff = r.ours_top5_pts - r.fp_top5_pts
+        cls = "pos" if diff > 0.05 else "neg" if diff < -0.05 else ""
+        weekly.append(
+            f"<tr><td>{int(r.week)}</td><td>{_e(r.position)}</td>"
+            f"<td>{r.ours_top5_pts:.1f} <span class='opp'>({r.ours_top5_hits}/5)</span></td>"
+            f"<td>{r.fp_top5_pts:.1f} <span class='opp'>({r.fp_top5_hits}/5)</span></td>"
+            f"<td class='{cls}'>{diff:+.1f}</td><td>{r.best_top5_pts:.1f}</td>"
+            f"<td>{_num(r.ours_corr, 2)} / {_num(r.fp_corr, 2)}</td></tr>")
+    return (
+        "<h3>Against the FantasyPros expert consensus</h3>"
+        '<p class="sub">The same weeks, the same units, the same grades: rank correlation with what each unit '
+        f"scored, and each week's top five -- the points they averaged and how many finished top {k}. "
+        "Top-5 record: weeks our five outscored theirs, and the reverse.</p>"
+        '<div class="scroll"><table><thead><tr><th>Pos</th><th>Weeks</th><th>Corr, ours</th><th>Corr, consensus</th>'
+        "<th>Top 5 pts, ours</th><th>Top 5 pts, consensus</th>"
+        f"<th>Top-{k} hits, ours</th><th>Top-{k} hits, consensus</th><th>Top-5 record</th></tr></thead>"
+        f"<tbody>{''.join(summary)}</tbody></table></div>"
+        "<details><summary>Week by week: each top five</summary>"
+        '<div class="scroll"><table><thead><tr><th>Week</th><th>Pos</th><th>Ours</th><th>Consensus</th>'
+        f"<th>Edge</th><th>Best five</th><th>Corr ours / cons.</th></tr></thead><tbody>{''.join(weekly)}</tbody>"
+        "</table></div></details>"
+        '<p class="sub">Consensus rankings: data from <a href="https://www.fantasypros.com">FantasyPros</a>, '
+        "used for this comparison only.</p>"
     )
 
 
@@ -579,6 +630,18 @@ def publish_profiles(
         raise ValueError("nothing to publish")
     docs = cfg.docs_dir
     week = next(iter(ranked.values())).week
+    try:
+        from .dstk_consensus import update as update_consensus
+
+        first = cfg.for_profile(next(iter(ranked)))
+        hist = load_history(first)
+        season = next(iter(ranked.values())).season
+        graded = hist.loc[hist["season"] == season, "week"].unique() if not hist.empty else []
+        update_consensus(first, season, week, graded)
+    except Exception as exc:  # noqa: BLE001 - a benchmark; never block the page
+        import logging
+
+        logging.getLogger(__name__).warning("D/ST and K consensus skipped: %s", exc)
     html = render_page(ranked, cfg, team_panels)
 
     archive = docs / f"week_{week}.html"

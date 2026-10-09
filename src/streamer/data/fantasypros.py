@@ -141,6 +141,25 @@ def rankings(cfg: Config, season: int, week: int, kind: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["name", "team", "position", "rank", "pos_rank", "yahoo_id", "fp_id"])
 
 
+def special_rankings(cfg: Config, season: int, week: int) -> pd.DataFrame:
+    """The weekly expert consensus at D/ST and K: position, team, rank. Empty
+    when the API answers with another week than the one asked for (a past
+    week it no longer serves)."""
+    rows = []
+    for pos in ("DST", "K"):
+        data = _get(f"/{season}/consensus-rankings", {"position": pos, "type": "WEEKLY", "week": week},
+                    cfg, hours=24 * 365 if week else None)
+        got = (data or {}).get("week")
+        if got not in (None, "") and str(got) != str(week):
+            continue
+        for r in _players(data):
+            rank = _num(_first(r, "rank_ecr", "rank"))
+            team = _first(r, "player_team_id", "team_id", "team")
+            if rank is not None and team:
+                rows.append({"position": pos, "team": str(team), "rank": rank})
+    return pd.DataFrame(rows, columns=["position", "team", "rank"])
+
+
 def players(cfg: Config) -> pd.DataFrame:
     """FantasyPros' player list: name, team, position, fp_id -- to put names
     on records that carry only their id (the injury report)."""

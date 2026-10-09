@@ -2185,6 +2185,18 @@ roster values -- so the season value stays the schedule-neutral level it is
 measured as; a card says when the rest of the way, or weeks 15-17, are 4%+
 easier or harder.
 
+### D/ST and K against the expert consensus
+A public benchmark for our D/ST and K rankings: the FantasyPros weekly
+consensus (`/consensus-rankings`, positions DST and K), pulled every run for
+the upcoming week and for any graded week the API still serves -- taken only
+when the response names that week -- and kept with FantasyPros' other data
+on the runner. Each graded week both are scored on the units both ranked:
+Spearman correlation with actual points, and the top five's average points
+and how many finished in the top `startable_rank`, with a record of weeks
+our five outscored theirs. Their rankings are never shown. The consensus
+for the current week refreshes until the week turns over, so on Sunday it
+may carry later news than ours did -- a slight edge to them, not us.
+
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
 platforms and nflverse, hours or days after the news. The page now carries

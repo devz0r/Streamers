@@ -439,6 +439,12 @@ volatility. On 2024-25 none of it predicted weekly spread beyond position
 and projection level.
 
 ### How the projections are doing
+The Model tab grades our D/ST and kicker rankings against the FantasyPros
+expert consensus on the same weeks: rank correlation, and each week's top
+five -- the points they averaged and how many finished as startable units --
+with a week-by-week table. The consensus is pulled automatically each week
+(and for past weeks when the API still serves them); only the grades appear.
+
 
 Each league panel ends with a scorecard: our projections, the platform's,
 the betting market's and (with a key) FantasyPros', each graded every week
