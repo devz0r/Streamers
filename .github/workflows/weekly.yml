@@ -51,7 +51,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, dstk-blend]
 
 permissions:
   contents: write
@@ -154,6 +154,12 @@ jobs:
       - name: Probe player news
         if: steps.mode.outputs.mode == 'news-probe'
         run: streamer news-probe
+
+      # Our D/ST and K rankings blended with the FantasyPros consensus, graded
+      # on 2023-2025 (aggregates only; the consensus stays in data/raw).
+      - name: Grade a consensus blend for D/ST and K
+        if: steps.mode.outputs.mode == 'dstk-blend'
+        run: streamer dstk-blend
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

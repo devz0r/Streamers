@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 import pandas as pd
 
 from .config import Config
@@ -86,3 +87,86 @@ def compare(history: pd.DataFrame, consensus: pd.DataFrame, startable: int) -> p
             "best_top5_pts": float(g.nlargest(5, "actual_points")["actual_points"].mean()),
         })
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Would blending the consensus into ours help? (run on the runner; prints
+# aggregates only)
+# ---------------------------------------------------------------------------
+WALKFORWARD = "data/backtest/dstk_walkforward.parquet"
+
+
+def _blend_scores(g: pd.DataFrame, w: float) -> pd.Series:
+    """Higher is better: our projection's percentile and the consensus
+    rank's, mixed ``w`` toward the consensus."""
+    ours = g["expected_points"].rank(pct=True)
+    theirs = (-g["fp_rank"]).rank(pct=True)
+    return (1.0 - w) * ours + w * theirs
+
+
+def _grade(j: pd.DataFrame, score_of, startable: int) -> dict:
+    corr, pts, hits = [], [], []
+    for _k, g in j.groupby(["season", "week", "position"]):
+        s = score_of(g)
+        corr.append(spearman(s, g["fantasy_points"]))
+        top = g.loc[s.nlargest(5).index]
+        pts.append(float(top["fantasy_points"].mean()))
+        hits.append(float((top["actual_rank"] <= startable).mean()))
+    return {"corr": float(np.nanmean(corr)), "top5_pts": float(np.mean(pts)), "top5_hits": float(np.mean(hits)),
+            "weeks": len(corr)}
+
+
+def blend_backtest(cfg: Config, sleep: float = 1.5) -> list[str]:
+    """Fetch the consensus for every week of the walk-forward file (cached;
+    resumable), then grade ours, theirs and blends, the weight picked on two
+    seasons and scored on the third. Lines safe for a public log."""
+    import time
+
+    from .data import fantasypros as fp
+
+    wf = pd.read_parquet(cfg.root / WALKFORWARD)
+    wf = wf.assign(team=wf["team"].map(normalize_team))
+    have = load(cfg)
+    fetched = missing = 0
+    frames = [have]
+    for (season, week) in sorted(set(zip(wf["season"], wf["week"]))):
+        if ((have["season"] == season) & (have["week"] == week)).any():
+            continue
+        got = fp.special_rankings(cfg, int(season), int(week))
+        fetched += 1
+        if got.empty:
+            missing += 1
+        else:
+            frames.append(got.assign(season=int(season), week=int(week), team=got["team"].map(normalize_team)))
+        time.sleep(sleep)
+    cons = pd.concat([f for f in frames if not f.empty], ignore_index=True)
+    if fetched:
+        cons.to_parquet(log_path(cfg), index=False)
+    j = wf.merge(cons.rename(columns={"rank": "fp_rank"}), on=["season", "week", "position", "team"], how="inner")
+    j = j.dropna(subset=["fantasy_points", "expected_points", "fp_rank"])
+    j["actual_rank"] = j.groupby(["season", "week", "position"])["fantasy_points"].rank(ascending=False, method="min")
+    j = j[j.groupby(["season", "week", "position"])["team"].transform("size") >= 10]
+    k = cfg.startable_rank
+    out = [f"consensus weeks fetched this run: {fetched} ({missing} not served); matched rows: {len(j)}"]
+    grid = [round(x, 1) for x in np.linspace(0, 1, 11)]
+    for pos, g in j.groupby("position"):
+        out.append(f"== {pos}: {g[['season', 'week']].drop_duplicates().shape[0]} weeks")
+        for label, f in (("ours", lambda x: x["expected_points"]), ("consensus", lambda x: -x["fp_rank"]),
+                         ("vegas baseline", lambda x: x["baseline_points"])):
+            r = _grade(g, f, k)
+            out.append(f"  {label:15s} corr {r['corr']:.3f}  top5 pts {r['top5_pts']:.2f}  top5 top-{k} {r['top5_hits']:.0%}")
+        for w in grid[1:-1]:
+            r = _grade(g, lambda x, w=w: _blend_scores(x, w), k)
+            out.append(f"  blend w={w:.1f}     corr {r['corr']:.3f}  top5 pts {r['top5_pts']:.2f}  top5 top-{k} {r['top5_hits']:.0%}")
+        seasons = sorted(g["season"].unique())
+        for objective in ("corr", "top5_pts"):
+            folds = []
+            for s in seasons:
+                tr, te = g[g["season"] != s], g[g["season"] == s]
+                best = max(grid, key=lambda w: _grade(tr, lambda x, w=w: _blend_scores(x, w), k)[objective])
+                ours = _grade(te, lambda x: x["expected_points"], k)
+                blend = _grade(te, lambda x, w=best: _blend_scores(x, w), k)
+                folds.append(f"{s}: w={best:.1f} corr {ours['corr']:.3f}->{blend['corr']:.3f} "
+                             f"top5 {ours['top5_pts']:.2f}->{blend['top5_pts']:.2f}")
+            out.append(f"  held out, weight picked on {objective}: " + " | ".join(folds))
+    return out

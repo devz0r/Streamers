@@ -32,3 +32,22 @@ def test_a_past_week_the_api_no_longer_serves_is_not_taken_for_it(cfg, monkeypat
                         {"week": 5, "players": [{"player_team_id": "KC", "rank_ecr": 1}]})
     assert fp.special_rankings(cfg, 2026, 3).empty                       # asked for 3, served 5
     assert len(fp.special_rankings(cfg, 2026, 5)) == 2                    # D/ST and K, both served
+
+
+def test_the_blend_backtest_runs_and_prints_only_aggregates(cfg, tmp_path, monkeypatch):
+    from streamer.data import fantasypros as fp
+
+    wf = pd.read_parquet(cfg.root / dstk_consensus.WALKFORWARD)
+    wf = wf[wf["week"].isin([3, 4])]
+    monkeypatch.setattr(pd, "read_parquet", lambda p, _r=pd.read_parquet: wf if str(p).endswith("dstk_walkforward.parquet") else _r(p))
+    monkeypatch.setattr(dstk_consensus, "log_path", lambda c: tmp_path / "log.parquet")
+
+    def fake(c, season, week):              # a consensus that is our list reversed
+        g = wf[(wf.season == season) & (wf.week == week)]
+        return pd.DataFrame({"position": g.position, "team": g.team, "rank": g.expected_points.rank()})
+
+    monkeypatch.setattr(fp, "special_rankings", fake)
+    lines = dstk_consensus.blend_backtest(cfg, sleep=0)
+    text = "\n".join(lines)
+    assert "== DST" in text and "== K" in text and "held out" in text
+    assert "player_name" not in text and "rank" not in text.split("\n", 1)[1].replace("top5", "")[:0]

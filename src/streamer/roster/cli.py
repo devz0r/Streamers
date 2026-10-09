@@ -402,6 +402,9 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
                        help="describe SportsGameOdds' NFL feed (diagnostic, prints no prices or names)")
     p.set_defaults(func=cmd_sgo_probe)
 
+    p = sub.add_parser("dstk-blend",
+                       help="grade a blend of our D/ST and K rankings with the FantasyPros consensus, 2023-2025")
+    p.set_defaults(func=_cmd_dstk_blend)
     p = sub.add_parser("news-probe",
                        help="describe the free player-news sources (ESPN, Sleeper, Pro Football Rumors)")
     p.set_defaults(func=cmd_news_probe)
@@ -420,3 +423,11 @@ def register(sub: argparse._SubParsersAction, add_week) -> None:
 
     p = sub.add_parser("yahoo-auth", help="one-time Yahoo OAuth; prints the refresh token")
     p.set_defaults(func=cmd_yahoo_auth)
+
+
+def _cmd_dstk_blend(args, cfg) -> int:
+    from ..dstk_consensus import blend_backtest
+
+    for line in blend_backtest(cfg.for_profile("espn")):
+        print(line)
+    return 0
