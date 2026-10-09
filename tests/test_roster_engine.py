@@ -325,7 +325,8 @@ def test_my_team_panel_renders(cfg):
     # Split by tab: every key a known tab, the lineup on its own tab, and the
     # hub links to it by switching tabs, not by scrolling.
     parts = team_sections(snap, report, moves, cfg)
-    assert set(parts) <= {k for k, _label in TABS}
+    assert set(parts) <= {k for k, _label in TABS} | {"kpis"}       # the summary tiles sit above the tabs
+    assert 'class="kpi" for="sec-espn-lineup"' in parts["kpis"] and "Win this week" in parts["kpis"]
     assert "Recommended lineup" in parts["lineup"] and "Recommended lineup" not in parts["hub"]
     assert 'for="sec-espn-lineup"' in parts["hub"]
     assert moves[0].add.name in parts["waivers"] + parts["streams"]

@@ -213,8 +213,21 @@ of tabs picks the section: **Hub** (every move ranked by title odds),
 **Lineup**, **Roster** (every player's rest-of-season value), **Waivers**,
 **Trades** (with the trade evaluator), **D/ST & K** (the streaming
 rankings), **Season** (playoff and title odds) and **Model** (how the
-projections have graded). Both switches are CSS-only; the lineup editor and
-trade evaluator are the only script.
+projections have graded). Above the tabs, four tiles: this week's chance to
+win, the title and playoff odds, and the record -- each opens the tab that
+explains it. On a phone the tabs are a bottom bar (Hub, Lineup, Waivers,
+Trades, and More for the rest).
+
+Both switches are CSS-only, so the page works with JavaScript off. A small
+script adds conveniences on top: it remembers the league and tab you were
+on, and an address like `index.html#espn-trades` opens that tab; a search box
+filters the open tab (press `/`), and position chips filter Roster, Waivers
+and Lineup; long reasoning is folded to three lines with "Show more"; the
+update time reads "12 min ago" and warns when it is over six hours old.
+Players show their ESPN photo and D/STs their team logo when ESPN's image
+server answers (the run checks first). Add it to your home screen and it
+opens full-screen like an app. The lineup editor and trade evaluator are the
+other scripts.
 
 ### One-time GitHub Pages setup
 

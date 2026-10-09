@@ -29,6 +29,40 @@ def _pct(v: float | None) -> str:
     return "--" if v is None else f"{v * 100:.0f}%"
 
 
+def pos_chip(pos: object) -> str:
+    """A position as a coloured chip (colours in the stylesheet, ``.pc-QB``...)."""
+    text = "" if pos is None else str(pos)
+    if not text:
+        return ""
+    key = "DST" if text.upper() in ("DST", "D/ST", "DEF") else text.upper()
+    return f'<span class="pc pc-{_e(key)}">{_e(text)}</span>'
+
+
+def face(p: object) -> str:
+    """A player's photo (or a unit's team logo), when one is known; it removes
+    itself if the image will not load."""
+    url = getattr(p, "photo", "") or ""
+    if not url:
+        return ""
+    return (f'<img class="face" src="{_e(url)}" alt="" width="28" height="28" loading="lazy" '
+            'decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">')
+
+
+#: Points a range bar spans, end to end.
+RANGE_SCALE = 35.0
+
+
+def range_bar(lo: float | None, hi: float | None) -> str:
+    """A floor-to-ceiling bar beside a range's numbers, on a fixed scale so
+    ranges compare down a table."""
+    if lo is None or hi is None or not (np.isfinite(lo) and np.isfinite(hi)):
+        return ""
+    a = min(max(float(lo), 0.0), RANGE_SCALE) / RANGE_SCALE * 100
+    b = min(max(float(hi), 0.0), RANGE_SCALE) / RANGE_SCALE * 100
+    return (f'<span class="rb" aria-hidden="true"><i style="left:{a:.0f}%;width:{max(b - a, 2):.0f}%"></i>'
+            "</span>")
+
+
 #: The tabs a league's page is split into, in order: (key, label).
 TABS = (("hub", "Hub"), ("lineup", "Lineup"), ("roster", "Roster"), ("waivers", "Waivers"),
         ("trades", "Trades"), ("streams", "D/ST & K"), ("season", "Season"), ("model", "Model"))
@@ -78,6 +112,7 @@ def team_sections(
         "</div>"
     )
     out["hub"] = head + _hub(report, uid, cfg) + matchup + _news(snapshot)
+    out["kpis"] = kpi_tiles(snapshot, report)
 
     # -- lineup ------------------------------------------------------------
     changed = {p.player_id for _s, _b, p in opt.changes}
@@ -98,13 +133,13 @@ def team_sections(
             vegas = (f"<td>{p.vegas_points:.1f}</td>" if p.vegas_points is not None
                      else '<td class="opp">--</td>')
         lo, hi = opt.ranges.get(p.player_id, (None, None))
-        spread = (f"{lo:.0f}&ndash;{hi:.0f}" if lo is not None
+        spread = (f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}" if lo is not None
                   else f"&plusmn;{(p.projection_sd or 0):.0f}")
         if p.actual_points is not None:
             spread = "scored"
         rows.append(
-            f"<tr><td>{_e(slot)}</td><td class='unit'>{_e(p.name)}{flag}</td>"
-            f"<td>{_e(p.position)}</td><td>{_e(p.team or '--')}</td>"
+            f"<tr><td>{_e(slot)}</td><td class='unit'><span class='slot'>{_e(slot)}</span>{face(p)}{_e(p.name)}{flag}</td>"
+            f"<td>{pos_chip(p.position)}</td><td>{_e(p.team or '--')}</td>"
             f"<td>{_proj_cell(p)}</td>{vegas}"
             f"<td>{spread}</td></tr>"
         )
@@ -114,7 +149,7 @@ def team_sections(
         f"{_e(gain)}</p>",
         _pickup_pointer(report, uid),
         "<h3>Recommended lineup</h3>"
-        '<div class="scroll"><table><thead><tr><th>Slot</th><th class="unit">Player</th>'
+        '<div class="scroll"><table class="lineup-table"><thead><tr><th>Slot</th><th class="unit">Player</th>'
         f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>",
     ]
@@ -166,8 +201,8 @@ def team_sections(
             cards.append(
                 '<div class="card"><div class="row">'
                 '<div class="rank">&#8599;</div>'
-                f'<div><span class="name">{_e(p.name)}</span> '
-                f'<span class="opp">{_e(p.position)} {_e(p.team or "")}</span></div>'
+                f'<div>{face(p)}<span class="name">{_e(p.name)}</span> '
+                f'<span class="opp">{pos_chip(p.position)} {_e(p.team or "")}</span></div>'
                 f'<div class="pts">{t.ceiling:.1f}</div></div>'
                 f'<div class="why">{(p.ros_value or 0):.1f} a game now; {_e("; ".join(t.reasons))}</div></div>'
             )
@@ -243,8 +278,8 @@ def _move_cards(report: MatchupReport, moves: list[Move], title: str) -> str:
         cards.append(
             '<div class="card"><div class="row">'
             f'<div class="rank">{_e(m.tag[:1].upper())}</div>'
-            f'<div><span class="name">{_e(m.add.name)}</span> '
-            f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")}{drop}</span></div>'
+            f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span> '
+            f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")}{drop}</span></div>'
             f'<div class="pts">+{m.score:.1f}</div></div>'
             f'<div class="why">{_e(m.reason)}</div></div>'
         )
@@ -261,7 +296,7 @@ def _roster(report: MatchupReport, uid: str) -> str:
     rows = []
     for r in vals:
         p = r.player
-        tags = [f"{_e(p.position)} {_e(p.team or '')}"]
+        tags = [f"{pos_chip(p.position)} {_e(p.team or '')}"]
         if r.starting:
             tags.append('<span class="hold-tag">starts</span>')
         if p.in_ir_slot:
@@ -283,9 +318,9 @@ def _roster(report: MatchupReport, uid: str) -> str:
         why.extend(p.signals[:2])
         cls = " class='has-note'" if why else ""
         rows.append(
-            f"<tr{cls}><td class='unit'><b>{_e(p.name)}</b>"
+            f"<tr{cls}><td class='unit'>{face(p)}<b>{_e(p.name)}</b>"
             f"<div class='tags'>{' &middot; '.join(tags)}</div></td>"
-            f"<td>{(r.ros or 0):.1f}</td><td>{r.per_week:.1f}<div class='tags'>{r.low:.0f}&ndash;{r.high:.0f}</div></td>"
+            f"<td>{(r.ros or 0):.1f}</td><td>{r.per_week:.1f}<div class='tags'>{r.low:.0f}&ndash;{r.high:.0f}{range_bar(r.low, r.high)}</div></td>"
             f"<td>{title}</td><td>{market}</td></tr>"
             + (f"<tr class='note'><td colspan='5'>{_e('; '.join(why))}</td></tr>" if why else ""))
     roster = report.snapshot.my_team.roster if getattr(report, "snapshot", None) else [r.player for r in vals]
@@ -372,6 +407,36 @@ def _scorecard(report: MatchupReport) -> str:
 _HUB_SHOWN = 8
 
 
+def kpi_tiles(snapshot: LeagueSnapshot, report: MatchupReport) -> str:
+    """The four numbers that matter, above the tabs: this week's P(win), the
+    title and playoff odds, and the record. Each opens the tab that explains
+    it."""
+    uid = _e(snapshot.profile)
+    me = snapshot.my_team
+    o = getattr(report, "season", None)
+    m = o.mine if o is not None else None
+    st = getattr(report, "stakes", None)
+
+    def tile(value: str, label: str, tab: str, share: float | None = None, sub: str = "") -> str:
+        bar = (f'<span class="kbar"><i style="width:{min(max(share, 0.0), 1.0) * 100:.0f}%"></i></span>'
+               if share is not None else "")
+        return (f'<label class="kpi" for="sec-{uid}-{tab}"><b>{value}</b><span>{_e(label)}</span>'
+                f'{f"<small>{_e(sub)}</small>" if sub else ""}{bar}</label>')
+
+    tiles = []
+    if report.win_probability is not None:
+        tiles.append(tile(_pct(report.win_probability), "Win this week", "lineup", report.win_probability,
+                          f"vs {report.opponent_name}" if report.opponent_name else ""))
+    if m is not None:
+        tiles.append(tile(f"{o.p_title[m]:.1%}", "Win the title", "season", o.p_title[m]))
+        tiles.append(tile(f"{o.p_playoffs[m]:.0%}", "Make the playoffs", "season", o.p_playoffs[m]))
+    record = f"{me.wins}&ndash;{me.losses}" + (f"&ndash;{me.ties}" if getattr(me, "ties", 0) else "")
+    pace = (f"on pace for {st.exp_wins:.1f} wins" if st is not None
+            else f"{o.exp_wins[m]:.1f} expected wins" if m is not None else "")
+    tiles.append(tile(record, "Record", "season" if m is not None else "hub", None, pace))
+    return f'<div class="kpis">{"".join(tiles)}</div>'
+
+
 def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
     """Every move you can make -- lineup, streams, waivers, blocks, plans,
     trades -- ranked by what it does to your title odds."""
@@ -400,7 +465,8 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
         link = tab_link(uid, _TAB_OF.get(a.section, a.section))
         return (f'<tr><td>{i}</td><td class="unit"><span class="kind kind-{a.kind.lower()}">{a.kind}</span> '
                 f"<b>{_e(a.headline)}</b><div class='why'>{_e(a.detail)}; {_e(a.note)} &middot; {link}</div></td>"
-                f'<td class="{"pos" if a.firm else ""}">{a.gain * 100:+.1f}</td></tr>')
+                f'<td class="{"pos" if a.firm else ""}"><span class="delta{"" if a.firm else " soft"}">'
+                f"{a.gain * 100:+.1f}</span></td></tr>")
 
     rows = "".join(row(i + 1, a) for i, a in enumerate(acts[:_HUB_SHOWN]))
     more = ""
@@ -442,8 +508,8 @@ def _title_moves(report: MatchupReport) -> str:
         cards.append(
             '<div class="card"><div class="row">'
             f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
-            f'<div><span class="name">{_e(m.add.name)}</span> '
-            f'<span class="opp">{_e(m.add.position)} {_e(m.add.team or "")} &middot; drop '
+            f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span> '
+            f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")} &middot; drop '
             f'{_e(drop_choice(m.drop, m.drop_options))}</span></div>'
             f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
             f'<div class="meta"><span class="{css}">{label}</span>'
@@ -710,7 +776,7 @@ def _pickups(report: MatchupReport) -> str:
         if p.signals:
             why.append(p.signals[0])
         rows.append(
-            f"<tr><td class='unit'>{_e(p.name)}</td><td>{_e(p.position)} {_e(p.team or '')}</td>"
+            f"<tr><td class='unit'>{face(p)}{_e(p.name)}</td><td>{pos_chip(p.position)} {_e(p.team or '')}</td>"
             f"<td>{_e(p.nfl_opponent or '')}</td><td>{(p.projection or 0):.1f}</td>"
             f"<td>{o.win_probability:.1%}</td><td>{vs}</td><td>{season}</td></tr>"
             f"<tr><td class='why' colspan='7'>&#8627; {_e('; '.join(why))}</td></tr>")
@@ -737,7 +803,7 @@ def _streams(report: MatchupReport) -> str:
             vs = "yours" if o.current else ("&asymp; same" if abs(delta) < 0.5 else f"{delta:+.1f}")
             links = f"<tr><td class='why' colspan='5'>&#8627; {_e('; '.join(o.links[:2]))}</td></tr>" if o.links else ""
             rows.append(
-                f"<tr><td class='unit'>{_e(o.player.name)}</td><td>{_e(o.player.nfl_opponent or '')}</td>"
+                f"<tr><td class='unit'>{face(o.player)}{_e(o.player.name)}</td><td>{_e(o.player.nfl_opponent or '')}</td>"
                 f"<td>{(o.player.projection or 0):.1f}</td><td>{o.win_probability:.1%}</td><td>{vs}</td></tr>{links}")
         blocks.append(
             f"<p class='sub'><strong>{label}</strong></p>"
@@ -768,7 +834,7 @@ def _lottery(snapshot: LeagueSnapshot, cfg: Config) -> str:
     blocks = []
     for w in windows:
         rows = "".join(
-            f"<tr><td class='unit'>{_e(t.player.name)}</td><td>{_e(t.player.position)}</td>"
+            f"<tr><td class='unit'>{face(t.player)}{_e(t.player.name)}</td><td>{pos_chip(t.player.position)}</td>"
             f"<td>{_e(t.player.team or '')}</td><td>{(t.player.projection or 0):.1f}</td>"
             f"<td>{t.p_keep:.0%}</td></tr>"
             f"<tr><td class='why' colspan='5'>&#8627; {_e('; '.join(t.reasons))}</td></tr>"
@@ -848,16 +914,16 @@ def _bench(snapshot: LeagueSnapshot, opt, has_vegas: bool) -> str:
                      else '<td class="opp">--</td>')
         lo, hi = opt.ranges.get(p.player_id, (None, None))
         spread = ("scored" if p.actual_points is not None
-                  else f"{lo:.0f}&ndash;{hi:.0f}" if lo is not None else "--")
+                  else f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}" if lo is not None else "--")
         why = _bench_reason(p, opt)
         rows.append(
-            f"<tr><td class='unit'>{_e(p.name)}{tag}</td><td>{_e(p.position)}</td>"
+            f"<tr><td class='unit'>{face(p)}{_e(p.name)}{tag}</td><td>{pos_chip(p.position)}</td>"
             f"<td>{_e(p.team or '--')}</td><td>{_proj_cell(p)}</td>{vegas}<td>{spread}</td></tr>"
             + (f"<tr><td class='why' colspan='{6 if has_vegas else 5}'>&#8627; {_e(why)}</td></tr>" if why else "")
         )
     vegas_head = "<th>Vegas</th>" if has_vegas else ""
     return ("<h3>Bench</h3>"
-            '<div class="scroll"><table><thead><tr><th class="unit">Player</th><th>Pos</th><th>Tm</th>'
+            '<div class="scroll"><table class="bench-table"><thead><tr><th class="unit">Player</th><th>Pos</th><th>Tm</th>'
             f"<th>Proj</th>{vegas_head}<th>Range</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
 
 

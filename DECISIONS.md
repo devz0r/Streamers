@@ -320,6 +320,36 @@ larger and more stable than the rank-correlation edge.
 
 ## Interface
 
+### The redesign: an app, not a report
+The page read like a log: the four numbers that matter (this week's P(win),
+title and playoff odds, the record) were inside the tabs, every card printed
+its whole reasoning, tables were plain, and on a phone the tab strip ran off
+the screen. Redesigned without dropping anything -- the text of every tab in
+both leagues was compared word for word, old against new, built from the
+same data; the only differences were trade notes where the other manager's
+lineup is a tie (which bench player he "would start over"), which breaks
+either way between runs:
+
+- **Summary tiles** above the tabs, each a link to the tab that explains it.
+- **A design system** in `static/page.css`: Inter, tabular numbers, raised
+  panels, light and dark themes, colour-coded position chips, gains as
+  pills, ranges drawn as floor-to-ceiling bars on one scale so they compare
+  down a table, and ESPN photos and team logos.
+- **On a phone** the tabs are a bottom bar with the four most-used and a
+  "More" sheet (still CSS: a checkbox), the Hub drops its row numbers, and
+  tables pin the player column.
+- **A script that only adds** (`static/page.js`, `data-enhance`): the
+  remembered league and tab and `#league-tab` links, search over the open
+  tab, position filters, long reasoning folded to three lines behind "Show
+  more", "updated 12 min ago" with a stale warning, and the home-screen
+  manifest. With JavaScript off every tab, the switch and all the text are
+  still there; the tests hold any script to being data or this enhancement.
+
+Photos load from ESPN's image CDN in the reader's browser. The publish step
+checks the CDN answers before using any, so a run that cannot reach it ships
+none rather than empty frames, and the page drops any single image that
+fails.
+
 ### The profile switch is CSS-only
 The page carries both leagues and a segmented switch between them, built from
 one hidden radio per profile plus `:checked` sibling rules. No JavaScript, so it

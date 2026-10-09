@@ -135,7 +135,7 @@ def test_page_carries_both_profiles_and_no_javascript(tmp_cfg):
 
     ranked = {"espn": _rankings("E"), "yahoo": _rankings("Y")}
     html = render_page(ranked, tmp_cfg)
-    assert "<script" not in html
+    assert only_enhancing_scripts(html)
     assert 'id="panel-espn"' in html and 'id="panel-yahoo"' in html
     assert 'id="profile-espn"' in html and 'id="profile-yahoo"' in html
     assert "ESPN, 10-team" in html and "Yahoo, 14-team" in html
@@ -302,3 +302,11 @@ def test_yards_ladder_is_unavailable_for_yahoo(cfg):
     model = LadderModel.fit(frame, cfg.for_profile("yahoo"), ladder="yards")
     with pytest.raises(ValueError, match="does not score yards"):
         _ = model.tiers
+
+
+def only_enhancing_scripts(html: str) -> bool:
+    """The page works without JavaScript: every script is either data or the
+    optional enhancement (search, filters, the remembered tab)."""
+    import re
+
+    return all("data-enhance" in tag or "application/json" in tag for tag in re.findall(r"<script[^>]*>", html))

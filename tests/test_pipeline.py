@@ -211,7 +211,7 @@ def test_published_page_contains_the_essentials(tmp_cfg, slate_predictions):
     assert "Two-week stream candidates" in html
     assert "Defense / Special Teams" in html
     assert "Kickers" in html
-    assert "<script" not in html                   # no JS dependency
+    assert only_enhancing_scripts(html)            # no JS dependency
 
     result = publish(rankings, tmp_cfg)
     assert result.index_path.exists()
@@ -433,3 +433,11 @@ def test_table_limit_zero_shows_everything():
 
     frame = pd.DataFrame({"a": list(range(20))})
     assert _table(frame, [("a", "A")], limit=0).count("\n") == 21  # header + rule + 20
+
+
+def only_enhancing_scripts(html: str) -> bool:
+    """The page works without JavaScript: every script is either data or the
+    optional enhancement (search, filters, the remembered tab)."""
+    import re
+
+    return all("data-enhance" in tag or "application/json" in tag for tag in re.findall(r"<script[^>]*>", html))

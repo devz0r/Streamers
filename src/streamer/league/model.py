@@ -105,6 +105,8 @@ class PlayerRow:
     #: His team's games in a row, up to now this season, that he has not
     #: played: how long an absence in progress has already run.
     games_missed: int = 0
+    #: A photo of him (or his team's logo, for a D/ST) for the page; empty: none.
+    photo: str = ""
     #: Chance an absence that starts from here ends his season -- a lost job,
     #: a release, a long injury -- read from his season so far
     #: (:func:`streamer.roster.futures.season_loss`); None: the simulator's

@@ -25,184 +25,15 @@ from .models.base import spearman
 from .models.ledger import load_ledger
 from .rankings import Rankings, two_week_candidates
 
-STYLE = """
-:root {
-  color-scheme: dark light;
-  --bg: #0f1216;
-  --panel: #171b21;
-  --panel-2: #1e242c;
-  --line: #2a323d;
-  --text: #e7ecf3;
-  --muted: #97a3b4;
-  --accent: #4ea1ff;
-  --good: #4ade80;
-  --warn: #fbbf24;
-  --bad: #f87171;
-  --radius: 12px;
-}
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --line: #dfe3e8;
-    --text: #14181d; --muted: #5b6673; --accent: #0b63c5;
-  }
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; padding: 0 0 3rem;
-  background: var(--bg); color: var(--text);
-  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  -webkit-text-size-adjust: 100%;
-}
-.wrap { max-width: 900px; margin: 0 auto; padding: 1rem; }
-header { padding: .6rem 0 .4rem; }
-h1 { font-size: 1.5rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
-h2 { font-size: 1.15rem; margin: 2rem 0 .75rem; letter-spacing: -0.01em; }
-h3 { font-size: 1rem; margin: 1.25rem 0 .5rem; color: var(--muted); font-weight: 600; }
-p { margin: .5rem 0; }
-.sub { color: var(--muted); font-size: .875rem; margin: 0; }
-.badges { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0 0; }
-.badge {
-  display: inline-block; padding: .2rem .55rem; border-radius: 999px;
-  font-size: .75rem; background: var(--panel-2); color: var(--muted);
-  border: 1px solid var(--line);
-}
-.badge.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
-.badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
-.badge.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
-.notice {
-  background: color-mix(in srgb, var(--warn) 12%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
-  border-radius: var(--radius); padding: .75rem 1rem; margin: 1rem 0;
-  font-size: .875rem;
-}
-.card {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); margin: 0 0 .6rem; overflow: hidden;
-}
-.row {
-  display: grid; grid-template-columns: 2.2rem 1fr auto;
-  gap: .6rem; align-items: baseline; padding: .7rem .85rem .3rem;
-}
-.rank { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); font-size: 1.05rem; }
-.name { font-weight: 600; }
-.opp { color: var(--muted); font-weight: 400; font-size: .875rem; }
-.pts { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.05rem; }
-.meta {
-  display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: center;
-  padding: 0 .85rem .5rem 3.65rem; color: var(--muted); font-size: .8rem;
-  font-variant-numeric: tabular-nums;
-}
-.meta > span { background: var(--panel-2); border-radius: 6px; padding: .1rem .4rem; }
-.why { padding: 0 .85rem .75rem 3.65rem; color: var(--muted); font-size: .82rem; }
-.hold { border-left: 3px solid var(--good); }
-.meta > span.avail-open { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good); font-weight: 600; }
-.meta > span.avail-yours { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-weight: 600; }
-.meta > span.avail-taken { color: var(--muted); }
-.card.taken { opacity: .55; }
-.hold-tag { color: var(--good); font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
-.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
-th, td { padding: .45rem .45rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td.unit, th.unit { text-align: left; }
-th:first-child, td:first-child { text-align: left; }
-th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
-td { font-variant-numeric: tabular-nums; }
-.pos { color: var(--good); } .neg { color: var(--bad); }
-footer { color: var(--muted); font-size: .8rem; margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-a { color: var(--accent); }
-.ed-buttons { display: flex; gap: .4rem; flex-wrap: wrap; margin: .6rem 0; }
-.ed-buttons button, .ed-rows select { font: inherit; color: var(--text); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem; max-width: 100%; }
-.ed-rows select { width: 100%; }
-.ed-out { font-weight: 600; color: var(--text); }
-.te-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: .6rem 0; }
-@media (max-width: 600px) { .te-cols { grid-template-columns: 1fr; } }
-.te-cols fieldset { border: 1px solid var(--line); border-radius: 8px; padding: .4rem .6rem; margin: 0; min-width: 0; }
-.te-cols legend { font-weight: 600; font-size: .85rem; padding: 0 .3rem; }
-.te-sum { position: sticky; bottom: .5rem; z-index: 3; margin: .5rem 0; padding: .45rem .7rem;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; font-weight: 600;
-  font-size: .85rem; font-variant-numeric: tabular-nums; }
-.te-pick { display: block; font-size: .82rem; padding: .2rem 0; overflow-wrap: anywhere; }
-.te-partner, .te-dropline select { font: inherit; color: var(--text); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem; max-width: 100%; }
-details { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem .9rem; margin: .6rem 0; }
-summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
-.archive { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
-.archive a { font-size: .8rem; padding: .25rem .6rem; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; text-decoration: none; }
+STATIC = Path(__file__).parent / "static"
+#: The page's stylesheet and its enhancement script (search, filters, the
+#: remembered tab): the page works without the script -- every switch and tab
+#: is CSS -- and the script only adds to it.
+STYLE = (STATIC / "page.css").read_text(encoding="utf-8")
+SCRIPT = (STATIC / "page.js").read_text(encoding="utf-8")
+#: Files the page links to, copied beside it when it is published.
+ASSETS = ("icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png")
 
-/* Profile switch.
-   Radios live at the top of <body>; the labels are styled as a segmented
-   control and the :checked state drives which panel is visible. No JavaScript,
-   so the switch works instantly on a phone and still works with JS disabled. */
-.profile-radio { position: absolute; opacity: 0; pointer-events: none; }
-:root { --switch-h: 3.55rem; }
-.switch-bar { position: sticky; top: 0; z-index: 5; background: var(--bg);
-  margin: 0 -1rem; padding: .5rem 1rem .3rem; }
-.switch {
-  display: flex; gap: .25rem; padding: .25rem;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
-}
-.switch label {
-  flex: 1; text-align: center; padding: .45rem .5rem; border-radius: 999px;
-  font-size: .85rem; font-weight: 600; color: var(--muted); cursor: pointer;
-  user-select: none; -webkit-tap-highlight-color: transparent;
-  transition: background .12s ease, color .12s ease;
-}
-.switch label:hover { color: var(--text); }
-.profile-panel { display: none; }
-
-ol.steps { margin: 0 0 .4rem; padding-left: 1.2rem; color: var(--text); }
-.card.hub { border-left: 3px solid var(--accent); margin-top: .8rem; }
-.hub-table td { white-space: normal; vertical-align: top; }
-.hub-table td .why { padding: .15rem 0 0; }
-.kind { display: inline-block; font-size: .68rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .03em; padding: .05rem .35rem; border-radius: 5px; background: var(--panel-2);
-  color: var(--muted); margin-right: .25rem; }
-.kind-trade { color: var(--warn); } .kind-block { color: var(--bad); }
-.kind-lineup, .kind-stream, .kind-pickup { color: var(--accent); } .kind-waiver, .kind-plan { color: var(--good); }
-details > summary + h3 { margin-top: .6rem; }
-ol.steps li { margin: .1rem 0; }
-
-/* A league's sections, as tabs: the same radio + :checked pattern, with the
-   strip sticking under the league switch. Rules per tab are generated. */
-.sec-radio { position: absolute; opacity: 0; pointer-events: none; }
-.sec-labels { display: flex; overflow-x: auto; scrollbar-width: none; position: sticky; top: 0; z-index: 4;
-  margin: 0 -1rem .5rem; padding: 0 .6rem; background: var(--bg); border-bottom: 1px solid var(--line); }
-.sec-labels::-webkit-scrollbar { display: none; }
-.sec-labels label { flex: 0 0 auto; padding: .55rem .6rem .5rem; font-size: .85rem; font-weight: 600;
-  color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap;
-  -webkit-tap-highlight-color: transparent; }
-.sec-labels label:hover { color: var(--text); }
-.sec-pane { display: none; }
-.sec-pane > h2:first-child, .sec-pane > h3:first-child, .sec-pane > .card:first-child { margin-top: .4rem; }
-.roster-table td { vertical-align: top; }
-.roster-table td.unit { white-space: normal; min-width: 9rem; }
-.roster-table .tags { color: var(--muted); font-size: .72rem; font-weight: 400; }
-.roster-table tr.has-note td { border-bottom: 0; padding-bottom: .15rem; }
-.roster-table tr.note td { white-space: normal; text-align: left; padding-top: 0; color: var(--muted);
-  font-size: .75rem; }
-.tab-link { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-.news { list-style: none; padding: 0; margin: .4rem 0; }
-.news li { padding: .45rem 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
-.news a { color: var(--text); }
-.news .tag { display: inline-block; font-size: .72rem; padding: 0 .4rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-right: .25rem; }
-.news .t-out, .news .t-legal { color: var(--bad); border-color: var(--bad); }
-.news .t-healthy, .news .t-role-up { color: var(--good); border-color: var(--good); }
-.news .t-injury, .news .t-role-down { color: var(--warn); border-color: var(--warn); }
-
-/* Tabs inside a panel (trade views): the same radio + :checked pattern. */
-.tab-radio { position: absolute; opacity: 0; pointer-events: none; }
-.tab-labels { display: flex; gap: .25rem; padding: .2rem; margin: .4rem 0 .6rem;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; }
-.tab-labels label { flex: 1; text-align: center; padding: .35rem .4rem; border-radius: 999px;
-  font-size: .8rem; font-weight: 600; color: var(--muted); cursor: pointer; user-select: none;
-  -webkit-tap-highlight-color: transparent; }
-.tab-pane { display: none; }
-.t0:checked ~ .p0, .t1:checked ~ .p1, .t2:checked ~ .p2, .t3:checked ~ .p3 { display: block; }
-.t0:checked ~ .tab-labels label:nth-child(1), .t1:checked ~ .tab-labels label:nth-child(2),
-.t2:checked ~ .tab-labels label:nth-child(3),
-.t3:checked ~ .tab-labels label:nth-child(4) { background: var(--accent); color: #fff; }
-"""
 
 
 def _switch_rules(profiles: list[str]) -> str:
@@ -219,11 +50,34 @@ def _switch_rules(profiles: list[str]) -> str:
     return "\n".join(rules)
 
 
+#: A line icon per tab (24-unit paths, stroked).
+ICONS = {
+    "hub": "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3",
+    "lineup": "M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01",
+    "roster": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87"
+              "M16 3.13a4 4 0 0 1 0 7.75",
+    "waivers": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6",
+    "trades": "M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4",
+    "streams": "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    "season": "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
+    "model": "M3 3v18h18M7 16v-5M12 16V8M17 16V7",
+    "more": "M5 12h.01M12 12h.01M19 12h.01",
+}
+#: The tabs a phone's bottom bar shows; the rest sit behind "More".
+PHONE_TABS = ("hub", "lineup", "waivers", "trades")
+
+
+def _icon(key: str) -> str:
+    width = "3" if key == "more" else "1.8"
+    return (f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="{width}" '
+            f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{ICONS.get(key, "")}"/></svg>')
+
+
 def _section_tabs(profile: str, sections: dict[str, str]) -> str:
     """One league's sections as tabs: a hidden radio per tab, a sticky strip of
-    labels, and a pane each, switched by ``:checked`` sibling rules like the
-    league switch -- no script. Empty sections get no tab; the first one
-    present opens."""
+    labels (a bottom bar on a phone, the tabs past four behind "More"), and a
+    pane each, switched by ``:checked`` sibling rules like the league switch
+    -- no script. Empty sections get no tab; the first one present opens."""
     from .roster.page import TABS
 
     tabs = [(i, key, label) for i, (key, label) in enumerate(TABS) if sections.get(key)]
@@ -233,11 +87,20 @@ def _section_tabs(profile: str, sections: dict[str, str]) -> str:
     radios = "".join(
         f'<input class="sec-radio s{i}" type="radio" name="sec-{name}" id="sec-{name}-{key}"'
         f'{" checked" if n == 0 else ""}>' for n, (i, key, _label) in enumerate(tabs))
-    labels = "".join(f'<label class="l{i}" for="sec-{name}-{key}">{_e(label)}</label>'
-                     for i, key, label in tabs)
-    panes = "".join(f'<section class="sec-pane q{i}" id="{name}-{key}">{sections[key]}</section>'
+    extra = [(i, key, label) for i, key, label in tabs if key not in PHONE_TABS]
+    labels = "".join(f'<label class="l{i}{" x" if key not in PHONE_TABS else ""}" for="sec-{name}-{key}">'
+                     f"{_icon(key)}<span>{_e(label)}</span></label>" for i, key, label in tabs)
+    more = sheet = toggle = ""
+    if extra:
+        toggle = f'<input class="more-toggle" type="checkbox" id="more-{name}" aria-label="More sections">'
+        more = f'<label class="more-btn" for="more-{name}">{_icon("more")}<span>More</span></label>'
+        sheet = (f'<div class="more-sheet"><label class="more-scrim" for="more-{name}"></label><div class="more-panel">'
+                 + "".join(f'<label class="m{i}" for="sec-{name}-{key}">{_icon(key)}<span>{_e(label)}</span></label>'
+                           for i, key, label in extra) + "</div></div>")
+    panes = "".join(f'<section class="sec-pane q{i}" id="{name}-{key}" data-tab="{key}">{sections[key]}</section>'
                     for i, key, _label in tabs)
-    return f'{radios}<nav class="sec-labels" aria-label="Sections">{labels}</nav>{panes}'
+    return (f'{radios}{toggle}<nav class="sec-labels" aria-label="Sections">{labels}{more}</nav>{sheet}'
+            f"{panes}")
 
 
 def _section_rules(profiles: list[str]) -> str:
@@ -246,11 +109,15 @@ def _section_rules(profiles: list[str]) -> str:
     from .roster.page import TABS
 
     rules = []
-    for i in range(len(TABS)):
+    for i, (key, _label) in enumerate(TABS):
         rules.append(f".s{i}:checked ~ .q{i}{{display:block;}}")
         rules.append(f".s{i}:checked ~ .sec-labels .l{i}{{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}}")
-    if len(profiles) > 1:
-        rules.append(".sec-labels{top:var(--switch-h);}")
+        rules.append(f".s{i}:checked ~ .more-sheet .m{i}{{color:var(--accent);"
+                     "box-shadow:inset 0 0 0 1.5px var(--accent);}")
+        if key not in PHONE_TABS:
+            rules.append(f"@media (max-width:720px){{.s{i}:checked ~ .sec-labels .more-btn{{color:var(--accent);}}}}")
+    rules.append("@media (max-width:720px){" + ",".join(f".s{i}:checked ~ .sec-labels .l{i}" for i in range(len(TABS)))
+                 + "{box-shadow:none;background:color-mix(in srgb,var(--accent) 12%,transparent);}}")
     return "\n".join(rules)
 
 
@@ -304,12 +171,25 @@ def render_page(
     first = ranked[profiles[0]]
     default = cfg.default_profile if cfg.default_profile in profiles else profiles[0]
 
+    iso = datetime.now(UTC).isoformat(timespec="seconds")
     parts: list[str] = [
         "<!doctype html>",
         '<html lang="en"><head>',
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
         '<meta name="color-scheme" content="dark light">',
+        '<meta name="theme-color" content="#0a0c11" media="(prefers-color-scheme: dark)">',
+        '<meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">',
+        '<meta name="apple-mobile-web-app-capable" content="yes">',
+        '<meta name="mobile-web-app-capable" content="yes">',
+        '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+        f'<meta name="apple-mobile-web-app-title" content="{_e(conf["site_title"])}">',
+        '<link rel="manifest" href="manifest.webmanifest">',
+        '<link rel="icon" href="icon.svg" type="image/svg+xml">',
+        '<link rel="apple-touch-icon" href="apple-touch-icon.png">',
+        '<link rel="preconnect" href="https://fonts.googleapis.com">',
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap">',
         f"<title>{_e(conf['site_title'])} - Week {first.week}</title>",
         f"<style>{STYLE}\n{_switch_rules(profiles)}\n{_section_rules(profiles)}</style>",
         "</head><body>",
@@ -325,11 +205,11 @@ def render_page(
 
     parts += [
         '<div class="wrap">',
-        "<header>",
-        f"<h1>Week {first.week}</h1>",
-        f'<p class="sub">{_e(conf["site_title"])} &middot; {first.season} season &middot; '
-        f"updated {generated}</p>",
-        "</header>",
+        '<header class="top"><div class="brand"><img src="icon-192.png" alt="" width="32" height="32"><div>',
+        f"<h1>{_e(conf['site_title'])}</h1>",
+        f'<p class="sub">{first.season} season &middot; updated <time class="ago" datetime="{iso}">'
+        f"{generated}</time></p>",
+        f'</div></div><span class="week-pill">Week {first.week}</span></header>',
     ]
 
     if len(profiles) > 1:
@@ -358,13 +238,16 @@ def render_page(
         ])
         sections["model"] = "".join([team.get("model", ""), _benchmark_section(bound),
                                      _calibration_section(bound, rankings), _ledger_section(bound)])
-        parts.append(f'<div class="profile-panel" id="panel-{_e(name)}">')
+        parts.append(f'<div class="profile-panel" id="panel-{_e(name)}" data-league="{_e(name)}">')
+        parts.append(team.get("kpis", ""))
         parts.append(_section_tabs(name, sections))
         parts.append("</div>")
 
     parts.append(_archive_section(cfg))
     parts.append(_footer())
-    parts.append("</div></body></html>")
+    parts.append("</div>")
+    parts.append(f"<script data-enhance>{SCRIPT}</script>")
+    parts.append("</body></html>")
     return "\n".join(p for p in parts if p)
 
 
@@ -478,6 +361,16 @@ _AVAIL_CHIP = {"yours": ("avail-yours", "yours"), "available": ("avail-open", "a
                "taken": ("avail-taken", "taken")}
 
 
+def _unit_logo(position: str, team: object) -> str:
+    """A D/ST's team logo beside its name (kickers: none)."""
+    from .roster import faces
+
+    if position != "DST" or not team or not faces.ON:
+        return ""
+    return (f'<img class="face" src="{_e(faces.logo(str(team)))}" alt="" width="28" height="28" loading="lazy" '
+            'decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">')
+
+
 def _ranking_section(
     title: str, frame: pd.DataFrame, position: str, top_n: int, cfg: Config,
     availability: dict | None = None,
@@ -510,7 +403,7 @@ def _ranking_section(
         out.append(
             f'<div class="card{" hold" if hold else ""}{card_class}">'
             f'<div class="row"><div class="rank">{int(row.rank)}</div>'
-            f'<div><span class="name">{_e(row.display_name)}</span> '
+            f'<div>{_unit_logo(position, getattr(row, "team", ""))}<span class="name">{_e(row.display_name)}</span> '
             f'<span class="opp">{venue} {_e(getattr(row, "opponent", ""))}</span></div>'
             f'<div class="pts">{_num(row.expected_points)}</div></div>'
             f'<div class="meta">{chips}</div>'
@@ -710,6 +603,17 @@ def publish_profiles(
     }
     (docs / "latest.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
+    for asset in ASSETS:
+        (docs / asset).write_bytes((STATIC / asset).read_bytes())
+    title = cfg.publish["site_title"]
+    (docs / "manifest.webmanifest").write_text(json.dumps({
+        "name": title, "short_name": title, "start_url": "./", "scope": "./", "display": "standalone",
+        "background_color": "#0a0c11", "theme_color": "#0a0c11",
+        "icons": [{"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+                  {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+                  {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}],
+    }, indent=2), encoding="utf-8")
+
     nojekyll = docs / ".nojekyll"
     if not nojekyll.exists():
         nojekyll.write_text("")
@@ -812,7 +716,17 @@ def team_panels_for(
             fp_names = {str(i): str(n) for i, n in zip(ros["fp_id"], ros["name"]) if i is not None and n}
         except Exception as exc:  # noqa: BLE001
             log.warning("FantasyPros ids for news unavailable: %s", exc)
+    from .roster import faces
+
+    photos = faces.ON = bool(allow_network and faces.reachable())
+    log.info("player photos: %s", "ESPN's image CDN answers" if photos else "off (ESPN's image CDN not reachable)")
     for name, bound, snap, _status, _rankings in loaded:
+        try:
+            n = faces.attach(snap, espn_ids) if photos else 0
+            if photos:
+                log.info("%s: photos for %d players", name, n)
+        except Exception as exc:  # noqa: BLE001 - pictures are decoration
+            log.warning("player photos for %s skipped: %s", name, exc)
         try:
             for line in news.attach(snap, bound, espn_ids, allow_network=allow_network):
                 log.info("%s news: %s", name, line)

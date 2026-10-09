@@ -37,6 +37,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "streamer.roster" = ["*.json", "*.js"]
+"streamer" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
