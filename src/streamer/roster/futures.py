@@ -15,6 +15,12 @@ Each simulated future of a player is built from what was measured on
 * **Absences** fire at his position-and-level rate (a backup QB 46% a week,
   a 16+ back 6%), scaled for role loss, and last a measured number of games
   (half are one game; a quarter four or more).
+* **Some absences end his season** -- a lost job, a release, a long
+  injury. Who that happens to is read from his season so far: a player
+  who has played few of his team's games, missed much of last season,
+  sits deep on the depth chart or plays tight end loses the rest of his
+  season far more often than his level says (``season_loss``; DECISIONS.md,
+  "Who loses his season").
 * **The next man up** inherits part of a lead's opportunity while he is out:
   on average RB 0.55, QB 0.60, TE 0.35 of the gap, but drawn afresh for each
   absence with a wide spread (sd 0.8 at RB) -- some backups become the bell
@@ -67,12 +73,13 @@ it was on 2022-2025 (+0.6 a week, not +2.1), and a third +0.25.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 import numpy as np
 
-from ..league.model import LONG_TERM_OUT_STATUSES, PlayerRow
+from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, PlayerRow
 from . import outcome
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -139,6 +146,36 @@ def _hazard(pos: str, level: np.ndarray, conf: dict) -> np.ndarray:
         mult = np.asarray(scale["scale"], dtype=float)[np.digitize(level, scale["levels"])]
         return np.minimum(base[idx] * mult, 0.95)
     return base[idx] * float(conf.get("absence_scale", 1.2))
+
+
+def season_loss(p: PlayerRow, played: int, team_games: int, prev_games: int | None,
+                conf: dict) -> float | None:
+    """Chance an absence that starts from here ends his season, from what a
+    manager can see now: the share of his team's games he has played, the
+    games in a row he has missed, how much of last season he played, his
+    place on the depth chart, his position and his season value. Fitted on
+    2022-2025 (a logistic on "plays under half of his team's remaining
+    games", over what the simulator already expected), centred so the base
+    share holds on average. None -- the base share -- when he is out or
+    doubtful (his absence is drawn from his status) or too few of his
+    team's games have been played to read."""
+    sl = conf.get("season_loss")
+    if not sl or p.position not in SKILL or team_games < 2:
+        return None
+    if p.status in OUT_STATUSES or p.status in ("D", "DOUBTFUL"):      # not a bye: that is no absence
+        return None
+    c = sl["coef"]
+    m = re.search(r"(\d+)$", p.role or "")
+    rank = min(max(int(m.group(1)) if m else 1, 1), 5) - 1
+    level = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+    x = {"avail": min(played / team_games, 1.0), "no_games": float(played == 0),
+         "games_missed": float(min(max(p.games_missed or 0, 0), 4)),
+         "prev_missed": min(max((17 - prev_games) / 17, 0.0), 1.0) if prev_games is not None else 0.0,
+         "no_prev": float(prev_games is None), "rank": float(rank),
+         "TE": float(p.position == "TE"), "QB": float(p.position == "QB"), "RB": float(p.position == "RB"),
+         "log_level": float(np.log1p(max(level, 0.0)))}
+    eta = sum(float(c[k]) * v for k, v in x.items()) - float(sl["centre"])
+    return float(min(float(sl["base"]) * np.exp(eta), float(sl.get("cap", 0.9))))
 
 
 def _durations(pos: str, n: int, rng: np.random.Generator, conf: dict, already: int = 0) -> np.ndarray:
@@ -409,7 +446,15 @@ def simulate(
             risk_at = np.maximum(walk[:, j], 0.0) if conf.get("hazard_on") == "projection" else level[:, j]
             fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < _hazard(p.position, risk_at, conf))
             if fresh.any():
-                out_left[fresh, j] = _durations(p.position, int(fresh.sum()), rng, conf)
+                dur = _durations(p.position, int(fresh.sum()), rng, conf)
+                # Some absences end his season (a lost job, a release, a long
+                # injury): more often for the players whose season so far
+                # says so (``season_loss``), the base share otherwise.
+                lost = p.season_loss if getattr(p, "season_loss", None) is not None \
+                    else float((conf.get("season_loss") or {}).get("base", 0.0))
+                if lost > 0:
+                    dur = np.where(rng.random(dur.size) < lost, GONE, dur)
+                out_left[fresh, j] = dur
         playing = (out_left == 0) & ~on_bye[None, :]
         out_now = out_left > 0
         eff, eff_vis = level.copy(), visible.copy()

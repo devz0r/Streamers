@@ -1338,6 +1338,24 @@ def project_snapshot(
     for p in players:
         p.nfl_id = matched.mapping.get(p.player_id)
     assign_roles(players)
+    # Who is about to lose his season (a job, a roster spot, a long injury):
+    # read from his season so far, priced by the season simulator.
+    from ..teams import normalize_team as _norm
+    from .futures import season_loss
+
+    fut_conf = outcome.load().get("futures", {})
+    prev_games = history[history["season"] == int(snapshot.season) - 1].groupby("player_id").size() \
+        if not history.empty else pd.Series(dtype=int)
+    for p in players:
+        p.season_loss = None
+        if p.position not in SKILL or not p.team or p.nfl_id is None:
+            continue
+        tw = team_weeks.get(_norm(p.team))
+        if not tw:
+            continue
+        prev = prev_games.get(str(p.nfl_id))
+        p.season_loss = season_loss(p, len(played_weeks.get(str(p.nfl_id), set())), len(tw),
+                                    int(prev) if prev is not None else None, fut_conf)
     from .locked import lock_played
 
     report.lock_notes = lock_played(snapshot, cfg, history, now=now)

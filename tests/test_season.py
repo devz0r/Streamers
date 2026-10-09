@@ -156,3 +156,19 @@ def test_the_stakes_table_renders(cfg):
     html = _stakes(SimpleNamespace(stakes=st))
     assert "Must-win weeks" in html and html.count("<tr") == len(st.games) + 1
     assert _stakes(SimpleNamespace(stakes=None)) == ""
+
+
+def test_who_loses_his_season_is_read_from_his_season_so_far():
+    from streamer.roster import outcome
+    from streamer.roster.futures import season_loss
+
+    conf = outcome.load().get("futures", {})
+    star = PlayerRow(player_id="s", name="S", position="WR", team="SEA", role="WR1", ros_value=16.0)
+    fringe = PlayerRow(player_id="f", name="F", position="TE", team="SEA", role="TE3", ros_value=4.0, games_missed=2)
+    a = season_loss(star, played=5, team_games=5, prev_games=17, conf=conf)
+    b = season_loss(fringe, played=1, team_games=5, prev_games=3, conf=conf)
+    assert 0 < a < 0.12 < b <= 0.9                  # an every-week starter less than the base, a fringe TE more
+    star.on_bye = True
+    assert season_loss(star, played=5, team_games=5, prev_games=17, conf=conf) == a   # a bye is not an absence
+    star.status = "OUT"
+    assert season_loss(star, played=5, team_games=5, prev_games=17, conf=conf) is None

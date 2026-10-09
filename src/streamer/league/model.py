@@ -105,6 +105,11 @@ class PlayerRow:
     #: His team's games in a row, up to now this season, that he has not
     #: played: how long an absence in progress has already run.
     games_missed: int = 0
+    #: Chance an absence that starts from here ends his season -- a lost job,
+    #: a release, a long injury -- read from his season so far
+    #: (:func:`streamer.roster.futures.season_loss`); None: the simulator's
+    #: base share.
+    season_loss: float | None = None
     #: For a player on no NFL roster whom the news has close to signing
     #: (``data.news``): the team when one is named, his chance of signing and
     #: playing this season, the games before he could, the share of the rest

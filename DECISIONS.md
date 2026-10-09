@@ -2000,6 +2000,65 @@ One thing it surfaced: simulated leads fall 0.59 a team game short of what
 they scored but only 0.15 a game played -- the gap is mostly in how often
 they play, so the absence rate for lead backs may be a little high.
 
+### Who loses his season
+Rest-of-season 80% bands held 75% of outcomes, short on both sides (12.2%
+below the 10th percentile, 12.4% above the 90th), and 9.5 of the 12.2 low
+points were players who played under half their remaining games. The
+simulator lost about the right share of seasons (32.8% simulated, 34.7%
+real) but not to the right players (AUC 0.75-0.79).
+
+A logistic on "plays under half of his team's remaining games", over the
+simulator's own chance, fitted on three seasons and scored on the fourth
+(10,135 healthy or questionable player-checkpoints, 2022-2025, weeks 3-10),
+lifts that to AUC 0.82-0.85 in every season. What says he will lose it,
+beyond what the simulator already expected:
+
+- the share of his team's games he has played: the biggest (odds about 6x
+  for none against all; a third or fewer, 67% lost against 46% simulated);
+- games in a row missed while healthy -- benched or scratched (1/2/3+: 42,
+  62, 73% real against 32, 38, 55%);
+- the share of last season he missed (3.1x for all of it), or no games last
+  season (1.6x);
+- tight end (1.9x; 30% real, 19% simulated), quarterback (0.58x);
+- depth rank (1.14x a spot) and season value (1.8x per log unit: the
+  simulator's level effect was too steep).
+
+Little once these are in: recent snap share, falling opportunity,
+efficiency, a team change, draft capital, injury tags and practice status
+(recently injured players lose fewer seasons -- they tend to be starters).
+Age helped a little (1.09x a year) but is not in the data production
+reads, so it is left out.
+
+How it enters the simulator mattered. Scaling each player's absence hazard
+moved availability by level (stars playing 88% against 81% real) and
+narrowed quarterback bands to 60%: a backup made to sit more never gets
+the upside of taking over. Instead each new absence ends his season with
+his own chance (`futures.season_loss`, base 12%, capped at 90%), and the
+hazard by level was refitted so simulated availability still matches.
+Held out:
+
+| | in 80% band | below q10 / above q90 | RMSE | bias |
+|---|---|---|---|---|
+| before | 75.4% | 12.2 / 12.4% | 3.432 | -0.107 |
+| low side widened only | 76.7% | 11.6 / 11.7% | 3.432 | -0.098 |
+| one 12% for everyone | 79.0% | 9.5 / 11.6% | 3.429 | -0.093 |
+| hazard scaled by player | 77.0% | 11.3 / 11.7% | 3.403 | +0.020 |
+| **season-ending chance by player** | **79.7%** | **8.8 / 11.5%** | **3.391** | **-0.090** |
+
+Coverage by season 79.5/81.9/77.3/80.1% (from 75.4/77.2/72.9/76.0%), RMSE
+better in every season, bias level or better in three (2025 +0.086 ->
++0.102). By position: QB 66 -> 72%, RB 79 -> 81%, WR 77 -> 80%, TE 76 ->
+84%. Production reads only what it already has: this season's and last
+season's games, the depth role, and the games missed in a row; a player
+out or doubtful has his absence drawn from his tag instead, and a bye is
+not an absence. The high tail (11.5% above the 90th percentile, QB 15%) is
+what is left.
+
+The fit was run from the rest-of-season backtest's checkpoints
+(`roster.ros_backtest`); there is no refit script yet, so the coefficients
+in `outcome_model.json` (`futures.season_loss`) carry their evidence.
+`scripts/fit_ros.py` refits the hazard by level with this in place.
+
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
 platforms and nflverse, hours or days after the news. The page now carries

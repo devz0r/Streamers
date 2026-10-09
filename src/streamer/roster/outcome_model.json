@@ -1633,11 +1633,11 @@
     16.0
    ],
    "scale": [
-    2.132,
-    0.816,
-    0.725,
-    0.953,
-    0.703
+    1.766,
+    0.64,
+    0.633,
+    0.852,
+    0.629
    ]
   },
   "level_offset": {
@@ -1757,6 +1757,45 @@
    "RB": 0.916,
    "WR": 1.045,
    "TE": 0.909
+  },
+  "season_loss": {
+   "base": 0.12,
+   "cap": 0.9,
+   "centre": 1.2943,
+   "coef": {
+    "avail": -1.8108,
+    "no_games": 0.147,
+    "games_missed": 0.1725,
+    "prev_missed": 1.1324,
+    "no_prev": 0.4896,
+    "rank": 0.1323,
+    "TE": 0.6654,
+    "QB": -0.5385,
+    "RB": -0.1939,
+    "log_level": 0.8015
+   },
+   "evidence": {
+    "cases": 10135,
+    "seasons": [
+     2022,
+     2023,
+     2024,
+     2025
+    ],
+    "target": "plays under half of his team's remaining games",
+    "held_out_auc": [
+     0.834,
+     0.847,
+     0.824,
+     0.824
+    ],
+    "simulator_auc": [
+     0.76,
+     0.791,
+     0.769,
+     0.745
+    ]
+   }
   }
  }
 }
