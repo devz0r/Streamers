@@ -619,6 +619,57 @@ def fit_platform_weight(cfg: Config, history: pd.DataFrame) -> tuple[float, int]
     return (n * fit + k * prior) / (n + k), n
 
 
+def team_share(table: pd.DataFrame, history: pd.DataFrame, back: dict[str, tuple[float, float]],
+               season: int, week: int, conf: dict) -> dict[str, float]:
+    """This week's volume multiplier for each player in a position group
+    (``team_share.positions``): the team's usual total for the group (its last
+    ``games`` games) over what the players expected to play this week are
+    projected for together, to the power ``power``, capped at +-``cap``. When a
+    receiver is out, the ones left take his targets in proportion to their own
+    roles; when the group is projected for more than the team throws them,
+    each is trimmed. Measured on 2022-2025 (DECISIONS.md, "A team's targets
+    are shared")."""
+    from ..teams import normalize_team
+
+    rule = conf.get("team_share") or {}
+    positions = rule.get("positions") or []
+    if not positions or table.empty or history.empty:
+        return {}
+    power, cap, n_games = float(rule.get("power", 0.5)), float(rule.get("cap", 0.3)), int(rule.get("games", 8))
+    inactive = int(conf.get("inactive_weeks", 4))
+    prior = history[((history["season"] < season) | ((history["season"] == season) & (history["week"] < week)))
+                    & history["position"].isin(positions)]
+    exp = prior["total_fantasy_points_exp"].fillna(prior["fantasy_points_ppr"])
+    totals = (prior.assign(_exp=exp, _team=prior["team"].map(normalize_team))
+              .groupby(["_team", "position", "season", "week"])["_exp"].sum().reset_index()
+              .sort_values(["season", "week"]))
+    usual = totals.groupby(["_team", "position"])["_exp"].apply(lambda s: s.tail(n_games).mean() if len(s) >= 4 else np.nan)
+    out: dict[str, float] = {}
+    t = table[table["position"].isin(positions) & table["vol"].notna()]
+    t = t[[weeks_since(r, season, week) <= inactive for _i, r in t.iterrows()]]
+    # Who plays now, as the measurement counted it (the receivers who took
+    # the field): those in his team's last game, and teammates the league
+    # lists who have played for the team this season (one back from a miss).
+    cur = history[(history["season"] == season) & (history["week"] < week)]
+    cur = cur.assign(_team=cur["team"].map(normalize_team))
+    last_week = cur.groupby("_team")["week"].max()
+    in_last = set(zip(cur["_team"], cur["week"], cur["player_id"]))
+    this_season = set(zip(cur["_team"], cur["player_id"]))
+    keep = [((r.team, last_week.get(r.team, -1), r.player_id) in in_last)
+            or (r.player_id in back and (r.team, r.player_id) in this_season) for r in t.itertuples()]
+    t = t[keep]
+    for (team, pos), g in t.groupby(["team", "position"]):
+        total = usual.get((team, pos), np.nan)
+        present = np.array([back.get(pid, (1.0, 1.0))[0] for pid in g["player_id"]])
+        projected = float((g["vol"].to_numpy() * present).sum())
+        if not np.isfinite(total) or projected <= 0:
+            continue
+        factor = float(np.clip(total / projected, 1 - cap, 1 + cap) ** power)
+        for pid in g["player_id"]:
+            out[pid] = factor
+    return out
+
+
 def practice_reports(season: int, week: int, cfg: Config, allow_network: bool) -> dict[str, str]:
     """nflverse id -> his last practice this week ("DNP", "Limited", "Full"),
     for players whose final report -- the one that carries a game status --
@@ -1091,6 +1142,11 @@ def project_snapshot(
         log.warning("Sleeper depth charts unavailable: %s", exc)
     heirs = next_man_up(players, matched.mapping, table, sits, snapshot.season, snapshot.week, cfg,
                         snaps=_season_snaps(int(snapshot.season), cfg, allow_network))
+    try:
+        shares = team_share(table, history, back, int(snapshot.season), int(snapshot.week), conf)
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("team share unavailable: %s", exc)
+        shares = {}
     usage = recent_usage(history, snapshot.season, snapshot.week)
     team_weeks, played_weeks = games_missed(history, int(snapshot.season), int(snapshot.week))
     # Where our season value has been measured to overreact, defer toward
@@ -1171,7 +1227,12 @@ def project_snapshot(
                         p.signals.append(f"season value tempered from {ros:.1f} to {adj.value:.1f}: {adj.note}")
                     ros = adj.value
                 s = scale.get(p.team, 1.0) if p.team else 1.0
-                mean = (vol + extra_week) * eff * (s ** damping)
+                share = shares.get(nfl_id, 1.0)
+                mean = (vol * share + extra_week) * eff * (s ** damping)
+                if abs(share - 1.0) >= 0.08:
+                    p.signals.append(f"{'more' if share > 1 else 'less'} of his team's targets this week: "
+                                     f"{'a teammate is out' if share > 1 else 'the receivers are projected for more than the team throws them'} "
+                                     f"({share - 1:+.0%})")
                 source = "model"
                 # Only worth saying when it moves him: a questionable starter
                 # barely shifts his backup, and "+0.0" is noise.

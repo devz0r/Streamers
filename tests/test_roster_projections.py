@@ -399,12 +399,16 @@ def test_a_one_week_absence_lifts_this_week_more_than_the_season(cfg):
     assert week_gain > 0 and 0 < ros_gain < week_gain
 
 
-def test_receivers_do_not_inherit_a_missing_receivers_targets(cfg):
-    """Measured: a missing WR's targets spread too thinly to lift any one
-    teammate, so none is projected to."""
+def test_receivers_share_a_missing_receivers_targets_in_proportion(cfg):
+    """Measured: no one receiver inherits a missing receiver's targets the way
+    a backup back inherits the job (no "next man up"), but the group left
+    takes them in proportion -- at the 0.3 power of a ratio capped at +30%."""
     healthy = _project_depth(_depth_snapshot(), cfg)
     hurt = _project_depth(_depth_snapshot(wr_status="OUT"), cfg)
-    assert hurt["wr3"].model_projection == pytest.approx(healthy["wr3"].model_projection)
+    gain = hurt["wr3"].model_projection / healthy["wr3"].model_projection
+    assert 1.03 < gain <= 1.3 ** 0.3 + 0.01          # projections are rounded to 0.01
+    assert not any("next man up" in s for s in hurt["wr3"].signals)
+    assert any("more of his team's targets" in s for s in hurt["wr3"].signals)
 
 
 def test_roles_and_opponents_are_attached(cfg):

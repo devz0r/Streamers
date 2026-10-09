@@ -1920,6 +1920,41 @@ None passed the rule used everywhere else (better overall, worse in at most
 one season), so the next man up stays as it is. About 60 backs a season
 reach a fourth game in the job; revisit with more seasons.
 
+### A team's targets are shared
+Each receiver's volume is projected on its own, so nothing kept a group's
+projections adding up to what the team actually throws them: a receiver out
+left his targets nowhere, and a group of healthy receivers could be projected
+well past the team's usual total. For each team and position, the usual total
+is the mean of the group's expected points over the team's last 8 games
+(last season's games fill in early on); this week's projected total is the
+sum of the projected volumes of the players expected to play (in the team's
+last game, or listed by the league and back from a miss, each at his chance of
+playing). Each player's volume is scaled by (usual / projected), the ratio
+capped at +-30%, to a power.
+
+Walk-forward on 2022-2025, weeks 4-18, the players who played:
+
+| Position | Power | RMSE | Seasons better |
+|---|---|---|---|
+| WR | 0.3 | 6.034 -> 6.016 | 4/4 |
+| WR | 0.5 | 6.034 -> 6.016 | 4/4 |
+| WR | 0.75 | 6.034 -> 6.031 | 1/4 |
+| TE | 0.5 | 4.996 -> 5.012 | 1/4 |
+| RB | 0.5 | 6.161 -> 6.107 | 4/4 |
+
+Receivers take it. The 0.3 power is used: the same gain as 0.5, but no
+receiver moves more than about 10% (against 16%), and 13% move 8% or more
+(against 31%). Counting only this season's games once four are in, or
+weighting last season's at half, changed nothing.
+
+Tight ends were worse: one tight end's role is not the next one's. Backs
+gain, but the next man up (above) already hands a missing lead's work to the
+backup, so scaling the group on top of it would count the same carries
+twice; it waits on a test of the two together.
+
+This week only. The season value is unchanged: who is out by then is not
+known, and the season simulator already plays each absence.
+
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
 platforms and nflverse, hours or days after the news. The page now carries

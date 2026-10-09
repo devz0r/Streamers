@@ -435,6 +435,19 @@ roster:
     lookback_days: 14
     stage_odds: {signed: 1.0, close: 0.8, talks: 0.5}
     stage_lag: {signed: 0, close: 1, talks: 2}
+  # This week only: a receiver group's projected volume scaled toward the
+  # team's usual total for it (last 8 games), to the 0.3 power, the ratio
+  # capped at +-30% (so at most about +-10%) -- when a receiver is out the
+  # rest take his targets in proportion, and a group projected for more than
+  # the team throws is trimmed. Better in every held-out season of 2022-2025
+  # (RMSE 6.034 -> 6.016). Backs are left to the next man up, which already
+  # covers a missing lead; tight ends were worse. See DECISIONS.md, "A team's
+  # targets are shared".
+  team_share:
+    positions: [WR]
+    power: 0.3
+    cap: 0.3
+    games: 8
   teammate_back:
     positions: [RB, WR, TE]
     regular: 5.0
