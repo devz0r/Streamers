@@ -4338,7 +4338,7 @@
         },
         {
           "player_id": "100030",
-          "name": "Jaguars",
+          "name": "Jacksonville",
           "position": "DST",
           "team": "JAX",
           "status": "",
@@ -5980,7 +5980,7 @@
         },
         {
           "player_id": "100004",
-          "name": "Bengals",
+          "name": "Cincinnati",
           "position": "DST",
           "team": "CIN",
           "status": "",
@@ -6033,7 +6033,7 @@
         },
         {
           "player_id": "100025",
-          "name": "49ers",
+          "name": "San Francisco",
           "position": "DST",
           "team": "SF",
           "status": "",
@@ -6800,7 +6800,7 @@
         },
         {
           "player_id": "100007",
-          "name": "Denver",
+          "name": "Broncos",
           "position": "DST",
           "team": "DEN",
           "status": "",
@@ -7730,7 +7730,7 @@
         },
         {
           "player_id": "100014",
-          "name": "Los Angeles",
+          "name": "Rams",
           "position": "DST",
           "team": "LA",
           "status": "",
@@ -10247,7 +10247,7 @@
         },
         {
           "player_id": "100034",
-          "name": "Texans",
+          "name": "Houston",
           "position": "DST",
           "team": "HOU",
           "status": "",
@@ -11942,7 +11942,7 @@
         },
         {
           "player_id": "100021",
-          "name": "Eagles",
+          "name": "Philadelphia",
           "position": "DST",
           "team": "PHI",
           "status": "",
@@ -16926,7 +16926,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-09T12:38:04.425771+00:00",
+  "synced_at": "2026-10-09T12:41:06.737283+00:00",
   "extra": {
     "source": "yahoo-web"
   },
