@@ -16,22 +16,32 @@ LOGO = "https://a.espncdn.com/i/teamlogos/nfl/500/{slug}.png"
 LOGO_SLUG = {"LA": "lar", "LAR": "lar", "WAS": "wsh", "WSH": "wsh", "JAC": "jax"}
 
 
-#: A headshot that has been on the CDN for years: the run checks it loads
-#: before putting any photo on the page.
-PROBE = HEADSHOT.format(id="3054211")
+#: Long-standing images the run checks before putting any picture on the
+#: page: a team logo and Patrick Mahomes's headshot.
+PROBES = ("https://a.espncdn.com/i/teamlogos/nfl/500/kc.png", HEADSHOT.format(id="3139477"))
 #: Set by the publish step when the CDN answered: pictures are used only then.
 ON = False
+#: What the check saw, for the run log.
+SEEN = ""
 
 
 def reachable(timeout: float = 6.0) -> bool:
     """Whether ESPN's image CDN answers with an image right now."""
+    global SEEN
     import requests
 
-    try:
-        r = requests.get(PROBE, timeout=timeout, headers={"User-Agent": "streamer-fantasy-tool/1.0"})
-        return r.ok and r.headers.get("content-type", "").startswith("image/")
-    except requests.RequestException:
-        return False
+    seen = []
+    for url in PROBES:
+        try:
+            r = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0 (streamer-fantasy-tool)"})
+            seen.append(f"{r.status_code} {r.headers.get('content-type', '?')}")
+            if r.ok and r.headers.get("content-type", "").startswith("image/"):
+                SEEN = "; ".join(seen)
+                return True
+        except requests.RequestException as exc:
+            seen.append(type(exc).__name__)
+    SEEN = "; ".join(seen)
+    return False
 
 
 def logo(team: str | None) -> str:

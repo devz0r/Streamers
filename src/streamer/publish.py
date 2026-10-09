@@ -719,7 +719,8 @@ def team_panels_for(
     from .roster import faces
 
     photos = faces.ON = bool(allow_network and faces.reachable())
-    log.info("player photos: %s", "ESPN's image CDN answers" if photos else "off (ESPN's image CDN not reachable)")
+    log.info("player photos: %s (%s)", "ESPN's image CDN answers" if photos else "off, ESPN's image CDN not reachable",
+             faces.SEEN)
     for name, bound, snap, _status, _rankings in loaded:
         try:
             n = faces.attach(snap, espn_ids) if photos else 0
