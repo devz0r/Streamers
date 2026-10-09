@@ -1893,11 +1893,11 @@ coming back to take Ollie Gordon II's work.
 Warren goes from 13.6 to 13.3 a game (Dowdle is questionable, so this week
 counts 72% of it). Davante Adams, who drew 10 and 13 targets while Puka
 Nacua missed weeks 2-3 and 6 and 9 with him, goes from 16.6 to 16.3.
-Michael Mayer, with Brock Bowers back, from 8.6 to 7.9. Not done: in the
-season simulation a lead still gains nothing when his second back misses a
-future game (only a backup inherits from a lead); his season value,
-measured on games that include his partner's usual absences, carries that
-on average.
+Michael Mayer, with Brock Bowers back, from 8.6 to 7.9. In the season
+simulation a lead still gains nothing when his second back misses a future
+game (only a backup inherits from a lead); his season value, measured on
+games that include his partner's usual absences, carries that on average,
+and adding it did not hold up (below).
 
 ### The next man up, later in an absence: tried, not adopted
 Once a backup has three or more games in the job, his own recent games carry
@@ -1974,6 +1974,31 @@ sits.
 
 This week only. The season value is unchanged: who is out by then is not
 known, and the season simulator already plays each absence.
+
+### A lead's gain when his second back is out: tried, not adopted
+Looking back, the effect is there: on 2022-2025 checkpoints (weeks 3-10,
+534 lead/second-back pairs), a lead's rest-of-season error rises 0.33 a
+game (se 0.10) per expected point of his partner's volume times the share
+of games the partner went on to miss -- the same 0.32 measured in a single
+game. Leads whose partner never missed ran 0.77 high; those whose partner
+missed 6+ games, 1.04 low. On average it washes out (-0.10): the season
+value, measured on games that include the usual absences, already carries
+it.
+
+Played through the season simulator -- while the partner is out, the lead
+gains a share of his level, taken back out of his baseline at the
+partner's expected absence rate -- shares 0.20/0.32/0.45 moved rest-of-
+season RMSE 4.617 -> 4.570-4.588 overall but, picked on three seasons and
+scored on the fourth, were worse in 2023 and 2025; a paired bootstrap
+puts every change inside noise. Skipping the gain for an absence already
+under way, or counting it in the rate, was never picked. Adding the gain
+without taking it back out simply raises every lead (+0.33 a game played
+too high). Not adopted; the simulator reproduces the effect correctly
+(within-pair slope 2.0 against 2.2 real) if more seasons make the case.
+
+One thing it surfaced: simulated leads fall 0.59 a team game short of what
+they scored but only 0.15 a game played -- the gap is mostly in how often
+they play, so the absence rate for lead backs may be a little high.
 
 ### Breaking news, for everyone
 Injury tags, depth charts and box scores reach the model through the
