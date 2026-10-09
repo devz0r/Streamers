@@ -990,9 +990,31 @@ Doubtful 25%). Measured on 2021-2025 official reports against snap counts,
 for regular contributors (40%+ of snaps earlier that season): Questionable
 RB/WR/TE played **72%** (n=1,238), Questionable QBs **42%** (n=156), and
 Doubtful players **0.5%** (n=183) -- a Doubtful tag means out. Practice
-status separates Questionable further (DNP 48%, limited 71%, full 84%),
-but the platforms do not carry it, so it is not used. The page now shows a
-tagged player's projection both ways: "9.7 (13.5 if he plays, 72%)".
+status separates Questionable further, but the platforms do not carry it, so
+at first it was not used. The page shows a tagged player's projection both
+ways: "9.7 (13.5 if he plays, 72%)".
+
+Later, the official reports themselves (nflverse, refreshed every few hours)
+supply the last practice once the final report with the game status is out.
+Refitted on 2022-2025 the same way: Questionable RB/WR/TE played **57%** after
+no practice (n=141), **73%** after a limited one (552), **88%** after a full
+one (147); QBs 29% / 39% / 82% (14 / 84 / 11). Against the single rate it was
+better in every held-out season (Brier 0.184->0.182, 0.216->0.204,
+0.219->0.211, 0.190->0.185). A questionable player's card says which applies.
+Before the final report, the single rate stands: a Wednesday rest day is not
+a Friday miss.
+
+### How much this week's number leans on the platform's
+Our model and the platform's projection were blended 50/50 by assumption.
+Each league's log now holds ours and the platform's number for every rostered
+or priced player, so the split is fitted on healthy players (both numbers
+mean "if he plays") against what they scored, least squares, shrunk toward
+0.5 with 300 player-weeks of weight. Weeks 3-4 of 2026 put it at 0.40 for
+ESPN (519 player-weeks) and 0.41 for Yahoo (236), but 0.5 was within noise
+of either (RMSE 6.173 vs 6.177 on ESPN) and the weeks disagreed (0.22, 0.53),
+so it is refitted every run rather than fixed; the Lineup tab says what it is
+and on how many games. The betting market and the FantasyPros projection are
+blended on top of this number, with their own fitted weights.
 
 ### Are the ranges and P(win) honest?
 Checked walk-forward: for each season 2022-2025, the spread and outcome

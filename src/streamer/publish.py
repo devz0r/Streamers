@@ -825,6 +825,7 @@ def team_panels_for(
     for name, bound, snap, status, rankings in loaded:
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
+            snap._platform_weight = (projected.platform_weight, projected.platform_games)
             try:
                 attach_vegas(snap, bound, allow_network=allow_network and shared is not None,
                              prefetched=shared)

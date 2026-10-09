@@ -558,3 +558,57 @@ def test_the_card_names_the_teammate_without_his_suffix():
     row = {"back_from": "Marvin Harrison Jr.", "vol_before_back": 10.0, "vol_ros": 9.0, "eff": 1.0}
     assert _back_signal(row, 9.0) == "Marvin Harrison Jr. is back: the games Harrison missed count for less (10.0 -> 9.0 a game)"
     assert _back_signal({**row, "vol_ros": 9.9}, 9.9) == ""          # under 0.3: not worth a line
+
+
+def test_a_questionable_players_last_practice_sets_his_odds(cfg):
+    from streamer.roster.projections import _play_probability
+
+    def p(pos, practice):
+        return PlayerRow(player_id="x", name="X", position=pos, team="KC", status="QUESTIONABLE", practice=practice)
+
+    c = cfg.for_profile("espn")
+    assert _play_probability(p("WR", ""), c) == pytest.approx(0.72)                 # no final report yet
+    assert (_play_probability(p("WR", "DNP"), c) < _play_probability(p("WR", "Limited"), c)
+            < _play_probability(p("WR", "Full"), c))
+    assert _play_probability(p("WR", "Full"), c) == pytest.approx(0.88)
+    assert _play_probability(p("QB", "Limited"), c) == pytest.approx(0.39)
+
+
+def test_practice_reports_read_only_the_final_report(cfg, tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    from streamer.roster.projections import practice_reports
+
+    c = replace(cfg, raw={**cfg.raw})
+    monkeypatch.setattr(type(c), "raw_dir", property(lambda self: tmp_path))
+    pd.DataFrame([
+        {"week": 6, "gsis_id": "a", "report_status": "Questionable", "practice_status": "Limited Participation in Practice",
+         "date_modified": "2026-10-09"},
+        {"week": 6, "gsis_id": "b", "report_status": None, "practice_status": "Did Not Participate In Practice",
+         "date_modified": "2026-10-08"},
+        {"week": 5, "gsis_id": "c", "report_status": "Questionable", "practice_status": "Full Participation in Practice",
+         "date_modified": "2026-10-02"},
+    ]).to_parquet(tmp_path / "injuries_2026.parquet")
+    assert practice_reports(2026, 6, c, allow_network=False) == {"a": "Limited"}
+
+
+def test_the_platform_weight_learns_from_the_log_and_leans_on_the_prior(cfg, tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    from streamer.roster.projections import fit_platform_weight
+
+    c = replace(cfg.for_profile("espn"), raw={**cfg.raw})
+    monkeypatch.setattr(type(c), "results_dir", property(lambda self: tmp_path))
+    rng = np.random.default_rng(0)
+    n = 600
+    truth = rng.uniform(4, 20, n)
+    model = truth + rng.normal(0, 3, n)              # ours: noisier
+    plat = truth + rng.normal(0, 1.5, n)             # the platform's: better here
+    pd.DataFrame({"season": 2026, "week": 3, "nfl_id": [f"p{i}" for i in range(n)], "status": "",
+                  "model_projection": model, "platform_projection": plat}).to_parquet(tmp_path / "skill_log.parquet")
+    hist = pd.DataFrame({"player_id": [f"p{i}" for i in range(n)], "season": 2026, "week": 3,
+                         "fantasy_points_ppr": truth + rng.normal(0, 1, n)})
+    w, games = fit_platform_weight(c, hist)
+    assert games == n and 0.5 < w < 0.8               # pulled toward the platform, shrunk toward 0.5
+    w_few, few = fit_platform_weight(c, hist.iloc[:100])
+    assert few == 100 and w_few == pytest.approx(0.5)  # under the minimum: the prior

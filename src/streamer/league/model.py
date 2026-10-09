@@ -135,6 +135,10 @@ class PlayerRow:
     #: Chance the player suits up this week (injury tags), and his spread if
     #: he does. ``projection``/``projection_sd`` are the blend of both cases.
     play_probability: float = 1.0
+    #: His last practice on this week's official injury report ("DNP",
+    #: "Limited", "Full"), once the final report with his game status is out;
+    #: "" otherwise. Separates questionable players (``_play_probability``).
+    practice: str = ""
     outcome_sd: float | None = None
     #: How far his per-game projection could move over the next month, and
     #: seasons in the league (0 = rookie) where known. Waivers price upside

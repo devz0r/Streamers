@@ -469,9 +469,15 @@ roster:
   # he is treated as inactive. History windows count games, not time, so
   # without this a player out of the league since 2024 kept his 2024 average.
   inactive_weeks: 4
-  # When the platform publishes its own projection, blend it with ours at this
-  # weight. 0 = ours only, 1 = platform only.
+  # When the platform publishes its own projection, blend it with ours: this
+  # is the prior weight on the platform's (0 = ours only, 1 = platform only).
+  # Each run refits it on the league's logged healthy players against their
+  # points, shrunk toward the prior with this many player-weeks of weight
+  # (weeks 3-4 of 2026: ESPN 0.40 on 519, Yahoo 0.41 on 236; 0.5 was within
+  # noise of either).
   platform_projection_weight: 0.5
+  platform_weight_prior_games: 300
+  platform_weight_min_games: 150
   # Chance a player with an injury tag plays, measured on 2021-2025 official
   # reports against snap counts for regular contributors (40%+ of snaps
   # earlier that season): Questionable RB/WR/TE 72%, QB 42% (n=1,546);
@@ -481,6 +487,12 @@ roster:
     QB: 0.42
     default: 0.72
   doubtful_play_probability: 0.02
+  # Questionable, by his last practice on the final report (2022-2025, regular
+  # contributors, against snap counts): better in every held-out season than
+  # one rate (Brier 0.203 -> 0.196). Without the report, the rates above.
+  questionable_by_practice:
+    QB: {DNP: 0.29, Limited: 0.39, Full: 0.82}
+    default: {DNP: 0.57, Limited: 0.73, Full: 0.88}
   # Game-time lottery tickets: a rotating roster spot filled before each
   # kickoff window and dropped if nothing happened (Yahoo allows dropping a
   # bench player after his game starts). Shown for these platforms only.

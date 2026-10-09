@@ -1038,10 +1038,13 @@ def _sources(snapshot, cfg: Config) -> str:
     fconf = fp.conf(cfg)
     roster = [p for p in snapshot.my_team.roster if p.position not in ("K", "DST") and not p.in_ir_slot]
     platform = {"espn": "ESPN", "yahoo": "Yahoo"}.get(snapshot.platform, snapshot.platform.upper())
-    w_plat = float(cfg.raw["roster"].get("platform_projection_weight", 0.5))
+    w_plat, plat_games = getattr(snapshot, "_platform_weight",
+                                 (float(cfg.raw["roster"].get("platform_projection_weight", 0.5)), 0))
     priced = sum(1 for p in roster if p.market_weight > 0)
     expert = sum(1 for p in roster if p.consensus_weight > 0)
-    items = [f"<li>our model and {_e(platform)}'s projection, {1 - w_plat:.0%} and {w_plat:.0%};</li>"]
+    plat_need = int(cfg.raw["roster"].get("platform_weight_min_games", 150))
+    items = [f"<li>our model and {_e(platform)}'s projection, {1 - w_plat:.0%} and {w_plat:.0%}, "
+             f"{_weight_basis(plat_games, plat_need)};</li>"]
     if priced:
         items.append(f"<li>the betting market's implied points, <b>{weights.market:.0%}</b> where books priced him "
                      f"(less when only one or two did; {priced} of your {len(roster)} players this week), "

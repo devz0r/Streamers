@@ -72,6 +72,10 @@ class ProjectionReport:
     lock_notes: list[str] = field(default_factory=list)
     #: QBs/RBs/TEs placed on Sleeper's depth chart.
     depth_matched: int = 0
+    #: The weight this week's projection gave the platform's own number, and
+    #: the graded player-weeks it was fitted on (0: the configured prior).
+    platform_weight: float = 0.5
+    platform_games: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -583,6 +587,65 @@ def _implied_scale(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool) -
     return scale, source
 
 
+def fit_platform_weight(cfg: Config, history: pd.DataFrame) -> tuple[float, int]:
+    """How far our model's number moves toward the platform's: least squares on
+    this league's logged healthy players (both numbers are if-he-plays) against
+    the points they scored, shrunk toward ``platform_projection_weight`` with
+    ``platform_weight_prior_games`` of weight, and the prior alone below
+    ``platform_weight_min_games``. Returns (weight, graded player-weeks)."""
+    conf = cfg.raw["roster"]
+    prior = float(conf.get("platform_projection_weight", 0.5))
+    k = float(conf.get("platform_weight_prior_games", 300))
+    need = int(conf.get("platform_weight_min_games", 150))
+    path = cfg.results_dir / "skill_log.parquet"
+    if not path.exists() or history is None or history.empty:
+        return prior, 0
+    log_ = pd.read_parquet(path)
+    if not {"model_projection", "platform_projection", "nfl_id"} <= set(log_.columns):
+        return prior, 0
+    log_ = log_[(log_["status"].fillna("") == "") & log_["platform_projection"].notna()
+                & (log_["platform_projection"] > 0) & log_["model_projection"].notna() & log_["nfl_id"].notna()]
+    actual = history[["player_id", "season", "week", "fantasy_points_ppr"]].rename(columns={"player_id": "nfl_id"})
+    j = log_.merge(actual, on=["nfl_id", "season", "week"], how="inner")
+    n = len(j)
+    if n < need:
+        return prior, n
+    m, p, y = (j["model_projection"].to_numpy(float), j["platform_projection"].to_numpy(float),
+               j["fantasy_points_ppr"].to_numpy(float))
+    den = float(((p - m) ** 2).sum())
+    if den <= 0:
+        return prior, n
+    fit = min(max(float(((y - m) * (p - m)).sum()) / den, 0.0), 1.0)
+    return (n * fit + k * prior) / (n + k), n
+
+
+def practice_reports(season: int, week: int, cfg: Config, allow_network: bool) -> dict[str, str]:
+    """nflverse id -> his last practice this week ("DNP", "Limited", "Full"),
+    for players whose final report -- the one that carries a game status --
+    is out. Practice alone before then is a partial week."""
+    path = cfg.raw_dir / f"injuries_{int(season)}.parquet"
+    if allow_network:
+        from ..data.nflverse import load_injuries
+
+        inj = load_injuries(season, cfg)
+    elif path.exists():
+        inj = pd.read_parquet(path)
+    else:
+        return {}
+    if inj is None or inj.empty or "practice_status" not in inj.columns:
+        return {}
+    wk = inj[(inj["week"] == int(week)) & inj["report_status"].isin(["Questionable", "Doubtful", "Out"])]
+    if "date_modified" in wk.columns:
+        wk = wk.sort_values("date_modified")
+    out = {}
+    for gid, prac in zip(wk["gsis_id"], wk["practice_status"]):
+        text = str(prac or "")
+        tag = "DNP" if "Did Not" in text else "Limited" if "Limited" in text else "Full" if "Full" in text else ""
+        if gid and tag:
+            out[str(gid)] = tag
+    return out
+
+
 def _play_probability(player: PlayerRow, cfg: Config) -> float:
     """Chance the player suits up this week, from his injury tag."""
     conf = cfg.raw["roster"]
@@ -591,6 +654,10 @@ def _play_probability(player: PlayerRow, cfg: Config) -> float:
     if player.status in ("DOUBTFUL", "D"):
         return float(conf["doubtful_play_probability"])
     if player.is_questionable:
+        by = (conf.get("questionable_by_practice") or {})
+        row = by.get(player.position, by.get("default")) if player.practice else None
+        if row and player.practice in row:
+            return float(row[player.practice])
         q = conf["questionable_play_probability"]
         if isinstance(q, dict):
             return float(q.get(player.position, q.get("default", 0.72)))
@@ -939,7 +1006,12 @@ def project_snapshot(
     sds = sd_table(history, cfg)
     scale, report.line_source = _implied_scale(snapshot, cfg, allow_network)
     damping = float(conf["vegas_damping"])
-    w_platform = float(conf["platform_projection_weight"])
+    try:
+        w_platform, report.platform_games = fit_platform_weight(cfg, history)
+    except Exception as exc:  # noqa: BLE001 - fall back to the prior
+        log.warning("platform weight fit failed: %s", exc)
+        w_platform, report.platform_games = float(conf["platform_projection_weight"]), 0
+    report.platform_weight = w_platform
     inactive_weeks = int(conf.get("inactive_weeks", 4))
     long_gone_weeks = int(conf.get("long_gone_weeks", 18))
     first_known = int(history["season"].min()) if not history.empty else snapshot.season
@@ -982,6 +1054,16 @@ def project_snapshot(
     # only when the platform projects nearly everyone, so an unpopulated feed
     # cannot bench a whole roster. It says nothing about the rest of the
     # season, so rest-of-season value is kept.
+    # His last practice, once the final injury report is out: a questionable
+    # player who practised fully plays far more often than one who did not.
+    try:
+        practiced = practice_reports(int(snapshot.season), int(snapshot.week), cfg, allow_network)
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("practice reports unavailable: %s", exc)
+        practiced = {}
+    for p in players:
+        nid = matched.mapping.get(p.player_id)
+        p.practice = practiced.get(str(nid), "") if nid is not None else ""
     sits = {
         p.player_id for p in players
         if p.platform_projection is not None and p.platform_projection <= 0 and platform_covers
@@ -1158,6 +1240,10 @@ def project_snapshot(
             continue
         p.outcome_sd = round(sd or 0.0, 2)
         p.play_probability = _play_probability(p, cfg)
+        if p.is_questionable and p.practice and not p.is_out:
+            words = {"DNP": "no practice", "Limited": "a limited practice", "Full": "a full practice"}
+            p.signals.append(f"questionable after {words[p.practice]}: {p.play_probability:.0%} to play "
+                             "(questionable players like him, 2022-2025)")
         own = model_mean if model_mean is not None else mean
         own, _own_sd = _status_adjust(own, sd or 0.0, p, cfg)
         mean, sd = _status_adjust(mean, sd or 0.0, p, cfg)

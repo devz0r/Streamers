@@ -209,6 +209,28 @@ def load_snap_counts(seasons: list[int], cfg: Config | None = None, refresh: boo
     return out
 
 
+#: Hours this season's injury reports are reused: they change every practice day.
+INJURY_MAX_AGE_HOURS = 3.0
+
+
+def load_injuries(season: int, cfg: Config | None = None, refresh: bool = False) -> pd.DataFrame:
+    """The official injury reports for ``season`` (nflverse): each player's
+    game status and his last practice, week by week. Refreshed every few
+    hours while the season is played. Empty when unavailable."""
+    cfg = cfg or get_config()
+    path = cfg.raw_dir / f"injuries_{int(season)}.parquet"
+    live = int(season) >= int(cfg.current_season)
+
+    def build() -> pd.DataFrame:
+        return _to_pandas(_nflreadpy().load_injuries(seasons=[int(season)]))
+
+    try:
+        return cached_frame(path, build, refresh=refresh, max_age_hours=INJURY_MAX_AGE_HOURS if live else None)
+    except Exception as exc:  # noqa: BLE001 - practice reports refine a tag; never block a projection
+        log.warning("could not load injury reports for %s: %s", season, exc)
+        return pd.DataFrame()
+
+
 def games_frame(cfg: Config | None = None, refresh: bool = False) -> pd.DataFrame:
     """One row per team-game: team, opponent, home flag, venue, result.
 
