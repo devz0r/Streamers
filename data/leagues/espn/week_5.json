@@ -7342,7 +7342,7 @@
           "name": "D'Andre Swift",
           "position": "RB",
           "team": "CHI",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "RB",
           "eligible_slots": [
             "FLEX",
@@ -9572,7 +9572,7 @@
           "name": "Caleb Williams",
           "position": "QB",
           "team": "CHI",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "IR",
           "eligible_slots": [
             "QB",
@@ -28929,7 +28929,7 @@
       "name": "Jalen Nailor",
       "position": "WR",
       "team": "LV",
-      "status": "QUESTIONABLE",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -31643,7 +31643,7 @@
       "name": "Cody White",
       "position": "WR",
       "team": "LV",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -40239,7 +40239,7 @@
       "name": "Noah Fant",
       "position": "TE",
       "team": "NO",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -53728,7 +53728,7 @@
     "my_points": 0.0,
     "opp_points": 28.0
   },
-  "synced_at": "2026-10-09T18:30:47.179836+00:00",
+  "synced_at": "2026-10-09T19:23:02.683727+00:00",
   "extra": {
     "nfl_week": 5,
     "current_week": 5
