@@ -119,6 +119,8 @@ class Trade:
     p_accept: float
     p_base: float = 0.0
     p_new: float = 0.0
+    po_base: float = 0.0          # P(make the playoffs) now and after the trade
+    po_new: float = 0.0
     their_base: float = 0.0
     their_new: float = 0.0
     noise: float = 0.0
@@ -223,6 +225,7 @@ class TradeFinder:
         base = model.odds()
         self.base_champ = base.champion
         self.base_p = base.p_title
+        self.base_po = base.p_playoffs
 
     # -- the two views of a player ----------------------------------------
     def ours(self, p: PlayerRow) -> float:
@@ -341,6 +344,7 @@ class TradeFinder:
         won_base = (self.base_champ == self.mine).astype(float)
         t.p_base, t.p_new = float(self.base_p[self.mine]), float(odds.p_title[self.mine])
         t.their_base, t.their_new = float(self.base_p[k]), float(odds.p_title[k])
+        t.po_base, t.po_new = float(self.base_po[self.mine]), float(odds.p_playoffs[self.mine])
         t.noise = float((won_new - won_base).std() / np.sqrt(len(won_new)))
         return t
 

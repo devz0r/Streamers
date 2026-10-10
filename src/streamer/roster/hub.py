@@ -36,6 +36,9 @@ class HubAction:
     note: str           # verdict, yes-chance, timing
     section: str        # which detail section explains it
     firm: bool = True   # False when the outcome is not yours alone (a trade offer)
+    #: Change in P(make the playoffs), where the move was priced on the season
+    #: simulation (waivers, trades); None for this week's lineup and streams.
+    playoffs: float | None = None
 
 
 def week_title_value(report) -> float | None:
@@ -123,7 +126,7 @@ def actions(report, cfg=None) -> list[HubAction]:
             detail += f"; keeps him from {m.rival_name}"
         detail += second(m.add)
         out.append(HubAction("Block" if blocking else "Waiver", f"Add {m.add.name}", detail, gain,
-                             note, "waivers"))
+                             note, "waivers", playoffs=(m.po_now - m.po_base) if getattr(m, "po_base", 0) else None))
     for plan in getattr(report, "plans", None) or []:
         from .waiver_plans import claims_text, drops_text
 
@@ -150,6 +153,7 @@ def actions(report, cfg=None) -> list[HubAction]:
                                  f"with {t.partner.name}" + "".join(second(p) for p in t.get + t.give),
                                  t.p_accept * t.gain,
                                  f"{t.gain * 100:+.1f} if he accepts, chance of a yes ~{t.p_accept:.0%}"
-                                 + ("; win-win" if t.win_win else ""), "trades", firm=False))
+                                 + ("; win-win" if t.win_win else ""), "trades", firm=False,
+                                 playoffs=t.p_accept * (t.po_new - t.po_base) if getattr(t, "po_base", 0) else None))
     out.sort(key=lambda a: -a.gain)
     return [a for a in out if a.gain > 0]

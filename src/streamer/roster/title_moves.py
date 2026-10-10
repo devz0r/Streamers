@@ -76,6 +76,9 @@ class TitleMove:
     #: Share of seasons a rival lands him if you pass, and who most often.
     rival_share: float = 0.0
     rival_name: str = ""
+    #: P(make the playoffs) now and adding him now (same seasons as the title).
+    po_base: float = 0.0
+    po_now: float = 0.0
     #: When the drop is a toss-up: every drop the simulation cannot tell
     #: from the best, with P(title) adding him now, best first ("drop A or B").
     drop_options: list[tuple[PlayerRow, float]] = field(default_factory=list)
@@ -274,8 +277,10 @@ class TitleEngine:
         also = [p for p in extra or [] if p.player_id not in have]
         self.model = SeasonModel(snapshot, cfg, n_sims=n_sims, seed=seed, extra_players=self.candidates + also)
         self.mine = self.model.team_index[me.team_id]
-        self.base_won = (self.model.odds().champion == self.mine).astype(float)
+        base_odds = self.model.odds()
+        self.base_won = (base_odds.champion == self.mine).astype(float)
         self.base = float(self.base_won.mean())
+        self.base_playoffs = float(base_odds.p_playoffs[self.mine])
         self.n_teams = len(snapshot.teams)
         self.rank = int(me.waiver_rank or self.n_teams)
         self.activity = league_activity(snapshot)
@@ -547,7 +552,16 @@ class TitleEngine:
         self.passed += [(m.add, m.gain_now, self.upside[m.add.player_id]) for m in out[n:]
                         if m.add.player_id in self.upside]
         self.passed.sort(key=lambda t: -t[1])
+        for m in out[:n]:
+            m.po_base = self.base_playoffs
+            m.po_now = self.playoffs_with(m.add, m.drop)
         return out[:n]
+
+    def playoffs_with(self, add: PlayerRow, drop: PlayerRow) -> float:
+        """P(make the playoffs) adding him now and dropping ``drop``."""
+        roster = [p.player_id for p in self.me.roster if p.player_id != drop.player_id] + [add.player_id]
+        scores = self.model.team_scores(roster, owner=self.me.team_id)
+        return float(self.model.odds(override={self.me.team_id: scores}).p_playoffs[self.mine])
 
     def _reasons(self, m: TitleMove) -> list[str]:
         pts = lambda v: f"{v * 100:+.1f}"      # noqa: E731

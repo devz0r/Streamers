@@ -57,3 +57,11 @@ def test_no_season_model_means_no_weekly_title_value():
     r.stakes = None
     assert week_title_value(r) is None
     assert not [a for a in actions(r) if a.kind in ("Lineup", "Stream")]
+
+
+def test_a_move_priced_on_the_season_also_shows_its_playoff_change():
+    from streamer.roster.hub import HubAction
+    from streamer.roster.page import _hub  # noqa: F401  (the table reads the field)
+
+    a = HubAction("Trade", "Trade A for B", "with C", 0.014, "yes", "trades", firm=False, playoffs=0.04)
+    assert a.playoffs == 0.04 and HubAction("Lineup", "x", "y", 0.01, "z", "lineup").playoffs is None

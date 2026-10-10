@@ -452,6 +452,11 @@ on the players who played -- start/sit accuracy and average miss -- with
 ours on the same players beside it. It builds up over the season.
 
 ### Championship hub
+Moves are ranked by title odds (which already require making the playoffs: a
+season that misses them wins nothing); under each gain, the Hub shows what
+the move does to your chance of making the playoffs, and waiver and trade
+cards carry it too.
+
 
 The top of each My-team panel ranks every move you can make -- lineup
 changes, D/ST and K streams, waiver claims and blocks, multi-move plans,

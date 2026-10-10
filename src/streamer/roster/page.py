@@ -466,7 +466,10 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
         return (f'<tr><td>{i}</td><td class="unit"><span class="kind kind-{a.kind.lower()}">{a.kind}</span> '
                 f"<b>{_e(a.headline)}</b><div class='why'>{_e(a.detail)}; {_e(a.note)} &middot; {link}</div></td>"
                 f'<td class="{"pos" if a.firm else ""}"><span class="delta{"" if a.firm else " soft"}">'
-                f"{a.gain * 100:+.1f}</span></td></tr>")
+                f"{a.gain * 100:+.1f}</span>"
+                + (f'<div class="po" title="change in your chance to make the playoffs">'
+                   f"playoffs {a.playoffs * 100:+.1f}</div>" if a.playoffs is not None else "")
+                + "</td></tr>")
 
     rows = "".join(row(i + 1, a) for i, a in enumerate(acts[:_HUB_SHOWN]))
     more = ""
@@ -477,7 +480,7 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
     return (head + "<div class='scroll'><table class='hub-table'><thead><tr><th>#</th>"
             "<th class='unit'>Move</th><th>+Title</th></tr></thead>"
             f"<tbody>{rows}</tbody></table></div>{more}"
-            '<p class="sub">Points of title odds each move adds on its own, against your roster as it '
+            '<p class="sub">Points of title odds (and, under it, of playoff odds) each move adds on its own, against your roster as it '
             "stands -- they do not add up; make the top one and refresh. This week's lineup and "
             "streams are priced through what a win this week is worth to your title odds. A trade needs "
             "a yes, so it is ranked by what it adds times the chance he accepts.</p>"
@@ -513,7 +516,8 @@ def _title_moves(report: MatchupReport) -> str:
             f'{_e(drop_choice(m.drop, m.drop_options))}</span></div>'
             f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
             f'<div class="meta"><span class="{css}">{label}</span>'
-            f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span></div>"
+            f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span>"
+            + (f"<span>playoffs {m.po_base:.0%} &rarr; {m.po_now:.0%}</span>" if getattr(m, "po_base", 0) else "") + "</div>"
             f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
     return head + "".join(cards) + _passed(report)
 
@@ -585,7 +589,8 @@ def _trade_card(t) -> str:
         f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}</span></div>'
         f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
         f'<div class="meta">{win}<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}</span>'
-        f"<span>yes: {acceptance_label(t.p_accept)} (~{t.p_accept:.0%})</span>"
+        + (f"<span>playoffs {t.po_base:.0%} &rarr; {t.po_new:.0%}</span>" if getattr(t, "po_base", 0) else "")
+        + f"<span>yes: {acceptance_label(t.p_accept)} (~{t.p_accept:.0%})</span>"
         f"<span>his title {t.their_base:.1%} &rarr; {t.their_new:.1%}</span></div>"
         f'<div class="why"><b>For you:</b> {_e("; ".join(t.why_you))}.<br>'
         f'<b>For him:</b> {_e("; ".join(t.why_them))}.</div></div>')
