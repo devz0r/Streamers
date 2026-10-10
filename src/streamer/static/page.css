@@ -176,7 +176,7 @@ tr:has(+ tr > td.why) > td { border-bottom: 0; }
 .kind-trade { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
 .kind-block { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
 .kind-lineup, .kind-stream, .kind-pickup { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.kind-waiver, .kind-plan { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.kind-waiver, .kind-stash, .kind-plan { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
 .roster-table td { vertical-align: top; }
 .roster-table td.unit { white-space: normal; min-width: 11rem; }
 .roster-table .tags { color: var(--muted); font-size: 12px; font-weight: 450; margin-top: 2px; }

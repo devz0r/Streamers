@@ -851,6 +851,10 @@ def parse_settings(html: str) -> dict[str, Any]:
         out["median_game"] = rows["play against median score"].strip().lower().startswith("y")
     if "playoff reseeding" in rows:
         out["reseed"] = rows["playoff reseeding"].strip().lower().startswith("y")
+    positions = rows.get("roster positions", "")
+    if positions:
+        # "QB, WR, WR, ..., BN, BN, IR, IR": each IR listed is one slot.
+        out["ir_slots"] = len(re.findall(r"\bIR\+?(?![-\w])", positions))
     if "playoff tie-breaker" in rows:
         out["playoff_tiebreak"] = "higher seed" if "seed" in rows["playoff tie-breaker"].lower() else "points"
     if out:
@@ -892,14 +896,16 @@ def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
     return sorted(ids, key=int)[0] if len(ids) == 1 else None
 
 
-def free_agent_path(league_id: str, pos: str, week: int, offset: int) -> str:
+def free_agent_path(league_id: str, pos: str, week: int, offset: int, sort: str = "PTS") -> str:
     """The player-list URL: available players, this week's projection, best first.
 
     One definition shared by the sync and the probe, so the probe always
-    describes the page the sync actually parses.
+    describes the page the sync actually parses. ``sort="OR"`` orders by
+    Yahoo's overall rank instead, which reaches the injured players a
+    projection of zero buries (IR stashes).
     """
     return (f"/f1/{league_id}/players?status=A&pos={pos}&cut_type=9"
-            f"&stat1=S_PW_{week}&myteam=0&sort=PTS&sdir=1&count={offset}")
+            f"&stat1=S_PW_{week}&myteam=0&sort={sort}&sdir=1&count={offset}")
 
 
 def projected_stat_label(soup) -> str:
@@ -976,7 +982,7 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
     import time
     from datetime import UTC, datetime
 
-    from .model import LeagueSnapshot, Matchup, TeamRow
+    from .model import IR_ELIGIBLE_STATUSES, LeagueSnapshot, Matchup, TeamRow
 
     creds = credentials()
     if not creds["cookie"]:
@@ -1027,15 +1033,23 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
     rules = _league_rules(get, league, week, len(standings), league_html, known or [])
 
     free_agents: list = []
-    for pos, pages in (("O", (0, 25)), ("K", (0,)), ("DEF", (0,))):
+    for pos, pages, sort in (("O", (0, 25), "PTS"), ("K", (0,), "PTS"), ("DEF", (0,), "PTS"), ("O", (0,), "OR")):
         for offset in pages:
-            path = free_agent_path(league, pos, week, offset)
+            path = free_agent_path(league, pos, week, offset, sort)
             try:
-                free_agents.extend(parse_free_agents(get(path), week))
+                rows = parse_free_agents(get(path), week)
             except RuntimeError:
                 raise
             except Exception as exc:  # noqa: BLE001 - a thin wire beats no snapshot
                 log.warning("Yahoo free agents %s@%s failed: %s", pos, offset, exc)
+                continue
+            if sort != "PTS":
+                # The rank-ordered page is read for the injured it reaches;
+                # everyone else on it is already on the projection pages.
+                have = {p.player_id for p in free_agents}
+                rows = [p for p in rows if p.player_id not in have and p.status in IR_ELIGIBLE_STATUSES]
+                log.info("Yahoo free agents by rank: %d on a reserve list or out", len(rows))
+            free_agents.extend(rows)
 
     teams = []
     for row in standings or [{"team_id": my_id, "name": "My team", "wins": 0,

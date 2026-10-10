@@ -406,8 +406,9 @@ def test_espn_league_rules_capture_schedule_playoffs_and_waivers():
     league = NS(teams=[a, b, c, d], settings=NS(
         reg_season_count=3, playoff_team_count=2, playoff_matchup_period_length=1,
         playoff_seed_tie_rule="TOTAL_POINTS_SCORED", median_scoring=True, faab=True,
-        acquisition_budget=100))
+        acquisition_budget=100, position_slot_counts={"QB": 1, "BE": 7, "IR": 2}))
     rules = espn.league_rules(league)
+    assert rules["ir_slots"] == 2
     assert rules["regular_season_weeks"] == 3 and rules["playoff_teams"] == 2
     assert rules["tiebreak"] == "points" and rules["median_game"] and rules["waiver"] == "faab"
     assert rules["faab_budget"] == 100

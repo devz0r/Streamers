@@ -6,7 +6,15 @@ import pytest
 
 from streamer.league.model import PlayerRow
 from streamer.roster import season as season_mod
-from streamer.roster.title_moves import TitleEngine, drop_choice, p_win_claim, toss_ups
+from streamer.roster.title_moves import (
+    TitleEngine,
+    TitleMove,
+    drop_choice,
+    ir_capacity,
+    move_text,
+    p_win_claim,
+    toss_ups,
+)
 from test_season import _league
 
 
@@ -158,3 +166,70 @@ def test_a_drop_below_standing_pat_is_never_offered_beside_the_best():
     assert {q.player_id for q, _p in toss_ups(options)} == {"best", "worse"}                   # without a floor: a toss-up
     got = toss_ups(options, floor=float(pat.mean()))
     assert [q.player_id for q, _p in got] == ["best"]                                           # with it: not an alternative
+
+
+def _stash(pid: str, pos: str, ros: float) -> PlayerRow:
+    p = _fa(pid, pos, ros)
+    p.status, p.projection, p.games_missed = "INJURY_RESERVE", 0.0, 1
+    return p
+
+
+def _wire(snap, extra):
+    snap.free_agents = [_fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0), _fa("rep3", "RB", 5.5),
+                        _fa("rep4", "WR", 5.5)] + extra
+    for t in snap.teams:
+        t.acquisitions = 3
+
+
+def test_ir_slots_come_from_the_rules_else_the_fullest_roster():
+    snap = _league([1.0, 1.0, 1.0, 1.0])
+    assert ir_capacity(snap) == 0
+    snap.teams[2].roster[-1].slot = "IR"
+    assert ir_capacity(snap) == 1
+    snap.rules["ir_slots"] = 2
+    assert ir_capacity(snap) == 2
+
+
+def test_an_injured_star_goes_into_an_open_ir_slot_without_a_drop_now(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    snap.rules["ir_slots"] = 1
+    _wire(snap, [_stash("hurt", "RB", 22.0)])
+    engine = TitleEngine(snap, cfg, n_sims=3000, candidates=8)
+    assert "hurt" in engine.stash and engine.ir_open == 1
+    moves = {m.add.player_id: m for m in engine.moves(8)}
+    m = moves["hurt"]
+    assert m.how == "ir-open" and m.p_now > engine.base
+    # Nobody goes now: the player named goes the week he is back.
+    assert move_text(m).startswith("stash in your open IR slot; when he is back, drop ")
+    assert any(r.startswith("IR stash") for r in m.reasons)
+
+
+def test_no_ir_slots_no_stash(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    _wire(snap, [_stash("hurt", "RB", 22.0)])
+    engine = TitleEngine(snap, cfg, n_sims=300, candidates=8)
+    assert engine.ir_slots == 0 and not engine.stash
+    assert "hurt" not in {p.player_id for p in engine.candidates}
+
+
+def test_a_full_ir_slot_is_offered_as_a_swap_for_its_occupant(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    snap.rules["ir_slots"] = 1
+    occ = _stash("dud", "WR", 2.0)
+    occ.slot, occ.team = "IR", "SEA"
+    snap.teams[0].roster.append(occ)
+    _wire(snap, [_stash("hurt", "RB", 22.0)])
+    engine = TitleEngine(snap, cfg, n_sims=3000, candidates=8)
+    assert engine.ir_open == 0
+    ways = {(y.player_id, how) for y, _w, how in engine._options(engine.snapshot.free_agents[-1],
+                                                                engine.worth_mean())}
+    assert ("dud", "ir-swap") in ways and not any(how == "ir-open" for _y, how in ways)
+
+
+def test_move_text_says_how_he_joins_the_roster():
+    a, b, c = (PlayerRow(player_id=x, name=x, position="RB", team="SEA", slot="BN") for x in "ABC")
+    plain = TitleMove(add=a, drop=b, p_now=0.1, p_wait=0.0, p_base=0.1, priority_cost=0.0, verdict="claim")
+    assert move_text(plain) == "drop B"
+    swap = TitleMove(add=a, drop=b, p_now=0.1, p_wait=0.0, p_base=0.1, priority_cost=0.0, verdict="claim",
+                     how="ir-swap", later=c)
+    assert move_text(swap) == "stash in B's IR slot (drop B); when he is back, drop C"

@@ -84,6 +84,8 @@ def test_settings_give_the_season_structure():
     assert rules["waiver"] == "priority" and rules["waiver_order"] == "rolling"
     assert rules["reseed"] is True and rules["median_game"] is False
     assert rules["playoff_tiebreak"] == "higher seed"
+    assert rules["ir_slots"] == 2
+    assert parse_settings(settings_page(positions="QB, RB, BN"))["ir_slots"] == 0
     # Two-week rounds: four teams over weeks 14-17.
     two = parse_settings(settings_page("4 teams - Week 14, 15, 16 and 17", waiver="FAAB", reseed="No"))
     assert two["regular_season_weeks"] == 13 and two["playoff_round_weeks"] == 2
@@ -189,7 +191,10 @@ def test_snapshot_assembles_from_the_website(monkeypatch):
     assert snap.opponent.name == "The Rival" and len(snap.opponent.roster) == 11
     assert snap.slots["FLEX"] == 1 and snap.bench_size == 2
     # Offense (two pages), K and DEF lists were each requested.
-    assert sum("players?" in u for u in fake.asked) == 4
+    # Two projection pages of skill players, kickers, defences, and one page
+    # by overall rank for the injured (IR stashes) the projection buries.
+    assert sum("players?" in u for u in fake.asked) == 5
+    assert sum("sort=OR" in u for u in fake.asked) == 1
     assert all("stat1=S_PW_3" in u for u in fake.asked if "players?" in u)
     assert len(snap.free_agents) == 8
     # Round-trips through the same JSON the ESPN snapshots use.

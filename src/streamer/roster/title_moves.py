@@ -20,6 +20,15 @@ A claim is recommended only when adding now beats waiting by more than the
 priority it burns. "Worth adding, not worth priority" is said out loud: the
 player is an upgrade, but the simulation expects you could still land him
 when it matters.
+
+**IR stashes.** A free agent on a reserve list (IR, PUP, suspended) costs no
+roster spot while he sits in an empty IR slot. The best of them are priced
+like any pickup -- the simulation already draws whether and when he comes
+back (fitted on 2022-2025) -- with the IR slot as his way onto the roster:
+an open slot (your least valuable player goes the week he returns, when he
+needs a bench spot), the slot of a player already there (who is dropped),
+or a bench spot like anyone else. Waiting means claiming him when he is
+back, against the rivals who want him then.
 """
 
 from __future__ import annotations
@@ -30,7 +39,7 @@ from math import comb
 import numpy as np
 
 from ..config import Config
-from ..league.model import LeagueSnapshot, PlayerRow
+from ..league.model import IR_ELIGIBLE_STATUSES, LONG_TERM_OUT_STATUSES, LeagueSnapshot, PlayerRow
 from .season import SeasonModel
 from .waivers import MIN_KEEP, handcuffs
 
@@ -56,6 +65,8 @@ TOSS_UP_SE = 2.0
 UPSIDE_EACH = 3
 #: Backups starting now because the man ahead of them is out, per position.
 STEPPING_EACH = 2
+#: Free agents on a reserve list priced as IR stashes, best season value first.
+STASH_EACH = 6
 
 
 @dataclass
@@ -82,6 +93,11 @@ class TitleMove:
     #: When the drop is a toss-up: every drop the simulation cannot tell
     #: from the best, with P(title) adding him now, best first ("drop A or B").
     drop_options: list[tuple[PlayerRow, float]] = field(default_factory=list)
+    #: How he joins the roster: "" (a bench spot, ``drop`` goes now),
+    #: "ir-open" (an empty IR slot; ``drop`` goes when he returns) or
+    #: "ir-swap" (``drop``'s IR slot; ``drop`` goes now, ``later`` when he returns).
+    how: str = ""
+    later: PlayerRow | None = None
 
     @property
     def block_value(self) -> float:
@@ -163,6 +179,27 @@ def p_win_claim(rank: int, n_teams: int, activity: float) -> float:
         win = comb(worse, m) / comb(others, m) if m <= worse else 0.0
         total += p_m * win
     return total
+
+
+def ir_capacity(snapshot: LeagueSnapshot) -> int:
+    """IR slots on each roster: as the league's settings state them, else the
+    most any team has filled (a floor on the real number)."""
+    stated = (snapshot.rules or {}).get("ir_slots")
+    if stated is not None:
+        return int(stated)
+    return max((sum(1 for p in t.roster if p.in_ir_slot) for t in snapshot.teams), default=0)
+
+
+def move_text(m: TitleMove, options: list[tuple[PlayerRow, float]] | None = None) -> str:
+    """What the move asks of your roster: "drop Pitts", or for a stash, which
+    IR slot he takes and who goes when he is back."""
+    how, then = getattr(m, "how", ""), getattr(m, "later", None)
+    later = f"; when he is back, drop {then.name}" if then is not None else ""
+    if how == "ir-open":
+        return f"stash in your open IR slot; when he is back, drop {m.drop.name}"
+    if how == "ir-swap":
+        return f"stash in {m.drop.name}'s IR slot (drop {m.drop.name}){later}"
+    return f"drop {drop_choice(m.drop, options if options is not None else getattr(m, 'drop_options', None))}"
 
 
 def toss_ups(options: list[tuple[PlayerRow, np.ndarray]],
@@ -276,6 +313,16 @@ class TitleEngine:
         self.upside = self._upside_candidates(snapshot, pool)
         have = {p.player_id for p in self.candidates}
         self.candidates.extend(p for p in pool if p.player_id in self.upside and p.player_id not in have)
+        # IR stashes: the best free agents on a reserve list, when the league
+        # has IR slots. They join the candidates; ``_options`` prices the slot.
+        self.ir_slots = ir_capacity(snapshot)
+        self.ir_open = max(self.ir_slots - sum(1 for p in me.roster if p.in_ir_slot), 0)
+        stash = sorted((p for p in snapshot.free_agents
+                        if p.position in SKILL and p.status in LONG_TERM_OUT_STATUSES and p.team
+                        and not p.unsigned and p.ros_value is not None),
+                       key=lambda p: -float(p.ros_value or 0.0)) if self.ir_slots else []
+        self.stash = {p.player_id for p in stash[:STASH_EACH]}
+        self.candidates.extend(p for p in stash[:STASH_EACH])
         self.n_drops = drops
         have = {p.player_id for p in self.candidates}
         also = [p for p in extra or [] if p.player_id not in have]
@@ -441,6 +488,8 @@ class TitleEngine:
     def _breakout_week(self, add: PlayerRow, drop: PlayerRow) -> np.ndarray:
         """First week index (>= 1) each simulation shows him breaking out, or
         a week past the season when he never does."""
+        if add.player_id in self.stash:
+            return self._return_week(add)
         lv = self.model.futures.levels
         xa, xd = self.model.pid[add.player_id], self.model.pid.get(drop.player_id)
         lx = lv[:, xa, :]
@@ -450,6 +499,55 @@ class TitleEngine:
         hit[:, : self.model.lag + 1] = False         # this week is already being claimed on
         k = np.where(hit.any(axis=1), hit.argmax(axis=1), lv.shape[2] + 1)
         return k
+
+    def _return_week(self, add: PlayerRow) -> np.ndarray:
+        """First week index each simulation has him back on the field (after
+        this week), or a week past the season when he never is."""
+        played = self.model.futures.played
+        lv = self.model.futures.levels
+        x = self.model.pid[add.player_id]
+        on = (played[:, x, :] if played is not None else lv[:, x, :] > 0).copy()
+        on[:, : self.model.lag + 1] = False
+        return np.where(on.any(axis=1), on.argmax(axis=1), lv.shape[2] + 1)
+
+    def _options(self, x: PlayerRow, worth: dict[str, float]) -> list[tuple[PlayerRow, np.ndarray, str]]:
+        """Every way onto your roster worth pricing for ``x``, priced per
+        season: (the player who goes, title wins, how). A bench spot for one
+        of the usual drops; for a player the IR slot takes, an open slot (your
+        least valuable player goes when he returns) or a filled one (its
+        occupant goes now)."""
+        out = [(y, self.value_now(x, y, per_sim=True), "")
+               for y in drop_candidates(self.me.roster, x, self.n_drops, worth)]
+        if not self.ir_slots or x.status not in IR_ELIGIBLE_STATUSES:
+            return out
+        later = self.later_drop(x, worth)
+        if self.ir_open and later is not None:
+            out.append((later, self.value_stash(x, None, later, per_sim=True), "ir-open"))
+        for occ in (p for p in self.me.roster if p.in_ir_slot):
+            out.append((occ, self.value_stash(x, occ, later, per_sim=True), "ir-swap"))
+        return out
+
+    def later_drop(self, x: PlayerRow, worth: dict[str, float]) -> PlayerRow | None:
+        """Who goes when a stash comes back and needs a bench spot: the
+        cheapest drop for him."""
+        pool = _droppable(self.me.roster, x, worth)
+        return pool[0] if pool else None
+
+    def value_stash(self, add: PlayerRow, drop: PlayerRow | None, later: PlayerRow | None,
+                    per_sim: bool = False):
+        """P(title) stashing him in an IR slot: ``drop`` (an IR occupant) goes
+        now, ``later`` the week he is back on the field."""
+        roster = [p.player_id for p in self.me.roster if drop is None or p.player_id != drop.player_id]
+        gone = {later.player_id: self._return_week(add)} if later is not None else {}
+        won = self._won(roster + [add.player_id], gone_from=gone)
+        return won if per_sim else float(won.mean())
+
+    def _won_move(self, m: TitleMove) -> np.ndarray:
+        """Per season: title wins making move ``m`` the way it says."""
+        if m.how:
+            return self.value_stash(m.add, m.drop if m.how == "ir-swap" else None,
+                                    m.later if m.how == "ir-swap" else m.drop, per_sim=True)
+        return self.value_now(m.add, m.drop, per_sim=True)
 
     def value_wait(self, add: PlayerRow, drop: PlayerRow, rank: int, per_sim: bool = False):
         """P(title) if you hold, and claim him the week after he breaks out.
@@ -507,16 +605,24 @@ class TitleEngine:
         worth = self.worth_mean()
         for x in self.candidates:
             best: TitleMove | None = None
-            priced = [(y, self.value_now(x, y, per_sim=True))
-                      for y in drop_candidates(self.me.roster, x, self.n_drops, worth)]
-            won_by = {y.player_id: w for y, w in priced}
-            if priced:
-                # Drops the simulation cannot tell apart are all offered.
-                options = toss_ups(priced, self.market_value, floor=self.base)
-                y, p_now = options[0]
-                best = TitleMove(add=x, drop=y, p_now=p_now, p_wait=0.0, p_base=self.base,
-                                 priority_cost=0.0, verdict="skip",
-                                 drop_options=options if len(options) > 1 else [])
+            ways = self._options(x, worth)
+            # The best way in decides; bench drops the simulation cannot tell
+            # apart are all offered.
+            priced = [(y, w) for y, w, how in ways if not how]
+            won_by = {y.player_id: w for y, w, how in ways if not how}
+            if ways:
+                y, w, how = max(ways, key=lambda t: float(t[1].mean()))
+                if how:
+                    later = self.later_drop(x, worth) if how == "ir-swap" else None
+                    best = TitleMove(add=x, drop=y, p_now=float(w.mean()), p_wait=0.0, p_base=self.base,
+                                     priority_cost=0.0, verdict="skip", how=how, later=later)
+                    won_by = {y.player_id: w}
+                else:
+                    options = toss_ups(priced, self.market_value, floor=self.base)
+                    y, p_now = options[0]
+                    best = TitleMove(add=x, drop=y, p_now=p_now, p_wait=0.0, p_base=self.base,
+                                     priority_cost=0.0, verdict="skip",
+                                     drop_options=options if len(options) > 1 else [])
             if best is None or best.p_now - self.base < MIN_GAIN - BLOCK_ALLOWANCE:
                 if best is not None and x.player_id in self.upside:
                     self.passed.append((x, best.p_now - self.base, self.upside[x.player_id]))
@@ -558,13 +664,22 @@ class TitleEngine:
         self.passed.sort(key=lambda t: -t[1])
         for m in out[:n]:
             m.po_base = self.base_playoffs
-            m.po_now = self.playoffs_with(m.add, m.drop)
+            m.po_now = self.playoffs_with(m.add, m.drop, m)
         return out[:n]
 
-    def playoffs_with(self, add: PlayerRow, drop: PlayerRow) -> float:
-        """P(make the playoffs) adding him now and dropping ``drop``."""
-        roster = [p.player_id for p in self.me.roster if p.player_id != drop.player_id] + [add.player_id]
-        scores = self.model.team_scores(roster, owner=self.me.team_id)
+    def playoffs_with(self, add: PlayerRow, drop: PlayerRow, move: TitleMove | None = None) -> float:
+        """P(make the playoffs) adding him now and dropping ``drop`` (or, for
+        a stash, the way ``move`` puts him on the roster)."""
+        gone: dict = {}
+        if move is not None and move.how:
+            out_now = drop.player_id if move.how == "ir-swap" else None
+            later = move.later if move.how == "ir-swap" else drop
+            roster = [p.player_id for p in self.me.roster if p.player_id != out_now] + [add.player_id]
+            if later is not None:
+                gone = {later.player_id: self._return_week(add)}
+        else:
+            roster = [p.player_id for p in self.me.roster if p.player_id != drop.player_id] + [add.player_id]
+        scores = self.model.team_scores(roster, owner=self.me.team_id, gone_from=gone)
         return float(self.model.odds(override={self.me.team_id: scores}).p_playoffs[self.mine])
 
     def _reasons(self, m: TitleMove) -> list[str]:
@@ -580,6 +695,10 @@ class TitleEngine:
                     + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))
         if m.drop_options:
             bits.append(toss_up_text(m.drop_options, self.market_value))
+        if m.how:
+            bits.append(f"IR stash: {m.add.name} is {m.add.status.replace('_', ' ').lower()}; the simulation "
+                        "draws whether and when he comes back (players on a reserve list, 2022-2025), and he "
+                        "costs no roster spot until he does")
         if m.block_value >= BLOCK_NOTE and m.rival_name:
             bits.append(f"if you pass, a rival lands him in {m.rival_share:.0%} of seasons (most often "
                         f"{m.rival_name}), which costs you {m.block_value * 100:.1f} of that")

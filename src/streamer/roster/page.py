@@ -16,7 +16,7 @@ import numpy as np
 from ..config import Config
 from ..league.model import LeagueSnapshot, short_status
 from .matchup import MatchupReport
-from .title_moves import drop_choice
+from .title_moves import move_text
 from .waiver_plans import drops_text
 from .waivers import Move, drop_watch, stashes
 
@@ -502,7 +502,8 @@ def _title_moves(report: MatchupReport) -> str:
             "your priority beats the other managers who also want him), less what your waiver priority "
             "is worth on future claims. Passing is not free: if he breaks out, a rival claims him, and "
             "what that does to your title odds is counted. Each move is priced on its own; make one, then refresh. "
-            "Assumes about a third of active managers chase any one breakout.</p>")
+            "Assumes about a third of active managers chase any one breakout. Injured free agents are "
+            "priced as IR stashes: no roster spot until he is back, with the chance he never is.</p>")
     if not moves:
         return head + '<p class="sub">No free agent raises your title odds enough to be worth a move.</p>'
     cards = []
@@ -512,8 +513,8 @@ def _title_moves(report: MatchupReport) -> str:
             '<div class="card"><div class="row">'
             f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
             f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span> '
-            f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")} &middot; drop '
-            f'{_e(drop_choice(m.drop, m.drop_options))}</span></div>'
+            f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")} &middot; '
+            f'{_e(move_text(m))}</span></div>'
             f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
             f'<div class="meta"><span class="{css}">{label}</span>'
             f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span>"

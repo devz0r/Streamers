@@ -110,6 +110,12 @@ def normalize_slots(position_slot_counts: dict[str, int]) -> tuple[dict[str, int
     return slots, bench
 
 
+def ir_slot_count(position_slot_counts: dict[str, int]) -> int:
+    """IR slots on each roster, from ``settings.position_slot_counts``."""
+    return sum(int(n or 0) for label, n in (position_slot_counts or {}).items()
+               if canonical_slot(label) == "IR")
+
+
 def identify_my_team(teams: list[Any], swid: str | None, team_id: str | None) -> str | None:
     """Work out which team is the user's.
 
@@ -159,6 +165,7 @@ def league_rules(league: Any) -> dict[str, Any]:
         "median_game": bool(_attr(settings, "median_scoring", False)),
         "waiver": "faab" if _attr(settings, "faab", False) else "priority",
         "faab_budget": float(_attr(settings, "acquisition_budget", 0) or 0),
+        "ir_slots": ir_slot_count(_attr(settings, "position_slot_counts", {}) or {}),
         "schedule": sorted([list(p) for p in pairs]),
     }
 

@@ -46,7 +46,7 @@ IR_SLOTS: tuple[str, ...] = ("IR", "IR+")
 #: Statuses that keep a player out for weeks, not days (zero rest-of-season
 #: value for waiver purposes). ESPN spells them INJURY_RESERVE / SUSPENSION.
 LONG_TERM_OUT_STATUSES: tuple[str, ...] = (
-    "IR", "IR-R", "INJURY_RESERVE", "PUP", "PUP-R", "NFI", "SUSP", "SUSPENSION", "SUSPENDED",
+    "IR", "IR-R", "IR-NR", "INJURY_RESERVE", "PUP", "PUP-R", "NFI", "NFI-R", "SUSP", "SUSPENSION", "SUSPENDED",
 )
 
 #: Statuses a platform will accept in an IR slot. ESPN's own rule varies by

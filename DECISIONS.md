@@ -2524,6 +2524,42 @@ best single move against +-0.58 of noise: a close call, which is what the
 page now says instead of hiding it.
 Screening takes about a second, pricing about five.
 
+### IR stashes
+
+Both leagues give every roster IR slots, and the waiver engine used them only
+to keep injured players off the drop list. A free agent on a reserve list
+(IR, PUP, suspended) was never priced at all -- the candidate pool skipped
+anyone out long-term -- yet he costs no roster spot while he sits in an empty
+IR slot, and on the ESPN wire at week 5 that meant De'Von Achane (13.6 a game
+when healthy) and Jaxson Dart (16.0) went unseen. Yahoo's wire did not even
+list them: its free-agent pages are sorted by this week's projection, and an
+injured player's is zero.
+
+- **How many slots.** ESPN states them (``position_slot_counts``); Yahoo
+  lists them in the settings page's roster positions. An older snapshot
+  falls back on the most any team has filled.
+- **Who is priced.** The six free agents on a reserve list with the best
+  season value join the waiver candidates. The season simulator already
+  draws whether and when each comes back -- the reserve-list model fitted
+  on 1,277 cases, 2022-2025 (most never return that season; the rest miss
+  about four more games) -- so nothing new is assumed about the injury.
+- **How he joins the roster**, each priced on the same seasons, the best
+  taken: an open IR slot (nobody goes now; your least valuable player goes
+  the week he is back on the field, when he needs a bench spot); a filled
+  IR slot (its occupant is dropped now, and the same later drop applies);
+  or a bench spot for one of the usual drops. Any IR-eligible candidate
+  (OUT counts in both leagues) gets the IR ways, not only the long-term out.
+- **Waiting** means claiming him the week he is back, against the rivals who
+  want him then -- the breakout rule, with his return as the breakout.
+- **Yahoo** reads one more page of free agents, ordered by Yahoo's overall
+  rank, and keeps only the players on a reserve list or out from it.
+
+At week 5 in the ESPN league (both IR slots full), Achane is the top waiver
+move, a close call: about +0.4 to +0.9 points of title odds for a bench drop
+the simulation cannot separate. Swapping him for Dylan Sampson's IR slot
+priced a little lower, because it costs Sampson now *and* a bench player when
+Achane returns.
+
 ### Trades: what helps you, and what he will accept
 The waiver wire in a ten-team league is shallow; a roster short on points
 has to find them on other rosters. Every 1-for-1, 2-for-1 and 1-for-2 of

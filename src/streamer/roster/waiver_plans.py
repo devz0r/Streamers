@@ -215,7 +215,8 @@ class PlanFinder:
         # if it priced one, else the best single among the plans' adds.
         singles = {x.player_id: alone(x) for plan in screened for x in plan.adds}
         for m in self.singles:
-            singles.setdefault(m.add.player_id, self._won([p for p in roster if p is not m.drop] + [m.add]))
+            singles.setdefault(m.add.player_id, self.engine._won_move(m) if getattr(m, "how", "")
+                               else self._won([p for p in roster if p is not m.drop] + [m.add]))
         best_single = max(singles.values(), key=lambda w: w.mean()) if singles else base_won
         ref = best_single if best_single.mean() >= p_base else base_won
 

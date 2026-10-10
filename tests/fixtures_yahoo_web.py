@@ -148,14 +148,16 @@ def free_agent_page(projected: bool = True, week: int = 3, points_label: str = "
 
 def settings_page(playoffs: str = "4 teams - Week 5 and 6 (ends Monday, Oct 19)",
                   waiver: str = "Continual rolling list", reseed: str = "Yes",
-                  median: str = "No") -> str:
+                  median: str = "No",
+                  positions: str = "QB, WR, WR, WR, RB, RB, TE, W/R/T, K, DEF, BN, BN, BN, BN, BN, IR, IR") -> str:
     rows = "".join(
         f"<tr><td>{k}</td><td><b>{v}</b></td></tr>"
         for k, v in (("League Name:", "Private Name"), ("Max Teams:", "14"),
                      ("Scoring Type:", "Head-to-Head"), ("Waiver Time:", "2 days"),
                      ("Waiver Type:", waiver), ("Weekly Waivers", "Game Time - Tuesday"),
                      ("Playoffs:", playoffs), ("Playoff Tie-Breaker:", "Higher seed wins"),
-                     ("Playoff Reseeding:", reseed), ("Play Against Median Score:", median)))
+                     ("Playoff Reseeding:", reseed), ("Play Against Median Score:", median),
+                     ("Roster Positions:", positions)))
     return f"""<html><head><title>Scoring &amp; Settings | Fantasy Football | Yahoo! Sports</title></head>
       <body><table class="Table Table-subtle-border" id="settings-table">
       <thead><tr><th class="first">Setting</th><th>Value</th></tr></thead><tbody>{rows}</tbody></table>

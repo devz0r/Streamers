@@ -22,9 +22,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .title_moves import BLOCK_NOTE, drop_choice
+from .title_moves import BLOCK_NOTE, move_text
 
-KINDS = ("Lineup", "Stream", "Pickup", "Waiver", "Block", "Plan", "Trade")
+KINDS = ("Lineup", "Stream", "Pickup", "Waiver", "Stash", "Block", "Plan", "Trade")
 
 
 @dataclass
@@ -119,13 +119,14 @@ def actions(report, cfg=None) -> list[HubAction]:
         if m.priority_cost > 0:
             note += f"; after your waiver priority ({m.priority_cost * 100:.1f})"
         options = getattr(m, "drop_options", None)
-        detail = f"drop {drop_choice(m.drop, options)}"
+        detail = move_text(m, options)
         if options:
             detail += " -- a toss-up, your call"
         if blocking:
             detail += f"; keeps him from {m.rival_name}"
         detail += second(m.add)
-        out.append(HubAction("Block" if blocking else "Waiver", f"Add {m.add.name}", detail, gain,
+        kind = "Stash" if getattr(m, "how", "") else "Block" if blocking else "Waiver"
+        out.append(HubAction(kind, f"Add {m.add.name}", detail, gain,
                              note, "waivers", playoffs=(m.po_now - m.po_base) if getattr(m, "po_base", 0) else None))
     for plan in getattr(report, "plans", None) or []:
         from .waiver_plans import claims_text, drops_text
