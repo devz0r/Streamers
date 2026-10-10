@@ -1525,6 +1525,10 @@ Kaelon Black: +1.0 points of title odds now, +0.4 waiting, priority worth
 Not yet modelled: rivals getting stronger when they land a breakout you
 passed on; FAAB bidding (neither league uses it); trades.
 
+A toss-up never includes a drop priced below standing pat: inside the noise of
+the best drop is not a fair alternative to it if it lowers your odds (a card
+once offered "Gadsden (12.2%) or Higbee (11.7%)" against 12.0% standing pat).
+
 ### Behind in the standings: upside, and the games that matter
 A team behind needs seasons where something breaks right, so a player's
 spread is worth more to it than to a leader. No multiplier is bolted on for

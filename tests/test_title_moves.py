@@ -142,3 +142,19 @@ def test_upside_plays_that_fall_short_are_listed_with_their_value(cfg):
     passed = {p.player_id: (gain, why) for p, gain, why in engine.passed}
     assert "cuff" in engine.upside and "cuff" not in shown and "cuff" in passed
     assert "behind" in passed["cuff"][1]
+
+
+def test_a_drop_below_standing_pat_is_never_offered_beside_the_best():
+    import numpy as np
+
+    rng = np.random.default_rng(1)
+    pat = (rng.random(4000) < 0.12).astype(float)
+    best = pat.copy()
+    best[rng.choice(np.flatnonzero(pat == 0), 1, replace=False)] = 1.0      # a little better than standing pat
+    worse = pat.copy()
+    worse[rng.choice(np.flatnonzero(pat == 1), 1, replace=False)] = 0.0       # a little worse: inside the noise of the best
+    a, b = _fa("best", "WR", 5.0), _fa("worse", "WR", 5.0)
+    options = [(a, best), (b, worse)]
+    assert {q.player_id for q, _p in toss_ups(options)} == {"best", "worse"}                   # without a floor: a toss-up
+    got = toss_ups(options, floor=float(pat.mean()))
+    assert [q.player_id for q, _p in got] == ["best"]                                           # with it: not an alternative
