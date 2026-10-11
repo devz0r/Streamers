@@ -816,7 +816,29 @@ def _settings_rows(html: str) -> dict[str, str]:
     return rows
 
 
-def parse_settings(html: str) -> dict[str, Any]:
+def parse_date(text: str, season: int | None = None) -> str | None:
+    """"Nov 21, 2026", "November 21", "Sat, Nov 21", "2026-11-21" -> ISO
+    date (the season's year when none is given; January belongs to the next)."""
+    from datetime import date, datetime
+
+    t = re.sub(r"^(mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+", "", text.strip(), flags=re.I)
+    t = re.sub(r"\s*\(.*\)$", "", t).replace(".", "").strip()
+    for fmt in ("%Y-%m-%d", "%b %d, %Y", "%B %d, %Y", "%b %d %Y", "%B %d %Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(t, fmt).date().isoformat()
+        except ValueError:
+            pass
+    for fmt in ("%b %d", "%B %d"):
+        try:
+            d = datetime.strptime(t, fmt)
+        except ValueError:
+            continue
+        year = season or date.today().year
+        return date(year + (1 if d.month < 6 else 0), d.month, d.day).isoformat()
+    return None
+
+
+def parse_settings(html: str, season: int | None = None) -> dict[str, Any]:
     """The season structure from the league's settings page.
 
     Yahoo states the playoffs in one line -- "6 teams - Week 15, 16 and 17
@@ -855,6 +877,10 @@ def parse_settings(html: str) -> dict[str, Any]:
     if positions:
         # "QB, WR, WR, ..., BN, BN, IR, IR": each IR listed is one slot.
         out["ir_slots"] = len(re.findall(r"\bIR\+?(?![-\w])", positions))
+    trade_end = next((v for k, v in rows.items() if k in ("trade end date", "trade deadline")), "")
+    when = parse_date(trade_end, season) if trade_end else None
+    if when is not None:
+        out["trade_deadline"] = when
     if "playoff tie-breaker" in rows:
         out["playoff_tiebreak"] = "higher seed" if "seed" in rows["playoff tie-breaker"].lower() else "points"
     if out:
@@ -1030,7 +1056,7 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
         rosters[str(opp_id)], _s, _b = parse_roster(get(f"/f1/{league}/{opp_id}?week={week}"))
     opp_players = rosters.get(str(opp_id), []) if opp_id else []
 
-    rules = _league_rules(get, league, week, len(standings), league_html, known or [])
+    rules = _league_rules(get, league, week, len(standings), league_html, known or [], season)
 
     free_agents: list = []
     for pos, pages, sort in (("O", (0, 25), "PTS"), ("K", (0,), "PTS"), ("DEF", (0,), "PTS"), ("O", (0,), "OR")):
@@ -1078,7 +1104,7 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
 
 
 def _league_rules(get, league: str, week: int, n_teams: int, league_html: str,
-                  known: list) -> dict[str, Any]:
+                  known: list, season: int | None = None) -> dict[str, Any]:
     """Settings plus the rest of the regular-season schedule.
 
     The schedule is only kept when every remaining week is complete (all
@@ -1086,7 +1112,7 @@ def _league_rules(get, league: str, week: int, n_teams: int, league_html: str,
     too few wins and skew every team's odds.
     """
     try:
-        rules = parse_settings(get(f"/f1/{league}/settings"))
+        rules = parse_settings(get(f"/f1/{league}/settings"), season)
     except RuntimeError:
         raise
     except Exception as exc:  # noqa: BLE001 - the week's lineup does not need the rules

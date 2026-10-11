@@ -147,14 +147,21 @@ def actions(report, cfg=None) -> list[HubAction]:
             key = tuple(sorted(p.player_id for p in t.give))
             if key not in best_by_give or t.p_accept * t.gain > best_by_give[key].p_accept * best_by_give[key].gain:
                 best_by_give[key] = t
+        from .trades import days_to_deadline, deadline_text
+
+        snap = getattr(report, "snapshot", None)
+        left = days_to_deadline(snap) if snap is not None else None
+        soon = f"; {deadline_text(snap).lower()}" if left is not None and 0 <= left <= 14 else ""
         for t in best_by_give.values():
             give = " + ".join(p.name for p in t.give)
             get = " + ".join(p.name for p in t.get)
             out.append(HubAction("Trade", f"Trade {give} for {get}",
-                                 f"with {t.partner.name}" + "".join(second(p) for p in t.get + t.give),
+                                 f"with {t.partner.name}"
+                                 + (f", then add {t.my_add.name}" if getattr(t, "my_add", None) is not None else "")
+                                 + "".join(second(p) for p in t.get + t.give),
                                  t.p_accept * t.gain,
                                  f"{t.gain * 100:+.1f} if he accepts, chance of a yes ~{t.p_accept:.0%}"
-                                 + ("; win-win" if t.win_win else ""), "trades", firm=False,
+                                 + ("; win-win" if t.win_win else "") + soon, "trades", firm=False,
                                  playoffs=t.p_accept * (t.po_new - t.po_base) if getattr(t, "po_base", 0) else None))
     out.sort(key=lambda a: -a.gain)
     return [a for a in out if a.gain > 0]

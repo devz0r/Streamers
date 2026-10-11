@@ -927,10 +927,14 @@ def team_panels_for(
                         log.warning("waiver plans for %s skipped: %s", name, exc)
                     finder = None
                     try:
-                        from .roster.trades import TradeFinder
+                        from .roster.trades import TradeFinder, days_to_deadline
 
-                        finder = TradeFinder(snap, engine.model, seen=seen)
-                        report.trades = finder.find(5)
+                        left = days_to_deadline(snap)
+                        if left is not None and left < 0:
+                            log.info("%s: trading has closed; no trades searched", name)
+                        else:
+                            finder = TradeFinder(snap, engine.model, seen=seen)
+                            report.trades = finder.find(5)
                     except Exception as exc:  # noqa: BLE001
                         log.warning("trade finder for %s skipped: %s", name, exc)
                     if finder is not None:

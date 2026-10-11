@@ -2638,6 +2638,28 @@ injuries, how active he is. On the ESPN league at week 3, 999 trades
 screened and 66 priced took 20 seconds; the top offer (London for Swift)
 had an 86% yes-chance and +1.3 points of title odds.
 
+### The trade deadline, two-for-twos, and the spot a deal frees
+Trades are the biggest lever a manager has until the deadline, and the tool
+did not know when that was. ESPN states it (`tradeSettings.deadlineDate`),
+Yahoo's settings page lists a "Trade End Date"; both are read into the
+league rules. The trades tab and every trade on the hub say how many days
+are left once it is two weeks out, and after it passes no trades are
+searched and the tab says trading has closed.
+
+The search was 1-for-1, 2-for-1 and 1-for-2. It now adds 2-for-2 among each
+side's eight most valuable players (28 x 28 pairs a team, beside the smaller
+shapes' ~1,300): a deal that swaps two starters for two can fit both rosters
+where no smaller one does. And a deal that frees one of your roster spots
+used to leave it empty -- the simulator filled the slot at replacement level
+only when a lineup had a hole -- so a 2-for-1 was priced a bench spot short.
+The free agent who adds most to your roster now fills it, is named on the
+offer ("then add X") and is priced in; the page's trade evaluator, which
+swaps players only, leaves those deals out of its exact list and accuracy
+check.
+
+At week 5 in the ESPN league: 3,306 offers screened, 84 priced, 43 seconds;
+45 of the priced offers and the top of the list are two-for-twos.
+
 ### Trades with a team you pick
 The trade lists priced the league's 24 most promising offers on each of
 three orderings, at most five per team, so a team that never made those

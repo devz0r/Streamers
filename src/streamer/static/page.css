@@ -48,6 +48,7 @@ h3 { font-size: 12px; margin: 1.6rem 0 .6rem; color: var(--muted); font-weight: 
   text-transform: uppercase; letter-spacing: .07em; }
 .sub { color: var(--muted); font-size: 13.5px; margin: .35rem 0; }
 ul.sub, ol.steps { padding-left: 1.2rem; }
+.deadline { margin: .5rem 0; padding: .5rem .75rem; border-radius: 10px; font-size: 13.5px; color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 
 /* -- league switch ----------------------------------------------------- */
 .profile-radio { position: absolute; opacity: 0; pointer-events: none; }

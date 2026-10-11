@@ -141,3 +141,38 @@ def test_each_team_gets_its_own_best_offers_beyond_the_league_lists(finder):
         assert len(trades) <= 5
     extra = [t for ts in board.by_team.values() for t in ts if t.key not in listed]
     assert extra or all(len(ts) <= 2 for ts in board.by_team.values())
+
+
+def test_two_for_twos_are_searched(finder):
+    shapes = {(len(t.give), len(t.get)) for t in finder.screen()}
+    assert (2, 2) in shapes
+
+
+def test_a_freed_roster_spot_is_filled_from_the_wire_and_priced_in(cfg):
+    from streamer.roster.trades import FILL_POOL
+
+    snap = _league()
+    snap.free_agents = [_p("fa_wr", "WR", 11.0)]
+    model = SeasonModel(snap, cfg, n_sims=400, extra_players=snap.free_agents)
+    f = TradeFinder(snap, model)
+    assert [p.player_id for p in f.fills] == ["fa_wr"] and FILL_POOL >= 1
+    two_for_one = [t for t in f.screen() if len(t.give) == 2 and len(t.get) == 1]
+    assert two_for_one and all(t.my_add is not None and t.my_add.player_id == "fa_wr" for t in two_for_one)
+    t = f.price(two_for_one[0])
+    assert "fa_wr" in f._rosters(t)[0]
+    f._explain(t)
+    assert any("then add fa_wr" in w for w in t.why_you)
+
+
+def test_the_deadline_counts_down_and_closes(cfg):
+    from datetime import date
+
+    from streamer.roster.trades import days_to_deadline, deadline_text
+
+    snap = _league()
+    assert deadline_text(snap) == ""
+    snap.rules["trade_deadline"] = "2026-11-18"
+    assert days_to_deadline(snap, date(2026, 11, 6)) == 12
+    assert deadline_text(snap, date(2026, 11, 6)) == "Trades close in 12 days (Nov 18)"
+    assert deadline_text(snap, date(2026, 11, 18)) == "Trades close today (Nov 18)"
+    assert deadline_text(snap, date(2026, 11, 19)) == "Trading closed on Nov 18"

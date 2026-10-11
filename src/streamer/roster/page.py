@@ -17,6 +17,7 @@ from ..config import Config
 from ..league.model import LeagueSnapshot, short_status
 from .matchup import MatchupReport
 from .title_moves import move_text
+from .trades import deadline_text
 from .waiver_plans import drops_text
 from .waivers import Move, drop_watch, stashes
 
@@ -587,7 +588,9 @@ def _trade_card(t) -> str:
     return (
         '<div class="card"><div class="row"><div class="rank">&#8644;</div>'
         f'<div><span class="name">Get {_e(_names(t.get))}</span> '
-        f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}</span></div>'
+        f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}'
+        + (f" &middot; then add {_e(t.my_add.name)}" if getattr(t, "my_add", None) is not None else "")
+        + '</span></div>'
         f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
         f'<div class="meta">{win}<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}</span>'
         + (f"<span>playoffs {t.po_base:.0%} &rarr; {t.po_new:.0%}</span>" if getattr(t, "po_base", 0) else "")
@@ -609,10 +612,16 @@ _TRADE_TABS = (
 def _trades(report: MatchupReport) -> str:
     """Three views of the same trades: overall, best for you, most likely accepted."""
     board = report.trades
+    when = deadline_text(report.snapshot)
     if board is None:
-        return ""
+        return (f'<h3>Trades</h3><p class="sub"><b>{_e(when)}.</b> Only waiver moves can change your roster '
+                "now.</p>") if when.startswith("Trading closed") else ""
     head = ("<h3>Trades</h3>"
-            '<p class="sub">Every 1-for-1, 2-for-1 and 1-for-2 with every team. <b>For you</b>: priced in '
+            + (f'<p class="deadline"><b>{_e(when)}.</b> After that only waiver moves can change your '
+               "roster.</p>" if when else "")
+            + '<p class="sub">Every 1-for-1, 2-for-1 and 1-for-2 with every team, and 2-for-2 among each '
+            "side's eight most valuable players; when a deal frees one of your roster spots, the free agent "
+            "who adds most fills it and is priced in. <b>For you</b>: priced in "
             "title odds for both teams on the same simulated seasons as the waiver moves. <b>For him</b>: he "
             "cannot see this tool, so his side is judged the way the market values players -- the "
             "platform's projection, a player's name and last season, this season so far, injuries -- "

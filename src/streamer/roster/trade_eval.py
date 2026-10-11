@@ -172,9 +172,11 @@ def export(snapshot: LeagueSnapshot, model: SeasonModel, finder, priced=()) -> d
                  "playoffs": [round(float(x), 4) for x in base.p_playoffs]},
         "teams": teams, "players": players,
         "exact": [[t.partner.team_id, sorted(p.player_id for p in t.give), sorted(p.player_id for p in t.get),
-                   round(t.gain, 4), round(t.their_gain, 4)] for t in priced],
+                   round(t.gain, 4), round(t.their_gain, 4)] for t in priced if getattr(t, "my_add", None) is None],
     }
-    data["check"] = check(data, priced)
+    # The evaluator swaps players only: a deal priced with a pickup in the
+    # spot it opens is not the deal it would check against.
+    data["check"] = check(data, [t for t in priced if getattr(t, "my_add", None) is None])
     return data
 
 

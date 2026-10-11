@@ -110,6 +110,21 @@ def normalize_slots(position_slot_counts: dict[str, int]) -> tuple[dict[str, int
     return slots, bench
 
 
+def _deadline(ms: Any) -> str | None:
+    """ESPN's trade deadline (epoch milliseconds; 0 when none) as an ISO
+    date, US Eastern -- the platform's clock."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        ms = int(ms or 0)
+    except (TypeError, ValueError):
+        return None
+    if ms <= 0:
+        return None
+    return datetime.fromtimestamp(ms / 1000, ZoneInfo("America/New_York")).date().isoformat()
+
+
 def ir_slot_count(position_slot_counts: dict[str, int]) -> int:
     """IR slots on each roster, from ``settings.position_slot_counts``."""
     return sum(int(n or 0) for label, n in (position_slot_counts or {}).items()
@@ -166,6 +181,7 @@ def league_rules(league: Any) -> dict[str, Any]:
         "waiver": "faab" if _attr(settings, "faab", False) else "priority",
         "faab_budget": float(_attr(settings, "acquisition_budget", 0) or 0),
         "ir_slots": ir_slot_count(_attr(settings, "position_slot_counts", {}) or {}),
+        "trade_deadline": _deadline(_attr(settings, "trade_deadline", 0)),
         "schedule": sorted([list(p) for p in pairs]),
     }
 

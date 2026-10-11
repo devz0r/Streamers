@@ -157,7 +157,7 @@ def settings_page(playoffs: str = "4 teams - Week 5 and 6 (ends Monday, Oct 19)"
                      ("Waiver Type:", waiver), ("Weekly Waivers", "Game Time - Tuesday"),
                      ("Playoffs:", playoffs), ("Playoff Tie-Breaker:", "Higher seed wins"),
                      ("Playoff Reseeding:", reseed), ("Play Against Median Score:", median),
-                     ("Roster Positions:", positions)))
+                     ("Roster Positions:", positions), ("Trade End Date:", "Nov 21, 2026")))
     return f"""<html><head><title>Scoring &amp; Settings | Fantasy Football | Yahoo! Sports</title></head>
       <body><table class="Table Table-subtle-border" id="settings-table">
       <thead><tr><th class="first">Setting</th><th>Value</th></tr></thead><tbody>{rows}</tbody></table>

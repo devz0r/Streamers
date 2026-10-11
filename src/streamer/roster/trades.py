@@ -31,8 +31,11 @@ Three lists from the same candidates:
   raise your title odds.
 
 Searched: every 1-for-1, 2-for-1 and 1-for-2 of skill players with every
-team, screened on roster value (ours for you, the perceived blend for him),
-and the best screened offers for each list priced in title odds.
+team, and 2-for-2 among each side's most valuable players (``PAIR_POOL``),
+screened on roster value (ours for you, the perceived blend for him), and
+the best screened offers for each list priced in title odds. A deal that
+frees one of your roster spots fills it from the wire: the free agent who
+adds most is part of the offer as priced ("then add X").
 """
 
 from __future__ import annotations
@@ -75,6 +78,11 @@ GAP_NOTE = 1.0
 #: of managers' opinions of one player (the scale of the rostership fit, 1.7
 #: points a game).
 CONSOLIDATION_GAP = 1.7
+#: Each side's players (most valuable first) searched in two-for-twos:
+#: 8 x 8 keeps the pairs to 28 x 28 a team, beside the smaller shapes' 1,300.
+PAIR_POOL = 8
+#: Free agents tried for a roster spot a trade frees (by our season value).
+FILL_POOL = 6
 #: Bench slots, for reading a manager's lineup.
 BENCH_SLOTS = ("BN", "BE")
 
@@ -126,6 +134,8 @@ class Trade:
     noise: float = 0.0
     why_you: list[str] = field(default_factory=list)
     why_them: list[str] = field(default_factory=list)
+    #: The free agent who takes the roster spot the deal frees, if any.
+    my_add: PlayerRow | None = None
 
     @property
     def gain(self) -> float:
@@ -162,6 +172,42 @@ class TradeBoard:
 
     def __bool__(self) -> bool:
         return bool(self.top or self.best or self.likely)
+
+
+def deadline(snapshot: LeagueSnapshot):
+    """The league's trade deadline (a date), or None when it is not known."""
+    from datetime import date
+
+    raw = (getattr(snapshot, "rules", None) or {}).get("trade_deadline")
+    try:
+        return date.fromisoformat(str(raw)) if raw else None
+    except ValueError:
+        return None
+
+
+def days_to_deadline(snapshot: LeagueSnapshot, today=None) -> int | None:
+    """Days left to trade (0: the deadline is today; negative: closed)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    end = deadline(snapshot)
+    if end is None:
+        return None
+    today = today or datetime.now(ZoneInfo("America/New_York")).date()
+    return (end - today).days
+
+
+def deadline_text(snapshot: LeagueSnapshot, today=None) -> str:
+    """"Trades close in 12 days (Nov 18)", "...today", "Trading closed on Nov 18", or ""."""
+    end, days = deadline(snapshot), days_to_deadline(snapshot, today)
+    if end is None or days is None:
+        return ""
+    when = f"{end:%b} {end.day}"
+    if days < 0:
+        return f"Trading closed on {when}"
+    if days == 0:
+        return f"Trades close today ({when})"
+    return f"Trades close in {days} day{'s' if days != 1 else ''} ({when})"
 
 
 def _tradeable(team: TeamRow) -> list[PlayerRow]:
@@ -222,6 +268,10 @@ class TradeFinder:
         self.mine = model.team_index[self.me.team_id]
         weeks = max(int(snapshot.week) - 1, 1)
         self.engaged = {t.team_id: perception.engagement(t.acquisitions, weeks) for t in snapshot.teams}
+        # Free agents the simulation can play: what a freed roster spot is filled from.
+        self.fills = sorted((p for p in snapshot.free_agents
+                             if p.position in SKILL and p.player_id in model.pid and not p.is_long_term_out
+                             and not p.unsigned), key=lambda p: -self.ours(p))[:FILL_POOL]
         base = model.odds()
         self.base_champ = base.champion
         self.base_p = base.p_title
@@ -273,13 +323,31 @@ class TradeFinder:
                 continue
             theirs = _tradeable(team)
             their0 = self.seen_roster_value(team.roster, self.his(team))
-            for n_give, n_get in ((1, 1), (2, 1), (1, 2)):
-                for give in combinations(mine, n_give):
-                    for get in combinations(theirs, n_get):
+            his = self.his(team)
+            pair_mine = sorted(mine, key=lambda p: -self.ours(p))[:PAIR_POOL]
+            pair_theirs = sorted(theirs, key=lambda p: -his(p))[:PAIR_POOL]
+            for n_give, n_get in ((1, 1), (2, 1), (1, 2), (2, 2)):
+                a, b = (pair_mine, pair_theirs) if n_give == n_get == 2 else (mine, theirs)
+                for give in combinations(a, n_give):
+                    for get in combinations(b, n_get):
                         t = self._screen_one(team, list(give), list(get), my0, my_l0, their0)
                         if t is not None:
                             out.append(t)
         return out
+
+    def _fill(self, roster: list[PlayerRow]) -> PlayerRow | None:
+        """The free agent who adds most to ``roster`` (a spot just opened)."""
+        if not self.fills:
+            return None
+        here = {p.player_id for p in roster}
+        best, best_v = None, self.my_roster_value(roster)
+        for f in self.fills:
+            if f.player_id in here:
+                continue
+            v = self.my_roster_value(roster + [f])
+            if v > best_v + 1e-9:
+                best, best_v = f, v
+        return best
 
     def _screen_one(self, team, give, get, my0, my_l0, their0):
         his = self.his(team)
@@ -295,6 +363,9 @@ class TradeFinder:
             their_new, their_drop = _make_room(their_new, len(give) - len(get), give_ids, his)
         if not (_keeps_minimums(my_new, self.me.roster) and _keeps_minimums(their_new, team.roster)):
             return None
+        my_add = self._fill(my_new) if len(give) > len(get) else None
+        if my_add is not None:
+            my_new = my_new + [my_add]
         dv_me = self.my_roster_value(my_new) - my0
         if dv_me < MY_MIN_VALUE:
             return None
@@ -305,7 +376,7 @@ class TradeFinder:
             return None
         return Trade(partner=team, give=give, get=get, their_drop=their_drop, my_drop=my_drop,
                      my_value=dv_me, my_lineup=self._lineup(my_new, self.ours) - my_l0,
-                     their_seen=seen_gain, consolidation=consolidation, p_accept=p)
+                     their_seen=seen_gain, consolidation=consolidation, p_accept=p, my_add=my_add)
 
     @staticmethod
     def _consolidation(give, get, his) -> float:
@@ -330,6 +401,8 @@ class TradeFinder:
         theirs = [p.player_id for p in t.partner.roster if p.player_id not in get_ids] + list(give_ids)
         if t.my_drop is not None:
             mine = [i for i in mine if i != t.my_drop.player_id]
+        if t.my_add is not None:
+            mine.append(t.my_add.player_id)
         if t.their_drop is not None:
             theirs = [i for i in theirs if i != t.their_drop.player_id]
         return mine, theirs
@@ -424,6 +497,8 @@ class TradeFinder:
             you.extend(f"{p.name}: {s}" for s in p.signals[:1])
         if t.my_drop is not None:
             you.append(f"you would drop {t.my_drop.name} to make room")
+        elif t.my_add is not None:
+            you.append(f"then add {t.my_add.name} from the wire with the spot it opens (priced in)")
         elif len(t.get) < len(t.give):
             you.append("opens a roster spot for a pickup")
         t.why_you = you

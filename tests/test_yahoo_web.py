@@ -85,12 +85,23 @@ def test_settings_give_the_season_structure():
     assert rules["reseed"] is True and rules["median_game"] is False
     assert rules["playoff_tiebreak"] == "higher seed"
     assert rules["ir_slots"] == 2
+    assert rules["trade_deadline"] == "2026-11-21"
     assert parse_settings(settings_page(positions="QB, RB, BN"))["ir_slots"] == 0
     # Two-week rounds: four teams over weeks 14-17.
     two = parse_settings(settings_page("4 teams - Week 14, 15, 16 and 17", waiver="FAAB", reseed="No"))
     assert two["regular_season_weeks"] == 13 and two["playoff_round_weeks"] == 2
     assert two["waiver"] == "faab" and two["reseed"] is False
     assert parse_settings("<html>Sign in</html>") == {}
+
+
+def test_trade_deadline_dates_read_in_any_common_form():
+    from streamer.league.yahoo_web import parse_date
+
+    assert parse_date("Nov 21, 2026") == "2026-11-21"
+    assert parse_date("Saturday, November 21, 2026") == "2026-11-21"
+    assert parse_date("Nov 21", 2026) == "2026-11-21"
+    assert parse_date("Jan 2", 2026) == "2027-01-02"
+    assert parse_date("No trades") is None
 
 
 def test_matchup_links_give_the_schedule():
