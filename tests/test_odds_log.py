@@ -24,7 +24,8 @@ def _snap(week, wins):
                           rules={"regular_season_weeks": 4, "playoff_teams": 2})
 
 
-def test_odds_are_logged_and_graded_against_the_final_field(cfg):
+def test_odds_are_logged_and_graded_against_the_final_field(tmp_cfg):
+    cfg = tmp_cfg
     odds_log.record(cfg, _snap(2, [1, 1, 1, 1]), _odds([0.9, 0.6, 0.3, 0.2]))
     odds_log.record(cfg, _snap(2, [1, 1, 1, 1]), _odds([0.9, 0.6, 0.3, 0.2]))      # same week: replaced
     assert len(__import__("pandas").read_parquet(cfg.results_dir / odds_log.LOG)) == 4
