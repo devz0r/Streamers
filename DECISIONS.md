@@ -2671,6 +2671,25 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### A receiver back takes targets from the tight end? Tested, no
+Tyler Higbee's role jumped to 11 targets in a week Puka Nacua missed, then 6
+with Nacua back; the teammate-return correction only reads returns at the
+player's own position, so Nacua's return did not lower Higbee. A `cross`
+share was added -- a returning regular at the other receiving position takes
+back that share of his volume -- and fitted the usual way
+(`scripts/fit_teammate_back.py --cross`, same-position shares held at the
+config's, picked on three seasons, scored on the fourth):
+
+| | player-weeks it moves | held-out RMSE | seasons better | best share |
+|---|---|---|---|---|
+| TE (a receiver back) | 2,015 | 5.562 -> 5.562 | 0 of 4 | 0 in every season |
+| WR (a tight end back) | 2,183 | 6.662 -> 6.660 | 1 of 4 | 0.05-0.15 |
+
+Tight ends' projections were not too high after a receiver came back -- if
+anything slightly low (bias +0.2) -- so the two-game form the volume model
+reads already fades a one-week bump enough. Rejected; `cross` is left unset
+(the code reads it, so a later refit can turn it on).
+
 ### Trades with a team you pick
 The trade lists priced the league's 24 most promising offers on each of
 three orderings, at most five per team, so a team that never made those

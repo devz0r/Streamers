@@ -314,6 +314,10 @@ def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, s
     return out
 
 
+#: The receiving positions that share one pool of targets (``teammate_back.cross``).
+PASS_CATCHERS = ("WR", "TE")
+
+
 def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[float, float]],
                conf: dict, pos_mean: pd.Series, season: int) -> pd.DataFrame:
     """A teammate back from an absence takes his work back.
@@ -342,7 +346,12 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     out["back_from"] = None
     rule = conf.get("teammate_back") or {}
     bigger, smaller = rule.get("bigger") or {}, rule.get("smaller") or {}
+    # ``cross``: a returning regular pass-catcher at the *other* receiving
+    # position (a receiver back, for a tight end; a tight end, for a
+    # receiver) takes back this share of his volume -- the targets are one pool.
+    cross = {q: float(v) for q, v in (rule.get("cross") or {}).items() if v and q in PASS_CATCHERS}
     positions = [q for q in rule.get("positions", []) if bigger.get(q) or smaller.get(q)]
+    positions += [q for q in PASS_CATCHERS if (cross.get(q) or any(cross.values())) and q not in positions]
     if not positions or not back or out.empty:
         return out
     regular = float(rule.get("regular", 5.0))
@@ -363,7 +372,14 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
             groups.setdefault((r.team, r.position), []).append(r)
     if not groups:
         return out
-    ids = pool[[(t, q) in groups for t, q in zip(pool["team"], pool["position"])]]["player_id"]
+    def sources(team: str, pos: str) -> list:
+        """Returning teammates whose work this player had been absorbing."""
+        same = groups.get((team, pos), []) if (bigger.get(pos) or smaller.get(pos)) else []
+        if not cross.get(pos):
+            return same
+        return same + [r for q in PASS_CATCHERS if q != pos for r in groups.get((team, q), [])]
+
+    ids = pool[[bool(sources(t, q)) for t, q in zip(pool["team"], pool["position"])]]["player_id"]
     n_long = int(conf.get("long_games", 17))
     last = prior[prior["player_id"].isin(ids)].sort_values(["season", "week"])
     last = last.groupby("player_id").tail(n_long).copy()
@@ -384,7 +400,7 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     for x in range(len(last)):
         if season_arr[x] != season or team_arr[x] != team_now.get(pid_arr[x]):
             continue
-        for r in groups.get((team_arr[x], pos_arr[x]), []):
+        for r in sources(team_arr[x], pos_arr[x]):
             if r.player_id != pid_arr[x] and (week_arr[x], team_arr[x], r.player_id) not in played:
                 missing[x].append(r)
     flagged = np.array([bool(m) for m in missing])
@@ -401,14 +417,18 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     with_them = (vol_now.reindex(full.index) * shared / full).where(has_shared.reindex(full.index), vol_now)
     cut_week, cut_ros = np.zeros(len(sub)), np.zeros(len(sub))
     lead: dict[str, tuple[float, str]] = {}
+    pos_of = out.set_index("player_id")["position"]
     for x, (pid, ms) in enumerate(zip(sub["player_id"].to_numpy(), miss_s)):
         mine = float(with_them.get(pid, np.nan))
         for r in ms:
             vj = float(r.vol)
             if not np.isfinite(mine):
                 continue
-            took = (float(bigger.get(r.position, 0.0)) * (vj - mine) if vj > mine
-                    else float(smaller.get(r.position, 0.0)) * vj)
+            if r.position != pos_of.get(pid):
+                took = cross.get(pos_of.get(pid), 0.0) * vj
+            else:
+                took = (float(bigger.get(r.position, 0.0)) * (vj - mine) if vj > mine
+                        else float(smaller.get(r.position, 0.0)) * vj)
             pw, pr = back.get(r.player_id, (0.0, 0.0))
             cut_week[x] += pw * took
             cut_ros[x] += pr * took

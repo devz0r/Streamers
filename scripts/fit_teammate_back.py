@@ -20,12 +20,20 @@ shares under ``roster.teammate_back`` in config.yaml are chosen from those,
 with the least bias among near-ties (TE was lowered from 0.5 to 0.35 after
 the season replay showed it overshooting; DECISIONS.md, "A teammate back
 from an absence").
+
+    python scripts/fit_teammate_back.py --cross
+
+fits ``cross`` instead, with the same-position shares held at config.yaml's:
+a returning regular receiver taking back part of a tight end's targets, and
+a tight end a receiver's (DECISIONS.md, "A receiver back takes targets from
+the tight end").
 """
 
 from __future__ import annotations
 
 import itertools
 import logging
+import sys
 
 import numpy as np
 import pandas as pd
@@ -33,14 +41,15 @@ import pandas as pd
 BIGGER = (0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0)
 SMALLER = (0.0, 0.1, 0.2, 0.3, 0.45)
 POSITIONS = ("RB", "WR", "TE")
+CROSS = (0.0, 0.05, 0.1, 0.15, 0.2, 0.3)
 
 
-def build(cfg) -> pd.DataFrame:
+def build(cfg, cross: bool = False) -> pd.DataFrame:
     from streamer.roster import projections as pj
 
     h = pj.load_history(cfg)
     conf = dict(cfg.raw["roster"])
-    conf.pop("teammate_back", None)
+    fixed = dict(conf.pop("teammate_back", None) or {})
     cfg.raw["roster"] = conf
     rows = []
     for season in (2022, 2023, 2024, 2025):
@@ -57,9 +66,13 @@ def build(cfg) -> pd.DataFrame:
                         & base["position"].isin(POSITIONS)].set_index("player_id")
             out = keep[["position", "vol", "eff"]].assign(season=season, week=week,
                                                          pts=got.reindex(keep.index).to_numpy())
-            for b, s in itertools.product(BIGGER, SMALLER):
-                rule = {"positions": list(POSITIONS), "regular": 5.0,
-                        "bigger": {q: b for q in POSITIONS}, "smaller": {q: s for q in POSITIONS}}
+            grid = ([(c, 0.0) for c in CROSS] if cross else itertools.product(BIGGER, SMALLER))
+            for b, s in grid:
+                if cross:
+                    rule = {**fixed, "cross": {"WR": b, "TE": b}}
+                else:
+                    rule = {"positions": list(POSITIONS), "regular": 5.0,
+                            "bigger": {q: b for q in POSITIONS}, "smaller": {q: s for q in POSITIONS}}
                 t = pj._returning(prior, base, back, {**conf, "teammate_back": rule}, pos_mean, season)
                 out[f"v{b}_{s}"] = t.set_index("player_id")["vol"].reindex(keep.index).to_numpy()
             rows.append(out.reset_index())
@@ -71,10 +84,11 @@ def main() -> int:
     logging.disable(logging.WARNING)
     from streamer.config import get_config
 
-    d = build(get_config().for_profile("espn"))
-    cols = [f"v{b}_{s}" for b, s in itertools.product(BIGGER, SMALLER)]
-    none = f"v{BIGGER[0]}_{SMALLER[0]}"
-    edge = f"v{BIGGER[-1]}_{SMALLER[-1]}"
+    cross = "--cross" in sys.argv
+    d = build(get_config().for_profile("espn"), cross)
+    grid = [(c, 0.0) for c in CROSS] if cross else list(itertools.product(BIGGER, SMALLER))
+    cols = [f"v{b}_{s}" for b, s in grid]
+    none, edge = cols[0], cols[-1]
 
     def err(g: pd.DataFrame, c: str) -> np.ndarray:
         return (g["pts"] - g[c] * g["eff"]).to_numpy()
@@ -82,7 +96,7 @@ def main() -> int:
     def rmse(e: np.ndarray) -> float:
         return float(np.sqrt((e ** 2).mean()))
 
-    for pos in POSITIONS:
+    for pos in (("WR", "TE") if cross else POSITIONS):
         allp = d[d["position"] == pos]
         g = allp[(allp[edge] - allp[none]).abs() > 1e-9]          # those it can move
         print(f"== {pos}: {len(g)} of {len(allp)} player-weeks had a teammate back from an absence")
