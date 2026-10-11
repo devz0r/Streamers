@@ -2660,6 +2660,17 @@ check.
 At week 5 in the ESPN league: 3,306 offers screened, 84 priced, 43 seconds;
 45 of the priced offers and the top of the list are two-for-twos.
 
+### Grading our own season odds
+Nothing had checked whether "41% to make the playoffs" means 41%. Every run
+now appends each team's playoff chance, title chance and expected wins to
+`results/<profile>/odds_log.parquet` (the last run of a week replaces earlier
+ones). When the regular season is over and the standings have counted every
+game, `odds_log.grade` scores each logged week's playoff chances against who
+actually got in (Brier score, against always saying the league rate),
+calibration by bucket, and expected wins against actual; the run log prints
+the by-week scores. Nothing is shown on the page until a season has been
+graded -- that is the point of keeping the record from now on.
+
 ### Trades with a team you pick
 The trade lists priced the league's 24 most promising offers on each of
 three orderings, at most five per team, so a team that never made those

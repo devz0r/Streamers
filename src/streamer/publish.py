@@ -899,6 +899,15 @@ def team_panels_for(
                     engine = TitleEngine(snap, bound, extra=[o.player for o in report.pickups])
                     engine.market = {pid: s.value for pid, s in (seen or {}).items()}
                     report.season = engine.model.odds()
+                    try:
+                        from .roster import odds_log
+
+                        odds_log.record(bound, snap, report.season)
+                        graded = odds_log.grade(bound, snap)
+                        if graded:
+                            log.info("%s: season odds graded: %s", name, graded["by_week"])
+                    except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                        log.warning("odds log for %s skipped: %s", name, exc)
                     report.title_moves = engine.moves(5)
                     report.passed = engine.passed
                     report.waiver_rank = engine.rank
