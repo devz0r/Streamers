@@ -468,6 +468,10 @@ roster:
     positions:
       QB: {implied: 0.6, allowed: 0.3}
       RB: {implied: 0.2, allowed: 0.3}
+      # Held out 2023-2025 (scripts/fit_schedule_dstk.py): defences 3/3
+      # seasons on points allowed to defences, kickers 2/3 on their team's total.
+      DST: {implied: 0.0, allowed: 0.9}
+      K: {implied: 0.5, allowed: 0.0}
     ridge: 4.0
     previous_season_weight: 0.5
     allowed_k: 6

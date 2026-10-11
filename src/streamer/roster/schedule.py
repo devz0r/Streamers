@@ -15,8 +15,13 @@ Two signals, both from games already played (no future lines exist):
 Each week's factor is ``environment ** implied * allowed ** allowed`` with
 weights by position (``roster.schedule``), fitted on 2022-2025 and scored on
 the season left out: quarterbacks and backs gain, receivers and tight ends
-did not (DECISIONS.md, "Who he plays the rest of the way"). The current
-week is left out -- its own lines already price it.
+did not (DECISIONS.md, "Who he plays the rest of the way"). Defences and
+kickers were tested the same way on 2023-2025 (``scripts/fit_schedule_dstk.py``):
+a defence follows the points its opponent has given up to defences, a kicker
+his own team's predicted total ("Playoff-week matchups for D/ST and
+kickers"). For a defence the environment is the *opponent's* predicted total
+over the league mean. The current week is left out -- its own lines already
+price it.
 """
 
 from __future__ import annotations
@@ -75,12 +80,34 @@ def _allowed(history: pd.DataFrame, games: pd.DataFrame, season: int, week: int,
     return out
 
 
+#: Positions whose environment is the opponent's scoring, not their own team's.
+AGAINST = ("DST",)
+
+
+def unit_history(dst: pd.DataFrame | None, kicker: pd.DataFrame | None) -> pd.DataFrame:
+    """Defence and kicker points per team-game, shaped like the skill history
+    (``position``, ``season``, ``week``, ``team``, ``fantasy_points_ppr``) so
+    :func:`_allowed` reads them the same way."""
+    frames = []
+    for pos, f in (("DST", dst), ("K", kicker)):
+        if f is None or f.empty or "fantasy_points" not in f.columns:
+            continue
+        g = (f.dropna(subset=["fantasy_points"]).groupby(["season", "week", "team"], as_index=False)
+             ["fantasy_points"].sum().rename(columns={"fantasy_points": "fantasy_points_ppr"}))
+        frames.append(g.assign(position=pos))
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def factors(cfg: Config, season: int, week: int, history: pd.DataFrame,
-            games: pd.DataFrame | None = None) -> dict[tuple[str, str], dict[int, float]]:
+            games: pd.DataFrame | None = None, units: pd.DataFrame | None = None
+            ) -> dict[tuple[str, str], dict[int, float]]:
     """(team, position) -> {future week: factor on his level}, for the
-    positions ``roster.schedule`` weights, weeks after ``week``."""
+    positions ``roster.schedule`` weights, weeks after ``week``. ``units``:
+    defence and kicker points (:func:`unit_history`), for those positions."""
     conf = (cfg.raw.get("roster") or {}).get("schedule") or {}
     weights = {p: v for p, v in (conf.get("positions") or {}).items() if v}
+    if units is not None and not units.empty:
+        history = pd.concat([history if history is not None else pd.DataFrame(), units], ignore_index=True)
     if not weights or history is None or history.empty:
         return {}
     if games is None:
@@ -97,12 +124,17 @@ def factors(cfg: Config, season: int, week: int, history: pd.DataFrame,
              .dropna(subset=["team_implied_total"]).sort_values(["season", "week"])
              .groupby("team")["team_implied_total"].apply(lambda s: float(s.tail(6).mean())))
     future = games[(games["season"] == season) & (games["week"] > week)]
+    recent = games[(games["season"] >= season - 1) & ((games["season"] < season) | (games["week"] < week))]
+    mean_total = float(recent["team_implied_total"].mean()) if recent["team_implied_total"].notna().any() else np.nan
     out: dict[tuple[str, str], dict[int, float]] = {}
     for pos, w in weights.items():
         a_imp, a_all = float(w.get("implied", 0.0)), float(w.get("allowed", 0.0))
         allowed = _allowed(history, games, season, week, pos, float(conf.get("allowed_k", 6.0)), prev_w) if a_all else {}
         for r in future.itertuples():
-            env = predict(r.team, r.opponent, int(r.is_home)) / trail.get(r.team, np.nan)
+            if pos in AGAINST:
+                env = predict(r.opponent, r.team, 1 - int(r.is_home)) / mean_total
+            else:
+                env = predict(r.team, r.opponent, int(r.is_home)) / trail.get(r.team, np.nan)
             f = 1.0
             if a_imp and np.isfinite(env) and env > 0:
                 f *= env ** a_imp

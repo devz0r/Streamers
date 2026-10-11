@@ -58,3 +58,22 @@ def test_the_simulator_plays_each_week_at_his_schedule(monkeypatch):
     p.schedule = {7: 1.2}
     hard = futures.simulate([p], [6, 7], {}, n_sims=4000, seed=5).scores[:, 0, 1].mean()
     assert hard == pytest.approx(flat * 1.2, rel=0.08)
+
+
+def test_defences_follow_what_their_opponents_give_up_and_kickers_their_own_total(cfg):
+    import copy
+    import dataclasses
+
+    dst = pd.DataFrame({"season": 2026, "week": [1, 1, 2, 2, 3, 3], "team": ["KC", "BUF", "KC", "SF", "BUF", "DAL"],
+                        # BUF's offence hands defences points: KC's D scored 18 against it; DAL's D 2 vs BUF.
+                        "fantasy_points": [18.0, 4.0, 6.0, 6.0, 2.0, 6.0]})
+    units = schedule.unit_history(dst, pd.DataFrame({"season": [2026], "week": [1], "team": ["KC"],
+                                                     "fantasy_points": [9.0]}))
+    assert set(units["position"]) == {"DST", "K"} and "fantasy_points_ppr" in units.columns
+    raw = copy.deepcopy(cfg.raw)
+    raw["roster"]["schedule"]["ridge"] = 0.05
+    f = schedule.factors(dataclasses.replace(cfg, raw=raw), 2026, 4, pd.DataFrame(), games=_games(), units=units)
+    # Week 5: SF's defence hosts DAL, KC's hosts BUF -- whose offence gives defences points.
+    assert f[("KC", "DST")][5] > f[("SF", "DST")][5]
+    # Kickers go with their own team's predicted total: KC's offence is the best.
+    assert f[("KC", "K")][5] > f[("SF", "K")][5]

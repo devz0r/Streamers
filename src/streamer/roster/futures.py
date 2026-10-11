@@ -502,7 +502,7 @@ def simulate(
             eff_vis[:, h] = np.where(lead_out, visible[:, h] + share[:, h]
                                      * np.maximum(visible[:, lead] - visible[:, h], 0.0), visible[:, h])
         was_out = out_now
-        # Who he faces this week (``schedule``: quarterbacks and backs).
+        # Who he faces this week (``schedule``: quarterbacks, backs, defences, kickers).
         for j, p in enumerate(players):
             sched = getattr(p, "schedule", None)
             if sched and k != current:

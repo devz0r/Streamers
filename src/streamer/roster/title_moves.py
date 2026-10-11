@@ -67,6 +67,8 @@ UPSIDE_EACH = 3
 STEPPING_EACH = 2
 #: Free agents on a reserve list priced as IR stashes, best season value first.
 STASH_EACH = 6
+#: Free-agent defences and kickers priced for their playoff weeks, per position.
+UNITS_EACH = {"DST": 3, "K": 2}
 
 
 @dataclass
@@ -323,6 +325,11 @@ class TitleEngine:
                        key=lambda p: -float(p.ros_value or 0.0)) if self.ir_slots else []
         self.stash = {p.player_id for p in stash[:STASH_EACH]}
         self.candidates.extend(p for p in stash[:STASH_EACH])
+        # Defences and kickers for the playoff weeks: streamed week to week,
+        # but one with soft opponents in the playoffs can be worth a bench
+        # spot now. The best few by their level over those weeks.
+        self.playoff_units = self._playoff_units(snapshot)
+        self.candidates.extend(self.playoff_units)
         self.n_drops = drops
         have = {p.player_id for p in self.candidates}
         also = [p for p in extra or [] if p.player_id not in have]
@@ -377,6 +384,27 @@ class TitleEngine:
             if self.ranks[i] < self.rank:
                 none_ahead *= 1.0 - p
         return 1.0 - none_all, 1.0 - none_ahead
+
+    @staticmethod
+    def _playoff_units(snapshot: LeagueSnapshot) -> list[PlayerRow]:
+        """The free-agent defences and kickers with the best playoff weeks:
+        season value times each week's schedule factor, averaged over the
+        weeks after the regular season."""
+        rules = snapshot.rules or {}
+        reg = int(rules.get("regular_season_weeks") or 14)
+        rounds = max(int(np.ceil(np.log2(max(int(rules.get("playoff_teams") or 4), 2)))), 1)
+        weeks = range(reg + 1, reg + 1 + rounds * max(int(rules.get("playoff_round_weeks") or 1), 1))
+
+        def late(p: PlayerRow) -> float:
+            sched = p.schedule or {}
+            return float(p.ros_value or 0.0) * float(np.mean([sched.get(w, sched.get(str(w), 1.0)) for w in weeks]))
+
+        out = []
+        for pos, n in UNITS_EACH.items():
+            pool = [p for p in snapshot.free_agents if p.position == pos and p.team and p.ros_value is not None
+                    and p.schedule]
+            out.extend(sorted(pool, key=lambda p: -late(p))[:n])
+        return out
 
     @staticmethod
     def _upside_candidates(snapshot: LeagueSnapshot, pool: list[PlayerRow]) -> dict[str, str]:
@@ -695,6 +723,12 @@ class TitleEngine:
                     + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))
         if m.drop_options:
             bits.append(toss_up_text(m.drop_options, self.market_value))
+        if m.add.player_id in {u.player_id for u in self.playoff_units}:
+            from .schedule import describe
+
+            note = describe(m.add.schedule or {})
+            bits.append("held for the playoff weeks" + (f": {note}" if note else "")
+                        + " -- priced against streaming the slot from the wire every week")
         if m.how:
             bits.append(f"IR stash: {m.add.name} is {m.add.status.replace('_', ' ').lower()}; the simulation "
                         "draws whether and when he comes back (players on a reserve list, 2022-2025), and he "

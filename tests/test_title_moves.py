@@ -233,3 +233,17 @@ def test_move_text_says_how_he_joins_the_roster():
     swap = TitleMove(add=a, drop=b, p_now=0.1, p_wait=0.0, p_base=0.1, priority_cost=0.0, verdict="claim",
                      how="ir-swap", later=c)
     assert move_text(swap) == "stash in B's IR slot (drop B); when he is back, drop C"
+
+
+def test_free_agent_defences_are_priced_for_their_playoff_weeks(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    soft, hard = _fa("softD", "DST", 8.0), _fa("hardD", "DST", 8.0)
+    soft.schedule = {w: 1.3 for w in range(11, 15)}             # playoff weeks 11-12 here
+    hard.schedule = {w: 0.7 for w in range(11, 15)}
+    others = [_fa(f"d{i}", "DST", 7.0) for i in range(4)]
+    for d in others:
+        d.schedule = {11: 1.0}
+    _wire(snap, [soft, hard] + others)
+    engine = TitleEngine(snap, cfg, n_sims=300, candidates=8)
+    ids = [p.player_id for p in engine.playoff_units]
+    assert "softD" in ids and "hardD" not in ids and len(ids) == 3

@@ -1385,13 +1385,16 @@ def project_snapshot(
     counts = season_loss_counts(players, history, int(snapshot.season), int(snapshot.week))
     for p in players:
         p.season_loss = season_loss(p, *counts[p.player_id], fut_conf) if p.player_id in counts else None
-    # Who he faces in the weeks to come (quarterbacks and backs, as measured):
+    # Who he faces in the weeks to come (quarterbacks, backs, defences and
+    # kickers, as measured):
     # a factor per future week the season simulator plays.
     from ..teams import normalize_team as _norm
     from . import schedule as sched_mod
 
+    ctx = getattr(rankings, "context", None) if rankings is not None else None
+    units = sched_mod.unit_history(getattr(ctx, "dst_train", None), getattr(ctx, "kicker_train", None))
     try:
-        by_team = sched_mod.factors(cfg, int(snapshot.season), int(snapshot.week), history)
+        by_team = sched_mod.factors(cfg, int(snapshot.season), int(snapshot.week), history, units=units)
     except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
         log.warning("schedule factors unavailable: %s", exc)
         by_team = {}

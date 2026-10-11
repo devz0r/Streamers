@@ -2189,6 +2189,34 @@ roster values -- so the season value stays the schedule-neutral level it is
 measured as; a card says when the rest of the way, or weeks 15-17, are 4%+
 easier or harder.
 
+### Playoff-week matchups for D/ST and kickers
+Quarterbacks and backs follow their opponents; defences and kickers had never
+been tested, and they are the positions whose points depend most on who is
+across the field. Same test (`scripts/fit_schedule_dstk.py`): checkpoints at
+weeks 3-10 of 2023-2025, every unit's walk-forward season value against its
+points in each later week, the week scaled by `environment ** a * allowed **
+b`, fitted on two seasons and scored on the third (RMSE per game):
+
+| signal | D/ST | K |
+|---|---|---|
+| predicted implied total (a defence: its opponent's) | 3/3, 8.47 -> 8.34 | 2/3, 4.674 -> 4.663 |
+| opponent's points allowed to the position, shrunk 6 games | **3/3, 8.47 -> 8.23** | 2/3, 4.674 -> 4.673 |
+| both | 3/3, 8.47 -> 8.25 | 2/3, 4.674 -> 4.662 |
+
+Defences follow what their opponents give up to defences, steadily (fitted
+weight 0.8-1.0 in every fold), and weeks 15-17 improve with it (8.81 ->
+8.55). Kickers pass the rule on their own team's predicted total, barely.
+In use: DST `allowed 0.9`, K `implied 0.5` (`roster.schedule`), from the D/ST
+and kicker points the rankings pipeline already computes. At week 5 of
+2026 a defence's playoff weeks range from about -20% to +23%; a kicker's
++-7%.
+
+The title engine now prices the three free-agent defences and two kickers
+with the best playoff weeks (season value times the factor over the weeks
+after the regular season), as holds against streaming the slot from the wire
+every week -- the replacement level the season simulator already fills it
+with.
+
 ### D/ST and K against the expert consensus
 A public benchmark for our D/ST and K rankings: the FantasyPros weekly
 consensus (`/consensus-rankings`, positions DST and K), pulled every run for
