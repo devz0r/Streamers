@@ -3,6 +3,6 @@
   "platform": "yahoo",
   "week": 5,
   "ok": false,
-  "error": "could not find your team on the league page; set YAHOO_TEAM_ID",
-  "at": "2026-10-11T11:17:51+00:00"
+  "error": "Yahoo session has expired or was signed out: re-copy the Cookie header from a logged-in fantasy page into the YAHOO_COOKIE secret",
+  "at": "2026-10-11T14:56:21+00:00"
 }
