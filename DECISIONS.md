@@ -2671,6 +2671,27 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Correcting the projection in-season? Tested, no
+The blend weights and every input re-fit each week, but our own projection
+was never corrected by how it had been missing this season. Tested
+(`scripts/fit_in_season.py`): 2022-2025 replayed week by week through the
+production volume model and its 80% range, each week corrected only from
+that season's earlier weeks at the position, the shrinkage picked on three
+seasons and scored on the fourth:
+
+| | bias shift, RMSE | seasons | spread scale, quantile loss | seasons |
+|---|---|---|---|---|
+| QB | 7.708 -> 7.708 | 0 of 4 | 2.6723 -> 2.6722 | 3 of 4 |
+| RB | 6.211 -> 6.211 | 0 of 4 | 2.0326 -> 2.0335 | 0 of 4 |
+| WR | 6.129 -> 6.128 | 2 of 4 | 2.0039 -> 2.0039 | 0 of 4 |
+| TE | 4.948 -> 4.948 | 0 of 4 | 1.6134 -> 1.6135 | 0 of 4 |
+
+A season's lean was small every year (within about +-0.5 a game) and did not
+carry from early weeks to later ones; the fits chose heavy shrinkage. The
+80% ranges already held 78-85% of scores. The QB spread "pass" is a
+1-in-27,000 change: not shipped. What adapts in-season stays as it is: the
+position rates, each player's window, and the blend weights.
+
 ### Last season's stand-in games
 Colby Parkinson projected 6.7 on 1-2 targets a game: late in 2025 he stood
 in for an injured Tyler Higbee (4-7 targets, nine touchdowns in twelve
