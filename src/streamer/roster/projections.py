@@ -318,8 +318,31 @@ def _team_discount(prior: pd.DataFrame, target: pd.DataFrame, teams: dict[str, s
 PASS_CATCHERS = ("WR", "TE")
 
 
+def prior_absences(cfg: Config, season: int) -> set[tuple[int, str, str]]:
+    """(week, team, nflverse id) for every player that team carried on injured
+    reserve or as a game-day inactive in ``season`` (the weekly rosters): a
+    documented absence while he was on the team -- never weeks before he
+    joined or after he left."""
+    from ..teams import normalize_team
+
+    path = cfg.raw_dir / f"rosters_weekly_{season}.parquet"
+    try:
+        if path.exists():
+            r = pd.read_parquet(path, columns=["week", "team", "gsis_id", "status"])
+        else:
+            from .ros_backtest import rosters
+
+            r = rosters(cfg, season)
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("weekly rosters for %s unavailable: %s", season, exc)
+        return set()
+    r = r[r["status"].isin(["RES", "INA"]) & r["gsis_id"].notna()]
+    return set(zip(r["week"].astype(int), r["team"].map(normalize_team), r["gsis_id"].astype(str)))
+
+
 def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[float, float]],
-               conf: dict, pos_mean: pd.Series, season: int) -> pd.DataFrame:
+               conf: dict, pos_mean: pd.Series, season: int,
+               prior_out: set[tuple[int, str, str]] | None = None) -> pd.DataFrame:
     """A teammate back from an absence takes his work back.
 
     The games a player had this season while a regular at his position --
@@ -334,6 +357,12 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     scales it: ``vol`` becomes this week's volume, ``vol_ros`` the rest of
     the season's. Measured on 2022-2025; see scripts/fit_teammate_back.py
     and DECISIONS.md, "A teammate back from an absence".
+
+    ``prior_out`` (:func:`prior_absences` for last season), with
+    ``teammate_back.prior_season`` set, extends it to last season's games:
+    one counts only when it was his game for the team he plays for now and
+    the teammate -- on that team now and playing for it this season -- was
+    on that team's injured reserve or game-day inactive list that week.
 
     Adds ``vol_ros``, ``vol_before_back`` and ``back_from`` (the teammate
     whose return moves him most).
@@ -397,12 +426,18 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     pos_arr = last["player_id"].map(out.set_index("player_id")["position"]).to_numpy()
     # Per game of each player's window: which returning teammates missed it.
     missing: list[list] = [[] for _ in range(len(last))]
+    use_prior = bool(rule.get("prior_season")) and bool(prior_out)
     for x in range(len(last)):
-        if season_arr[x] != season or team_arr[x] != team_now.get(pid_arr[x]):
+        if team_arr[x] != team_now.get(pid_arr[x]):
             continue
-        for r in sources(team_arr[x], pos_arr[x]):
-            if r.player_id != pid_arr[x] and (week_arr[x], team_arr[x], r.player_id) not in played:
-                missing[x].append(r)
+        if season_arr[x] == season:
+            for r in sources(team_arr[x], pos_arr[x]):
+                if r.player_id != pid_arr[x] and (week_arr[x], team_arr[x], r.player_id) not in played:
+                    missing[x].append(r)
+        elif use_prior and season_arr[x] == season - 1:
+            for r in sources(team_arr[x], pos_arr[x]):
+                if r.player_id != pid_arr[x] and (week_arr[x], team_arr[x], str(r.player_id)) in prior_out:
+                    missing[x].append(r)
     flagged = np.array([bool(m) for m in missing])
     if not flagged.any():
         return out
@@ -486,7 +521,9 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config,
     target["vol"], target["eff"] = _volume_efficiency(target, pos_mean, pos_eff, conf)
     target["team_games"], target["old_team"], target["vol_all_teams"] = np.nan, None, target["vol"]
     target = _team_discount(prior, target, teams, conf, pos_mean_all)
-    target = _returning(prior, target, back or {}, conf, pos_mean_all, season)
+    prior_out = (prior_absences(cfg, season - 1)
+                 if back and (conf.get("teammate_back") or {}).get("prior_season") else None)
+    target = _returning(prior, target, back or {}, conf, pos_mean_all, season, prior_out)
     target["blend"] = target["vol"] * target["eff"]
     target = target[target["blend"].notna()]
     # Opportunity over the last two games against the games before them: the

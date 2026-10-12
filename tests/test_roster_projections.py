@@ -616,3 +616,47 @@ def test_the_platform_weight_learns_from_the_log_and_leans_on_the_prior(cfg, tmp
     assert games == n and 0.5 < w < 0.8               # pulled toward the platform, shrunk toward 0.5
     w_few, few = fit_platform_weight(c, hist.iloc[:100])
     assert few == 100 and w_few == pytest.approx(0.5)  # under the minimum: the prior
+
+
+def _last_season_stand_in() -> pd.DataFrame:
+    """KC: the lead back (16) misses 2025 weeks 13-17 and his backup (4) gets
+    12 in them; both play every 2026 game so far at their usual work."""
+    rows = []
+    for season, weeks in ((2025, range(1, 18)), (2026, range(1, 5))):
+        for week in weeks:
+            out = season == 2025 and week >= 13
+            for pid, exp in (("lead-back", 16.0), ("cuff-back", 12.0 if out else 4.0)):
+                if pid == "lead-back" and out:
+                    continue
+                rows.append({"player_id": pid, "player_display_name": pid.replace("-", " ").title(),
+                             "position": "RB", "season": season, "week": week, "team": "KC",
+                             "fantasy_points_ppr": exp, "total_fantasy_points_exp": exp})
+    return pd.DataFrame(rows)
+
+
+def test_last_seasons_stand_in_games_are_discounted_only_for_a_documented_absence(cfg, monkeypatch):
+    import copy
+    import dataclasses
+
+    from streamer.roster import projections
+
+    hist, back = _last_season_stand_in(), {"lead-back": (1.0, 1.0)}
+    on_ir = {(w, "KC", "lead-back") for w in range(13, 18)}
+
+    def cuff(prior_out, enabled=True):
+        raw = copy.deepcopy(cfg.raw)
+        raw["roster"]["teammate_back"]["prior_season"] = enabled
+        monkeypatch.setattr(projections, "prior_absences", lambda _c, _s: prior_out)
+        return player_table(hist, 2026, 5, dataclasses.replace(cfg, raw=raw), back=back).set_index(
+            "player_id").loc["cuff-back"]
+
+    plain = cuff(set(), enabled=False)
+    hurt = cuff(on_ir)
+    assert hurt["vol"] < plain["vol"] - 0.3 and hurt["back_from"] == "Lead Back"
+    # Not on the team's IR or inactive list those weeks (he had not joined,
+    # or had left): his absence is not one the backup was standing in for.
+    assert cuff(set())["vol"] == pytest.approx(plain["vol"])
+    # On another team's list: not this team's absence.
+    assert cuff({(w, "BUF", "lead-back") for w in range(13, 18)})["vol"] == pytest.approx(plain["vol"])
+    # Switched off: last season is left alone.
+    assert cuff(on_ir, enabled=False)["vol"] == pytest.approx(plain["vol"])

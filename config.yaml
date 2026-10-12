@@ -485,6 +485,12 @@ roster:
     regular: 5.0
     bigger: {RB: 0.65, WR: 0.35, TE: 0.35}
     smaller: {RB: 0.1, WR: 0.0, TE: 0.1}
+    # Last season's games too, where the teammate -- on the team now and
+    # playing for it this season -- was on its IR or inactive list that week
+    # (weekly rosters). Walk-forward 2023-2025, on/off at these shares: RB
+    # 6.03 -> 5.96, WR 5.95 -> 5.93, TE 5.13 -> 5.09 (scripts/
+    # fit_teammate_back_prior.py; DECISIONS.md, "Last season's stand-in games").
+    prior_season: true
   # Efficiency (points per expected point) mostly regresses, so it moves
   # slowly: long-run rate shrunk to the position's with this many expected
   # points of prior, and only a quarter of the weight on recent games.

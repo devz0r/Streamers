@@ -2671,6 +2671,36 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Last season's stand-in games
+Colby Parkinson projected 6.7 on 1-2 targets a game: late in 2025 he stood
+in for an injured Tyler Higbee (4-7 targets, nine touchdowns in twelve
+games), and with three thin games this season those still carried his
+17-game window. The teammate-return correction read only this season's
+absences. It now reads last season's too (`teammate_back.prior_season`), and
+only where it is the same situation:
+
+- his own game, for the team he plays for now;
+- a regular teammate at his position (5+ expected points a game) who is on
+  that team now and has played for it this season;
+- who was on that team's **injured reserve or game-day inactive list that
+  week** (nflverse weekly rosters) -- a documented absence while on the team,
+  so weeks before a signing or after a trade or cut never count.
+
+On/off at the shares already fitted (nothing new tuned), walk-forward
+2023-2025 (`scripts/fit_teammate_back_prior.py`), on the player-weeks it
+moves:
+
+| | moved | RMSE | seasons better |
+|---|---|---|---|
+| RB | 498 of 3,274 | 6.029 -> 5.956 | 3 of 3 (bias -1.32 -> -1.06, -0.42 -> -0.06, -0.44 -> -0.18) |
+| WR | 1,075 of 5,334 | 5.951 -> 5.933 | 3 of 3 |
+| TE | 272 of 2,304 | 5.125 -> 5.094 | 2 of 3 |
+
+At week 5 of 2026 the players it moves are last season's stand-ins whose
+starter is back: Devin Singletary (Cam Skattebo) 7.7 -> 4.5, Audric Estime
+(Alvin Kamara) 10.5 -> 7.7, Darius Slayton (Malik Nabers) 8.1 -> 6.3, Luke
+Musgrave (Tucker Kraft), Parkinson (Higbee) 7.4 -> 6.8.
+
 ### A receiver back takes targets from the tight end? Tested, no
 Tyler Higbee's role jumped to 11 targets in a week Puka Nacua missed, then 6
 with Nacua back; the teammate-return correction only reads returns at the
