@@ -1375,6 +1375,19 @@ def project_snapshot(
     market_lines = market_calibration.season_lines(history, int(snapshot.season), int(snapshot.week)) \
         if market_conf.get("cells") else {}
 
+    # Similar past player-weeks (comps.py): quarterbacks only, as measured.
+    from ..teams import normalize_team as _norm_team
+    from . import comps
+
+    comp_conf = comps.settings(cfg)
+    comp_ids = {}
+    for q in players:
+        nid = matched.mapping.get(q.player_id)
+        if nid and q.position in comp_conf and q.team:
+            comp_ids[str(nid)] = (_norm_team(q.team), q.position)
+    comp_mean = comps.for_week(cfg, history, comp_ids, int(snapshot.season), int(snapshot.week)) \
+        if comp_ids else {}
+
     for p in players:
         mean: float | None = None
         model_mean: float | None = None
@@ -1503,6 +1516,12 @@ def project_snapshot(
                 mean = 0.5 * float(pos_mean.get(p.position, 8.0)) if len(pos_mean) else 4.0
                 ros = mean
                 source = "prior"
+            comp = comp_mean.get(str(nfl_id)) if source == "model" and nfl_id else None
+            if comp is not None:
+                w_comp = float(comp_conf[p.position]["weight"])
+                p.signals.append(f"similar past {p.position} weeks averaged {comp:.1f} "
+                                 f"(our model {mean:.1f}; {w_comp:.0%} toward them)")
+                mean = (1 - w_comp) * mean + w_comp * comp
             model_mean = mean
             if plat is not None and source == "model" and w_platform > 0:
                 mean = (1 - w_platform) * mean + w_platform * float(plat)

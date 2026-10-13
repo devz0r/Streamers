@@ -414,6 +414,13 @@ roster:
   # sleeper_projection column). DECISIONS.md, "Sleeper projections".
   sleeper_projection:
     weight: 0.25
+  # Similar past player-weeks (roster/comps.py): the mean score of the k most
+  # similar earlier weeks at his position since `since`, `weight` of the way
+  # from the model's own number. Quarterbacks only: on weeks the weight was not
+  # picked on, better in 2023, 2024 and 2026, worse in 2025 (MAE 6.351 ->
+  # 6.232); RB, WR and TE lost. scripts/fit_player_comps.py.
+  comps:
+    QB: {weight: 0.8, k: 100, since: 2015}
   # Monte-Carlo draws per lineup evaluation. 20k keeps P(win) stable to ~0.5%.
   sims: 20000
   # Skill-position projection = opportunity x efficiency (validated

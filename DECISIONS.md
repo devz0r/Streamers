@@ -3338,3 +3338,47 @@ saw (`sleeper_projection`) and its weight are logged with every projection
 the weight can be refit on genuine pre-kickoff values once enough weeks
 are in (the same gate as the betting weight). A player Sleeper does not
 cover is left as before.
+
+### Player comparisons: kept for quarterbacks only
+
+The kicker comparison worked (similar past matchups), so
+`scripts/fit_player_comps.py` asks the same of every skill position. Each
+player-week is described by what was known before it: expected points per
+game over his last 4 and 8 games, PPR points, targets, carries and target
+share over the last 4, and his team's implied total and spread. Its
+forecast is the mean score of the `k` nearest earlier player-weeks at his
+position, in a pool back to 2015. It was judged against our production
+model replayed on the games before each week, on weeks 4-14 (every other
+week) of 2023-2025, for players who played and were projected 3+
+(4,145 rows). `k` and the weight were picked on two seasons and scored on
+the third.
+
+- **All positions together: dropped.** MAE 5.036 -> 5.036, better in 1 of 3
+  seasons. The comparisons alone were worse than the model at every `k`.
+- **By position:** QB 6.334 -> 6.187 (2 of 3 seasons; rank correlation
+  0.42 -> 0.45). RB, WR and TE were each slightly worse.
+
+QB was found by slicing, so it was then tested on weeks it had not been
+seen on: the odd weeks 5-13 of 2023-2025 and weeks 3-6 of 2026, with the
+setting fixed in advance at `k` 100 and weight 0.8:
+
+| Season | Model | 80% comparison | Comparison alone |
+|---|---|---|---|
+| 2023 | 5.904 | 5.834 | 5.839 |
+| 2024 | 6.256 | 6.115 | 6.139 |
+| 2025 | 7.023 | 7.045 | 7.096 |
+| 2026 | 6.222 | 5.933 | 5.881 |
+
+That is better in three of four seasons (6.351 -> 6.232), with rank
+correlation up in three. It ships for quarterbacks. The model's own number
+moves 80% of the way to the comparison mean, before the platform, betting,
+FantasyPros and Sleeper blends, which is where the test measured it. Replayed
+through the production code, 2024 went 6.256 -> 6.070 and 2026 went
+6.222 -> 5.821, with 97% of quarterbacks getting a comparison. Each
+quarterback's card says what similar past weeks averaged. Config
+`roster.comps`.
+
+Because the final number blends in other sources, the change to what is
+published is smaller than the model-level gain. The quarterback model also
+under-projected in these replays (bias -0.5 to -1.2), which is worth a look
+on its own.
