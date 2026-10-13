@@ -138,10 +138,15 @@ def test_points_are_the_scored_implied_stat_line(cfg):
     expected = (stats_["rushing_yards"] * scoring["rush_yards"]
                 + stats_["receptions"] * scoring["reception"]
                 + stats_["anytime_td"] * scoring["rush_td"])
-    assert row["vegas_points"] == pytest.approx(expected, abs=0.02)
-    # Balanced lines, so the implied means sit on the lines themselves.
-    assert stats_["rushing_yards"] == pytest.approx(84.5, abs=0.01)
-    assert stats_["receptions"] == pytest.approx(1.5, abs=0.01)
+    assert row["vegas_points"] == pytest.approx(expected, abs=0.05)
+    # Balanced lines: the line is the median, and yardage is skewed, so the
+    # mean sits above it by the measured amount (DECISIONS.md, "Turning a
+    # prop line into a mean").
+    from streamer.data.props import mean_from_shape
+
+    assert stats_["rushing_yards"] == pytest.approx(mean_from_shape("rushing_yards", 84.5, 0.5), abs=0.01)
+    assert stats_["rushing_yards"] > 84.5
+    assert stats_["receptions"] == pytest.approx(mean_from_shape("receptions", 1.5, 0.5), abs=0.01)
 
 
 def test_pinnacle_is_weighted_above_the_others(cfg):
@@ -152,8 +157,11 @@ def test_pinnacle_is_weighted_above_the_others(cfg):
     means = implied_means(parse_props_payload(p, cfg), cfg)
     cons = consensus(means, cfg)
     rush = cons[cons["stat"].eq("rushing_yards")].iloc[0]["mean"]
-    assert 85.0 < rush < 95.0        # weighted 2:1 toward Pinnacle's 100
-    assert rush == pytest.approx((2 * 100.0 + 70.0) / 3.0, abs=0.01)
+    from streamer.data.props import mean_from_shape
+
+    hi, lo = mean_from_shape("rushing_yards", 100.0, 0.5), mean_from_shape("rushing_yards", 70.0, 0.5)
+    assert rush == pytest.approx((2 * hi + lo) / 3.0, abs=0.01)     # weighted 2:1 toward Pinnacle
+    assert (hi + lo) / 2 < rush < hi
 
 
 def test_empty_payload_is_empty_not_an_error(cfg):

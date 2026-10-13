@@ -14,10 +14,12 @@ market" is not "no points".
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 
 import numpy as np
+import pandas as pd
 
 from ..config import Config, get_config
 from ..league.model import LeagueSnapshot, PlayerRow
@@ -39,6 +41,8 @@ class VegasReport:
     credits_remaining: int | None = None
     warnings: list[str] = field(default_factory=list)
     description: str = ""
+    #: Players with a stat no book posted, filled from their own games.
+    filled: int = 0
 
     @property
     def is_usable(self) -> bool:
@@ -114,6 +118,10 @@ def attach(
         p.vegas_stats = dict(row.stats)
         p.vegas_books = int(row.books)
         report.matched += 1
+    try:
+        report.filled = complete(snapshot, cfg)
+    except Exception as exc:  # noqa: BLE001 - the posted lines still stand
+        log.warning("filling unposted prop markets skipped: %s", exc)
     startable = [p for p in snapshot.my_team.roster
                  if p.position not in ("K", "DST") and not p.on_bye
                  and not p.is_out and not p.in_ir_slot]
@@ -122,6 +130,80 @@ def attach(
     report.unmatched = sorted(p.name for p in startable if p.vegas_points is None)
     snapshot._vegas_report = report
     return report
+
+
+#: The stats that make up a player's points, by position: a line a book did
+#: not post is filled from his own recent games rather than counted as zero.
+COMPONENTS: dict[str, tuple[str, ...]] = {
+    "QB": ("passing_yards", "passing_tds", "passing_interceptions", "rushing_yards", "anytime_td"),
+    "RB": ("rushing_yards", "receptions", "receiving_yards", "anytime_td"),
+    "WR": ("receptions", "receiving_yards", "rushing_yards", "anytime_td"),
+    "TE": ("receptions", "receiving_yards", "anytime_td"),
+}
+#: His recent games read for a stat no book posted.
+FILL_GAMES = 8
+
+
+def recent_lines(cfg: Config, season: int, games: int = FILL_GAMES) -> pd.DataFrame:
+    """nflverse id -> his per-game average of every prop stat over his last
+    ``games`` regular-season games (this season and last)."""
+    frames = []
+    for s in (season - 1, season):
+        path = cfg.raw_dir / f"player_stats_{s}.parquet"
+        if path.exists():
+            frames.append(pd.read_parquet(path))
+    if not frames:
+        return pd.DataFrame()
+    st = pd.concat(frames)
+    if "season_type" in st.columns:
+        st = st[st["season_type"] == "REG"]
+    st = st.sort_values(["season", "week"]).groupby("player_id").tail(games)
+    st = st.assign(anytime_td=st.get("rushing_tds", 0).fillna(0) + st.get("receiving_tds", 0).fillna(0))
+    cols = [c for c in ("passing_yards", "passing_tds", "passing_interceptions", "rushing_yards", "receptions",
+                        "receiving_yards", "anytime_td") if c in st.columns]
+    return st.groupby("player_id")[cols].mean()
+
+
+def complete(snapshot: LeagueSnapshot, cfg: Config, recent: pd.DataFrame | None = None) -> int:
+    """Fill the stats no book posted for each priced player from his own
+    recent games, and re-score his Vegas points on the whole line.
+
+    A missing market used to count as zero, so a back with no receptions
+    prop lost his catches and the blend read it as the market disagreeing.
+    Players with no recent games to fill from keep what was posted. Returns
+    how many players had a stat filled."""
+    from ..data.props import SCORING_KEY
+
+    priced = [p for p in snapshot.all_players() if p.vegas_points is not None and p.position in COMPONENTS]
+    if not priced:
+        return 0
+    if recent is None:
+        recent = recent_lines(cfg, int(snapshot.season))
+    if recent is None or recent.empty:
+        return 0
+    scoring = cfg._profile.get("offense_scoring") or {}
+    n = 0
+    for p in priced:
+        p.vegas_filled = []
+        nid = getattr(p, "nfl_id", None)
+        if nid is None or str(nid) not in recent.index:
+            continue
+        mine = recent.loc[str(nid)]
+        stats = dict(p.vegas_stats or {})
+        for stat in COMPONENTS[p.position]:
+            if stat in stats or stat not in mine.index or not np.isfinite(mine[stat]):
+                continue
+            stats[stat] = round(float(mine[stat]), 2)
+            p.vegas_filled.append(stat)
+        if not p.vegas_filled:
+            continue
+        points = 0.0
+        for stat, mean in stats.items():
+            key = "rush_td" if stat == "anytime_td" else SCORING_KEY.get(stat)
+            points += float(mean) * float(scoring.get(key, 0.0)) if key else 0.0
+        p.vegas_stats, p.vegas_points = stats, round(points, 2)
+        n += 1
+    return n
 
 
 def teams_for_all(snapshots: list[LeagueSnapshot]) -> dict[str, int]:
@@ -181,6 +263,9 @@ def vegas_lineup(snapshot: LeagueSnapshot, cfg: Config | None = None):
 #: A consensus from fewer books is noisier: the share of the full weight a
 #: player gets by how many books priced him.
 BOOK_DEPTH = {1: 0.6, 2: 0.85}
+#: How the Vegas number is built (logged with it): 2 = each line converted on
+#: the stat's measured shape, unposted markets filled from his own games.
+VEGAS_VERSION = 2
 
 
 @dataclass
@@ -314,6 +399,12 @@ def fit_week_weights(cfg: Config, history=None) -> WeekWeights:
         return prior
     if "vegas_points" not in log_:
         log_["vegas_points"] = np.nan
+    # Vegas numbers built before the shape and fill fix ran about 1.5 a game
+    # low; they do not set the market's weight (the prior stands until enough
+    # rows built the new way are graded).
+    old_build = log_["vegas_version"].fillna(0) < VEGAS_VERSION if "vegas_version" in log_ \
+        else pd.Series(True, index=log_.index)
+    log_.loc[old_build, "vegas_points"] = np.nan
     cpath = fp.cache_dir(cfg) / "log.parquet"
     if cpath.exists():
         c = pd.read_parquet(cpath)
@@ -449,6 +540,13 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
             "model_projection": p.model_projection,
             "platform_projection": p.platform_projection, "vegas_points": p.vegas_points,
             "vegas_books": p.vegas_books, "logged_at": stamp,
+            # Which conversion built the Vegas number, and the line behind it:
+            # 2 = measured shape and unposted markets filled (DECISIONS.md,
+            # "Turning a prop line into a mean"); earlier rows are not used to
+            # fit the market's weight.
+            "vegas_version": VEGAS_VERSION if p.vegas_points is not None else None,
+            "vegas_filled": ",".join(getattr(p, "vegas_filled", []) or []),
+            "vegas_stats": json.dumps(p.vegas_stats or {}, sort_keys=True) if p.vegas_points is not None else "",
         })
     if not rows:
         return 0

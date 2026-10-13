@@ -2671,6 +2671,43 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Turning a prop line into a mean
+A review of the design pointed at the Vegas number, and the logs agreed: for
+healthy players with props, weeks 3-5 of 2026, actual points less the Vegas
+number were +1.49 at RB, +1.61 at WR, +1.14 at TE (QB -0.05), while our
+model and the platforms sat near zero. Two causes, both in how a line
+became a mean:
+
+- **A bell curve around the line.** A balanced line is the median, and
+  yardage is skewed -- a long touchdown sits far above the line, a quiet
+  game can only fall to zero -- so the mean is above it. Measured on nflverse
+  2021-2025 player-games bucketed by the trailing-4 level a book prices
+  (`scripts/fit_prop_shape.py`, fitted 2021-2023 and scored on 2024-2025),
+  the bias of each conversion against the real mean:
+
+  | | bell curve | measured shape |
+  |---|---|---|
+  | rushing yards | -6.30 | -0.20 |
+  | receiving yards | -6.46 | +0.25 |
+  | receptions | -0.30 | -0.09 |
+  | passing yards | +3.20 | +0.68 |
+
+  About a point a game for a receiver, 0.6-1 for a back. Lines are now
+  converted on the measured shape (`streamer/data/prop_shape.json`: the
+  median and the quantiles around it at each level, interpolated): the line
+  is the `1 - P(over)` quantile, the mean is the median plus that level's
+  mean-less-median. Touchdowns and interceptions keep the count conversion.
+- **Markets no book posted counted as zero.** A back with no receptions prop
+  lost his catches. Each priced player's unposted stats (`COMPONENTS` by
+  position) are now filled with his own per-game average over his last 8
+  games, and his points re-scored on the whole line.
+
+The market's weight had been fitted on the biased numbers: 0.10 on these
+logs, 0.35 with each position's bias removed (in-sample, indicative only).
+Rows built the old way no longer set it: each logged Vegas number carries
+its build (`vegas_version` 2) and the line behind it, and the prior (0.4)
+stands until 150 rows built the new way are graded.
+
 ### Snap share as an early sign
 Expected points move once targets and carries do; who is on the field moves
 first. Replayed on 2022-2025 (`scripts/fit_snaps.py`, 12,953 back, receiver

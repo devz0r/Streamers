@@ -1,3 +1,8 @@
+"""Projection logging, blend weights and Vegas lines."""
+
+from __future__ import annotations
+
+import pytest
 
 
 def test_the_whole_wire_is_logged_but_not_players_who_cannot_play(tmp_cfg):
@@ -67,3 +72,24 @@ def test_blend_market_uses_a_positions_own_weight_when_given(tmp_cfg):
     blend_market(snap, tmp_cfg, weight=0.2, by_position={"QB": (0.8, 0.0)})
     qb, te = snap.teams[0].roster
     assert qb.projection == 18.0 and te.projection == 12.0          # QB 0.8 of the way, TE the pooled 0.2
+
+
+def test_an_unposted_market_is_filled_from_his_own_games_not_counted_as_zero(cfg):
+    import pandas as pd
+
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+    from streamer.roster.vegas import complete
+
+    back = PlayerRow(player_id="b", name="Back", position="RB", team="KC", projection=15.0,
+                     vegas_points=13.0, vegas_stats={"rushing_yards": 70.0, "anytime_td": 0.6})
+    back.nfl_id = "00-1"
+    snap = LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L", season=2026, week=5,
+                          slots={}, bench_size=0, teams=[TeamRow(team_id="0", name="T", is_mine=True, roster=[back])],
+                          free_agents=[], matchup=None, synced_at="")
+    recent = pd.DataFrame({"rushing_yards": [65.0], "receptions": [3.0], "receiving_yards": [22.0],
+                           "anytime_td": [0.5]}, index=["00-1"])
+    espn = cfg.for_profile("espn")
+    assert complete(snap, espn, recent) == 1
+    assert sorted(back.vegas_filled) == ["receiving_yards", "receptions"]          # posted lines kept
+    assert back.vegas_stats["rushing_yards"] == 70.0
+    assert back.vegas_points == pytest.approx(70 * 0.1 + 0.6 * 6 + 3 * 1 + 22 * 0.1)

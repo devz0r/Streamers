@@ -140,6 +140,8 @@ class PlayerRow:
     #: the implied stat line behind them. None when no book posted the player.
     vegas_points: float | None = None
     vegas_stats: dict = field(default_factory=dict)
+    #: Stats no book posted, filled from his own recent games (vegas.complete).
+    vegas_filled: list = field(default_factory=list)
     vegas_books: int = 0
     #: This week's NFL opponent, and the player's role on his NFL team (QB,
     #: RB1, WR2, ...). The lineup simulator correlates players through these.

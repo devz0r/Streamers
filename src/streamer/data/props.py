@@ -141,6 +141,41 @@ def spread_for(stat: str, line: float, cfg: Config) -> float:
     return max(sd, float(row.get("floor", 1.0)))
 
 
+def load_shape() -> dict:
+    """The fitted shape of each prop stat around its median
+    (``scripts/fit_prop_shape.py``); empty when absent."""
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).with_name("prop_shape.json")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def mean_from_shape(stat: str, line: float, p_over: float, shape: dict | None = None) -> float | None:
+    """Mean of ``stat`` whose ``P(X > line)`` is ``p_over``, on the shape
+    measured from history at that level: the line is the ``1 - p_over``
+    quantile, so the median is ``line - q(1 - p_over)``, and the mean is the
+    median plus that level's mean less median. Interpolated between the two
+    levels nearest the line. None when the stat was not fitted."""
+    shape = shape if shape is not None else load_shape()
+    rows = (shape.get("stats") or {}).get(stat)
+    if not rows:
+        return None
+    grid = np.asarray(shape["grid"], dtype=float)
+    meds = np.array([r["median"] for r in rows], dtype=float)
+    i = int(np.clip(np.searchsorted(meds, line), 1, len(rows) - 1))
+    lo, hi = rows[i - 1], rows[i]
+    t = float(np.clip((line - lo["median"]) / max(hi["median"] - lo["median"], 1e-9), 0.0, 1.0))
+    q = (1 - t) * np.asarray(lo["q"], dtype=float) + t * np.asarray(hi["q"], dtype=float)
+    gap = (1 - t) * lo["mean_minus_median"] + t * hi["mean_minus_median"]
+    u = float(np.clip(1.0 - p_over, grid[0], grid[-1]))
+    median = float(line) - float(np.interp(u, grid, q))
+    return max(median + float(gap), 0.0)
+
+
 def mean_from_normal_line(line: float, p_over: float, sd: float) -> float:
     """Mean of a normal whose P(X > line) is ``p_over``."""
     return float(line + sd * stats.norm.ppf(p_over))
@@ -236,8 +271,14 @@ def implied_means(frame: pd.DataFrame, cfg: Config | None = None) -> pd.DataFram
                 if row.kind == "poisson":
                     mean = mean_from_poisson_line(float(row.line), p_over)
                 else:
-                    sd = spread_for(row.stat, float(row.line), cfg)
-                    mean = mean_from_normal_line(float(row.line), p_over, sd)
+                    # The measured shape around the line (yardage is skewed:
+                    # its mean sits above the line); a bell curve only where
+                    # the stat was not fitted. DECISIONS.md, "Turning a prop
+                    # line into a mean".
+                    mean = mean_from_shape(row.stat, float(row.line), p_over)
+                    if mean is None:
+                        sd = spread_for(row.stat, float(row.line), cfg)
+                        mean = mean_from_normal_line(float(row.line), p_over, sd)
         if mean is not None and np.isfinite(mean):
             out.append({"player": row.player, "stat": row.stat,
                         "bookmaker": row.bookmaker, "mean": float(max(mean, 0.0))})

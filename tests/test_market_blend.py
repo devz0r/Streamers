@@ -46,6 +46,7 @@ def test_weight_is_fitted_and_shrunk_once_the_log_fills(tmp_cfg):
         "season": 2026, "week": np.repeat(np.arange(1, 10), 100), "player_id": [f"p{i}" for i in range(n)],
         "nfl_id": [f"n{i}" for i in range(n)], "projection": truth + rng.normal(0, 4, n),
         "vegas_points": truth + rng.normal(0, 1, n),              # a much sharper market
+        "vegas_version": 2,                                        # built the current way
     })
     path = tmp_cfg.results_dir / "skill_log.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -97,7 +98,8 @@ def test_both_weights_are_fitted_together_from_the_logs(tmp_cfg):
     priced = rng.random(n) < 0.5                                   # the market prices half of them
     log_ = pd.DataFrame({"season": 2026, "week": week, "player_id": ids, "nfl_id": ids,
                          "projection": truth + rng.normal(0, 4, n),
-                         "vegas_points": np.where(priced, truth + rng.normal(0, 3, n), np.nan)})
+                         "vegas_points": np.where(priced, truth + rng.normal(0, 3, n), np.nan),
+                         "vegas_version": 2})
     path = tmp_cfg.results_dir / "skill_log.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     log_.to_parquet(path)
@@ -127,3 +129,27 @@ def test_the_lineup_says_where_its_numbers_come_from_and_what_is_missing(cfg):
     assert "FantasyPros" in text and "waiver adds and drops" in text
     snap.my_team.roster[0].market_weight = 0.26
     assert "measured on 201 graded games" in _sources(snap, cfg)
+
+
+
+def test_vegas_numbers_built_the_old_way_do_not_set_the_markets_weight(tmp_cfg):
+    """Built before the shape and fill fix they ran about 1.5 a game low:
+    the prior stands until enough rows built the new way are graded."""
+    import numpy as np
+    import pandas as pd
+    import pytest
+
+    from streamer.roster.vegas import fit_week_weights
+
+    rng = np.random.default_rng(1)
+    n = 400
+    truth = rng.uniform(4, 20, n)
+    log_ = pd.DataFrame({"season": 2026, "week": rng.integers(1, 6, n), "player_id": [f"p{i}" for i in range(n)],
+                         "nfl_id": [f"n{i}" for i in range(n)], "position": "WR", "projection": truth + 3.0,
+                         "vegas_points": truth + rng.normal(0, 1, n)})
+    path = tmp_cfg.results_dir / "skill_log.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log_.to_parquet(path)
+    hist = pd.DataFrame({"player_id": log_["nfl_id"], "season": 2026, "week": log_["week"], "fantasy_points_ppr": truth})
+    w = fit_week_weights(tmp_cfg, history=hist)
+    assert w.market_games == 0 and w.market == pytest.approx(0.4)
