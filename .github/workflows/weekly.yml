@@ -51,7 +51,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, dstk-blend, wind-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, dstk-blend, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -168,6 +168,13 @@ jobs:
       - name: Calibrate and test the kicker wind forecast
         if: steps.mode.outputs.mode == 'wind-fit'
         run: python scripts/fit_wind_forecast.py
+
+      # Sleeper's weekly projections against ours on 2023-2025 and this season.
+      # The sandbox cannot reach api.sleeper.app, so this runs here; only
+      # aggregates are printed.
+      - name: Test Sleeper's weekly projections
+        if: steps.mode.outputs.mode == 'sleeper-fit'
+        run: python scripts/fit_sleeper_projections.py
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to
