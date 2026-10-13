@@ -2671,6 +2671,26 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### The factor ledger: tested against a plain ridge
+The ledger scales each standardised D/ST and K feature by `clip(|r_blend| /
+|r_hist|, 0.25, 3)` after standardising, which changes its effective ridge
+penalty by up to 144x between two features. A review asked whether it earns
+that. Walk-forward 2023-2025 with the shipped settings, ledger on against a
+plain standardised ridge (`scripts/test_ledger.py`):
+
+| | MAE | rank correlation | top-5 hit rate | top-5 points |
+|---|---|---|---|---|
+| **D/ST, ledger** | 6.2014 | 0.3564 | 0.652 | 14.89 |
+| D/ST, plain | 6.2076 | 0.3501 | 0.633 | 14.73 |
+| K, ledger | 3.7187 | 0.1743 | 0.552 | 9.50 |
+| K, plain | 3.7184 | 0.1777 | 0.552 | 9.48 |
+
+D/ST: the ledger is better in all three seasons on MAE and rank correlation,
+and in two of three on top-5 points; kept. Kicker: a tie (MAE 3.7187 against
+3.7184, rank correlation 0.003 worse, top-5 identical), well inside what one
+season's noise moves; it neither helps nor hurts, so it stays rather than
+change a setting on no evidence.
+
 ### Kicker wind
 The kicker model trains on the wind recorded at each game, but a game still
 to be played has none -- nflverse's schedule has wind for 0 of the 386
