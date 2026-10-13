@@ -447,11 +447,14 @@ def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
 
 def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = None,
                  consensus_weight: float = 0.0,
-                 by_position: dict[str, tuple[float, float]] | None = None) -> float:
+                 by_position: dict[str, tuple[float, float]] | None = None,
+                 sleeper_weight: float | None = None) -> float:
     """Blend the second forecasts into every player's projection for this
     week: sportsbook-implied points by ``weight`` (less where few books
     priced him) and the FantasyPros consensus projection by
-    ``consensus_weight``, each where the player has one.
+    ``consensus_weight``, each where the player has one; then Sleeper's
+    projection as a last step, ``sleeper_weight`` of the way from the
+    blended number to Sleeper's (config ``roster.sleeper_projection``).
 
     Both assume the player suits up, so the blend is done on the
     if-he-plays number and the injury discount re-applied. Players already
@@ -460,17 +463,21 @@ def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = N
     """
     if weight is None:
         weight, _n = fit_market_weight(cfg)
+    if sleeper_weight is None:
+        sleeper_weight = float(((cfg.raw.get("roster") or {}).get("sleeper_projection") or {}).get("weight", 0.0))
     for p in snapshot.all_players():
         p.pre_market_projection = p.projection
         p.market_weight = 0.0
         p.consensus_weight = 0.0
+        p.sleeper_weight = 0.0
         if (p.projection is None or p.locked or p.is_out
                 or p.play_probability <= 0 or "sits" in (p.projection_source or "")):
             continue
         w_mkt, w_con = (by_position or {}).get(p.position, (weight, consensus_weight))
         wm = w_mkt * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0) if p.vegas_points is not None else 0.0
         wc = w_con if p.fp_projection is not None and p.fp_projection > NO_PROJECTION else 0.0
-        if wm <= 0 and wc <= 0:
+        ws = sleeper_weight if p.sleeper_projection is not None and p.sleeper_projection > NO_PROJECTION else 0.0
+        if wm <= 0 and wc <= 0 and ws <= 0:
             continue
         q = p.play_probability if p.play_probability else 1.0
         if_plays = float(p.projection) / q
@@ -479,9 +486,12 @@ def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = N
             blended += wm * (float(p.vegas_points) - if_plays)
         if wc > 0:
             blended += wc * (float(p.fp_projection) - if_plays)
+        if ws > 0:
+            blended += ws * (float(p.sleeper_projection) - blended)
         p.projection = round(q * blended, 2)
         p.market_weight = round(wm, 3)
         p.consensus_weight = round(wc, 3)
+        p.sleeper_weight = round(ws, 3)
     return weight
 
 
@@ -537,6 +547,7 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
             "projection": p.pre_market_projection if p.pre_market_projection is not None else p.projection,
             "blended_projection": p.projection, "market_weight": p.market_weight,
             "consensus_weight": p.consensus_weight,
+            "sleeper_projection": p.sleeper_projection, "sleeper_weight": p.sleeper_weight,
             "model_projection": p.model_projection,
             "platform_projection": p.platform_projection, "vegas_points": p.vegas_points,
             "vegas_books": p.vegas_books, "logged_at": stamp,

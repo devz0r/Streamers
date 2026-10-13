@@ -839,6 +839,12 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
                 log.warning("FantasyPros consensus for %s skipped: %s", name, exc)
             try:
+                from .roster import sleeper_proj
+
+                sleeper_proj.attach(snap, bound, allow_network=allow_network)
+            except Exception as exc:  # noqa: BLE001 - Sleeper's projection is a bonus input
+                log.warning("Sleeper projections for %s skipped: %s", name, exc)
+            try:
                 from .roster.vegas import blend_market
 
                 blend_market(snap, bound, weight=week_w.market if week_w else None,

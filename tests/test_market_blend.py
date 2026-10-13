@@ -153,3 +153,31 @@ def test_vegas_numbers_built_the_old_way_do_not_set_the_markets_weight(tmp_cfg):
     hist = pd.DataFrame({"player_id": log_["nfl_id"], "season": 2026, "week": log_["week"], "fantasy_points_ppr": truth})
     w = fit_week_weights(tmp_cfg, history=hist)
     assert w.market_games == 0 and w.market == pytest.approx(0.4)
+
+
+def test_sleeper_blends_last_on_the_if_he_plays_number(cfg):
+    snap = snapshot(week=3)
+    a = snap.my_team.roster[4]                                   # WR 14.0
+    a.vegas_points, a.vegas_books, a.sleeper_projection = 20.0, 3, 10.0
+    blend_market(snap, cfg, weight=0.4, sleeper_weight=0.25)
+    after_market = 14.0 + 0.4 * 6.0
+    assert a.projection == round(after_market + 0.25 * (10.0 - after_market), 2)
+    assert a.sleeper_weight == 0.25 and a.pre_market_projection == 14.0
+
+
+def test_sleeper_alone_moves_a_player_with_no_other_second_forecast(cfg):
+    q = PlayerRow(player_id="q", name="q", position="WR", projection=8.0, play_probability=0.5,
+                  sleeper_projection=12.0)
+    snap = snapshot(week=3)
+    snap.free_agents = [q]
+    blend_market(snap, cfg, weight=0.4, sleeper_weight=0.5)
+    assert q.projection == round(0.5 * (16.0 + 0.5 * (12.0 - 16.0)), 2)
+
+
+def test_sleeper_weight_comes_from_config_and_missing_values_are_ignored(cfg):
+    snap = snapshot(week=3)
+    a, b = snap.my_team.roster[4], snap.my_team.roster[5]
+    a.sleeper_projection = 20.0                                   # b has none
+    blend_market(snap, cfg, weight=0.4)
+    w = float(cfg.raw["roster"]["sleeper_projection"]["weight"])
+    assert w > 0 and a.projection == round(14.0 + w * 6.0, 2) and b.sleeper_weight == 0.0

@@ -183,6 +183,10 @@ class PlayerRow:
     ecr_ros_pos_rank: int | None = None
     ecr_week_pos_rank: int | None = None
     fp_projection: float | None = None
+    #: Sleeper's PPR projection for this week and the weight the final blend
+    #: gave it (attached at publish time; logged for grading).
+    sleeper_projection: float | None = None
+    sleeper_weight: float = 0.0
 
     @property
     def week_value(self) -> float:

@@ -41,6 +41,7 @@ POINT_SOURCES = [
     ("platform_projection", "{platform}'s projection"),
     ("vegas_points", "Betting props"),
     ("fp_projection", "FantasyPros projections"),
+    ("sleeper_projection", "Sleeper's projection"),
 ]
 RANK_SOURCES = [("ecr_week_pos_rank", "FantasyPros rankings")]
 MIN_ROS_GAMES = 3

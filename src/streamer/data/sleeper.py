@@ -55,6 +55,53 @@ def players(cfg: Config, refresh: bool = False) -> dict:
     return data
 
 
+PROJECTION_URL = "https://api.sleeper.app/projections/nfl/{season}/{week}"
+
+
+def projections(cfg: Config, season: int, week: int, allow_network: bool = True) -> dict[str, float]:
+    """nflverse id -> Sleeper's PPR projection for the week, for QB/RB/WR/TE.
+
+    Pulled fresh each call (the projections move with injury news), falling
+    back to the last pull. Sleeper's own player ids are mapped through the
+    ``gsis_id`` in its player database. {} when neither is available."""
+    path = cfg.raw_dir / "sleeper_proj" / f"{season}_{week}.json"
+    data = None
+    if allow_network:
+        import requests
+
+        try:
+            resp = requests.get(PROJECTION_URL.format(season=season, week=week), timeout=60,
+                                params={"season_type": "regular", "position[]": ["QB", "RB", "WR", "TE"]})
+            if resp.status_code == 200:
+                data = resp.json()
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(json.dumps(data), encoding="utf-8")
+        except Exception as exc:  # noqa: BLE001 - a bonus input
+            log.warning("Sleeper projections: %s", type(exc).__name__)
+    if data is None and path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            data = None
+    if not data:
+        return {}
+    gsis = {str(k): v.get("gsis_id") for k, v in (players(cfg) if allow_network else {}).items()
+            if isinstance(v, dict) and v.get("gsis_id")}
+    if not gsis:
+        try:
+            cached = json.loads((cfg.raw_dir / "sleeper_players.json").read_text(encoding="utf-8"))
+            gsis = {str(k): v.get("gsis_id") for k, v in cached.items() if isinstance(v, dict) and v.get("gsis_id")}
+        except (OSError, ValueError):
+            return {}
+    out = {}
+    for r in data:
+        pts = (r.get("stats") or {}).get("pts_ppr")
+        gid = gsis.get(str(r.get("player_id")))
+        if gid and isinstance(pts, int | float) and pts > 0:
+            out[str(gid)] = float(pts)
+    return out
+
+
 #: Positions whose depth order decides who is next in line.
 DEPTH_POSITIONS = ("QB", "RB", "TE")
 

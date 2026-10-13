@@ -3295,3 +3295,46 @@ seasons, cached with the rest). If those cannot load, the pool falls back to
 the training seasons. A kicker without lines keeps the model's number. Each
 kicker's line on the page names the similar-matchup average. The backtest
 and model selection still grade the model alone. Config `model.analogs`.
+
+### Sleeper projections: kept, as a last blend step
+
+Sleeper publishes weekly PPR projections for every skill player, free, and
+serves past weeks. `scripts/fit_sleeper_projections.py` (runner job
+`sleeper-fit`; the sandbox cannot reach the host) graded them on 2023-2025
+against our production model replayed on the games before each week
+(weeks 4-10, 12, 14; 1,205 players who played and were projected 3+):
+
+| | MAE | Rank corr | Bias |
+|---|---|---|---|
+| Our model alone | 5.168 | 0.608 | -0.11 |
+| Sleeper | 5.119 | 0.625 | +0.50 |
+| Blend, weight fitted on the other seasons (0.45-0.60) | 5.045 | 0.628 | |
+
+The blend is better in all three seasons (5.146 -> 5.088, 5.202 -> 5.082,
+5.154 -> 4.966). By position Sleeper is better for RB, WR and TE and worse
+for QB (6.90 against 6.53), where the 50/50 is level with ours.
+
+This season, weeks 3-5 (108 graded rows), against the published blend
+(model, platforms, betting props and FantasyPros): published 4.633, Sleeper
+alone 4.592, and the published blend moved toward Sleeper by 10% / 20% /
+30% / 50% gave 4.622 / 4.612 / 4.603 / 4.586.
+
+Two reasons for only 0.25 in the config, not the fitted 0.5:
+
+- **The historical test compared against our model alone.** The platform,
+  betting and FantasyPros numbers cannot be reproduced for past weeks, so how
+  much Sleeper adds *on top of them* rests on 108 rows.
+- **The archived projections may not be strictly pre-kickoff.** Past weeks
+  were pulled after the fact; Sleeper may have updated them for who actually
+  played. Players who did not play are excluded from the grade, which limits
+  but does not remove that. The live number is pulled fresh at each refresh,
+  before kickoff.
+
+So it enters as one more step in `blend_market`: after the betting and
+FantasyPros steps, on the if-he-plays number, the blended projection moves
+`roster.sleeper_projection.weight` of the way to Sleeper's. The number it
+saw (`sleeper_projection`) and its weight are logged with every projection
+(`skill_log.parquet`) and graded on the scorecard as another source, so
+the weight can be refit on genuine pre-kickoff values once enough weeks
+are in (the same gate as the betting weight). A player Sleeper does not
+cover is left as before.
