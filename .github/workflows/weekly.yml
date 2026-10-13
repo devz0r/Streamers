@@ -55,6 +55,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: weekly
@@ -212,9 +213,36 @@ jobs:
       # page without spending Odds API credits: game lines come from the last
       # pull and player props only from what earlier runs already bought.
       - name: Sync leagues
+        id: sync
         if: contains(fromJSON('["publish", "both", "refresh"]'), steps.mode.outputs.mode)
         continue-on-error: true
-        run: streamer sync --week "${{ steps.week.outputs.upcoming_week }}" --skip-missing
+        run: |
+          set -o pipefail
+          streamer sync --week "${{ steps.week.outputs.upcoming_week }}" --skip-missing 2>&1 | tee "$RUNNER_TEMP/sync.log"
+
+      # The Yahoo cookie lapses every week or so and the Yahoo tab then goes
+      # stale without a word. One open issue says so (the GitHub app pushes it
+      # to a phone) and is closed again when a sync works. No secret is printed.
+      - name: Tell me when the Yahoo sign-in has expired
+        if: steps.sync.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          grep -q "Yahoo session has expired" "$RUNNER_TEMP/sync.log" || exit 0
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "Yahoo sign-in expired in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$open" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Yahoo sign-in expired" \
+              --body "The Yahoo sync failed because the saved Cookie header no longer works, so the Yahoo tab is showing the last good sync. Copy a fresh Cookie header from a logged-in Yahoo fantasy page into the YAHOO_COOKIE secret (Settings, Secrets and variables, Actions). This issue closes itself when a sync works. First seen in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+          fi
+
+      - name: Close the Yahoo sign-in issue once a sync works
+        if: steps.sync.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "Yahoo sign-in expired in:title" --json number --jq '.[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "A sync worked again, so the Yahoo sign-in is valid."
+          done
 
       - name: Rank and publish the upcoming week
         if: contains(fromJSON('["publish", "both", "refresh"]'), steps.mode.outputs.mode)

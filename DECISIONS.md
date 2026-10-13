@@ -3382,3 +3382,13 @@ Because the final number blends in other sources, the change to what is
 published is smaller than the model-level gain. The quarterback model also
 under-projected in these replays (bias -0.5 to -1.2), which is worth a look
 on its own.
+
+### Yahoo sign-in expiry alert
+
+The Yahoo cookie lapses about weekly, and until then the Yahoo tab silently
+showed the last good sync. The `Sync leagues` step now keeps its output; if
+the sync failed with "Yahoo session has expired", a follow-up step opens one
+issue titled "Yahoo sign-in expired" (never a second while one is open), which
+the GitHub mobile app pushes to a phone, and a later successful sync closes
+it. The workflow gains `issues: write`. The issue holds instructions only,
+no cookie value.
