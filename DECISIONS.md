@@ -2671,6 +2671,31 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Do the platforms already discount questionable players? No
+Our last step multiplies by the chance he plays; if a source had already
+done so, a questionable player would be discounted twice. Checked on the
+logs (weeks 3-5): among players tagged questionable the platforms' average
+projections are *higher* than for healthy players (ESPN 9.2 against 7.9,
+Yahoo 17.8 against 14.0), so they are if-he-plays numbers, the same meaning
+as ours, and betting props are voided when a player sits. FantasyPros'
+projection is logged on the runner only and was not checked there. Only 23
+questionable players per league: no evidence of a double discount, not proof.
+
+### Fitting every blend weight together: not yet
+The projection is a chain: our model blended with the platform (weight
+0.53, fitted on healthy players), then the betting market and FantasyPros
+blended on top of that result, each stage fitted against the previous
+stage's output, so the second stage already accounts for the first. Taken
+together the effective shares are roughly our model 18%, the platform 20%,
+the market 22%, FantasyPros 40% -- so a gain to our model alone shows up in
+the final number at about a fifth of its size (the gains reported for
+individual changes were measured on the model alone). The platform weight is
+stable across held-out weeks (0.40-0.60 in both leagues). A single joint fit
+cannot be checked fairly yet: the market numbers logged before the shape and
+fill fix ran 1.5 a game low and no longer count, and FantasyPros' log is on
+the runner. Once 150 rows built the new way are graded it can be tried the
+way the position weights were (hold each week out; use it only if it wins).
+
 ### Grading the number we publish, on everyone it covered
 The scorecard graded each source on players who played, and mostly on
 numbers easier than the decision they inform. Now three views of the same
