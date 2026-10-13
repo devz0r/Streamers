@@ -65,6 +65,33 @@ def typical_wind(cfg: Config, season: int, week: int, years: int = 2) -> pd.Seri
     return g.groupby("home_team")["wind"].mean()
 
 
+def _forecast_wind(out: pd.DataFrame, fill: pd.Series, usual: pd.Series, week: int, cfg: Config) -> None:
+    """Replace the typical wind with the calibrated forecast, game by game,
+    where a calibration exists (``data/wind_forecast.json``) and Open-Meteo
+    answers; the typical wind stands otherwise. Never raises."""
+    try:
+        from . import forecast_wind as fw
+        from .nflverse import games_frame
+
+        cal = fw.load_calibration()
+        if not cal or not fill.any():
+            return
+        season = int(out["season"].iloc[0])
+        weeks = sorted(set(out.loc[fill, "week"].astype(int))) if "week" in out.columns else [int(week)]
+        g = games_frame(cfg)
+        for wk in weeks:
+            rows = g[(g["season"] == season) & (g["week"] == wk) & (g["game_type"] == "REG")]
+            got = fw.for_slate(cfg, rows.assign(home_team=rows["home_team"].map(normalize_team)))
+            idx = fill & (out["week"].astype(int) == wk) if "week" in out.columns else fill
+            for team, (wind, _gust, days) in got.items():
+                m = idx & (out["home_team"] == team)
+                if m.any():
+                    out.loc[m, "wind"] = fw.blend(wind, float(usual[m].iloc[0]), days, cal)
+                    out.loc[m, "weather_source"] = "forecast"
+    except Exception as exc:  # noqa: BLE001 - the typical wind stands
+        log.warning("wind forecast unavailable: %s", exc)
+
+
 def resolve_weather(
     slate: pd.DataFrame, week: int, cfg: Config | None = None
 ) -> pd.DataFrame:
@@ -122,6 +149,7 @@ def resolve_weather(
             fill = missing & usual.notna()
             out.loc[fill, "wind"] = usual[fill]
             out.loc[fill, "weather_source"] = "typical"
+            _forecast_wind(out, fill, usual, week, cfg)
             missing = out["wind"].isna()
         except Exception as exc:  # noqa: BLE001 - a prior; fall back to the neutral default
             log.warning("typical wind unavailable: %s", exc)

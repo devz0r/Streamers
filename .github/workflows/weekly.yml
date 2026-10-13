@@ -51,7 +51,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, dstk-blend]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, dstk-blend, wind-fit]
 
 permissions:
   contents: write
@@ -160,6 +160,14 @@ jobs:
       - name: Grade a consensus blend for D/ST and K
         if: steps.mode.outputs.mode == 'dstk-blend'
         run: streamer dstk-blend
+
+      # Calibrate and test an Open-Meteo wind forecast for kickers against the
+      # recorded wind and the stadium-typical wind, 2022-2025 (aggregates only
+      # in the log; the runner can reach Open-Meteo, the development sandbox
+      # cannot).
+      - name: Calibrate and test the kicker wind forecast
+        if: steps.mode.outputs.mode == 'wind-fit'
+        run: python scripts/fit_wind_forecast.py
 
       # --- Tuesday ---------------------------------------------------------
       # completed_week is 0 before any week has finished; there is nothing to

@@ -2714,6 +2714,27 @@ and in two of three on top-5 points; kept. Kicker: a tie (MAE 3.7187 against
 season's noise moves; it neither helps nor hurts, so it stays rather than
 change a setting on no evidence.
 
+### Kicker wind forecast
+Typical wind recovers about three quarters of what recorded wind is worth
+(see "Kicker wind"); a forecast should do better in a windy week. Built, but
+off until it has proved itself:
+
+- `data/forecast_wind.py`: stadium coordinates for the 32 home teams (and
+  neutral sites by stadium name), Open-Meteo's free forecast (no key) for the
+  kickoff hour and the next three, mean wind and gust. Domes are never asked.
+- A forecast model's 10 m wind is not nflverse's recorded wind, so it is
+  mapped onto the recorded scale (`recorded = a + b x forecast`) and blended
+  with the stadium's typical wind by lead time: full inside 2 days, falling
+  linearly to zero at 7. The lead-time shape is a judgment: Open-Meteo's
+  archive of forecasts as issued holds only near-term ones, so it cannot be
+  fitted.
+- `scripts/fit_wind_forecast.py` (the `wind-fit` job on the runner, which can
+  reach Open-Meteo; the development sandbox cannot) calibrates `a`, `b`
+  leave-one-season-out on 2022-2025 games and backtests kickers against
+  typical wind, overall and on windy games. With no `wind_forecast.json` the
+  module does nothing; the file is written only if the forecast beats typical
+  wind on MAE and rank correlation in at least two of three seasons.
+
 ### Kicker wind
 The kicker model trains on the wind recorded at each game, but a game still
 to be played has none -- nflverse's schedule has wind for 0 of the 386
