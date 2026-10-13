@@ -2671,6 +2671,34 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Snap share as an early sign
+Expected points move once targets and carries do; who is on the field moves
+first. Replayed on 2022-2025 (`scripts/fit_snaps.py`, 12,953 back, receiver
+and tight-end weeks with 4+ games for the team that season, through the
+production projection with its implied-total scaling). Offensive snap share
+(Pro Football Reference via nflverse, joined by team, week and name):
+
+- backs whose snap share over the last 2 games was 15+ points above their
+  earlier games beat the projection by 1.06 a game; 15+ below, fell 1.56
+  short (all backs +0.08); tight ends +1.19 / +0.08; receivers +0.39 / -0.69;
+- two signals: `delta` (last 2 games less earlier) and `gap` (snap-share
+  percentile at the position less his share-of-group-work percentile: on
+  the field more than he is used), as `exp(trend x delta + gap x gap)`,
+  picked on three seasons and scored on the fourth:
+
+| | trend | snaps vs use | both |
+|---|---|---|---|
+| **RB** | 2 of 4 | 4 of 4 | **6.355 -> 6.322, 4 of 4; (0.25, 0.5) every fold** |
+| WR | 1 of 4 | 0 of 4 | 1 of 4 |
+| **TE** | 3 of 4 | **5.259 -> 5.253, 4 of 4; 0.25 every fold** | 3 of 4 |
+
+The largest single gain of this round, for backs. In use (`roster.snap_trend`):
+RB `trend 0.25, gap 0.5`, TE `gap 0.25`, this week only; backs move about
++-10% (5th-95th percentile), and a card says which signal moved him. At week
+6 of 2026: Braelon Allen (41% -> 90% of snaps) +13%, CJ Donaldson +21%,
+Najee Harris -12% (30% of the backfield's work on 18% of the snaps). Route
+participation is not used: no free archive covers these seasons.
+
 ### Blend weights by position
 The weights on the betting market and the FantasyPros projection are one
 pair for every position. Fitted position by position on the 3 graded weeks

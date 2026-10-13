@@ -1342,6 +1342,17 @@ def project_snapshot(
     except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
         log.warning("player style unavailable: %s", exc)
         style = pd.DataFrame()
+    # Snap share as an early sign of a role change (snaps.py).
+    try:
+        from . import snaps as snap_mod
+
+        snap_sig = snap_mod.signals(snap_mod.join(history[history["season"] == int(snapshot.season)],
+                                                  snap_mod.load(cfg, int(snapshot.season), allow_network)),
+                                    int(snapshot.season), int(snapshot.week), current_teams)
+        snap_f = snap_mod.factors(snap_sig, cfg)
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("snap-share signals unavailable: %s", exc)
+        snap_f = {}
     # This week's opponent and game script (game_context).
     try:
         context = game_context(snapshot, cfg, history, _opponents(snapshot, cfg))
@@ -1441,6 +1452,10 @@ def project_snapshot(
                 if p.player_id in new_qb:
                     mean *= new_qb[p.player_id][0]
                     p.signals.append(new_qb[p.player_id][1])
+                if str(nfl_id) in snap_f:
+                    mean *= snap_f[str(nfl_id)][0]
+                    if snap_f[str(nfl_id)][1]:
+                        p.signals.append(snap_f[str(nfl_id)][1])
                 ctx = context.get((normalize_team(p.team), p.position)) if p.team else None
                 if ctx is not None:
                     mean *= ctx[0]

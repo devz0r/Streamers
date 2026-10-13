@@ -480,6 +480,14 @@ roster:
     power: {WR: 0.3, RB: 0.5}
     cap: 0.3
     games: 8
+  # Snap share as an early sign: this week x exp(trend x (snap share last 2
+  # games - earlier games) + gap x (snap-share percentile - usage percentile)).
+  # Held out 2022-2025: RB 6.355 -> 6.322 (4 of 4 seasons, every fold picked
+  # these), TE gap 5.259 -> 5.253 (4 of 4, every fold 0.25); WR nothing
+  # (scripts/fit_snaps.py; DECISIONS.md, "Snap share as an early sign").
+  snap_trend:
+    RB: {trend: 0.25, gap: 0.5}
+    TE: {gap: 0.25}
   # This week's game, on top of the implied-total scaling: backs by the
   # opponent's points allowed to backs (shrunk as `schedule` reads it) to the
   # power `allowed`; receivers by exp(spread x team spread / 7), spread
