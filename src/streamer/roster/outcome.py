@@ -91,6 +91,25 @@ def shape(position: str, mean: float) -> tuple[np.ndarray, np.ndarray]:
     return p, norm.ppf(p)
 
 
+def spread_factor(position: str, td: float, rec: float, vol: float, env: float) -> float:
+    """How much wider or narrower this player's week is than others at his
+    position and projection: ``exp(c + sum(beta x z))`` over his touchdown
+    dependence, catches' share of his touches, his own swing and this week's
+    team total, standardised as fitted (``player_spread`` in the model file;
+    ``scripts/fit_player_spread.py``). 1 where the position was not fitted:
+    backs and receivers passed, quarterbacks and tight ends did not."""
+    fit = ((load().get("player_spread") or {}).get("positions") or {}).get(position)
+    if not fit:
+        return 1.0
+    x = {"td": td, "rec": rec, "vol": vol, "env": env}
+    eta = float(fit["c"])
+    for name, beta in fit["beta"].items():
+        sd = float(fit["sd"].get(name) or 1.0)
+        z = (float(x[name]) - float(fit["mean"][name])) / sd if np.isfinite(x[name]) else 0.0
+        eta += float(beta) * float(np.clip(z, -3.0, 3.0))
+    return float(np.exp(eta))
+
+
 def drift_sd(position: str, mean: float, experience: int | None) -> float:
     """Spread of the change in his per-game projection over the next month."""
     drift = load().get("drift", {})

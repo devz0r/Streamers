@@ -679,3 +679,26 @@ def test_this_weeks_defence_moves_backs_and_the_spread_moves_receivers(cfg, monk
     assert ctx[("KC", "WR")][0] < 1.0 < ctx[("BUF", "WR")][0]        # the underdog throws more
     assert ("KC", "TE") not in ctx and ("KC", "QB") not in ctx      # measured: nothing for them
     projections.SPREADS.clear()
+
+
+def test_a_swingy_back_gets_a_wider_week_and_a_steady_one_a_narrower(cfg):
+    from streamer.roster import outcome
+    from streamer.roster.projections import style_features
+
+    rows = []
+    for w in range(1, 11):
+        rows.append({"player_id": "swing", "position": "RB", "season": 2026, "week": w, "targets": 1, "carries": 15,
+                     "total_fantasy_points_exp": 12.0, "fantasy_points_ppr": 30.0 if w % 2 else 0.0, "xtd": 0.5})
+        rows.append({"player_id": "steady", "position": "RB", "season": 2026, "week": w, "targets": 6, "carries": 6,
+                     "total_fantasy_points_exp": 12.0, "fantasy_points_ppr": 12.0, "xtd": 0.2})
+        for i in range(30):          # the league's backs: misses of about +-4 a week
+            rows.append({"player_id": f"rb{i}", "position": "RB", "season": 2026, "week": w, "targets": 2,
+                         "carries": 12, "total_fantasy_points_exp": 10.0, "xtd": 0.4,
+                         "fantasy_points_ppr": 10.0 + (4.0 if (w + i) % 2 else -4.0)})
+    f = style_features(pd.DataFrame(rows))
+    assert f.loc["swing", "vol"] > f.loc["steady", "vol"]
+    assert f.loc["steady", "rec"] == pytest.approx(0.5)
+    wide = outcome.spread_factor("RB", *f.loc["swing", ["td", "rec", "vol"]], 1.0)
+    narrow = outcome.spread_factor("RB", *f.loc["steady", ["td", "rec", "vol"]], 1.0)
+    assert narrow < 1.0 < wide
+    assert outcome.spread_factor("QB", 0.5, 0.0, 9.0, 1.2) == 1.0          # not fitted: unchanged

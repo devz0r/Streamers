@@ -2671,6 +2671,33 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Each player's own range
+A week's range -- the 10th to 90th percentile on the page, the boom chance,
+and the spread every lineup and P(win) simulation draws from -- came from
+position and projection level alone: a touchdown-or-nothing back and a
+twelve-catch back at the same projection got the same range. Replayed on
+2022-2025 (`scripts/fit_player_spread.py`, 20,512 player-weeks through the
+production projection and range): each player's spread multiplied by
+`exp(c + beta x z)` over his last 17 games -- touchdown dependence (6 x
+expected TDs / expected points), targets / (targets + carries), his own
+swing (sd of points less expected points, shrunk 6 games toward the
+position's), and this week's team total -- fitted on three seasons to the
+quantile loss at the 10th and 90th percentiles, scored on the fourth, with
+the Brier score of a top-12 week as a second grade:
+
+| | width only | width + style | top-12 Brier | |
+|---|---|---|---|---|
+| QB | 1 of 4 | 2.675 -> 2.688, 0 of 4 | worse | no |
+| **RB** | 3 of 4 | **2.0331 -> 2.0213, 4 of 4** | **0.09451 -> 0.09433** | **kept** |
+| **WR** | 2 of 4 | **1.9899 -> 1.9844, 4 of 4** | **0.06611 -> 0.06609** | **kept** |
+| TE | 3 of 4 | 1.6234 -> 1.6213, 4 of 4 | 0.11402 -> 0.11419 (worse) | no |
+
+His own swing matters most (about +5% per standard deviation); for backs,
+a bigger share of catches narrows the week. Fitted on all four seasons and
+written to `outcome_model.json` (`player_spread`, RB and WR); z-scores are
+capped at +-3. At week 5 of 2026 it widens Jahmyr Gibbs, James Cook and
+Davante Adams 11-16% and narrows backups like Tyjae Spears 10-15%.
+
 ### This week's defence and game script
 This week's projection was scaled by the implied team total only -- the
 game's scoring, not who the opponent is at the player's position, and not

@@ -540,6 +540,35 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config,
     return target[TABLE_COLUMNS]
 
 
+def style_features(prior: pd.DataFrame, vol_prior: float = 6.0) -> pd.DataFrame:
+    """Per player, over his last 17 games in ``prior``: touchdown dependence
+    (6 x expected TDs / expected points), targets / (targets + carries), and
+    his own swing -- the sd of points less expected points, shrunk toward the
+    position's with ``vol_prior`` games. What :func:`outcome.spread_factor`
+    reads (DECISIONS.md, "Each player's own range")."""
+    last = prior.sort_values(["season", "week"]).groupby("player_id").tail(17)
+    if last.empty:
+        return pd.DataFrame(columns=["td", "rec", "vol"])
+    exp = last["total_fantasy_points_exp"].fillna(last["fantasy_points_ppr"])
+    xtd = last["xtd"].fillna(0.0) if "xtd" in last.columns else pd.Series(0.0, index=last.index)
+    last = last.assign(_exp=exp, _res=last["fantasy_points_ppr"] - exp, _xtd=xtd)
+    g = last.groupby("player_id")
+    tg = g["targets"].sum() if "targets" in last.columns else g.size() * 0.0
+    ca = g["carries"].sum() if "carries" in last.columns else g.size() * 0.0
+    out = pd.DataFrame({
+        "td": 6.0 * g["_xtd"].sum() / g["_exp"].sum().clip(lower=1.0),
+        "rec": tg / (tg + ca).clip(lower=1.0),
+        "res_ss": g["_res"].apply(lambda r: float(((r - r.mean()) ** 2).sum())),
+        "n": g.size(),
+        "position": g["position"].last(),
+    })
+    by_pos = out.groupby("position").agg(ss=("res_ss", "sum"), n=("n", "sum"), k=("n", "size"))
+    pos_var = by_pos["ss"] / (by_pos["n"] - by_pos["k"]).clip(lower=1.0)
+    pv = out["position"].map(pos_var)
+    out["vol"] = np.sqrt((out["res_ss"] + vol_prior * pv) / (out["n"] + vol_prior))
+    return out[["td", "rec", "vol"]]
+
+
 def recent_usage(history: pd.DataFrame, season: int, week: int, n: int = 3) -> pd.DataFrame:
     """Targets, carries and target share per game over each player's last
     ``n`` games before (season, week). Shown beside waiver and lottery picks
@@ -619,6 +648,8 @@ def lookup_sd(table: dict[tuple[str, int], float], position: str, mean: float) -
 # ---------------------------------------------------------------------------
 #: This week's point spread by team (positive: favoured), set by :func:`_implied_scale`.
 SPREADS: dict[str, float] = {}
+#: This week's implied team total by team, set by :func:`_implied_scale`.
+IMPLIED: dict[str, float] = {}
 
 
 def game_context(snapshot: LeagueSnapshot, cfg: Config, history: pd.DataFrame,
@@ -674,6 +705,7 @@ def _implied_scale(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool) -
     from ..teams import normalize_team
 
     SPREADS.clear()
+    IMPLIED.clear()
     games = games_frame(cfg)
     hist = games[
         (games["season"] < snapshot.season)
@@ -689,6 +721,7 @@ def _implied_scale(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool) -
         this_week = rows.set_index("team")["team_implied_total"].dropna()
         SPREADS.update({normalize_team(t): float(v)
                         for t, v in rows.set_index("team")["team_spread"].dropna().items()})
+        IMPLIED.update({normalize_team(t): float(v) for t, v in this_week.items()})
         source = lines.describe()
     except Exception as exc:  # noqa: BLE001
         log.warning("no lines for implied-total scaling: %s", exc)
@@ -1300,6 +1333,15 @@ def project_snapshot(
         log.warning("team share unavailable: %s", exc)
         shares = {}
     usage = recent_usage(history, snapshot.season, snapshot.week)
+    # Each player's own range (outcome.spread_factor): his style over his
+    # last 17 games, the last two seasons and this one.
+    try:
+        style = style_features(history[(history["season"] >= int(snapshot.season) - 2)
+                                       & ((history["season"] < int(snapshot.season))
+                                          | (history["week"] < int(snapshot.week)))])
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("player style unavailable: %s", exc)
+        style = pd.DataFrame()
     # This week's opponent and game script (game_context).
     try:
         context = game_context(snapshot, cfg, history, _opponents(snapshot, cfg))
@@ -1451,6 +1493,11 @@ def project_snapshot(
                 mean = (1 - w_platform) * mean + w_platform * float(plat)
                 source = "model+platform"
             sd = lookup_sd(sds, p.position, mean)
+            nid_s = matched.mapping.get(p.player_id)
+            if source.startswith("model") and nid_s is not None and nid_s in style.index:
+                f = style.loc[nid_s]
+                env = IMPLIED.get(normalize_team(p.team), 23.0) / 23.0 if p.team else 1.0
+                sd *= outcome.spread_factor(p.position, float(f["td"]), float(f["rec"]), float(f["vol"]), env)
             p.ros_sd = round(outcome.drift_sd(p.position, ros or 0.0, p.experience), 2)
 
         elif p.position == "DST" and p.team in dst_rows:
