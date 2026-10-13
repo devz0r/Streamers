@@ -5686,7 +5686,7 @@
         },
         {
           "player_id": "100012",
-          "name": "Chiefs",
+          "name": "Kansas City",
           "position": "DST",
           "team": "KC",
           "status": "",
@@ -11064,7 +11064,7 @@
         },
         {
           "player_id": "100034",
-          "name": "Texans",
+          "name": "Houston",
           "position": "DST",
           "team": "HOU",
           "status": "",
@@ -18721,7 +18721,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-13T23:51:52.585067+00:00",
+  "synced_at": "2026-10-13T23:55:36.160404+00:00",
   "extra": {
     "source": "yahoo-web"
   },
