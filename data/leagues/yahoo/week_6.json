@@ -36,7 +36,7 @@
             "QB"
           ],
           "on_bye": false,
-          "platform_projection": 17.57,
+          "platform_projection": 17.58,
           "season_avg": null,
           "percent_owned": 80.0,
           "projection": null,
@@ -79,7 +79,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34120",
@@ -136,7 +138,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34447",
@@ -150,7 +154,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 15.79,
+          "platform_projection": 15.8,
           "season_avg": null,
           "percent_owned": 97.0,
           "projection": null,
@@ -193,7 +197,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "27535",
@@ -250,7 +256,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31908",
@@ -307,7 +315,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33113",
@@ -364,7 +374,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41087",
@@ -421,7 +433,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "26699",
@@ -478,7 +492,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30295",
@@ -535,7 +551,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33500",
@@ -592,7 +610,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31107",
@@ -649,7 +669,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "28534",
@@ -706,7 +728,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40231",
@@ -763,7 +787,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33413",
@@ -820,7 +846,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29792",
@@ -876,7 +904,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100028",
@@ -932,7 +962,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -1003,7 +1035,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31960",
@@ -1060,7 +1094,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40162",
@@ -1117,7 +1153,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33393",
@@ -1174,7 +1212,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40899",
@@ -1231,7 +1271,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40048",
@@ -1288,7 +1330,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "27581",
@@ -1345,7 +1389,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40901",
@@ -1402,7 +1448,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34063",
@@ -1459,7 +1507,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42712",
@@ -1473,7 +1523,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 5.45,
+          "platform_projection": 5.44,
           "season_avg": null,
           "percent_owned": 32.0,
           "projection": null,
@@ -1516,7 +1566,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42646",
@@ -1573,7 +1625,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42693",
@@ -1630,7 +1684,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41881",
@@ -1687,7 +1743,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34320",
@@ -1744,7 +1802,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41499",
@@ -1800,7 +1860,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100016",
@@ -1856,7 +1918,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -1927,7 +1991,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40993",
@@ -1984,235 +2050,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "30121",
-          "name": "Christian McCaffrey",
-          "position": "RB",
-          "team": "SF",
-          "status": "",
-          "slot": "RB",
-          "eligible_slots": [
-            "RB",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 19.97,
-          "season_avg": null,
-          "percent_owned": 100.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "31010",
-          "name": "Courtland Sutton",
-          "position": "WR",
-          "team": "DEN",
-          "status": "",
-          "slot": "WR",
-          "eligible_slots": [
-            "WR",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 8.51,
-          "season_avg": null,
-          "percent_owned": 70.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "41804",
-          "name": "Emeka Egbuka",
-          "position": "WR",
-          "team": "TB",
-          "status": "",
-          "slot": "WR",
-          "eligible_slots": [
-            "WR",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 10.93,
-          "season_avg": null,
-          "percent_owned": 95.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "29344",
-          "name": "Tyler Higbee",
-          "position": "TE",
-          "team": "LA",
-          "status": "",
-          "slot": "TE",
-          "eligible_slots": [
-            "TE",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 7.04,
-          "season_avg": null,
-          "percent_owned": 5.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32725",
@@ -2220,7 +2060,7 @@
           "position": "RB",
           "team": "DEN",
           "status": "",
-          "slot": "FLEX",
+          "slot": "RB",
           "eligible_slots": [
             "RB",
             "FLEX"
@@ -2269,7 +2109,68 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "41804",
+          "name": "Emeka Egbuka",
+          "position": "WR",
+          "team": "TB",
+          "status": "",
+          "slot": "WR",
+          "eligible_slots": [
+            "WR",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 10.92,
+          "season_avg": null,
+          "percent_owned": 95.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33963",
@@ -2277,7 +2178,7 @@
           "position": "WR",
           "team": "ATL",
           "status": "",
-          "slot": "FLEX",
+          "slot": "WR",
           "eligible_slots": [
             "WR",
             "FLEX"
@@ -2326,64 +2227,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "40084",
-          "name": "Rashee Rice",
-          "position": "WR",
-          "team": "KC",
-          "status": "Q",
-          "slot": "BN",
-          "eligible_slots": [
-            "WR",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 13.54,
-          "season_avg": null,
-          "percent_owned": 97.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "26686",
@@ -2391,7 +2237,7 @@
           "position": "TE",
           "team": "KC",
           "status": "",
-          "slot": "BN",
+          "slot": "TE",
           "eligible_slots": [
             "TE",
             "FLEX"
@@ -2440,7 +2286,245 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "40084",
+          "name": "Rashee Rice",
+          "position": "WR",
+          "team": "KC",
+          "status": "Q",
+          "slot": "FLEX",
+          "eligible_slots": [
+            "WR",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 13.54,
+          "season_avg": null,
+          "percent_owned": 97.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "30121",
+          "name": "Christian McCaffrey",
+          "position": "RB",
+          "team": "SF",
+          "status": "",
+          "slot": "FLEX",
+          "eligible_slots": [
+            "RB",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 19.97,
+          "season_avg": null,
+          "percent_owned": 100.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "31010",
+          "name": "Courtland Sutton",
+          "position": "WR",
+          "team": "DEN",
+          "status": "",
+          "slot": "BN",
+          "eligible_slots": [
+            "WR",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 8.52,
+          "season_avg": null,
+          "percent_owned": 70.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "29344",
+          "name": "Tyler Higbee",
+          "position": "TE",
+          "team": "LA",
+          "status": "",
+          "slot": "BN",
+          "eligible_slots": [
+            "TE",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 7.04,
+          "season_avg": null,
+          "percent_owned": 5.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42744",
@@ -2497,7 +2581,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29325",
@@ -2553,7 +2639,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32018",
@@ -2610,7 +2698,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40075",
@@ -2667,7 +2757,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29754",
@@ -2682,7 +2774,7 @@
           "on_bye": false,
           "platform_projection": 7.14,
           "season_avg": null,
-          "percent_owned": 15.0,
+          "percent_owned": 14.0,
           "projection": null,
           "projection_sd": null,
           "projection_source": "",
@@ -2723,7 +2815,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100030",
@@ -2779,7 +2873,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": true,
@@ -2850,7 +2946,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40971",
@@ -2907,7 +3005,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33996",
@@ -2964,7 +3064,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33394",
@@ -2978,7 +3080,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 11.35,
+          "platform_projection": 11.36,
           "season_avg": null,
           "percent_owned": 98.0,
           "projection": null,
@@ -3021,7 +3123,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33989",
@@ -3078,7 +3182,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30259",
@@ -3135,7 +3241,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34088",
@@ -3192,7 +3300,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40114",
@@ -3249,7 +3359,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40911",
@@ -3306,7 +3418,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41969",
@@ -3363,7 +3477,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33991",
@@ -3420,7 +3536,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41840",
@@ -3477,7 +3595,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41344",
@@ -3534,7 +3654,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42630",
@@ -3591,7 +3713,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30218",
@@ -3648,7 +3772,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33537",
@@ -3704,7 +3830,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100023",
@@ -3760,7 +3888,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -3831,7 +3961,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42625",
@@ -3888,7 +4020,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41821",
@@ -3945,7 +4079,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40041",
@@ -3959,7 +4095,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 21.31,
+          "platform_projection": 21.33,
           "season_avg": null,
           "percent_owned": 100.0,
           "projection": null,
@@ -4002,7 +4138,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40234",
@@ -4059,7 +4197,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34095",
@@ -4116,7 +4256,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42626",
@@ -4173,7 +4315,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29269",
@@ -4230,7 +4374,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29235",
@@ -4286,7 +4432,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42025",
@@ -4343,7 +4491,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42464",
@@ -4400,7 +4550,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40224",
@@ -4457,7 +4609,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31883",
@@ -4514,7 +4668,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41988",
@@ -4570,7 +4726,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100025",
@@ -4626,7 +4784,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100004",
@@ -4682,7 +4842,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -4753,7 +4915,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42010",
@@ -4810,7 +4974,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29279",
@@ -4867,7 +5033,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32687",
@@ -4924,7 +5092,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40908",
@@ -4981,7 +5151,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41877",
@@ -5038,7 +5210,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34104",
@@ -5095,7 +5269,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41823",
@@ -5152,7 +5328,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31905",
@@ -5209,7 +5387,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41825",
@@ -5265,7 +5445,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34107",
@@ -5322,7 +5504,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31868",
@@ -5379,7 +5563,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40042",
@@ -5436,7 +5622,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "43171",
@@ -5492,7 +5680,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100012",
@@ -5548,7 +5738,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -5619,7 +5811,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41791",
@@ -5676,7 +5870,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33508",
@@ -5733,7 +5929,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41808",
@@ -5790,7 +5988,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32692",
@@ -5847,7 +6047,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31840",
@@ -5904,7 +6106,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41845",
@@ -5961,7 +6165,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41097",
@@ -6018,7 +6224,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40893",
@@ -6075,7 +6283,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34085",
@@ -6132,7 +6342,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31002",
@@ -6188,7 +6400,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41793",
@@ -6245,7 +6459,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40119",
@@ -6302,7 +6518,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31977",
@@ -6358,7 +6576,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100026",
@@ -6414,7 +6634,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -6485,7 +6707,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40196",
@@ -6542,7 +6766,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33423",
@@ -6599,7 +6825,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41824",
@@ -6656,7 +6884,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40121",
@@ -6713,7 +6943,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41795",
@@ -6770,7 +7002,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40064",
@@ -6827,7 +7061,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40962",
@@ -6884,7 +7120,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40029",
@@ -6897,7 +7135,7 @@
             "QB"
           ],
           "on_bye": false,
-          "platform_projection": 19.51,
+          "platform_projection": 19.52,
           "season_avg": null,
           "percent_owned": 75.0,
           "projection": null,
@@ -6940,7 +7178,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40095",
@@ -6997,7 +7237,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42796",
@@ -7054,7 +7296,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41831",
@@ -7111,7 +7355,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41093",
@@ -7167,7 +7413,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100007",
@@ -7223,7 +7471,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -7294,7 +7544,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32711",
@@ -7351,7 +7603,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41902",
@@ -7408,7 +7662,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40039",
@@ -7465,13 +7721,15 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
-          "player_id": "40883",
-          "name": "Brian Thomas Jr.",
+          "player_id": "29631",
+          "name": "Kalif Raymond",
           "position": "WR",
-          "team": "JAX",
+          "team": "CHI",
           "status": "",
           "slot": "WR",
           "eligible_slots": [
@@ -7479,9 +7737,9 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 6.76,
+          "platform_projection": 7.75,
           "season_avg": null,
-          "percent_owned": 65.0,
+          "percent_owned": 22.0,
           "projection": null,
           "projection_sd": null,
           "projection_source": "",
@@ -7522,7 +7780,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34010",
@@ -7579,121 +7839,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "42638",
-          "name": "Kenyon Sadiq",
-          "position": "TE",
-          "team": "NYJ",
-          "status": "Q",
-          "slot": "FLEX",
-          "eligible_slots": [
-            "TE",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 5.63,
-          "season_avg": null,
-          "percent_owned": 39.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
-        },
-        {
-          "player_id": "29631",
-          "name": "Kalif Raymond",
-          "position": "WR",
-          "team": "CHI",
-          "status": "",
-          "slot": "FLEX",
-          "eligible_slots": [
-            "WR",
-            "FLEX"
-          ],
-          "on_bye": false,
-          "platform_projection": 7.75,
-          "season_avg": null,
-          "percent_owned": 22.0,
-          "projection": null,
-          "projection_sd": null,
-          "projection_source": "",
-          "ros_value": null,
-          "backfield_share": null,
-          "takeover_share": null,
-          "depth_order": null,
-          "games_missed": 0,
-          "photo": "",
-          "fp_play": null,
-          "schedule": {},
-          "season_loss": null,
-          "signing_team": null,
-          "signing_odds": null,
-          "signing_wait": 0,
-          "signing_share": null,
-          "news": "",
-          "inherited_ros": 0.0,
-          "model_projection": null,
-          "vegas_points": null,
-          "vegas_stats": {},
-          "vegas_filled": [],
-          "vegas_books": 0,
-          "nfl_opponent": null,
-          "role": "",
-          "play_probability": 1.0,
-          "practice": "",
-          "outcome_sd": null,
-          "ros_sd": null,
-          "experience": null,
-          "signals": [],
-          "usage": "",
-          "locked": false,
-          "actual_points": null,
-          "nfl_id": null,
-          "pre_market_projection": null,
-          "market_weight": 0.0,
-          "consensus_weight": 0.0,
-          "ecr_ros_pos_rank": null,
-          "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30994",
@@ -7701,7 +7849,7 @@
           "position": "WR",
           "team": "BUF",
           "status": "Q",
-          "slot": "BN",
+          "slot": "FLEX",
           "eligible_slots": [
             "WR",
             "FLEX"
@@ -7750,7 +7898,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "28592",
@@ -7758,7 +7908,7 @@
           "position": "TE",
           "team": "CAR",
           "status": "",
-          "slot": "BN",
+          "slot": "FLEX",
           "eligible_slots": [
             "TE",
             "FLEX"
@@ -7807,7 +7957,127 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "40883",
+          "name": "Brian Thomas Jr.",
+          "position": "WR",
+          "team": "JAX",
+          "status": "",
+          "slot": "BN",
+          "eligible_slots": [
+            "WR",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 6.76,
+          "season_avg": null,
+          "percent_owned": 65.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
+        },
+        {
+          "player_id": "42638",
+          "name": "Kenyon Sadiq",
+          "position": "TE",
+          "team": "NYJ",
+          "status": "Q",
+          "slot": "BN",
+          "eligible_slots": [
+            "TE",
+            "FLEX"
+          ],
+          "on_bye": false,
+          "platform_projection": 5.63,
+          "season_avg": null,
+          "percent_owned": 39.0,
+          "projection": null,
+          "projection_sd": null,
+          "projection_source": "",
+          "ros_value": null,
+          "backfield_share": null,
+          "takeover_share": null,
+          "depth_order": null,
+          "games_missed": 0,
+          "photo": "",
+          "fp_play": null,
+          "schedule": {},
+          "season_loss": null,
+          "signing_team": null,
+          "signing_odds": null,
+          "signing_wait": 0,
+          "signing_share": null,
+          "news": "",
+          "inherited_ros": 0.0,
+          "model_projection": null,
+          "vegas_points": null,
+          "vegas_stats": {},
+          "vegas_filled": [],
+          "vegas_books": 0,
+          "nfl_opponent": null,
+          "role": "",
+          "play_probability": 1.0,
+          "practice": "",
+          "outcome_sd": null,
+          "ros_sd": null,
+          "experience": null,
+          "signals": [],
+          "usage": "",
+          "locked": false,
+          "actual_points": null,
+          "nfl_id": null,
+          "pre_market_projection": null,
+          "market_weight": 0.0,
+          "consensus_weight": 0.0,
+          "ecr_ros_pos_rank": null,
+          "ecr_week_pos_rank": null,
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41010",
@@ -7864,7 +8134,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "29399",
@@ -7921,7 +8193,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30423",
@@ -7978,7 +8252,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34008",
@@ -7994,7 +8270,7 @@
           "on_bye": false,
           "platform_projection": 0.0,
           "season_avg": null,
-          "percent_owned": 56.0,
+          "percent_owned": 55.0,
           "projection": null,
           "projection_sd": null,
           "projection_source": "",
@@ -8035,7 +8311,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40926",
@@ -8092,7 +8370,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "28378",
@@ -8148,7 +8428,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100014",
@@ -8204,7 +8486,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -8275,7 +8559,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32705",
@@ -8332,7 +8618,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33538",
@@ -8346,7 +8634,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 7.53,
+          "platform_projection": 7.54,
           "season_avg": null,
           "percent_owned": 53.0,
           "projection": null,
@@ -8389,7 +8677,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34007",
@@ -8446,7 +8736,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40201",
@@ -8503,7 +8795,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40102",
@@ -8560,7 +8854,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40168",
@@ -8617,7 +8913,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33443",
@@ -8674,7 +8972,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41002",
@@ -8690,7 +8990,7 @@
           "on_bye": false,
           "platform_projection": 0.0,
           "season_avg": null,
-          "percent_owned": 41.0,
+          "percent_owned": 40.0,
           "projection": null,
           "projection_sd": null,
           "projection_source": "",
@@ -8731,7 +9031,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32676",
@@ -8787,7 +9089,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42642",
@@ -8844,7 +9148,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42654",
@@ -8901,7 +9207,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30971",
@@ -8957,7 +9265,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40819",
@@ -9013,7 +9323,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100021",
@@ -9069,7 +9381,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -9140,7 +9454,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34047",
@@ -9197,7 +9513,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33514",
@@ -9254,7 +9572,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33966",
@@ -9311,7 +9631,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41799",
@@ -9368,7 +9690,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30197",
@@ -9382,7 +9706,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 9.06,
+          "platform_projection": 9.05,
           "season_avg": null,
           "percent_owned": 68.0,
           "projection": null,
@@ -9425,7 +9749,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40126",
@@ -9482,7 +9808,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33967",
@@ -9539,7 +9867,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40059",
@@ -9596,7 +9926,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40030",
@@ -9652,7 +9984,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31856",
@@ -9709,7 +10043,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33392",
@@ -9766,7 +10102,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42838",
@@ -9822,11 +10160,13 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100024",
-          "name": "Los Angeles",
+          "name": "Chargers",
           "position": "DST",
           "team": "LAC",
           "status": "",
@@ -9878,7 +10218,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -9949,7 +10291,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34019",
@@ -10006,7 +10350,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41922",
@@ -10063,7 +10409,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31896",
@@ -10077,7 +10425,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 12.01,
+          "platform_projection": 12.0,
           "season_avg": null,
           "percent_owned": 94.0,
           "projection": null,
@@ -10120,7 +10468,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33477",
@@ -10177,7 +10527,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31019",
@@ -10234,7 +10586,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41900",
@@ -10291,7 +10645,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40981",
@@ -10348,7 +10704,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40078",
@@ -10405,7 +10763,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41293",
@@ -10462,7 +10822,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34659",
@@ -10519,7 +10881,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32231",
@@ -10576,7 +10940,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33100",
@@ -10633,7 +10999,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41907",
@@ -10690,7 +11058,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41312",
@@ -10746,11 +11116,13 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100034",
-          "name": "Houston",
+          "name": "Texans",
           "position": "DST",
           "team": "HOU",
           "status": "",
@@ -10802,7 +11174,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -10873,7 +11247,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40055",
@@ -10930,7 +11306,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "34054",
@@ -10987,7 +11365,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33998",
@@ -11044,7 +11424,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42716",
@@ -11101,7 +11483,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40878",
@@ -11158,7 +11542,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30180",
@@ -11215,7 +11601,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31056",
@@ -11272,7 +11660,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40900",
@@ -11328,7 +11718,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33398",
@@ -11385,7 +11777,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30123",
@@ -11441,7 +11835,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40915",
@@ -11498,7 +11894,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40641",
@@ -11555,7 +11953,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "28227",
@@ -11611,7 +12011,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "100005",
@@ -11667,7 +12069,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -11738,7 +12142,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41807",
@@ -11795,7 +12201,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40707",
@@ -11809,7 +12217,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 13.07,
+          "platform_projection": 13.06,
           "season_avg": null,
           "percent_owned": 84.0,
           "projection": null,
@@ -11852,7 +12260,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33965",
@@ -11909,7 +12319,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "42661",
@@ -11966,7 +12378,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "33415",
@@ -12023,7 +12437,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "31012",
@@ -12080,7 +12496,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41058",
@@ -12137,7 +12555,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40952",
@@ -12194,7 +12614,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "32703",
@@ -12251,7 +12673,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "26662",
@@ -12307,7 +12731,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30227",
@@ -12364,7 +12790,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "30972",
@@ -12378,7 +12806,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 10.48,
+          "platform_projection": 10.47,
           "season_avg": null,
           "percent_owned": 100.0,
           "projection": null,
@@ -12421,7 +12849,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "40063",
@@ -12478,7 +12908,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         },
         {
           "player_id": "41062",
@@ -12534,7 +12966,9 @@
           "consensus_weight": 0.0,
           "ecr_ros_pos_rank": null,
           "ecr_week_pos_rank": null,
-          "fp_projection": null
+          "fp_projection": null,
+          "sleeper_projection": null,
+          "sleeper_weight": 0.0
         }
       ],
       "is_mine": false,
@@ -12598,7 +13032,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40889",
@@ -12654,7 +13090,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30125",
@@ -12710,7 +13148,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41786",
@@ -12766,7 +13206,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "28389",
@@ -12822,7 +13264,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42919",
@@ -12878,7 +13322,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30973",
@@ -12934,7 +13380,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40877",
@@ -12991,7 +13439,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42669",
@@ -13048,7 +13498,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40108",
@@ -13105,7 +13557,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "34062",
@@ -13162,7 +13616,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30551",
@@ -13219,7 +13675,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42296",
@@ -13276,7 +13734,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40065",
@@ -13333,7 +13793,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41001",
@@ -13390,7 +13852,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40051",
@@ -13447,7 +13911,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40222",
@@ -13504,7 +13970,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "34099",
@@ -13561,7 +14029,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41885",
@@ -13618,7 +14088,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40094",
@@ -13675,7 +14147,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30182",
@@ -13732,7 +14206,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "33412",
@@ -13789,7 +14265,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "34147",
@@ -13846,7 +14324,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40996",
@@ -13903,7 +14383,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41052",
@@ -13960,7 +14442,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30136",
@@ -14017,7 +14501,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "31945",
@@ -14074,7 +14560,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41827",
@@ -14131,7 +14619,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "34083",
@@ -14188,7 +14678,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42696",
@@ -14245,7 +14737,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41421",
@@ -14302,7 +14796,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32803",
@@ -14359,7 +14855,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32685",
@@ -14416,7 +14914,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41951",
@@ -14473,7 +14973,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "29257",
@@ -14530,7 +15032,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "27548",
@@ -14587,7 +15091,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41009",
@@ -14644,7 +15150,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41905",
@@ -14701,7 +15209,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42386",
@@ -14758,7 +15268,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "33971",
@@ -14815,7 +15327,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41904",
@@ -14872,7 +15386,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42717",
@@ -14929,7 +15445,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41864",
@@ -14986,7 +15504,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32843",
@@ -15043,7 +15563,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "31852",
@@ -15100,7 +15622,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "34084",
@@ -15157,7 +15681,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42598",
@@ -15214,7 +15740,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42706",
@@ -15271,7 +15799,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41891",
@@ -15328,7 +15858,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40232",
@@ -15385,7 +15917,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "31482",
@@ -15441,7 +15975,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32858",
@@ -15497,7 +16033,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30346",
@@ -15553,7 +16091,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40296",
@@ -15609,7 +16149,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41980",
@@ -15665,7 +16207,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "8432",
@@ -15721,7 +16265,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "28188",
@@ -15777,7 +16323,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "31137",
@@ -15833,7 +16381,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32417",
@@ -15889,7 +16439,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42262",
@@ -15945,7 +16497,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "43370",
@@ -16001,7 +16555,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30266",
@@ -16057,7 +16613,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40496",
@@ -16113,7 +16671,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32384",
@@ -16169,7 +16729,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "31199",
@@ -16225,7 +16787,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "34344",
@@ -16281,7 +16845,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "40159",
@@ -16337,7 +16903,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "43025",
@@ -16393,7 +16961,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42948",
@@ -16449,7 +17019,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "43056",
@@ -16505,7 +17077,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "43103",
@@ -16561,7 +17135,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42379",
@@ -16617,7 +17193,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "43135",
@@ -16673,7 +17251,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42125",
@@ -16729,7 +17309,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "43136",
@@ -16785,7 +17367,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100017",
@@ -16841,7 +17425,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100033",
@@ -16897,7 +17483,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100011",
@@ -16953,7 +17541,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100018",
@@ -17009,7 +17599,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100027",
@@ -17065,7 +17657,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100019",
@@ -17121,7 +17715,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100002",
@@ -17177,7 +17773,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100029",
@@ -17233,7 +17831,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100003",
@@ -17289,7 +17889,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100009",
@@ -17345,7 +17947,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100001",
@@ -17401,7 +18005,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100020",
@@ -17457,7 +18063,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100006",
@@ -17513,7 +18121,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100013",
@@ -17569,7 +18179,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100010",
@@ -17625,7 +18237,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100022",
@@ -17681,7 +18295,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100008",
@@ -17737,7 +18353,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "100015",
@@ -17793,7 +18411,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "32704",
@@ -17850,7 +18470,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42730",
@@ -17907,7 +18529,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42655",
@@ -17964,7 +18588,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "41860",
@@ -18021,7 +18647,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "42702",
@@ -18078,7 +18706,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     },
     {
       "player_id": "30231",
@@ -18135,7 +18765,9 @@
       "consensus_weight": 0.0,
       "ecr_ros_pos_rank": null,
       "ecr_week_pos_rank": null,
-      "fp_projection": null
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0
     }
   ],
   "matchup": {
@@ -18147,7 +18779,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-13T21:27:44.310293+00:00",
+  "synced_at": "2026-10-13T22:16:48.270195+00:00",
   "extra": {
     "source": "yahoo-web"
   },
