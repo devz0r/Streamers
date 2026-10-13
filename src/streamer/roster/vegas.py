@@ -240,6 +240,8 @@ def _position_weights(j, dm, dc, pooled: tuple[float, float], k: float, need: in
     (DECISIONS.md, "Blend weights by position"), so this switches itself on
     only as the logs grow.
     """
+    if "position" not in j.columns:
+        return {}, "no positions in the log: pooled weights"
     ours, y = j["projection"].to_numpy(float), j["fantasy_points_ppr"].to_numpy(float)
     pos, wk = j["position"].to_numpy(), (j["season"] * 100 + j["week"]).to_numpy()
     weeks = sorted(set(wk))
