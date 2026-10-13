@@ -506,7 +506,7 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
                if any("FantasyPros" in a.detail for a in acts) else ""))
 
 
-_VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Close call: lean claim", "opp"),
+_VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Toss-up: no clear edge", "opp"),
             "wait": ("Worth adding, but wait", "opp")}
 
 

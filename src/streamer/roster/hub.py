@@ -115,7 +115,7 @@ def actions(report, cfg=None) -> list[HubAction]:
     for m in report.title_moves or []:
         gain = m.gain_now - m.priority_cost
         blocking = m.block_value >= BLOCK_NOTE and bool(m.rival_name)
-        note = {"claim": "claim now", "lean": "close call", "wait": "worth adding, but could wait"}[m.verdict]
+        note = {"claim": "claim now", "lean": "toss-up, no clear edge", "wait": "worth adding, but could wait"}[m.verdict]
         if m.priority_cost > 0:
             note += f"; after your waiver priority ({m.priority_cost * 100:.1f})"
         options = getattr(m, "drop_options", None)

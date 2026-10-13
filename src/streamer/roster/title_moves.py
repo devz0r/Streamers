@@ -717,7 +717,8 @@ class TitleEngine:
         if m.priority_cost > 0:
             bits.append(f"your #{self.rank} priority is worth {m.priority_cost * 100:.1f} on future claims")
         if m.verdict == "lean":
-            bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f})")
+            bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f}): "
+                        "it cannot tell this from standing pat, so claim only if you like him anyway")
         anyone, _ahead = self.claim_odds(m.add)
         bits.append(f"about a {anyone:.0%} chance another manager claims him this week"
                     + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))

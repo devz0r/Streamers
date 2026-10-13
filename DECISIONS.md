@@ -3185,3 +3185,35 @@ without scrubbing them, which put two managers' first names and the league
 name in a public workflow log. Both now pass the same whitelist as the rest
 of the probe output, and a test holds them to it.
 
+
+### Playoff-week factors for held units, checked on their own
+
+The D/ST and kicker cards that say "held for the playoff weeks" rest on the
+schedule factor for weeks 15-17 as it stands in October. The original fit
+(`fit_schedule_dstk.py`) scored every later week; `scripts/fit_playoff_units.py`
+scores only weeks 15-17, from checkpoints 4-9, 2023-2025:
+
+- **D/ST: keeps.** RMSE 8.784 flat -> 8.551 at the production exponents
+  (better 2 of 3 seasons, 2023 a hair worse); a shrink fitted held-out on
+  the other seasons' playoff weeks comes out near 1 (0.95 on all), so the
+  factor is not overstated. The five units with the best playoff schedule
+  scored 15%, 20% and 38% over their baseline relative to the rest, in each
+  season.
+- **K: thin.** RMSE 4.741 -> 4.728 (2 of 3), but the factor barely moves
+  (sd 0.045) and the best-schedule kickers beat the rest only in 2025. A
+  kicker card leaning on its playoff weeks is leaning on very little; left
+  as is because it rarely decides one.
+
+A card whose edge is inside the simulation's noise was labelled "Close
+call: lean claim", which read as advice. It is now "Toss-up: no clear
+edge", and its note says the simulation cannot tell it from standing pat.
+
+### Kicker wind forecast: tested on the runner, dropped
+
+`wind-fit` (Open-Meteo archived forecasts, 2023-2025, calibrated
+leave-one-season-out: RMSE vs recorded wind 5.17 raw, 4.96 calibrated)
+against the stadium's typical wind: MAE 3.7197 -> 3.7193, rank correlation
+0.171 -> 0.173, better in 0 of 3 seasons on both measures. Windy games
+(forecast 12+ mph) improved, but there were 9. No `wind_forecast.json` is
+committed, so the forecast module stays inert and kickers keep the typical
+wind fill.
