@@ -361,7 +361,11 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
     for p in snapshot.all_players():
         if p.position not in ("QB", "RB", "WR", "TE") or p.locked or p.projection is None:
             continue
-        if p.vegas_points is None and p.player_id not in rostered:
+        # Every rostered player, every free agent with props, and the rest of the
+        # wire that is on a team and not out for the season: the waiver
+        # projections are graded too.
+        if p.vegas_points is None and p.player_id not in rostered and (
+                not p.team or p.is_long_term_out or p.unsigned):
             continue
         rows.append({
             "season": snapshot.season, "week": snapshot.week, "player_id": p.player_id,

@@ -2671,6 +2671,16 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Every player we project is graded
+The projection log (`results/<profile>/skill_log.parquet`) kept every
+rostered player and the free agents with betting props -- 100-435 player-weeks
+a week -- so the waiver players you actually choose between, the ones with
+no props, were never graded. It now keeps the whole wire except players on
+no team, out for the season or unsigned. Grading already counts only players
+with a box score that week, so the extra rows cost nothing in accuracy; they
+give the blend weights and the scorecard two to three times the player-weeks
+to learn from, and show how the model does on the waiver pool.
+
 ### Correcting the projection in-season? Tested, no
 The blend weights and every input re-fit each week, but our own projection
 was never corrected by how it had been missing this season. Tested
