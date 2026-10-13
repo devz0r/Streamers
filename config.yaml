@@ -480,6 +480,13 @@ roster:
     power: {WR: 0.3, RB: 0.5}
     cap: 0.3
     games: 8
+  # A clearly worse quarterback this week (passing EPA per attempt, shrunk
+  # by `shrink` attempts, `worse_sd` league spreads below the quarterbacks of
+  # his last `recent` games): receivers' week cut by `cut` x the share of
+  # those games someone else threw. Held out 2022-2025: better in 4 of 4
+  # seasons (5.37 -> 5.24 RMSE on those weeks); TE and RB showed nothing
+  # (scripts/fit_qb_change.py; DECISIONS.md, "A new quarterback for the receivers").
+  qb_change: {positions: [WR], worse_sd: 0.5, cut: 0.15, shrink: 200, recent: 6}
   teammate_back:
     positions: [RB, WR, TE]
     regular: 5.0

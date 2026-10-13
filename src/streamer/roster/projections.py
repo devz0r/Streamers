@@ -1243,6 +1243,15 @@ def project_snapshot(
         log.warning("team share unavailable: %s", exc)
         shares = {}
     usage = recent_usage(history, snapshot.season, snapshot.week)
+    # A clearly worse quarterback this week, for his receivers (qb_change).
+    from . import qb_change
+
+    try:
+        new_qb = qb_change.factors(players, matched.mapping, history, cfg, int(snapshot.season),
+                                   int(snapshot.week))
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("quarterback change unavailable: %s", exc)
+        new_qb = {}
     team_weeks, played_weeks = games_missed(history, int(snapshot.season), int(snapshot.week))
     # Where our season value has been measured to overreact, defer toward
     # the market (see market_calibration: two early-season cells).
@@ -1324,6 +1333,9 @@ def project_snapshot(
                 s = scale.get(p.team, 1.0) if p.team else 1.0
                 share = shares.get(nfl_id, 1.0)
                 mean = (vol * share + extra_week) * eff * (s ** damping)
+                if p.player_id in new_qb:
+                    mean *= new_qb[p.player_id][0]
+                    p.signals.append(new_qb[p.player_id][1])
                 if abs(share - 1.0) >= 0.08:
                     work, group = ("backfield work", "backs") if p.position == "RB" else ("targets", "receivers")
                     p.signals.append(f"{'more' if share > 1 else 'less'} of his team's {work} this week: "

@@ -2671,6 +2671,36 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### A new quarterback for the receivers
+When a backup starts, this week's implied team total falls and every
+projection on the team scales with it (`vegas_damping`). Replayed on
+2022-2025 (`scripts/fit_qb_change.py`, 17,947 back/receiver/tight-end weeks
+through the production projection *with* that scaling): each team-week's
+starter is the quarterback with the most attempts, a player's own
+quarterback the starter of his last six games for the team, and quality is
+passing EPA per attempt over every earlier game, shrunk 200 attempts toward
+the league.
+
+With a starter half a league spread or more below his recent quarterbacks,
+receivers still scored 0.75 a game under projection (0.16 otherwise); tight
+ends and backs showed nothing. A smooth factor on the quality gap failed
+(shrinkage flatters backups with few attempts), but a plain cut on those
+weeks -- `cut` x the share of his recent games someone else threw --
+passed, picked on three seasons and scored on the fourth:
+
+| new starter | weeks | RMSE | seasons better | cut picked |
+|---|---|---|---|---|
+| worse by 0.25+ sd | 1,024 | 5.405 -> 5.319 | 3 of 4 | 0.15-0.20 |
+| **worse by 0.5+ sd** | 643 | 5.372 -> 5.235 | **4 of 4** | 0.15-0.20 |
+| worse by 0.75+ sd | 434 | 5.239 -> 5.078 | 4 of 4 | 0.15-0.225 |
+| TE, worse by 0.5+ sd | 382 | 4.622 -> 4.641 | 2 of 4 | -- |
+
+In use for receivers: 0.5 sd, cut 0.15 (the low end of what every fold
+picked), this week only (`roster.qb_change`). This week's starter is the
+first quarterback on the Sleeper depth chart who is not out or on a bye.
+At week 5 of 2026 it moves Baltimore's receivers 10-15% with Tyler Huntley
+in for Lamar Jackson; the card names the starter.
+
 ### Every player we project is graded
 The projection log (`results/<profile>/skill_log.parquet`) kept every
 rostered player and the free agents with betting props -- 100-435 player-weeks
