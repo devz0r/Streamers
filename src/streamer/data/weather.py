@@ -19,7 +19,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from ..config import Config, get_config
@@ -52,6 +51,20 @@ def read_manual_weather(week: int, cfg: Config | None = None) -> pd.DataFrame:
     return df[df["home_team"].notna()][["home_team", "wind", "temp"]]
 
 
+def typical_wind(cfg: Config, season: int, week: int, years: int = 2) -> pd.Series:
+    """Home team -> mean recorded wind (mph) at its outdoor games over the
+    last ``years`` seasons and this one so far: what to expect where no
+    forecast exists. Empty when there is no schedule history."""
+    from .nflverse import games_frame
+
+    g = games_frame(cfg)
+    g = g[(g["game_type"] == "REG") & (g["season"] >= season - years)
+          & ((g["season"] < season) | (g["week"] < week))]
+    g = g[g["is_dome"].fillna(0).astype(int).eq(0) & g["wind"].notna()].drop_duplicates("game_id")
+    g = g.assign(home_team=g["home_team"].map(normalize_team))
+    return g.groupby("home_team")["wind"].mean()
+
+
 def resolve_weather(
     slate: pd.DataFrame, week: int, cfg: Config | None = None
 ) -> pd.DataFrame:
@@ -69,7 +82,9 @@ def resolve_weather(
 
     out["wind"] = pd.to_numeric(out.get("wind"), errors="coerce")
     out["temp"] = pd.to_numeric(out.get("temp"), errors="coerce")
-    out["weather_source"] = np.where(out["wind"].notna(), "schedule", None)
+    earlier = out["weather_source"] if "weather_source" in out.columns else pd.Series("schedule", index=out.index)
+    out["weather_source"] = earlier.where(out["wind"].notna(), None).where(
+        out["wind"].isna() | earlier.notna(), "schedule")
 
     manual = read_manual_weather(week, cfg)
     if not manual.empty:
@@ -93,7 +108,23 @@ def resolve_weather(
     out.loc[dome, "temp"] = 72.0
     out.loc[dome, "weather_source"] = "dome"
 
+    # No wind recorded or given: a game still to be played. The model trains
+    # on recorded wind, so calm is not neutral -- filling 0 (about 7 mph under
+    # the outdoor average) cost kickers 0.03 of MAE and 0.012 of rank
+    # correlation in every held-out season; the home stadium's typical wind
+    # recovers most of it (scripts/fit_kicker_wind.py; DECISIONS.md, "Kicker
+    # wind").
     missing = out["wind"].isna()
+    if missing.any() and "season" in out.columns and len(out):
+        try:
+            typ = typical_wind(cfg, int(out["season"].iloc[0]), week)
+            usual = out["home_team"].map(typ)
+            fill = missing & usual.notna()
+            out.loc[fill, "wind"] = usual[fill]
+            out.loc[fill, "weather_source"] = "typical"
+            missing = out["wind"].isna()
+        except Exception as exc:  # noqa: BLE001 - a prior; fall back to the neutral default
+            log.warning("typical wind unavailable: %s", exc)
     out.loc[missing, "wind"] = float(conf["default_wind_mph"])
     out.loc[missing, "weather_source"] = out.loc[missing, "weather_source"].fillna("neutral")
     out["temp"] = out["temp"].fillna(float(conf["default_temp_f"]))

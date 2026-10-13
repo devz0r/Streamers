@@ -2671,6 +2671,29 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Kicker wind
+The kicker model trains on the wind recorded at each game, but a game still
+to be played has none -- nflverse's schedule has wind for 0 of the 386
+games not yet played -- and production filled it with `weather.default_wind_mph`
+(0, calm), about 7 mph under the outdoor average. Walk-forward 2023-2025
+(`scripts/fit_kicker_wind.py`, the backtest with the test games' wind
+replaced by what could have been known):
+
+| wind given to the model | MAE | rank correlation | top-5 hit rate |
+|---|---|---|---|
+| recorded (cannot be known ahead) | 3.7155 | 0.1705 | 0.556 |
+| calm (production's fill) | 3.7480 | 0.1488 | 0.522 |
+| **the home stadium's typical wind** | **3.7229** | **0.1609** | **0.541** |
+
+Typical wind recovers about three quarters of what the recorded wind is
+worth, better than calm on MAE and rank correlation in all three seasons;
+calm also biased outdoor kickers high (+0.23 against -0.08). A game with no
+recorded or given wind now gets the mean wind of its home team's outdoor
+games over the last two seasons and this one so far (`weather_source`
+"typical"); domes stay neutral and a team with no history keeps the 0 default.
+A manual `data/weather_week_N.csv` still overrides. A real forecast (a free
+service such as Open-Meteo) would beat the typical wind; it is not wired in.
+
 ### Do the platforms already discount questionable players? No
 Our last step multiplies by the chance he plays; if a source had already
 done so, a questionable player would be discounted twice. Checked on the

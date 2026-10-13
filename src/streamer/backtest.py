@@ -71,8 +71,13 @@ def walk_forward(
     max_week: int | None = None,
     alpha: float | None = None,
     use_ledger: bool = True,
+    transform_test=None,
 ) -> pd.DataFrame:
     """Predict every week of ``seasons`` using only strictly earlier games.
+
+    ``transform_test(test, train)`` may replace features of the games being
+    predicted (what a forecast would have known) before the model sees them;
+    the scored target is untouched.
 
     ``use_ledger`` recomputes the factor-correlation multipliers at every step,
     exactly as the weekly refit does, so the backtest measures the shipped
@@ -103,6 +108,8 @@ def walk_forward(
             test = played[(played["season"] == season) & (played["week"] == week)]
             if test.empty:
                 continue
+            if transform_test is not None:
+                test = transform_test(test, train)
             # The multiplier's signal prior must be measured against the
             # quantity the core regression actually fits: for the two-stage
             # D/ST model that is the big-play component, not the total, since
