@@ -2,57 +2,57 @@
   "grades": [
     {
       "source": "Our final number",
-      "players": 490,
+      "players": 503,
       "weeks": 3,
-      "pairs": 0.6588273195876289,
-      "miss": 5.501510204081632,
-      "ours_pairs": 0.6588273195876289,
-      "ours_miss": 5.501510204081632
+      "pairs": 0.6631007870405746,
+      "miss": 5.519423459244533,
+      "ours_pairs": 0.6631007870405746,
+      "ours_miss": 5.519423459244533
     },
     {
       "source": "Our model alone",
-      "players": 490,
+      "players": 503,
       "weeks": 3,
-      "pairs": 0.653353732184556,
-      "miss": 5.601469387755102,
-      "ours_pairs": 0.6588273195876289,
-      "ours_miss": 5.501510204081632
+      "pairs": 0.6588235294117647,
+      "miss": 5.600497017892644,
+      "ours_pairs": 0.6631007870405746,
+      "ours_miss": 5.519423459244533
     },
     {
       "source": "Yahoo's projection",
-      "players": 382,
+      "players": 393,
       "weeks": 3,
-      "pairs": 0.6666666666666666,
-      "miss": 5.865968586387435,
-      "ours_pairs": 0.6653553632310517,
-      "ours_miss": 5.740680628272251
+      "pairs": 0.6693088927421352,
+      "miss": 5.873486005089058,
+      "ours_pairs": 0.6684425721719738,
+      "ours_miss": 5.7583460559796436
     },
     {
       "source": "Betting props",
-      "players": 438,
+      "players": 451,
       "weeks": 3,
-      "pairs": 0.6568778979907264,
-      "miss": 5.529771689497717,
-      "ours_pairs": 0.658840579710145,
-      "ours_miss": 5.519977168949771
+      "pairs": 0.661070780399274,
+      "miss": 5.571263858093127,
+      "ours_pairs": 0.6637923209585187,
+      "ours_miss": 5.539423503325943
     },
     {
       "source": "FantasyPros projections",
-      "players": 389,
+      "players": 402,
       "weeks": 2,
-      "pairs": 0.651394790319601,
-      "miss": 5.6613110539845755,
-      "ours_pairs": 0.6503464203233257,
-      "ours_miss": 5.665244215938304
+      "pairs": 0.6557662202122109,
+      "miss": 5.686865671641791,
+      "ours_pairs": 0.6557063326374392,
+      "ours_miss": 5.682363184079603
     },
     {
       "source": "FantasyPros rankings",
-      "players": 390,
+      "players": 403,
       "weeks": 2,
-      "pairs": 0.6490017480909007,
+      "pairs": 0.654126213592233,
       "miss": null,
-      "ours_pairs": 0.6521779000458505,
-      "ours_miss": 5.657179487179488
+      "ours_pairs": 0.657394609536973,
+      "ours_miss": 5.674516129032258
     }
   ],
   "per_week": [
@@ -78,18 +78,18 @@
     {
       "season": 2026,
       "week": 5,
-      "players": 186,
-      "Our final number": 5.77,
-      "Our model alone": 5.98,
-      "Yahoo's projection": 6.05,
-      "Betting props": 5.68,
-      "FantasyPros projections": 5.71
+      "players": 199,
+      "Our final number": 5.79,
+      "Our model alone": 5.95,
+      "Yahoo's projection": 6.06,
+      "Betting props": 5.77,
+      "FantasyPros projections": 5.76
     }
   ],
   "ros": [],
   "season_weight": {
-    "weight": 0.45,
-    "games": 476,
+    "weight": 0.39,
+    "games": 492,
     "measured": true
   }
 }

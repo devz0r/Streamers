@@ -1,8 +1,8 @@
 {
   "profile": "yahoo",
   "platform": "yahoo",
-  "week": 5,
+  "week": 6,
   "ok": false,
   "error": "Yahoo session has expired or was signed out: re-copy the Cookie header from a logged-in fantasy page into the YAHOO_COOKIE secret",
-  "at": "2026-10-13T03:10:27+00:00"
+  "at": "2026-10-13T08:33:22+00:00"
 }
