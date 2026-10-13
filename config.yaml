@@ -181,6 +181,17 @@ profiles:
 # Modelling
 # ---------------------------------------------------------------------------
 model:
+  # Similar past matchups (models/analogs.py): the mean score of the k most
+  # similar earlier games since `since`, blended in at `weight`. Kickers only:
+  # half and half beat the model alone in every season 2023-2026 (MAE
+  # 3.744 -> 3.722); defences lost in all of them. scripts/fit_analogs.py.
+  analogs:
+    K:
+      weight: 0.5
+      k: 100
+      since: 2015
+      features: [team_implied_total, team_spread, total_line, is_dome, off_fga_per_drive,
+                 off_rz_td_rate, def_rz_td_rate_allowed, k_long_att_share]
   # Candidate estimators; the backtest picks the winner per position and the
   # choice is persisted to results/model_selection.json.
   candidates: [ridge, gbm]

@@ -38,6 +38,9 @@ class SlateContext:
     season: int
     week: int
     games: pd.DataFrame
+    #: Completed kicker games back to ``model.analogs.K.since``: the pool the
+    #: similar-matchup forecast searches (None when not configured).
+    kicker_pool: pd.DataFrame | None = None
 
 
 def training_seasons(cfg: Config | None = None) -> list[int]:
@@ -127,6 +130,7 @@ def build_slate(
     dst_all = build_dst_features(pbp, games, cfg, future_games)
 
     kicker_train = _completed_only(kicker_all)
+    kicker_pool = _analog_pool(pbp, games, kicker_train, cfg)
     dst_train = _completed_only(dst_all)
 
     def slice_slate(frame: pd.DataFrame) -> pd.DataFrame:
@@ -157,7 +161,31 @@ def build_slate(
         season=season,
         week=week,
         games=slate_games,
+        kicker_pool=kicker_pool,
     )
+
+
+def _analog_pool(pbp: pd.DataFrame, games: pd.DataFrame, kicker_train: pd.DataFrame,
+                 cfg: Config) -> pd.DataFrame | None:
+    """Completed kicker games from ``model.analogs.K.since`` on: the training
+    rows plus earlier seasons' play-by-play, built the same way."""
+    from .models.analogs import settings
+
+    conf = settings(cfg, "K")
+    if conf is None:
+        return None
+    first = min(training_seasons(cfg))
+    extra = list(range(int(conf.get("since", first)), first))
+    if not extra:
+        return kicker_train
+    try:
+        old = load_pbp(extra, cfg)
+        deep = pd.concat([old, pbp], ignore_index=True)
+        built = _completed_only(build_kicker_features(deep, games, cfg))
+    except Exception as exc:  # noqa: BLE001 - the model alone still projects
+        log.warning("analog pool: could not load %s-%s play-by-play: %s", extra[0], extra[-1], exc)
+        return kicker_train
+    return pd.concat([built[built["season"] < first], kicker_train], ignore_index=True)
 
 
 def completed_game_ids(games: pd.DataFrame) -> set:

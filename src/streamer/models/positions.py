@@ -37,6 +37,7 @@ from sklearn.linear_model import Ridge
 
 from ..config import Config, get_config
 from ..features.build import DST_FEATURES, KICKER_FEATURES, VEGAS_ANCHOR
+from . import analogs
 from .base import (
     DesignMatrix,
     ResidualBands,
@@ -216,10 +217,17 @@ class KickerModel:
         )
         return cls(core=core, cfg=cfg)
 
-    def predict(self, slate: pd.DataFrame) -> Projection:
+    def predict(self, slate: pd.DataFrame, pool: pd.DataFrame | None = None) -> Projection:
+        """``pool``: completed kicker games for the similar-matchup blend
+        (:mod:`streamer.models.analogs`); without it, the model alone."""
         cfg = self.cfg
         preds = self.core.predict(slate)
         out = slate.copy()
+        conf = analogs.settings(cfg, "K") if pool is not None else None
+        if conf is not None:
+            analog = analogs.analog_mean(pool, slate, list(conf["features"]), int(conf.get("k", 100)))
+            out["model_points"], out["analog_points"] = preds, analog
+            preds = analogs.blend(preds, analog, float(conf["weight"]))
         out["expected_points"] = preds
         out["floor"] = np.maximum(
             0.0, self.core.bands.quantile(preds, float(cfg.model["floor_quantile"]))

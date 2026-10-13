@@ -3258,3 +3258,40 @@ The first run counted kickoffs, which nflverse attaches to the kicking
 team's drive at the 35, so 72% of drives "reached range". The script uses
 snaps, tries and punts only. The production red-zone flag (the 20) is
 essentially untouched by this.
+
+### Similar past matchups: kept for kickers, not for defences
+
+Subvertadown shows each kicker and defence the most similar historical
+matchups and what they scored. `scripts/fit_analogs.py` tests that as a
+forecast. For every week, each unit is matched to its `k` nearest earlier
+games on standardised pre-game features, its own and the opponent's, and
+takes their mean score. That mean is scored alone and blended with the
+shipped model's walk-forward projection; `k` and the weight were picked on
+two seasons and scored on the third.
+
+- **D/ST: dropped.** Every variant (Vegas features only, or with team
+  ratings; pool from 2021 or from 2015) was worse than the model in all
+  three seasons, or no better. The held-out weight came out at 0-0.15.
+- **K: kept, as half and half.** Matching on implied total, spread, total,
+  dome, field-goal tries per drive, red-zone touchdown rate for and
+  against, and the kicker's long-try share, with 100 neighbours from 2015
+  on. Production features, MAE (rank correlation):
+
+| Season | Model | Half and half | Analog alone |
+|---|---|---|---|
+| 2023 | 3.606 (0.156) | 3.571 (0.181) | 3.558 (0.162) |
+| 2024 | 3.823 (0.189) | 3.796 (0.227) | 3.779 (0.230) |
+| 2025 | 3.737 (0.177) | 3.733 (0.164) | 3.748 (0.136) |
+| 2026, weeks 1-5 | 3.810 (0.017) | 3.789 (0.034) | 3.774 (0.041) |
+
+  The held-out weight chose 0.8-1.0, but the analog alone lost in 2025, the
+  latest full season. Half and half is better on MAE in all four seasons
+  and on rank correlation in three, so that is what ships. It is not a bias
+  fix: a linear recalibration of the model alone made it worse (3.737 over
+  2023-2025). The pool runs from 2015 because the 2021-on pool lost.
+
+The pool is built each run from play-by-play back to `since` (six extra
+seasons, cached with the rest). If those cannot load, the pool falls back to
+the training seasons. A kicker without lines keeps the model's number. Each
+kicker's line on the page names the similar-matchup average. The backtest
+and model selection still grade the model alone. Config `model.analogs`.

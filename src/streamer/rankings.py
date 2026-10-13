@@ -62,7 +62,8 @@ def rank_week(
         "DST", context.dst_slate, context.dst_train, season, week, cfg
     )
     kicker_all = _project(
-        "K", context.kicker_slate, context.kicker_train, season, week, cfg
+        "K", context.kicker_slate, context.kicker_train, season, week, cfg,
+        pool=getattr(context, "kicker_pool", None),
     )
 
     dst = _finalise(dst_all[dst_all["week"] == week], "DST", cfg)
@@ -82,7 +83,7 @@ def rank_week(
 
 def _project(
     position: str, slate: pd.DataFrame, train: pd.DataFrame,
-    season: int, week: int, cfg: Config
+    season: int, week: int, cfg: Config, pool: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Fit on everything completed and project the slate."""
     if slate.empty:
@@ -105,7 +106,7 @@ def _project(
     if position == "DST":
         kwargs["two_stage"] = _two_stage(cfg)
     model = model_cls.fit(train, cfg, **kwargs)
-    projection = model.predict(slate)
+    projection = model.predict(slate, pool) if position == "K" else model.predict(slate)
     frame = projection.frame.copy()
     baseline = VegasBaseline.fit(train, BASELINE_COLUMN[position])
     frame["baseline_points"] = baseline.predict(slate)
@@ -237,6 +238,9 @@ def _dst_edges(row) -> list[str]:
 
 def _kicker_edges(row, cfg: Config) -> list[str]:
     notes: list[str] = []
+    analog = getattr(row, "analog_points", np.nan)
+    if analog is not None and np.isfinite(analog):
+        notes.append(f"similar past matchups averaged {analog:.1f}")
     fga = getattr(row, "off_fga_per_drive", np.nan)
     if np.isfinite(fga) and fga >= 0.34:
         notes.append(f"{fga:.2f} FG attempts per drive")
@@ -253,7 +257,7 @@ def _kicker_edges(row, cfg: Config) -> list[str]:
     long_share = getattr(row, "k_long_att_share", np.nan)
     if np.isfinite(long_share) and long_share >= 0.20:
         notes.append(f"{long_share:.0%} of attempts from 50+")
-    return notes[:3]
+    return notes[:4]
 
 
 def two_week_candidates(rankings: Rankings) -> dict[str, pd.DataFrame]:
