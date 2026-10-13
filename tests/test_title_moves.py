@@ -244,6 +244,17 @@ def test_free_agent_defences_are_priced_for_their_playoff_weeks(cfg):
     for d in others:
         d.schedule = {11: 1.0}
     _wire(snap, [soft, hard] + others)
+    snap.week = 10                                              # late in this short season
     engine = TitleEngine(snap, cfg, n_sims=300, candidates=8)
     ids = [p.player_id for p in engine.playoff_units]
     assert "softD" in ids and "hardD" not in ids and len(ids) == 3
+
+
+def test_playoff_units_wait_until_late_unless_the_playoffs_are_near_certain(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    reg = int(snap.rules.get("regular_season_weeks") or 14)
+    snap.week = reg - 5
+    assert not TitleEngine._hold_units_now(snap, cfg, 0.6)
+    assert TitleEngine._hold_units_now(snap, cfg, 0.97)
+    snap.week = reg - 2
+    assert TitleEngine._hold_units_now(snap, cfg, 0.6)

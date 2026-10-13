@@ -339,6 +339,10 @@ class TitleEngine:
         self.base_won = (base_odds.champion == self.mine).astype(float)
         self.base = float(self.base_won.mean())
         self.base_playoffs = float(base_odds.p_playoffs[self.mine])
+        if not self._hold_units_now(snapshot, cfg, self.base_playoffs):
+            gone = {u.player_id for u in self.playoff_units}
+            self.candidates = [p for p in self.candidates if p.player_id not in gone]
+            self.playoff_units = []
         self.n_teams = len(snapshot.teams)
         self.rank = int(me.waiver_rank or self.n_teams)
         self.activity = league_activity(snapshot)
@@ -384,6 +388,17 @@ class TitleEngine:
             if self.ranks[i] < self.rank:
                 none_ahead *= 1.0 - p
         return 1.0 - none_all, 1.0 - none_ahead
+
+    @staticmethod
+    def _hold_units_now(snapshot: LeagueSnapshot, cfg: Config, p_playoffs: float) -> bool:
+        """Holding a defence or kicker for the playoffs costs a bench spot
+        until then, which the simulation prices too cheaply: so only in the
+        last few regular-season weeks, or when the playoffs are near certain
+        (config ``roster.playoff_units``)."""
+        conf = (cfg.raw.get("roster") or {}).get("playoff_units") or {}
+        reg = int((snapshot.rules or {}).get("regular_season_weeks") or 14)
+        from_week = reg + 1 - int(conf.get("weeks_before_playoffs", 3))
+        return int(snapshot.week) >= from_week or p_playoffs >= float(conf.get("sure_of_playoffs", 0.95))
 
     @staticmethod
     def _playoff_units(snapshot: LeagueSnapshot) -> list[PlayerRow]:

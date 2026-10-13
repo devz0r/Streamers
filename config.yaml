@@ -464,6 +464,13 @@ roster:
   # scored by a fit on the others: QB 4/4 seasons better, RB 3/4 (4/4 in the
   # simpler form); WR 0/4 and TE 2/4, so they are left out. See DECISIONS.md,
   # "Who he plays the rest of the way".
+  # Free-agent defences and kickers priced for their playoff weeks only in
+  # the last few regular-season weeks (week 12 of 14), or once your playoff
+  # odds reach sure_of_playoffs: a stash in October costs a bench spot the
+  # simulation underprices. DECISIONS.md, "Playoff-week factors for held units".
+  playoff_units:
+    weeks_before_playoffs: 3
+    sure_of_playoffs: 0.95
   schedule:
     positions:
       QB: {implied: 0.6, allowed: 0.3}

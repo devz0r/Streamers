@@ -3204,6 +3204,13 @@ scores only weeks 15-17, from checkpoints 4-9, 2023-2025:
   kicker card leaning on its playoff weeks is leaning on very little; left
   as is because it rarely decides one.
 
+Even where the matchups are real, a defence stashed in October holds a
+bench spot for two months, and the simulation prices that spot too cheaply.
+So playoff-week defences and kickers are now priced only from three weeks
+before the regular season ends (week 12 of 14), or earlier once the team's
+playoff odds reach 95% (`roster.playoff_units` in config.yaml). Before that
+they show up only as next-week streamers.
+
 A card whose edge is inside the simulation's noise was labelled "Close
 call: lean claim", which read as advice. It is now "Toss-up: no clear
 edge", and its note says the simulation cannot tell it from standing pat.
