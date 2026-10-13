@@ -3224,3 +3224,37 @@ against the stadium's typical wind: MAE 3.7197 -> 3.7193, rank correlation
 (forecast 12+ mph) improved, but there were 9. No `wind_forecast.json` is
 committed, so the forecast module stays inert and kickers keep the typical
 wind fill.
+
+### Kicker drive stalls: tested, not kept
+
+Subvertadown frames kickers by where drives stall. The kicker model
+already carries field-goal tries per drive, red-zone touchdown rate and
+field goals' share of scores; `scripts/fit_kicker_stall.py` adds the split
+behind tries per drive, each a shrunk, leak-free team rate set against the
+opposing defence:
+
+- **range**: drives reaching the opponent's 35 (about 45% of drives);
+- **stall**: the share of those that end without a touchdown;
+- **kick**: the share of those stalls that end in a field-goal try, which
+  captures fourth-down habits and how far the coach trusts the kicker;
+- **long stalls**: drives dying between the 25 and the 35.
+
+From these it builds expected tries per game. Walk-forward 2023-2025:
+
+| Variant | MAE | Rank corr | Top-5 hit |
+|---|---|---|---|
+| Production | 3.7187 | 0.1743 | 0.552 |
+| Plus expected tries | 3.7185 (2 of 3 better) | 0.1764 | 0.552 |
+| Plus every component | 3.7198 (0 of 3 better) | 0.1766 | 0.541 |
+
+The composite clears the letter of the rule by two ten-thousandths of a
+point, which is noise. Its correlation with the tries actually taken is
+-0.006, so it has no signal for the thing it estimates; the team's implied
+total manages only +0.011. A kicker's tries in any one game are close to
+unpredictable from what is known beforehand, and what can be known is
+already in the Vegas total. Not shipped.
+
+The first run counted kickoffs, which nflverse attaches to the kicking
+team's drive at the 35, so 72% of drives "reached range". The script uses
+snaps, tries and punts only. The production red-zone flag (the 20) is
+essentially untouched by this.
