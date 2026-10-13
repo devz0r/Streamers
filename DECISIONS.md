@@ -2671,6 +2671,29 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### D/ST and the quarterback across from it: tested, no
+The D/ST model reads the opponent's *team* sack, interception and pressure
+rates, which describe whoever played quarterback before; a backup starting
+this week keeps his starter's numbers. Tested walk-forward 2023-2025
+(`scripts/fit_dst_opp_qb.py`), the opposing starter (most dropbacks in the
+game) rated from his own earlier dropbacks only -- sack rate, interception
+rate, EPA per dropback, each shrunk 150 dropbacks toward the league, and the
+gaps between his rates and his team's:
+
+| | MAE | rank correlation | top-5 hit rate | top-5 points |
+|---|---|---|---|---|
+| shipped | 6.2014 | 0.3564 | 0.652 | 14.89 |
+| + opposing QB's own rates | 6.1970 | 0.3542 | 0.648 | 14.96 |
+| + "new starter this week" flag | 6.2015 | 0.3572 | 0.652 | 14.85 |
+
+Neither is better in two of three seasons on both MAE and rank correlation.
+In the 236 games against a starter who did not start the team's previous
+game, the QB's own rates changed nothing (MAE 6.7508 against 6.7506); those
+defences did beat their projection by 0.65 a game, but on 236 games with a
+7-point spread that is inside one standard error (about 0.45), and the flag
+that halved it made those games' MAE worse. The opponent's implied total,
+which falls when a backup starts, already carries most of it. Not used.
+
 ### The factor ledger: tested against a plain ridge
 The ledger scales each standardised D/ST and K feature by `clip(|r_blend| /
 |r_hist|, 0.25, 3)` after standardising, which changes its effective ridge
