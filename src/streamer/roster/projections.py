@@ -617,8 +617,63 @@ def lookup_sd(table: dict[tuple[str, int], float], position: str, mean: float) -
 # ---------------------------------------------------------------------------
 # Attaching projections to a snapshot
 # ---------------------------------------------------------------------------
+#: This week's point spread by team (positive: favoured), set by :func:`_implied_scale`.
+SPREADS: dict[str, float] = {}
+
+
+def game_context(snapshot: LeagueSnapshot, cfg: Config, history: pd.DataFrame,
+                 opponents: dict[str, str]) -> dict[tuple[str, str], tuple[float, str]]:
+    """(team, position) -> (factor on this week's projection, card note), from
+    ``roster.game_context``: the opponent's points allowed to the position
+    (shrunk, as the season simulator reads it) to the power ``allowed``, and
+    ``exp(spread_coef x spread / 7)``. Held out on 2022-2025
+    (``scripts/fit_game_context.py``): backs on the defence, receivers on the
+    spread; the rest showed nothing. DECISIONS.md, "This week's defence and
+    game script"."""
+    from ..teams import normalize_team
+    from .schedule import _allowed
+
+    rule = (cfg.raw.get("roster") or {}).get("game_context") or {}
+    out: dict[tuple[str, str], tuple[float, str]] = {}
+    if not rule or history is None or history.empty:
+        return out
+    k = float((cfg.raw["roster"].get("schedule") or {}).get("allowed_k", 6.0))
+    games = None
+    for pos, w in rule.items():
+        a, b = float((w or {}).get("allowed", 0.0)), float((w or {}).get("spread", 0.0))
+        allowed = {}
+        if a:
+            if games is None:
+                g = games_frame(cfg)
+                games = g[g["game_type"] == "REG"].assign(team=lambda x: x["team"].map(normalize_team),
+                                                          opponent=lambda x: x["opponent"].map(normalize_team))
+            allowed = _allowed(history, games, int(snapshot.season), int(snapshot.week), pos, k, 0.5)
+        for team, opp in opponents.items():
+            t, o = normalize_team(team), normalize_team(opp)
+            f, bits = 1.0, []
+            if a and o in allowed:
+                f_a = float(allowed[o]) ** a
+                f *= f_a
+                if abs(f_a - 1.0) >= 0.03:
+                    bits.append(f"{opp} has given up {'more' if f_a > 1 else 'less'} than most to {pos}s "
+                                f"({f_a - 1:+.0%})")
+            if b and t in SPREADS:
+                f_b = float(np.exp(b * SPREADS[t] / 7.0))
+                f *= f_b
+                if abs(f_b - 1.0) >= 0.02:
+                    bits.append(f"{'underdog' if SPREADS[t] < 0 else 'favourite'} by {abs(SPREADS[t]):g}: "
+                                f"{'trailing teams throw more' if SPREADS[t] < 0 else 'leading teams throw less'} "
+                                f"({f_b - 1:+.0%})")
+            if f != 1.0:
+                out[(t, pos)] = (f, "; ".join(bits))
+    return out
+
+
 def _implied_scale(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool) -> tuple[dict[str, float], str]:
     """Team -> (this week's implied total / trailing implied total)."""
+    from ..teams import normalize_team
+
+    SPREADS.clear()
     games = games_frame(cfg)
     hist = games[
         (games["season"] < snapshot.season)
@@ -632,6 +687,8 @@ def _implied_scale(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool) -
         lines = get_lines(snapshot.season, snapshot.week, cfg, allow_network=allow_network)
         rows = lines_to_team_rows(lines)
         this_week = rows.set_index("team")["team_implied_total"].dropna()
+        SPREADS.update({normalize_team(t): float(v)
+                        for t, v in rows.set_index("team")["team_spread"].dropna().items()})
         source = lines.describe()
     except Exception as exc:  # noqa: BLE001
         log.warning("no lines for implied-total scaling: %s", exc)
@@ -1243,6 +1300,12 @@ def project_snapshot(
         log.warning("team share unavailable: %s", exc)
         shares = {}
     usage = recent_usage(history, snapshot.season, snapshot.week)
+    # This week's opponent and game script (game_context).
+    try:
+        context = game_context(snapshot, cfg, history, _opponents(snapshot, cfg))
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block a projection
+        log.warning("game context unavailable: %s", exc)
+        context = {}
     # A clearly worse quarterback this week, for his receivers (qb_change).
     from . import qb_change
 
@@ -1336,6 +1399,11 @@ def project_snapshot(
                 if p.player_id in new_qb:
                     mean *= new_qb[p.player_id][0]
                     p.signals.append(new_qb[p.player_id][1])
+                ctx = context.get((normalize_team(p.team), p.position)) if p.team else None
+                if ctx is not None:
+                    mean *= ctx[0]
+                    if ctx[1]:
+                        p.signals.append(ctx[1])
                 if abs(share - 1.0) >= 0.08:
                     work, group = ("backfield work", "backs") if p.position == "RB" else ("targets", "receivers")
                     p.signals.append(f"{'more' if share > 1 else 'less'} of his team's {work} this week: "

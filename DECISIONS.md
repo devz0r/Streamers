@@ -2671,6 +2671,31 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### This week's defence and game script
+This week's projection was scaled by the implied team total only -- the
+game's scoring, not who the opponent is at the player's position, and not
+whether his team should be ahead or behind. Replayed on 2022-2025
+(`scripts/fit_game_context.py`, 20,524 player-weeks through the production
+projection *with* the implied-total scaling, so the spread's effect on the
+total is already in): `pred x allowed ** a x exp(b x spread / 7)`, `allowed`
+the opponent's points allowed to the position (shrunk 6 games, last season
+at half weight, as the season simulator reads it), spread positive when
+favoured; `(a, b)` picked on three seasons, scored on the fourth.
+
+| | defence only | spread only | both |
+|---|---|---|---|
+| QB | 7.663 -> 7.647, 2 of 4 | 0 of 4 | 2 of 4 |
+| **RB** | **6.181 -> 6.173, 3 of 4 (fourth tied); a = 0.3-0.4** | 0 of 4 | same as defence |
+| **WR** | 0 of 4 | **6.084 -> 6.081, 3 of 4; b = -0.03 every fold** | 2 of 4 |
+| TE | 3 of 4 but worse overall | 0 of 4 | -- |
+
+Backs follow the run defence they face beyond what the total says;
+receivers on underdogs do slightly better (trailing teams throw). Both are
+small -- hundredths of a point a week -- but steady in every fold. In use
+(`roster.game_context`): RB `allowed 0.3` (the low end), WR `spread -0.03`,
+about -3% for a receiver on a 7-point favourite. A card says so when the
+defence moves a back 3%+ or the spread a receiver 2%+.
+
 ### A new quarterback for the receivers
 When a backup starts, this week's implied team total falls and every
 projection on the team scales with it (`vegas_damping`). Replayed on

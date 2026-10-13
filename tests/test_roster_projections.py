@@ -660,3 +660,22 @@ def test_last_seasons_stand_in_games_are_discounted_only_for_a_documented_absenc
     assert cuff({(w, "BUF", "lead-back") for w in range(13, 18)})["vol"] == pytest.approx(plain["vol"])
     # Switched off: last season is left alone.
     assert cuff(on_ir, enabled=False)["vol"] == pytest.approx(plain["vol"])
+
+
+def test_this_weeks_defence_moves_backs_and_the_spread_moves_receivers(cfg, monkeypatch):
+    from types import SimpleNamespace
+
+    from streamer.roster import projections, schedule
+
+    monkeypatch.setattr(projections, "games_frame", lambda _c: pd.DataFrame(
+        {"game_type": ["REG"], "team": ["KC"], "opponent": ["BUF"]}))
+    monkeypatch.setattr(schedule, "_allowed", lambda *a, **k: {"BUF": 1.2, "KC": 0.8})
+    projections.SPREADS.clear()
+    projections.SPREADS.update({"KC": 7.0, "BUF": -7.0})
+    snap = SimpleNamespace(season=2026, week=5)
+    ctx = projections.game_context(snap, cfg, pd.DataFrame({"x": [1]}), {"KC": "BUF", "BUF": "KC"})
+    assert ctx[("KC", "RB")][0] == pytest.approx(1.2 ** 0.3)        # a soft run defence ahead
+    assert ctx[("BUF", "RB")][0] == pytest.approx(0.8 ** 0.3)
+    assert ctx[("KC", "WR")][0] < 1.0 < ctx[("BUF", "WR")][0]        # the underdog throws more
+    assert ("KC", "TE") not in ctx and ("KC", "QB") not in ctx      # measured: nothing for them
+    projections.SPREADS.clear()

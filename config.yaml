@@ -480,6 +480,16 @@ roster:
     power: {WR: 0.3, RB: 0.5}
     cap: 0.3
     games: 8
+  # This week's game, on top of the implied-total scaling: backs by the
+  # opponent's points allowed to backs (shrunk as `schedule` reads it) to the
+  # power `allowed`; receivers by exp(spread x team spread / 7), spread
+  # positive when favoured. Held out 2022-2025: RB 6.181 -> 6.173 (3 of 4
+  # seasons, the fourth tied), WR 6.084 -> 6.081 (3 of 4); QB and TE failed
+  # (scripts/fit_game_context.py; DECISIONS.md, "This week's defence and
+  # game script").
+  game_context:
+    RB: {allowed: 0.3}
+    WR: {spread: -0.03}
   # A clearly worse quarterback this week (passing EPA per attempt, shrunk
   # by `shrink` attempts, `worse_sd` league spreads below the quarterbacks of
   # his last `recent` games): receivers' week cut by `cut` x the share of
