@@ -1,6 +1,9 @@
 """How the projections are doing: graded every week against what happened.
 
-Two tests, on the players each source covered who actually played:
+Two tests, on the players each source covered who actually played -- and, in
+two further views, counting the players who did not play (a projection for
+someone who ends up inactive is a miss, scored against zero) and only the
+players likely to be started (the top of each position by our final number):
 
 * **Start/sit** -- of any two players at the same position that week, did
   the source rank the one who scored more higher? Every source can take this
@@ -41,6 +44,12 @@ POINT_SOURCES = [
 ]
 RANK_SOURCES = [("ecr_week_pos_rank", "FantasyPros rankings")]
 MIN_ROS_GAMES = 3
+#: Likely starters: the top of each position by our final number that week
+#: (about a 12-team league's starters plus flex).
+STARTERS = {"QB": 12, "RB": 24, "WR": 30, "TE": 12}
+SCOPES = (("played", "Players who played"),
+          ("all", "Counting players who did not play, as zero"),
+          ("starters", "Likely starters only, counting those who did not play"))
 
 
 @dataclass
@@ -52,6 +61,7 @@ class Grade:
     miss: float | None         # average miss, points
     ours_pairs: float | None   # our final number on the same players
     ours_miss: float | None
+    scope: str = "played"      # "played", "all" (inactive counted as zero) or "starters"
 
 
 @dataclass
@@ -61,10 +71,13 @@ class Scorecard:
     ros: list[dict] = field(default_factory=list)
     #: The consensus's share of season values, and the graded games behind it.
     season_weight: dict | None = None
+    #: Projected players with no box score in a finished week.
+    inactive: int = 0
 
     def to_json(self) -> str:
         return json.dumps({"grades": [g.__dict__ for g in self.grades], "per_week": self.per_week,
-                           "ros": self.ros, "season_weight": self.season_weight}, indent=2)
+                           "ros": self.ros, "season_weight": self.season_weight,
+                           "inactive": self.inactive}, indent=2)
 
 
 def pair_accuracy(pred: np.ndarray, actual: np.ndarray, groups: np.ndarray) -> tuple[int, int]:
@@ -89,8 +102,14 @@ def _actuals(history: pd.DataFrame) -> pd.DataFrame:
             .rename("actual").reset_index().rename(columns={"player_id": "nfl_id"}))
 
 
-def graded_log(cfg: Config, history: pd.DataFrame) -> pd.DataFrame:
-    """The projection log with the consensus and actual points joined."""
+def graded_log(cfg: Config, history: pd.DataFrame, include_inactive: bool = False) -> pd.DataFrame:
+    """The projection log with the consensus and actual points joined.
+
+    ``include_inactive``: also the projected players with no box score in a
+    week the history has moved past (one that is over), scored 0 -- ``played``
+    says which is which. A week still being played is never counted this way:
+    a late game's players have not had their chance yet.
+    """
     path = cfg.results_dir / "skill_log.parquet"
     if not path.exists():
         return pd.DataFrame()
@@ -103,16 +122,26 @@ def graded_log(cfg: Config, history: pd.DataFrame) -> pd.DataFrame:
         c = pd.read_parquet(fplog).drop_duplicates(["season", "week", "nfl_id"], keep="last")
         d = d.merge(c[["season", "week", "nfl_id", "fp_projection", "ecr_week_pos_rank"]],
                     on=["season", "week", "nfl_id"], how="left")
-    return d.merge(_actuals(history), on=["nfl_id", "season", "week"], how="inner")
+    d = d.merge(_actuals(history), on=["nfl_id", "season", "week"], how="left")
+    d["played"] = d["actual"].notna()
+    if not include_inactive:
+        return d[d["played"]].reset_index(drop=True)
+    newest = history.groupby("season")["week"].max()
+    over = d["week"] < d["season"].map(newest).fillna(0)
+    d = d[d["played"] | (over & (d["blended_projection"] > 0))]
+    return d.assign(actual=d["actual"].fillna(0.0)).reset_index(drop=True)
 
 
-def build(cfg: Config, history: pd.DataFrame, platform: str) -> Scorecard:
-    d = graded_log(cfg, history)
-    card = Scorecard()
+def starters_only(d: pd.DataFrame) -> pd.DataFrame:
+    """The likely starters: each week's top of every position by our final number."""
     if d.empty:
-        return card
-    sources = [(c, label.format(platform=platform), False) for c, label in POINT_SOURCES] + \
-              [(c, label, True) for c, label in RANK_SOURCES]
+        return d
+    rank = d.groupby(["season", "week", "position"])["blended_projection"].rank(ascending=False, method="first")
+    return d[rank <= d["position"].map(STARTERS).fillna(0)]
+
+
+def _grades(d: pd.DataFrame, sources: list, platform: str, scope: str) -> list[Grade]:
+    out = []
     for col, label, is_rank in sources:
         if col not in d:
             continue
@@ -128,12 +157,27 @@ def build(cfg: Config, history: pd.DataFrame, platform: str) -> Scorecard:
             orr, ot = pair_accuracy(w.blended_projection.to_numpy(float), w.actual.to_numpy(float),
                                     w.position.to_numpy())
             right, total, o_right, o_total = right + r, total + t, o_right + orr, o_total + ot
-        card.grades.append(Grade(
+        out.append(Grade(
             source=label, players=len(s), weeks=int(s.groupby(["season", "week"]).ngroups),
             pairs=right / total if total else None,
             miss=None if is_rank else float(np.abs(s[col] - s.actual).mean()),
             ours_pairs=o_right / o_total if o_total else None,
-            ours_miss=float(np.abs(s.blended_projection - s.actual).mean())))
+            ours_miss=float(np.abs(s.blended_projection - s.actual).mean()), scope=scope))
+    return out
+
+
+def build(cfg: Config, history: pd.DataFrame, platform: str) -> Scorecard:
+    d = graded_log(cfg, history)
+    card = Scorecard()
+    if d.empty:
+        return card
+    sources = [(c, label.format(platform=platform), False) for c, label in POINT_SOURCES] + \
+              [(c, label, True) for c, label in RANK_SOURCES]
+    card.grades = _grades(d, sources, platform, "played")
+    everyone = graded_log(cfg, history, include_inactive=True)
+    card.grades += _grades(everyone, sources, platform, "all")
+    card.grades += _grades(starters_only(everyone), sources, platform, "starters")
+    card.inactive = int((~everyone["played"]).sum()) if "played" in everyone else 0
     for (season, week), w in d.groupby(["season", "week"]):
         row = {"season": int(season), "week": int(week), "players": int(len(w))}
         for col, label, _r in sources:

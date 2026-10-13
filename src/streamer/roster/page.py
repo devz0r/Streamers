@@ -363,13 +363,25 @@ def _scorecard(report: MatchupReport) -> str:
     card = getattr(report, "scorecard", None)
     if card is None or not card.grades:
         return ""
-    rows = []
-    for g in card.grades:
-        pairs = f"{g.pairs:.1%}" if g.pairs is not None else "--"
-        ours_p = f"{g.ours_pairs:.1%}" if g.ours_pairs is not None else "--"
-        miss = f"{g.miss:.2f}" if g.miss is not None else "--"
-        rows.append(f"<tr><td class='unit'>{_e(g.source)}</td><td>{g.players}</td><td>{pairs}</td>"
-                    f"<td>{ours_p}</td><td>{miss}</td><td>{g.ours_miss:.2f}</td></tr>")
+    from .scorecard import SCOPES
+
+    def table(scope: str, title: str) -> str:
+        rows = []
+        for g in [g for g in card.grades if getattr(g, "scope", "played") == scope]:
+            pairs = f"{g.pairs:.1%}" if g.pairs is not None else "--"
+            ours_p = f"{g.ours_pairs:.1%}" if g.ours_pairs is not None else "--"
+            miss = f"{g.miss:.2f}" if g.miss is not None else "--"
+            rows.append(f"<tr><td class='unit'>{_e(g.source)}</td><td>{g.players}</td><td>{pairs}</td>"
+                        f"<td>{ours_p}</td><td>{miss}</td><td>{g.ours_miss:.2f}</td></tr>")
+        if not rows:
+            return ""
+        return (f"<h4>{_e(title)}</h4>" if scope != "played" else "") + (
+            '<div class="scroll"><table><thead><tr><th class="unit">Source</th><th>Players</th>'
+            "<th>Start/sit</th><th>Ours</th><th>Miss</th><th>Ours</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></div>")
+
+    tables = "".join(table(scope, title) for scope, title in SCOPES)
+    inactive = getattr(card, "inactive", 0)
     weeks = max(g.weeks for g in card.grades)
     ros = ""
     if card.ros:
@@ -395,10 +407,14 @@ def _scorecard(report: MatchupReport) -> str:
         "<b>Start/sit</b>: of any two players at the same position, did it rank the one who scored more "
         "higher. <b>Miss</b>: average points off. Each source is graded on the players it covered, with our "
         "final number on the same players beside it.</p>"
-        '<div class="scroll"><table><thead><tr><th class="unit">Source</th><th>Players</th>'
-        "<th>Start/sit</th><th>Ours</th><th>Miss</th><th>Ours</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>{ros}"
-        '<p class="sub">Early weeks are noisy: a point or two of start/sit is within chance until '
+        f"{tables}"
+        + (f'<p class="sub">The second and third tables count the {inactive} projected players who had no '
+           "box score in a finished week as zero: a projection for someone who did not play is a miss too, "
+           "and the third is only the players likely to be started (the top of each position by our final "
+           "number). Every grade here is of the number published before kickoff, this season only.</p>"
+           if inactive else "")
+        + ros
+        + '<p class="sub">Early weeks are noisy: a point or two of start/sit is within chance until '
         "several weeks are in.</p>"
         + ('<p class="sub">Consensus rankings and projections: data from '
            '<a href="https://www.fantasypros.com">FantasyPros</a>, used for analysis only.</p>'

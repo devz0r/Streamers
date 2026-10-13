@@ -2671,6 +2671,29 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Grading the number we publish, on everyone it covered
+The scorecard graded each source on players who played, and mostly on
+numbers easier than the decision they inform. Now three views of the same
+logged, pre-kickoff final numbers (this season's logs are untouched by any
+change fitted on 2022-2025, so they are the clean test):
+
+- **Players who played** (as before);
+- **Counting the projected players who did not play, as zero** -- a
+  projection for someone who ends up inactive is a miss; a week still being
+  played is never counted this way (a late game's players have not had their
+  chance), only weeks the history has moved past;
+- **Likely starters only** (top 12 QB, 24 RB, 30 WR, 12 TE by our final
+  number each week), inactive counted.
+
+Weeks 3-5 of 2026, ESPN league: miss 4.43 (played) -> 4.33 (inactive counted,
+50 projected players, our number already discounts doubtful ones); ESPN's
+projection 4.62 -> 4.55. On likely starters alone the edge nearly vanishes:
+miss 6.70 against ESPN's 6.78, start/sit 59.8% against 59.6%; in the Yahoo
+league 6.46 against 6.47 and start/sit 61.8% against Yahoo's 62.5%. The
+earlier lead over the platforms was mostly on the bench and waiver players
+the platforms treat loosely; among the players who matter each week the
+models are close. The page shows all three tables.
+
 ### Turning a prop line into a mean
 A review of the design pointed at the Vegas number, and the logs agreed: for
 healthy players with props, weeks 3-5 of 2026, actual points less the Vegas

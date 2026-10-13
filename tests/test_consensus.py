@@ -171,3 +171,29 @@ def test_a_feed_that_ranks_no_injured_player_marks_nobody():
     two = _wr("two", 18.0, None, status="INJURY_RESERVE")
     snap.teams[0].roster.append(two)
     assert consensus.season_over(snap) == 0 and done.ros_value == 17.0
+
+
+def test_the_scorecard_also_counts_projected_players_who_did_not_play_and_the_likely_starters(cfg, tmp_path, monkeypatch):
+    monkeypatch.setattr(type(cfg), "results_dir", property(lambda self: tmp_path))
+    rng = np.random.default_rng(0)
+    n = 80
+    actual = rng.uniform(4, 25, n)
+    log = pd.DataFrame({
+        "season": 2026, "week": 3, "player_id": [str(i) for i in range(n)], "nfl_id": [f"n{i}" for i in range(n)],
+        "position": "WR", "blended_projection": np.concatenate([actual[:70] + rng.uniform(0.5, 2.0, 70),
+                                                              rng.uniform(4, 9, 10)]),
+        "model_projection": actual, "platform_projection": actual, "vegas_points": np.nan,
+        "logged_at": "2026-09-27T16:00:00Z"})
+    log.to_parquet(tmp_path / "skill_log.parquet")
+    # The last ten have no box score in week 3; week 4 exists, so week 3 is over.
+    box = pd.DataFrame({"player_id": log.nfl_id[:70], "season": 2026, "week": 3, "fantasy_points_ppr": actual[:70]})
+    later = pd.DataFrame({"player_id": ["n0"], "season": 2026, "week": 4, "fantasy_points_ppr": [5.0]})
+    card = scorecard.build(cfg, pd.concat([box, later]), "ESPN")
+    by = {s: next(g for g in card.grades if g.scope == s and g.source == "Our final number")
+          for s in ("played", "all", "starters")}
+    assert by["played"].players == 70 and by["all"].players == 80 and card.inactive == 10
+    assert by["all"].miss > by["played"].miss               # a projection for a non-player is a miss
+    assert by["starters"].players == 30                      # the top 30 WRs by our number
+    # A week still being played (no later week in the history) never counts anyone as inactive.
+    card = scorecard.build(cfg, box, "ESPN")
+    assert card.inactive == 0
