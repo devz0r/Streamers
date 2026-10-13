@@ -2671,6 +2671,26 @@ calibration by bucket, and expected wins against actual; the run log prints
 the by-week scores. Nothing is shown on the page until a season has been
 graded -- that is the point of keeping the record from now on.
 
+### Blend weights by position
+The weights on the betting market and the FantasyPros projection are one
+pair for every position. Fitted position by position on the 3 graded weeks
+so far (779 market rows; QB 72, RB 200, TE 186, WR 321) they differ a lot
+-- market 0.3 at QB, 0.25 at WR, 0.1 at RB, 0 at TE -- but each graded week
+held out in turn, the position weights (shrunk toward the pooled one by
+0-600 games) scored *worse* than the pooled weight at every shrinkage
+(34.89 -> 34.95-35.12 squared error), more so the less they were shrunk:
+three weeks cannot tell a real position difference from noise, and there is
+no archive of props to replay.
+
+So the fitter now decides for itself, every run (`vegas._position_weights`):
+each graded week is held out, pooled and per-position pairs (shrunk 300
+games toward the pooled one) are fitted on the rest and scored on it, and a
+position gets its own weights only when they win by 0.1% of squared error
+overall across at least 3 weeks, with at least 100 graded rows of its own.
+Today it finds -0.16% and everyone keeps the pooled pair; the run log says
+so. As the season grows, and with the whole waiver wire now graded, it can
+switch on without anyone remembering to look.
+
 ### Each player's own range
 A week's range -- the 10th to 90th percentile on the page, the boom chance,
 and the spread every lineup and P(win) simulation draws from -- came from

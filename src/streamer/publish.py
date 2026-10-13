@@ -760,6 +760,7 @@ def team_panels_for(
             week_w = fit_week_weights(loaded[0][1])
             log.info("this week's blend: market %.2f (%d graded games), FantasyPros projection %.2f (%d)",
                      week_w.market, week_w.market_games, week_w.consensus, week_w.consensus_games)
+            log.info("blend weights by position: %s", week_w.position_note or "pooled")
         except Exception as exc:  # noqa: BLE001
             log.warning("blend weight fit failed, using the priors: %s", exc)
     # Free agents the news has close to signing: ESPN's news is asked for by
@@ -841,7 +842,8 @@ def team_panels_for(
                 from .roster.vegas import blend_market
 
                 blend_market(snap, bound, weight=week_w.market if week_w else None,
-                             consensus_weight=week_w.consensus if week_w else 0.0)
+                             consensus_weight=week_w.consensus if week_w else 0.0,
+                             by_position=week_w.by_position if week_w else None)
                 snap._week_weights = week_w
             except Exception as exc:  # noqa: BLE001 - the second forecasts are bonus inputs
                 log.warning("this week's blend for %s skipped: %s", name, exc)

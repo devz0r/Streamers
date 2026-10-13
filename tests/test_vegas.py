@@ -19,3 +19,51 @@ def test_the_whole_wire_is_logged_but_not_players_who_cannot_play(tmp_cfg):
     assert log_projections(snap, tmp_cfg) == 3
     got = set(pd.read_parquet(tmp_cfg.results_dir / "skill_log.parquet")["player_id"])
     assert got == {"mine", "wire", "props"}
+
+
+def _graded(weights_by_pos, weeks=6, per=60, seed=3):
+    """Logged rows where the market is worth ``weights_by_pos[pos]`` of the way."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(seed)
+    rows = []
+    for pos, w in weights_by_pos.items():
+        for wk in range(weeks):
+            ours = rng.uniform(5, 15, per)
+            market = ours + rng.normal(0, 3, per)
+            y = ours + w * (market - ours) + rng.normal(0, 1, per)
+            rows.append(pd.DataFrame({"season": 2026, "week": wk + 1, "position": pos, "projection": ours,
+                                      "fantasy_points_ppr": y}).assign(_m=market - ours))
+    j = pd.concat(rows, ignore_index=True)
+    return j, j["_m"].to_numpy(), np.zeros(len(j))
+
+
+def test_position_weights_switch_on_only_when_they_beat_the_pooled_pair():
+    from streamer.roster.vegas import _position_weights
+
+    j, dm, dc = _graded({"QB": 0.9, "TE": 0.0, "WR": 0.45})
+    got, note = _position_weights(j, dm, dc, (0.45, 0.0), k=100, need=50)
+    assert got["QB"][0] > got["WR"][0] > got["TE"][0] and "weights for" in note
+    j, dm, dc = _graded({"QB": 0.4, "TE": 0.4, "WR": 0.4})                 # no real difference
+    got, note = _position_weights(j, dm, dc, (0.4, 0.0), k=100, need=50)
+    assert got == {} and "pooled" in note
+    j, dm, dc = _graded({"QB": 0.9, "TE": 0.0}, weeks=2)                   # too few weeks to trust
+    assert _position_weights(j, dm, dc, (0.45, 0.0), k=100, need=50)[0] == {}
+
+
+def test_blend_market_uses_a_positions_own_weight_when_given(tmp_cfg):
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+    from streamer.roster.vegas import blend_market
+
+    def p(pid, pos):
+        return PlayerRow(player_id=pid, name=pid, position=pos, team="KC", projection=10.0, play_probability=1.0,
+                         vegas_points=20.0, vegas_books=3)
+
+    snap = LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="L", season=2026, week=5,
+                          slots={}, bench_size=0, teams=[TeamRow(team_id="0", name="T", is_mine=True,
+                                                                 roster=[p("qb", "QB"), p("te", "TE")])],
+                          free_agents=[], matchup=None, synced_at="")
+    blend_market(snap, tmp_cfg, weight=0.2, by_position={"QB": (0.8, 0.0)})
+    qb, te = snap.teams[0].roster
+    assert qb.projection == 18.0 and te.projection == 12.0          # QB 0.8 of the way, TE the pooled 0.2

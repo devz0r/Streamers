@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from ..config import Config, get_config
 from ..league.model import LeagueSnapshot, PlayerRow
 from .players import normalize_name
@@ -190,6 +192,12 @@ class WeekWeights:
     market_games: int = 0
     consensus: float = 0.0
     consensus_games: int = 0
+    #: Position -> (market, consensus) weights, present only for a position
+    #: whose own fit beat the pooled weights on held-out weeks (see
+    #: :func:`_position_weights`). Empty: everyone uses the pooled pair.
+    by_position: dict[str, tuple[float, float]] = field(default_factory=dict)
+    #: What the held-out check found, for the run log.
+    position_note: str = ""
 
 
 #: A consensus projection this low says he will not play; the platform's tag
@@ -199,6 +207,71 @@ NO_PROJECTION = 0.5
 
 def _shrunk(n: int, fitted: float, prior: float, k: float, need: int) -> float:
     return prior if n < need else (n * fitted + k * prior) / (n + k)
+
+
+#: The grid of weights tried (market, consensus), market + consensus <= 1.
+_GRID = [(float(a), float(b)) for a in np.linspace(0.0, 1.0, 21) for b in np.linspace(0.0, 1.0, 21)
+         if a + b <= 1.0 + 1e-9]
+
+
+def _fit_pair(ours, dm, dc, y, default: tuple[float, float]) -> tuple[float, float]:
+    """The (market, consensus) pair on the grid with least squared error."""
+    if len(y) == 0:
+        return default
+    best, fit = np.inf, default
+    for wm, wc in _GRID:
+        err = float(np.mean((ours + wm * dm + wc * dc - y) ** 2))
+        if err < best:
+            best, fit = err, (wm, wc)
+    return fit
+
+
+def _position_weights(j, dm, dc, pooled: tuple[float, float], k: float, need: int,
+                      min_weeks: int = 3, margin: float = 0.001) -> tuple[dict[str, tuple[float, float]], str]:
+    """Per-position weights, if they earn it.
+
+    Each graded week is held out in turn: the pooled pair and each position's
+    own pair (shrunk toward the pooled one by ``k`` games) are fitted on the
+    other weeks and scored on the held-out one. Position weights are used
+    only when they have lower squared error overall by ``margin`` (a share)
+    over at least ``min_weeks`` graded weeks; then a position uses its own
+    pair, fitted on every week and shrunk the same way, once it has ``need``
+    rows. With a few weeks of logs they have been worse than the pooled pair
+    (DECISIONS.md, "Blend weights by position"), so this switches itself on
+    only as the logs grow.
+    """
+    ours, y = j["projection"].to_numpy(float), j["fantasy_points_ppr"].to_numpy(float)
+    pos, wk = j["position"].to_numpy(), (j["season"] * 100 + j["week"]).to_numpy()
+    weeks = sorted(set(wk))
+    if len(weeks) < min_weeks:
+        return {}, f"{len(weeks)} graded weeks: pooled weights"
+
+    def shrink(fit, n, base):
+        return tuple((n * f + k * b) / (n + k) for f, b in zip(fit, base))
+
+    se_pool = se_pos = 0.0
+    for w in weeks:
+        tr, te = wk != w, wk == w
+        base = _fit_pair(ours[tr], dm[tr], dc[tr], y[tr], pooled)
+        for q in set(pos[te]):
+            m_tr, m_te = tr & (pos == q), te & (pos == q)
+            own = shrink(_fit_pair(ours[m_tr], dm[m_tr], dc[m_tr], y[m_tr], base), int(m_tr.sum()), base) \
+                if m_tr.any() else base
+            for wm, wc, tot in ((*base, "pool"), (*own, "pos")):
+                err = float(((ours[m_te] + wm * dm[m_te] + wc * dc[m_te] - y[m_te]) ** 2).sum())
+                if tot == "pool":
+                    se_pool += err
+                else:
+                    se_pos += err
+    gain = 1.0 - se_pos / se_pool if se_pool > 0 else 0.0
+    if gain < margin:
+        return {}, f"held-out squared error by position {gain:+.2%} against pooled over {len(weeks)} weeks: pooled weights"
+    out = {}
+    for q in sorted(set(pos)):
+        m = pos == q
+        if int(m.sum()) >= need:
+            out[str(q)] = shrink(_fit_pair(ours[m], dm[m], dc[m], y[m], pooled), int(m.sum()), pooled)
+    return out, f"held-out squared error by position {gain:+.2%} over {len(weeks)} weeks: weights for {', '.join(out) or 'no position yet'}"
 
 
 def fit_week_weights(cfg: Config, history=None) -> WeekWeights:
@@ -264,17 +337,12 @@ def fit_week_weights(cfg: Config, history=None) -> WeekWeights:
     ours, y = j["projection"].to_numpy(float), j["fantasy_points_ppr"].to_numpy(float)
     dm = np.where(has_m, j["vegas_points"].to_numpy(float) - ours, 0.0)
     dc = np.where(has_c, j["fp_projection"].to_numpy(float) - ours, 0.0)
-    grid = np.linspace(0.0, 1.0, 21)
-    best, fit = np.inf, (pm, pc)
-    for wm in grid:
-        for wc in grid:
-            if wm + wc > 1.0 + 1e-9:
-                continue
-            err = float(np.mean((ours + wm * dm + wc * dc - y) ** 2))
-            if err < best:
-                best, fit = err, (float(wm), float(wc))
-    return WeekWeights(market=_shrunk(n_m, fit[0], pm, km, nm), market_games=n_m,
-                       consensus=_shrunk(n_c, fit[1], pc, kc, nc), consensus_games=n_c)
+    fit = _fit_pair(ours, dm, dc, y, (pm, pc))
+    pooled = (_shrunk(n_m, fit[0], pm, km, nm), _shrunk(n_c, fit[1], pc, kc, nc))
+    by_pos, note = _position_weights(j, dm, dc, pooled, float(pconf.get("blend_position_prior_games", 300)),
+                                     int(pconf.get("blend_position_min_games", 100)))
+    return WeekWeights(market=pooled[0], market_games=n_m, consensus=pooled[1], consensus_games=n_c,
+                       by_position=by_pos, position_note=note)
 
 
 def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
@@ -285,7 +353,8 @@ def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
 
 
 def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = None,
-                 consensus_weight: float = 0.0) -> float:
+                 consensus_weight: float = 0.0,
+                 by_position: dict[str, tuple[float, float]] | None = None) -> float:
     """Blend the second forecasts into every player's projection for this
     week: sportsbook-implied points by ``weight`` (less where few books
     priced him) and the FantasyPros consensus projection by
@@ -305,8 +374,9 @@ def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = N
         if (p.projection is None or p.locked or p.is_out
                 or p.play_probability <= 0 or "sits" in (p.projection_source or "")):
             continue
-        wm = weight * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0) if p.vegas_points is not None else 0.0
-        wc = consensus_weight if p.fp_projection is not None and p.fp_projection > NO_PROJECTION else 0.0
+        w_mkt, w_con = (by_position or {}).get(p.position, (weight, consensus_weight))
+        wm = w_mkt * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0) if p.vegas_points is not None else 0.0
+        wc = w_con if p.fp_projection is not None and p.fp_projection > NO_PROJECTION else 0.0
         if wm <= 0 and wc <= 0:
             continue
         q = p.play_probability if p.play_probability else 1.0
