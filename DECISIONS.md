@@ -3584,3 +3584,25 @@ differs where a unit's link to either lineup moves the odds. A platform can
 list a different kicker for a team than nflverse's starter (ESPN shows Blake
 Grupe for LA, our rankings Harrison Mevis); the row carries the team's
 kicker projection either way.
+
+### Try a pickup: any free agent against every sensible drop
+
+The Waivers tab gains a "Try a pickup" section. Pick a free agent, and each
+sensible drop is shown with its change in title odds and in this week's win
+odds. A static page cannot run the season simulation per click, so every pair
+is priced during the refresh (`roster/add_drop.py`):
+
+- **Which players.** The top 24 skill-position free agents and the top 3
+  defences and kickers by season value, each against the 6 drops cheapest to
+  your title (always including the cheapest at his position). Players whose
+  game has started, and players in IR slots, are not drop options.
+- **Title odds.** The add and the drop on the full season simulation
+  (`TitleEngine.value_now`), with the simulation's own noise. A change
+  inside it is marked "toss-up".
+- **This week's win odds.** Your best lineup rebuilt with him in and the
+  drop gone. It is chosen on one sample and scored on a fresh one, against
+  your opponent's lineup, on draws shared by every pair.
+
+It costs about 25 seconds per league per refresh; the data is about 30 KB.
+It does not account for waiver priority or for the chance another team
+claims him first; the waiver cards above still do.

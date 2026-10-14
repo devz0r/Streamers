@@ -213,6 +213,7 @@ def team_sections(
             "to grow. The number is what he could be worth a game in a month if things break "
             "his way (85th percentile of how projections move). Worth a bench spot you would "
             "otherwise waste.</p>" + "".join(cards))
+    waivers.append(_try_pickup(report))
     waivers.append(_lottery(snapshot, cfg))
     if getattr(report, "roster_values", None):
         from .roster_view import cheapest
@@ -661,6 +662,62 @@ def _trades(report: MatchupReport) -> str:
         panes.append(f'<div class="tab-pane p{i}"><p class="sub">{note}</p>{body}</div>')
     return (head + '<div class="tabs">' + "".join(radios)
             + '<div class="tab-labels">' + "".join(labels) + "</div>" + "".join(panes) + "</div>")
+
+
+_PICKUP_JS = """
+(function(id){
+  var root=document.getElementById(id); if(!root) return;
+  var data=JSON.parse(root.querySelector('.ad-data').textContent);
+  var sel=root.querySelector('.ad-pick'), out=root.querySelector('.ad-out');
+  function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function pts(v){return v===null||v===undefined?'--':(v>=0?'+':'')+v.toFixed(1);}
+  function cls(v){return v===null||v===undefined?'':(v>0.05?' class="pos"':(v<-0.05?' class="neg"':''));}
+  data.adds.forEach(function(a,i){
+    var o=document.createElement('option'); o.value=i;
+    o.textContent=a.name+' ('+a.pos+(a.team?' '+a.team:'')+') '+a.ros.toFixed(1)+'/g';
+    sel.appendChild(o);
+  });
+  function show(){
+    var a=data.adds[+sel.value]; if(!a){out.innerHTML='';return;}
+    var rows=a.drops.map(function(d){
+      var tie=Math.abs(d.title)<=d.noise?' <span class="opp">toss-up</span>':'';
+      return '<tr><td class="unit">'+esc(d.name)+' <span class="opp">'+esc(d.pos)+' '+esc(d.team)+'</span></td>'+
+        '<td>'+d.ros.toFixed(1)+'</td><td'+cls(d.title)+'>'+pts(d.title)+tie+'</td><td'+cls(d.win)+'>'+pts(d.win)+'</td></tr>';
+    }).join('');
+    out.innerHTML='<p class="sub">Add <strong>'+esc(a.name)+'</strong> ('+esc(a.pos)+' '+esc(a.team)+
+      (a.status?', '+esc(a.status):'')+'): '+a.ros.toFixed(1)+' a game for the season, '+a.proj.toFixed(1)+' this week.</p>'+
+      '<div class="scroll"><table><thead><tr><th class="unit">Drop</th><th>RoS/g</th><th>Title</th><th>Win this week</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+  sel.addEventListener('change',show); show();
+})
+"""
+
+
+def _try_pickup(report: MatchupReport) -> str:
+    """Pick a free agent; every sensible drop with its change in title odds
+    and this week's win odds (priced ahead: :mod:`streamer.roster.add_drop`)."""
+    data = getattr(report, "add_drop", None)
+    if not data or not data.get("adds"):
+        return ""
+    uid = f"ad-{_e(report.snapshot.profile)}"
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    base = data.get("base") or {}
+    win = f", this week's win {base['win']:.0f}%" if base.get("win") is not None else ""
+    return (
+        f'<details class="card" id="{uid}"><summary><strong>Try a pickup</strong> '
+        '<span class="opp">pick a free agent: each drop\'s effect on your title odds and this week</span>'
+        "</summary>"
+        f'<p class="sub">Now: title {base.get("title", 0):.1f}%{win}. Changes are in points of probability: '
+        "title on the full season simulation (the add and the drop, every week to the final), this week by "
+        "rebuilding your best lineup with him in and scoring it against your opponent. A title change "
+        "inside the simulation's noise is marked toss-up. Drops are the cheapest to your title first; "
+        "players whose game has started are left out.</p>"
+        '<p><select class="ad-pick"></select></p><div class="ad-out"></div>'
+        f'<script type="application/json" class="ad-data">{payload}</script>'
+        f"<script>{_PICKUP_JS}('{uid}');</script>"
+        "</details>"
+    )
 
 
 def _trade_evaluator(report: MatchupReport) -> str:

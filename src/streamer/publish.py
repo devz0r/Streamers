@@ -902,9 +902,11 @@ def team_panels_for(
                 except Exception as exc:  # noqa: BLE001
                     log.warning("market view for %s skipped: %s", name, exc)
                 try:
+                    from .roster import add_drop
                     from .roster.title_moves import TitleEngine
 
-                    engine = TitleEngine(snap, bound, extra=[o.player for o in report.pickups])
+                    engine = TitleEngine(snap, bound, extra=[o.player for o in report.pickups]
+                                         + add_drop.candidates(snap))
                     engine.market = {pid: s.value for pid, s in (seen or {}).items()}
                     report.season = engine.model.odds()
                     try:
@@ -936,6 +938,10 @@ def team_panels_for(
                     log.warning("title engine for %s skipped: %s", name, exc)
                     engine = None
                 if engine is not None:
+                    try:
+                        report.add_drop = add_drop.build(engine, report)
+                    except Exception as exc:  # noqa: BLE001 - a bonus section
+                        log.warning("add/drop table for %s skipped: %s", name, exc)
                     try:
                         from .roster.waiver_plans import PlanFinder
 
