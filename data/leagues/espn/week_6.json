@@ -2312,7 +2312,7 @@
           "position": "RB",
           "team": "NYJ",
           "status": "QUESTIONABLE",
-          "slot": "BN",
+          "slot": "RB",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -3101,7 +3101,7 @@
           "position": "RB",
           "team": "WAS",
           "status": "",
-          "slot": "RB",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -56445,12 +56445,12 @@
     "week": 6,
     "my_team_id": "3",
     "opponent_team_id": "7",
-    "my_platform_projection": 122.25,
+    "my_platform_projection": 128.88,
     "opp_platform_projection": 129.66,
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-13T23:55:08.281731+00:00",
+  "synced_at": "2026-10-14T00:07:29.676092+00:00",
   "extra": {
     "nfl_week": 6,
     "current_week": 6
