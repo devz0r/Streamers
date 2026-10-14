@@ -636,14 +636,24 @@ def stream_options(
     and a favourite does; one facing theirs works the other way round. A
     kicker tied to your stack adds variance.
     """
-    slot_players = [(slot, p) for slot, p in opt.best_win.flat() if p.position == position]
-    if not slot_players or opt.opponent is None:
+    if opt.opponent is None:
         return []
-    _slot, current = slot_players[0]
-    if current.locked:
+    slot_players = [(slot, p) for slot, p in opt.best_win.flat() if p.position == position]
+    if slot_players:
+        _slot, current = slot_players[0]
+        if current.locked:
+            return []
+    elif position in opt.best_win.starters:
+        # The slot is empty (no unit rostered, or only one on bye): it scores
+        # zero, so it is shown as "yours" and every unit is priced against it.
+        current = PlayerRow(player_id=f"__empty_{position}", name="(empty slot)", position=position,
+                            projection=0.0, slot=position, play_probability=0.0)
+    else:
         return []
     mine = [p for _s, p in opt.best_win.flat()]
     theirs = [p for _s, p in opt.opponent.flat()]
+    if current not in mine:
+        mine = mine + [current]
     pool = [current] + [c for c in candidates
                         if c.player_id != current.player_id and not c.locked and not c.is_out
                         and c.position == position and c.projection is not None]

@@ -89,8 +89,9 @@ def actions(report, cfg=None) -> list[HubAction]:
             if mine is None or best is None or best.win_probability <= mine.win_probability:
                 continue
             dp = best.win_probability - mine.win_probability
-            out.append(HubAction("Stream", f"Stream {best.player.name}",
-                                 f"{label} for this week, over {mine.player.name}", dp * per_win,
+            over = (f"your {label} slot is empty" if mine.player.player_id.startswith("__empty_")
+                    else f"{label} for this week, over {mine.player.name}")
+            out.append(HubAction("Stream", f"Stream {best.player.name}", over, dp * per_win,
                                  f"P(win this week) +{dp * 100:.1f}", "streams"))
 
     # A free agent for this week: priced as the whole move where the season

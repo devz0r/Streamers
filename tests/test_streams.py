@@ -82,3 +82,17 @@ def test_stream_options_carry_a_floor_and_ceiling_the_page_shows():
 
     html = page._streams(_Report())
     assert "<th>Range</th>" in html and "class=\"rb\"" in html
+
+
+def test_an_empty_defence_slot_still_gets_stream_options():
+    """No D/ST rostered: the slot scores zero, and every free-agent unit is
+    priced against it (it used to show no D/ST table at all)."""
+    roster = [p for p in my_roster() if p.position != "DST"]
+    for p in roster:
+        p.role = {"QB": "QB", "K": "K"}.get(p.position, p.position + "2")
+    opt = lineup.optimise(roster, SLOTS, opponent_roster(1.0), n_sims=4000)
+    opts = lineup.stream_options(opt, "DST", [_dst("x2", "NYG", "TEN"), _dst("x3", "DEN", "LV")], n_sims=8000)
+    empty = [o for o in opts if o.current]
+    assert len(empty) == 1 and empty[0].player.name == "(empty slot)"
+    real = [o for o in opts if not o.current]
+    assert len(real) == 2 and all(o.win_probability > empty[0].win_probability for o in real)

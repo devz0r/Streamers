@@ -3569,3 +3569,18 @@ Fixed three ways:
 
 With the week-6 snapshot the Yahoo odds return to normal: the best team is
 about 21%, and Drakes on a Plane is about 15% title and 81% playoffs.
+
+### An empty D/ST or K slot still gets stream options
+
+The "Best D/ST and K for this matchup" table priced each free-agent unit
+against the one in your recommended lineup. With no D/ST rostered (ESPN,
+week 6, after the Jets were dropped), there was no unit to price against,
+and the D/ST table vanished. That is exactly when it matters most, because
+the slot scores zero. Now an empty slot is shown as "yours" at zero, every
+free-agent unit is priced against it, and the hub says "your defence slot is
+empty". The kicker table, sorted by this week's win odds rather than by
+projection, is otherwise consistent with the full rankings. The order
+differs where a unit's link to either lineup moves the odds. A platform can
+list a different kicker for a team than nflverse's starter (ESPN shows Blake
+Grupe for LA, our rankings Harrison Mevis); the row carries the team's
+kicker projection either way.
