@@ -3466,3 +3466,34 @@ Kickoffs come from the nflverse schedule already used for locks
 (`PlayerRow.kickoff`). One limitation: the page's hand lineup editor scores
 from the same draws without the swap, so for a lineup with a covered
 questionable starter it shows slightly lower odds than the recommendation.
+
+### Quarterback bias: not systematic, no correction
+
+The weekly replays showed quarterbacks projected 0.5 to 1.2 points low in
+some seasons, which looked like a standing under-projection.
+`scripts/check_qb_bias.py` replays the production projection at weeks 5-13
+(every other week) of 2022-2025 and 3-6 of 2026, with the quarterback
+comparisons on and off. Mean error (projection minus actual) with the
+comparisons on / off:
+
+| Season | On | Off |
+|---|---|---|
+| 2022 | +0.59 | +0.21 |
+| 2023 | -0.07 | -0.08 |
+| 2024 | -0.78 | -0.95 |
+| 2025 | +0.10 | +0.19 |
+| 2026 (weeks 3-6) | -1.18 | -0.85 |
+
+Over 2022-2025 it averages about zero (-0.04 on). It is a scoring-environment
+swing from season to season (quarterbacks averaged 15.2 in 2024 and 16.2 so
+far in 2026, against 14.4-14.9 projected), not a model flaw. Within a season,
+shifting each week's projections by the shrunk mean error of the earlier
+checkpoints (prior strength 40, 80, 160 games; shift 50% or 100%) made the
+miss worse in every variant (6.002 -> 6.007 at best) and better in at most
+two of five seasons. The error is not persistent enough week to week to
+learn from. No correction was added.
+
+The comparison blend moved 2026 the wrong way (-0.85 to -1.18): it leans on
+past seasons, and this season's quarterbacks are scoring above them. Over
+2022-2025 it still helped (the earlier test), and it is 20% of the way off
+the model's own number for quarterbacks at most, so it stays.
