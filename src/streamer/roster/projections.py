@@ -87,6 +87,11 @@ def _nflreadpy():
     return nflreadpy
 
 
+#: The most a platform's weekly projection can plausibly be, by position:
+#: anything above is a misread column, not a projection.
+PLATFORM_MAX = {"QB": 50.0, "RB": 45.0, "WR": 45.0, "TE": 40.0, "K": 25.0, "DST": 30.0}
+
+
 def load_history(cfg: Config | None = None) -> pd.DataFrame:
     """Weekly PPR points and opportunity-expected points, all training seasons."""
     cfg = cfg or get_config()
@@ -1276,6 +1281,13 @@ def project_snapshot(
             dst_rows = {r.team: r for r in rankings.dst.itertuples()}
         if rankings.kicker is not None and not rankings.kicker.empty:
             k_rows = {r.team: r for r in rankings.kicker.itertuples()}
+    # Units on bye this week are not in this week's rankings: their season
+    # value comes from next week's (``rankings.*_next``).
+    next_rows: dict[tuple[str, str], pd.Series] = {}
+    for pos, attr in (("DST", "dst_next"), ("K", "kicker_next")):
+        frame = getattr(rankings, attr, None) if rankings is not None else None
+        if frame is not None and not frame.empty:
+            next_rows.update({(pos, r.team): r for r in frame.itertuples()})
 
     active = [p for t in snapshot.teams for p in t.roster
               if p.team and not p.on_bye and not p.in_ir_slot and p.position in SKILL]
@@ -1407,7 +1419,9 @@ def project_snapshot(
         p.experience = None
         platform_says_sits = p.player_id in sits
         plat = p.platform_projection
-        if plat is not None and plat <= 0:
+        # A bye has no projection; a feed that shows one anyway has misread
+        # its columns (Yahoo once gave % rostered: 95 for a defence on bye).
+        if plat is not None and (plat <= 0 or p.on_bye or plat > PLATFORM_MAX.get(p.position, 60.0)):
             plat = None
 
         if p.position in SKILL:
@@ -1565,7 +1579,12 @@ def project_snapshot(
             source = "stream/hold" if bool(getattr(r, "two_week_hold", False)) else "stream"
 
         elif p.position in ("DST", "K"):
-            if plat is not None:
+            nxt = next_rows.get((p.position, p.team)) if p.team else None
+            if nxt is not None:
+                # Off this week (a bye): nothing now, next week's level for the season.
+                ros = float(getattr(nxt, "baseline_points", nxt.expected_points) or nxt.expected_points)
+                mean, sd, source = (0.0 if p.on_bye else ros), 4.5, "stream (next week)"
+            elif plat is not None:
                 mean, sd, ros, source = float(plat), 4.5, float(plat), "platform"
             else:
                 mean, sd, ros, source = 6.0, 4.5, 6.0, "prior"

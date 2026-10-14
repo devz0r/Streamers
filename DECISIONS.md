@@ -3538,3 +3538,34 @@ D/ST & K tab, where free-agent units are swapped into your lineup and scored on
 this week's win odds, now shows the same 15th-85th percentile range (with its
 bar) from the simulated draws, so a pick can be read as a floor against a
 ceiling as well as a win probability.
+
+### Yahoo bye weeks read "% rostered" as the projection
+
+On 2026-10-13 the Yahoo title odds collapsed: one team 67%, two others 16%
+each, and every other playoff team under 1% (Drakes on a Plane: 4-1, 66%
+playoffs, 0.3% title). Those three teams were simulated at 155-170 points a
+week and 180-200 in the playoffs, against 110-125 for everyone else.
+
+The cause was in the Yahoo page reader. On a player's bye, the row has one
+"Bye" cell spanning the game and points columns, so the cells are fewer
+than the headers. Looking a column up by position then landed the
+projection on "% Rostered": Justin Jefferson projected 100, the Vikings
+D/ST 95, Evan McPherson 73. For skill players on bye this did no harm, since
+their week is zeroed anyway. But a D/ST or kicker on bye is missing from this
+week's own rankings, so its season value fell back to the platform number.
+That handed those three rosters a 70-95-point unit for every remaining week,
+playoffs included. It had been there every week; week 6 was the first with
+rostered D/ST and K on bye (Minnesota and Cincinnati).
+
+Fixed three ways:
+
+- **The reader.** `column_cells` expands spanned cells so every column
+  lines up, and a bye row gets no projection, in both the roster and
+  free-agent readers.
+- **The projection.** It ignores a platform projection for a player on bye,
+  or one above what the position can plausibly score (`PLATFORM_MAX`).
+- **Next week's ranking.** A D/ST or kicker on bye takes its season value
+  from our own ranking for next week, not from a default.
+
+With the week-6 snapshot the Yahoo odds return to normal: the best team is
+about 21%, and Drakes on a Plane is about 15% title and 81% playoffs.

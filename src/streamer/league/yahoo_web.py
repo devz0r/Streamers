@@ -663,6 +663,34 @@ def direct_cells(tr) -> list:
     return [td for td in tr.find_all("td") if td.find_parent("tr") is tr]
 
 
+def column_cells(tr) -> list:
+    """The row's cells, one per header column: a cell spanning several
+    columns repeats. A player on bye has one "Bye" cell where the game,
+    projection and other columns would be, so counting raw cells puts the
+    projection lookup on "% Rostered" (Justin Jefferson projected 100)."""
+    out = []
+    for td in direct_cells(tr):
+        try:
+            span = max(int(td.get("colspan") or 1), 1)
+        except (TypeError, ValueError):
+            span = 1
+        out.extend([td] * span)
+    return out
+
+
+def _is_bye(cells: list) -> bool:
+    return any(c.get_text(" ", strip=True).lower() == "bye" for c in cells)
+
+
+def _stat(cells: list, c: int | None, bye: bool = False) -> float | None:
+    """A number from column ``c``; None for a bye or a spanned (non-numeric) cell."""
+    if c is None or c >= len(cells):
+        return None
+    if bye and cells[c].get_text(" ", strip=True).lower() == "bye":
+        return None
+    return _num(cells[c].get_text(strip=True))
+
+
 def parse_player_cell(td) -> dict | None:
     """Player id, name, NFL team, positions and injury tag from a player cell."""
     link = td.select_one("a.name[data-ys-playerid]") or td.select_one("a[data-ys-playerid]")
@@ -750,13 +778,14 @@ def parse_roster(html: str) -> tuple[list, dict[str, int], int]:
                 bench += 1
             elif slot not in NON_STARTING_SLOTS:
                 slots[slot] = slots.get(slot, 0) + 1
-            cells = direct_cells(tr)
+            cells = column_cells(tr)
             cell_td = tr.select_one("td.player") or (cells[c_player] if c_player < len(cells) else None)
             info = parse_player_cell(cell_td) if cell_td is not None else None
             if info is None:
                 continue                              # an empty slot
-            proj = _num(cells[c_proj].get_text(strip=True)) if c_proj is not None and c_proj < len(cells) else None
-            ros = _num(cells[c_ros].get_text(strip=True)) if c_ros is not None and c_ros < len(cells) else None
+            bye = _is_bye(cells)
+            proj = None if bye else _stat(cells, c_proj, bye)
+            ros = _stat(cells, c_ros, bye)
             players.append(_player_row(info, slot_raw, proj, ros))
     return players, slots, bench
 
@@ -975,9 +1004,10 @@ def parse_free_agents(html: str, week: int) -> list:
             info = parse_player_cell(tr.select_one("td.player"))
             if info is None:
                 continue
-            cells = direct_cells(tr)
-            pts = _num(cells[c_pts].get_text(strip=True)) if c_pts is not None and c_pts < len(cells) else None
-            ros = _num(cells[c_ros].get_text(strip=True)) if c_ros is not None and c_ros < len(cells) else None
+            cells = column_cells(tr)
+            bye = _is_bye(cells)
+            pts = None if bye else _stat(cells, c_pts, bye)
+            ros = _stat(cells, c_ros, bye)
             out.append(_player_row(info, "FA", pts, ros))
         break
     if not out:

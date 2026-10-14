@@ -291,3 +291,48 @@ def test_empty_free_agent_page_logs_its_shape(caplog):
     with caplog.at_level(logging.WARNING):
         assert parse_free_agents("<html><table><tr><th>Rank</th></tr></table></html>", 3) == []
     assert "parsed to no players" in caplog.text
+
+
+def test_a_bye_row_has_no_projection_and_keeps_its_rostered_share():
+    """Live regression: a player on bye has one spanned "Bye" cell where the
+    points columns would be, so counting raw cells read % Rostered as his
+    projection (Justin Jefferson 100, a defence 95)."""
+    from fixtures_yahoo_web import _player_cell, _roster_table
+
+    bye_row = f"""
+    <tr>
+      <td class="Alt Ta-c pos headcol"><div><span class="pos-label" data-pos="WR">WR</span></div></td>
+      <td class="Ta-start edit Js-hidden Bdrstart"><div></div></td>
+      {_player_cell("901", "Jay Bye", "Min", "WR", "", False)}
+      <td class="Ta-end Bdrstart"><div>6</div></td>
+      <td class="Alt Ta-end Nowrap" colspan="3"><div>Bye</div></td>
+      <td class="Ta-end Nowrap"><div>100%</div></td>
+      <td class="Alt Ta-end"><div>–</div></td>
+      <td class="No-p Spacer"><div></div></td>
+    </tr>"""
+    html = "<html><body>" + _roster_table("statTable0", "Offense", bye_row) + "</body></html>"
+    players, _slots, _bench = parse_roster(html)
+    jay = players[0]
+    assert jay.platform_projection is None
+    assert jay.percent_owned == pytest.approx(100.0)
+
+
+def test_a_platform_projection_is_ignored_on_a_bye_or_when_implausible(cfg):
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+    from streamer.roster import projections
+
+    bye = PlayerRow(player_id="d1", name="Vikings", position="DST", team="MIN", slot="DST",
+                    platform_projection=95.0, on_bye=True)
+    silly = PlayerRow(player_id="k1", name="Kicker", position="K", team="CIN", slot="K",
+                      platform_projection=73.0)
+    snap = LeagueSnapshot(platform="yahoo", profile="yahoo", league_id="1", league_name="t", season=2025,
+                          week=9, slots={"DST": 1, "K": 1}, bench_size=0,
+                          teams=[TeamRow(team_id="1", name="me", roster=[bye, silly], is_mine=True)],
+                          free_agents=[], matchup=None, synced_at="")
+    import pandas as pd
+
+    empty = pd.DataFrame(columns=["player_id", "player_display_name", "position", "season", "week", "team",
+                                  "fantasy_points_ppr", "total_fantasy_points_exp"])
+    projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=empty)
+    assert bye.ros_value is not None and bye.ros_value < 20
+    assert silly.ros_value is not None and silly.ros_value < 20
