@@ -3439,3 +3439,30 @@ it is a point or more from our value. The finished-season pool is cached in
 version is what ships. `scripts/fit_ros_comps.py` and
 `scripts/fit_player_comps.py` turn their own comparison off for the
 baseline, since the page now applies it.
+
+### Late swaps: a covered questionable starter is worth more
+
+The lineup simulation treated a questionable starter as a coin flip: in the
+draws where he sat, his slot scored zero. But inactives come out about 90
+minutes before each game, and both leagues lock players game by game. If
+your bench has an eligible player whose game has not started by then, a
+starter ruled out is simply swapped. So a questionable player in a 4:25
+game with a 4:25 or Sunday-night backup costs almost nothing when he sits.
+A questionable player in the 1:00 window, with only 1:00 backups, still
+costs his whole slot.
+
+The optimiser now keeps, for every draw, whether each questionable starter
+sat (`sample_points(..., sits=)`). For every lineup it pairs each
+questionable starter with the best bench player who could still replace
+him: eligible for his slot, not out, not in an IR slot, and kicking off no
+earlier than 90 minutes before him. Each bench player covers at most one
+starter. In the draws where the starter sat, the bench player's draw is
+added. This applies to your side only; the opponent's lineup is taken as
+set. The recommended lineup's swaps are spelled out on the page ("if X is
+ruled out, start Y in his place"). The win odds count on the user making
+that swap.
+
+Kickoffs come from the nflverse schedule already used for locks
+(`PlayerRow.kickoff`). One limitation: the page's hand lineup editor scores
+from the same draws without the swap, so for a lineup with a covered
+questionable starter it shows slightly lower odds than the recommendation.

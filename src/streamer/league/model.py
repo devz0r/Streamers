@@ -187,6 +187,8 @@ class PlayerRow:
     #: gave it (attached at publish time; logged for grading).
     sleeper_projection: float | None = None
     sleeper_weight: float = 0.0
+    #: This week's kickoff, UTC ISO (set with the locks; None when unknown).
+    kickoff: str | None = None
 
     @property
     def week_value(self) -> float:

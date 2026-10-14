@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
 import numpy as np
 from scipy.stats import norm
@@ -161,7 +162,7 @@ def _if_plays(p: PlayerRow) -> tuple[float, float, float]:
 
 
 def sample_points(players: list[PlayerRow], n_sims: int, rng: np.random.Generator,
-                  correlated: bool = True) -> np.ndarray:
+                  correlated: bool = True, sits: np.ndarray | None = None) -> np.ndarray:
     """``(n_sims, n_players)`` simulated scores.
 
     Correlated standard normals (a Gaussian copula) are mapped through each
@@ -196,7 +197,69 @@ def sample_points(players: list[PlayerRow], n_sims: int, rng: np.random.Generato
         if p.position not in NEGATIVE_OK:
             out[:, j] = np.maximum(out[:, j], 0.0)
         if q < 1.0:
-            out[:, j] *= rng.random(n_sims) < q
+            plays = rng.random(n_sims) < q
+            out[:, j] *= plays
+            if sits is not None:
+                sits[:, j] = ~plays
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Late swaps
+# ---------------------------------------------------------------------------
+#: Inactives are announced this long before a game, so a bench player whose
+#: game starts no earlier than that can still replace a starter ruled out.
+INACTIVES_LEAD = timedelta(minutes=90)
+
+
+def _kick(p: PlayerRow) -> datetime | None:
+    try:
+        return datetime.fromisoformat(p.kickoff) if p.kickoff else None
+    except ValueError:
+        return None
+
+
+def swap_pairs(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow]) -> list[tuple[PlayerRow, PlayerRow]]:
+    """(questionable starter, the bench player who would replace him) for each
+    starter who may sit and has a replacement you could still put in when his
+    inactives come out: on the bench, eligible for his slot, not out, and
+    whose own game has not kicked off by then. Best bench player first; one
+    replacement per starter."""
+    started = {p.player_id for ps in lineup.values() for p in ps}
+    bench = sorted((p for p in roster if p.player_id not in started and not p.locked and not p.in_ir_slot),
+                   key=lambda p: -p.week_value)
+    used: set[str] = set()
+    out = []
+    for slot, ps in lineup.items():
+        for x in ps:
+            q = float(x.play_probability if x.play_probability is not None else 1.0)
+            kx = _kick(x)
+            if x.locked or q >= 1.0 or q <= 0.0 or kx is None:
+                continue
+            for b in bench:
+                kb = _kick(b)
+                if (b.player_id in used or kb is None or kb < kx - INACTIVES_LEAD
+                        or not _eligible(b, slot)):
+                    continue
+                out.append((x, b))
+                used.add(b.player_id)
+                break
+    return out
+
+
+def _swap_totals(lineups, samples, sits, index, roster) -> np.ndarray:
+    """``(n_lineups, n_sims)`` points each lineup gains from swapping in a
+    bench player wherever a questionable starter sat."""
+    out = np.zeros((len(lineups), samples.shape[0]))
+    if sits is None or not sits.any():
+        return out
+    cache: dict[tuple[str, str], np.ndarray] = {}
+    for i, lu in enumerate(lineups):
+        for x, b in swap_pairs(lu, roster):
+            key = (x.player_id, b.player_id)
+            if key not in cache:
+                cache[key] = sits[:, index[x.player_id]] * samples[:, index[b.player_id]]
+            out[i] += cache[key]
     return out
 
 
@@ -312,11 +375,13 @@ def _totals(
     return ind @ samples.T
 
 
-def _win_rates(lineups, samples, index, opp_total, chunk: int = 256) -> np.ndarray:
+def _win_rates(lineups, samples, index, opp_total, chunk: int = 256, sits=None, roster=None) -> np.ndarray:
     """P(win) per lineup, in chunks so thousands of lineups stay in memory."""
     out = np.empty(len(lineups))
     for lo in range(0, len(lineups), chunk):
         t = _totals(lineups[lo:lo + chunk], samples, index)
+        if sits is not None and roster is not None:
+            t = t + _swap_totals(lineups[lo:lo + chunk], samples, sits, index, roster)
         out[lo:lo + chunk] = (t > opp_total).mean(axis=1) + 0.5 * (t == opp_total).mean(axis=1)
     return out
 
@@ -379,19 +444,24 @@ def optimise(
     # Select on one sample, confirm on a fresh one: picking the best of
     # thousands of lineups on the same draws that score them flatters
     # whichever got lucky.
-    select = sample_points(everyone, n_sims, rng)
+    # Which questionable starters sat in each draw: a starter ruled out in
+    # time is replaced from the bench (swap_pairs), on your side only -- the
+    # opponent's set lineup is taken as is.
+    sits_sel = np.zeros((n_sims, len(everyone)), dtype=bool)
+    select = sample_points(everyone, n_sims, rng, sits=sits_sel)
     opp_sel = _totals([opp_lineup], select, index)[0] if opp_lineup is not None else np.zeros(n_sims)
-    wins_sel = _win_rates(mine, select, index, opp_sel)
+    wins_sel = _win_rates(mine, select, index, opp_sel, sits=sits_sel, roster=roster)
     projected = np.array([_projected(lu) for lu in mine])
     ev_best = int(np.argmax(projected))
     top = list(np.argsort(-wins_sel)[:CONFIRM_TOP])
     if ev_best not in top:
         top.append(ev_best)
 
-    confirm = sample_points(everyone, n_sims, rng)
+    sits = np.zeros((n_sims, len(everyone)), dtype=bool)
+    confirm = sample_points(everyone, n_sims, rng, sits=sits)
     opp_total = _totals([opp_lineup], confirm, index)[0] if opp_lineup is not None else np.zeros(n_sims)
     cand = [mine[i] for i in top]
-    totals = _totals(cand, confirm, index)
+    totals = _totals(cand, confirm, index) + _swap_totals(cand, confirm, sits, index, roster)
     win_ind = (totals > opp_total) + 0.5 * (totals == opp_total)
     wins = win_ind.mean(axis=1)
     leader = int(np.argmax(wins))
@@ -415,7 +485,7 @@ def optimise(
     current = None
     cur = current_lineup(roster, slots)
     if cur is not None:
-        t = _totals([cur], confirm, index)[0]
+        t = _totals([cur], confirm, index)[0] + _swap_totals([cur], confirm, sits, index, roster)[0]
         current = LineupResult(
             starters=cur, expected=_projected(cur), sd=float(t.std()),
             win_probability=float((t > opp_total).mean() + 0.5 * (t == opp_total).mean()),
@@ -431,6 +501,9 @@ def optimise(
               for p in everyone}
     bench_reasons: dict[str, str] = {}
     reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges, bench_reasons)
+    for x, b in swap_pairs(best_win.starters, roster):
+        reasons.append(f"if {x.name} is ruled out ({x.play_probability:.0%} to play; inactives come out about "
+                       f"90 minutes before his game), start {b.name} in his place -- the win odds count on that swap")
 
     keep = min(EDITOR_SIMS, n_sims)
     ids = [p.player_id for p in roster]

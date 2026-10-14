@@ -100,6 +100,7 @@ def lock_played(
     players = snapshot.all_players()
     for p in players:
         p.locked = bool(p.team and p.team in kickoff and now >= kickoff[p.team])
+        p.kickoff = kickoff[p.team].isoformat() if p.team in kickoff else None
         p.actual_points = None
     if not final:
         return notes

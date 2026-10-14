@@ -485,3 +485,53 @@ def test_bench_shows_everyone_and_explains_a_higher_projected_sit(cfg):
     bench = html.split("<h3>Bench</h3>")[1]
     assert "RB Player 4" in bench and "cannot be moved in" in bench
     assert "WR Player 14" in bench     # the OUT receiver is listed too
+
+
+# ---------------------------------------------------------------------------
+# Late swaps
+# ---------------------------------------------------------------------------
+def _q_starter_and_bench(q_kick: str, bench_kick: str):
+    q = PlayerRow(player_id="q", name="Q Starter", position="WR", status="QUESTIONABLE", slot="WR",
+                  projection=12.0, projection_sd=6.0, outcome_sd=6.0, play_probability=0.5, kickoff=q_kick)
+    b = PlayerRow(player_id="b", name="Bench Guy", position="WR", slot="BN",
+                  projection=9.0, projection_sd=5.0, outcome_sd=5.0, kickoff=bench_kick)
+    return q, b
+
+
+def test_a_late_bench_player_covers_an_early_questionable_starter():
+    q, b = _q_starter_and_bench("2026-10-18T17:00:00+00:00", "2026-10-18T20:25:00+00:00")
+    assert lineup.swap_pairs({"WR": [q]}, [q, b]) == [(q, b)]
+
+
+def test_no_swap_when_the_bench_player_has_already_kicked_off():
+    q, b = _q_starter_and_bench("2026-10-18T20:25:00+00:00", "2026-10-18T17:00:00+00:00")
+    assert lineup.swap_pairs({"WR": [q]}, [q, b]) == []
+    b.kickoff = "2026-10-18T19:00:00+00:00"          # inside the 90 minutes before his game: still in time
+    assert lineup.swap_pairs({"WR": [q]}, [q, b]) == [(q, b)]
+
+
+def test_no_swap_for_a_sure_starter_or_an_ineligible_bench_player():
+    q, b = _q_starter_and_bench("2026-10-18T17:00:00+00:00", "2026-10-18T20:25:00+00:00")
+    b.position, b.eligible_slots = "QB", ["QB"]
+    assert lineup.swap_pairs({"WR": [q]}, [q, b]) == []
+    q2, b2 = _q_starter_and_bench("2026-10-18T17:00:00+00:00", "2026-10-18T20:25:00+00:00")
+    q2.play_probability = 1.0
+    assert lineup.swap_pairs({"WR": [q2]}, [q2, b2]) == []
+
+
+def test_a_covered_questionable_starter_is_worth_more_and_the_swap_is_named():
+    import numpy as np
+
+    q, b = _q_starter_and_bench("2026-10-18T17:00:00+00:00", "2026-10-18T20:25:00+00:00")
+    players = [q, b]
+    index = {p.player_id: i for i, p in enumerate(players)}
+    sits = np.zeros((20000, 2), dtype=bool)
+    s = lineup.sample_points(players, 20000, np.random.default_rng(3), correlated=False, sits=sits)
+    plain = lineup._totals([{"WR": [q]}], s, index)[0]
+    swapped = plain + lineup._swap_totals([{"WR": [q]}], s, sits, index, players)[0]
+    assert abs(sits[:, 0].mean() - 0.5) < 0.02 and not sits[:, 1].any()
+    assert swapped.mean() > plain.mean() + 3.5          # half the time, about 9 points from the bench
+
+    opt = lineup.optimise(players, {"WR": 1}, None, n_sims=4000)
+    assert opt.best_win.player_ids == {"q"}
+    assert any("Bench Guy" in r and "Q Starter" in r for r in opt.reasons)
