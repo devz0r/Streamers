@@ -65,3 +65,20 @@ def test_availability_labels(tmp_cfg):
     snap.save(path)
     avail = unit_availability(tmp_cfg, 3, {"DST": ["SF", "NYG", "PIT", "SEA"]})
     assert avail[("DST", "SEA")][0] == "taken"          # Yahoo's short list is the whole pool
+
+
+def test_stream_options_carry_a_floor_and_ceiling_the_page_shows():
+    from streamer.roster import page
+
+    opts = _stream(1.0)
+    for o in opts.values():
+        assert o.low is not None and o.high is not None and o.low < o.high
+    # A 8-point, 5-sd defence: a low floor, a ceiling well above its projection.
+    o = opts["x2"]
+    assert o.low < 4.0 and o.high > 11.0
+
+    class _Report:
+        streams = {"DST": list(opts.values())}
+
+    html = page._streams(_Report())
+    assert "<th>Range</th>" in html and "class=\"rb\"" in html

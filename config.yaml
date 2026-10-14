@@ -421,6 +421,11 @@ roster:
   # 6.232); RB, WR and TE lost. scripts/fit_player_comps.py.
   comps:
     QB: {weight: 0.8, k: 100, since: 2015}
+  # First game back from an absence: the model's if-he-plays number times this
+  # for a player who missed his team's last game ("1") or last two or more
+  # ("2+"). Held out 2023-2025 (scripts/fit_first_game_back.py): players back
+  # scored 80% and 69% of it; clean players 105%. MAE 5.039 -> 5.003, 3/3.
+  first_game_back: {"1": 0.80, "2+": 0.69}
   # Rest-of-season comparisons (roster/comps.py): the season value moves this
   # share of the way to how the k players most like him at the same point of
   # past seasons finished. Weeks 3-10, players without an out/IR tag.

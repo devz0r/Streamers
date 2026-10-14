@@ -832,21 +832,26 @@ def _streams(report: MatchupReport) -> str:
         for o in shown:
             delta = (o.win_probability - mine.win_probability) * 100 if mine else 0.0
             vs = "yours" if o.current else ("&asymp; same" if abs(delta) < 0.5 else f"{delta:+.1f}")
-            links = f"<tr><td class='why' colspan='5'>&#8627; {_e('; '.join(o.links[:2]))}</td></tr>" if o.links else ""
+            links = f"<tr><td class='why' colspan='6'>&#8627; {_e('; '.join(o.links[:2]))}</td></tr>" if o.links else ""
+            span = (f"{max(o.low, 0):.0f}&ndash;{o.high:.0f}{range_bar(o.low, o.high)}"
+                    if o.low is not None and o.high is not None else "--")
             rows.append(
                 f"<tr><td class='unit'>{face(o.player)}{_e(o.player.name)}</td><td>{_e(o.player.nfl_opponent or '')}</td>"
-                f"<td>{(o.player.projection or 0):.1f}</td><td>{o.win_probability:.1%}</td><td>{vs}</td></tr>{links}")
+                f"<td>{(o.player.projection or 0):.1f}</td><td>{span}</td>"
+                f"<td>{o.win_probability:.1%}</td><td>{vs}</td></tr>{links}")
         blocks.append(
             f"<p class='sub'><strong>{label}</strong></p>"
             '<div class="scroll"><table><thead><tr><th class="unit">Unit</th><th>Opp</th><th>Proj</th>'
-            f"<th>P(win)</th><th>vs yours</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
+            f"<th>Range</th><th>P(win)</th><th>vs yours</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
     if not blocks:
         return ""
     return ("<h3>Best D/ST and K for this matchup</h3>"
             '<p class="sub">Free agents and your own, each swapped into your recommended lineup and '
             "scored against your opponent on the same correlated simulations. A defence facing your own "
             "quarterback hedges him: that steadies your score, which helps when you are favoured and "
-            "hurts when you are not. Gaps under half a point are noise.</p>"
+            "hurts when you are not. Gaps under half a point are noise. Range is the 15th to 85th "
+            "percentile of the unit's simulated score: a defence's floor is often a point or two, so a "
+            "high ceiling with a low floor is a boom-or-bust pick.</p>"
             + "".join(blocks))
 
 

@@ -702,3 +702,42 @@ def test_a_swingy_back_gets_a_wider_week_and_a_steady_one_a_narrower(cfg):
     narrow = outcome.spread_factor("RB", *f.loc["steady", ["td", "rec", "vol"]], 1.0)
     assert narrow < 1.0 < wide
     assert outcome.spread_factor("QB", 0.5, 0.0, 9.0, 1.2) == 1.0          # not fitted: unchanged
+
+
+def _returner_snapshot(hist, name):
+    roster = [PlayerRow(player_id="x1", name=name, position="RB", team="KC", slot="RB")]
+    return LeagueSnapshot(
+        platform="espn", profile="espn", league_id="1", league_name="t", season=2025, week=9,
+        slots={"RB": 1}, bench_size=0,
+        teams=[TeamRow(team_id="1", name="me", roster=roster, is_mine=True)],
+        free_agents=[], matchup=None, synced_at=""), roster[0]
+
+
+def test_first_game_back_discounts_players_coming_off_an_absence(cfg, monkeypatch):
+    from streamer.roster import projections
+
+    monkeypatch.setattr(projections, "_implied_scale", lambda *a, **k: ({"KC": 1.0}, "stub"))
+    full = _history()
+    results = {}
+    for label, missed in (("steady", 0), ("one", 1), ("long", 3)):
+        # p1 sat the last `missed` games his team played before week 9.
+        hist = full[~((full.player_id == "p1") & (full.season == 2025) & (full.week >= 9 - missed)
+                      & (full.week <= 8))]
+        snap, p = _returner_snapshot(hist, "Player 1")
+        projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=hist)
+        results[label] = p
+    assert results["steady"].games_missed == 0
+    assert not any("first game back" in s for s in results["steady"].signals)
+    assert results["one"].games_missed == 1 and any("first game back" in s for s in results["one"].signals)
+    assert results["long"].games_missed == 3 and any("first game back" in s for s in results["long"].signals)
+
+
+def test_a_player_with_no_games_this_season_is_not_a_first_game_back(cfg, monkeypatch):
+    from streamer.roster import projections
+
+    monkeypatch.setattr(projections, "_implied_scale", lambda *a, **k: ({"KC": 1.0}, "stub"))
+    full = _history()
+    hist = full[~((full.player_id == "p1") & (full.season == 2025))]
+    snap, p = _returner_snapshot(hist, "Player 1")
+    projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=hist)
+    assert not any("first game back" in s for s in p.signals)

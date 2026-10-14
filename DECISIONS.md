@@ -3497,3 +3497,44 @@ The comparison blend moved 2026 the wrong way (-0.85 to -1.18): it leans on
 past seasons, and this season's quarterbacks are scoring above them. Over
 2022-2025 it still helped (the earlier test), and it is 20% of the way off
 the model's own number for quarterbacks at most, so it stays.
+
+### First game back from an absence: a discount, 80% and 69%
+
+Players coming off an absence often play limited snaps in their first game.
+`scripts/fit_first_game_back.py` replays the production weekly projection
+for every week 3-15 of 2023-2025 and splits the players who played by how
+many of their team's games in a row they missed before it (only those who
+had played earlier that season, so a rookie or a new signing is not a
+return). Judged against the projection's if-he-plays number, because the
+injury-tag discount hides the comparison among players who did play.
+
+| Games missed | n | Projected (if plays) | Scored | Scored / projected |
+|---|---|---|---|---|
+| 0 | 8,510 | 9.59 | 10.04 | 1.05 |
+| 1 | 487 | 6.29 | 5.06 | 0.80 |
+| 2-3 | 252 | 7.17 | 4.85 | 0.70 |
+| 4+ | 27 | 9.45 | 7.57 | 0.80 |
+
+Over-projected in every one of the three seasons for the 1 and 2-3 groups,
+at every position (QB +4.5 points, WR +2.0, TE +1.7, RB +1.3 for 2+
+missed). With a multiplier per group (1 missed; 2 or more) fitted on two
+seasons and scored on the third, the miss fell 5.039 -> 5.003 overall, better
+in 3 of 3 seasons, and 4.45 -> 4.01 for the 766 players back, bias +1.61 ->
+-0.02. Fitted on all three seasons: 0.80 for one missed game, 0.69 for two or
+more. Applied to the model's weekly number before the platform, betting,
+FantasyPros and Sleeper blends, for players who have played this season; a
+card says so ("first game back after missing his team's last N").
+
+Replayed through the production code on weeks 4-14: 2025 5.164 -> 5.120 on the
+if-he-plays basis and 2024 flat (4.934 -> 4.936): the effect was weakest that
+year (bias +0.5 to +1.0 against +1.5 to +3.5). The platform and betting blends
+dilute the discount on the published number, since the platforms do not apply
+it. `roster.first_game_back` in config.yaml; the season value is untouched.
+
+### D/ST and K ranges in the stream picks
+
+The ranking cards already show floor-ceiling and P(top-12) for each unit. The
+D/ST & K tab, where free-agent units are swapped into your lineup and scored on
+this week's win odds, now shows the same 15th-85th percentile range (with its
+bar) from the simulated draws, so a pick can be read as a floor against a
+ceiling as well as a win probability.

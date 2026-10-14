@@ -1375,6 +1375,7 @@ def project_snapshot(
     market_lines = market_calibration.season_lines(history, int(snapshot.season), int(snapshot.week)) \
         if market_conf.get("cells") else {}
 
+    fgb_conf = ((cfg.raw.get("roster") or {}).get("first_game_back")) or {}
     # Similar past player-weeks (comps.py): quarterbacks only, as measured.
     from ..teams import normalize_team as _norm_team
     from . import comps
@@ -1527,6 +1528,16 @@ def project_snapshot(
                 p.signals.append(f"similar past {p.position} weeks averaged {comp:.1f} "
                                  f"(our model {mean:.1f}; {w_comp:.0%} toward them)")
                 mean = (1 - w_comp) * mean + w_comp * comp
+            # First game back: players coming off an absence play less than the
+            # model's if-he-plays number (scripts/fit_first_game_back.py).
+            if (source == "model" and fgb_conf and nfl_id is not None and p.games_missed >= 1
+                    and played_weeks.get(str(nfl_id))):
+                f = float(fgb_conf["2+"] if p.games_missed >= 2 else fgb_conf["1"])
+                if mean * (1 - f) >= 0.5:
+                    p.signals.append(f"first game back after missing his team's last {p.games_missed}: "
+                                     f"players in his spot (2023-2025) scored about {f:.0%} of what the model "
+                                     f"expects when they play ({mean:.1f} -> {mean * f:.1f})")
+                mean *= f
             model_mean = mean
             if plat is not None and source == "model" and w_platform > 0:
                 mean = (1 - w_platform) * mean + w_platform * float(plat)

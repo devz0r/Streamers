@@ -602,6 +602,10 @@ class StreamOption:
     win_probability: float
     current: bool
     links: list[str] = field(default_factory=list)
+    #: 15th and 85th percentile of his simulated score (the same range the
+    #: lineup tables show), None when not drawn.
+    low: float | None = None
+    high: float | None = None
 
 
 def _links(p: PlayerRow, mine: list[PlayerRow], theirs: list[PlayerRow]) -> list[str]:
@@ -654,8 +658,10 @@ def stream_options(
         t = base + samples[:, index[c.player_id]]
         pw = float((t > opp).mean() + 0.5 * (t == opp).mean())
         others = [m for m in mine if m.player_id != current.player_id]
+        col = samples[:, index[c.player_id]]
         out.append(StreamOption(player=c, win_probability=pw, current=c.player_id == current.player_id,
-                                links=_links(c, others, theirs)))
+                                links=_links(c, others, theirs),
+                                low=float(np.percentile(col, 15)), high=float(np.percentile(col, 85))))
     out.sort(key=lambda o: -o.win_probability)
     return out
 
