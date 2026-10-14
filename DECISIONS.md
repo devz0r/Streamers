@@ -3392,3 +3392,50 @@ issue titled "Yahoo sign-in expired" (never a second while one is open), which
 the GitHub mobile app pushes to a phone, and a later successful sync closes
 it. The workflow gains `issues: write`. The issue holds instructions only,
 no cookie value.
+
+### Rest-of-season comparisons: kept, at 20%
+
+The weekly player comparisons helped only quarterbacks; this asks the same
+of the season value, which drives waivers, trades and title odds.
+`scripts/fit_ros_comps.py` describes each player at a checkpoint by his
+games before it: games played, points and expected points per game, targets,
+carries and target share; his last four games; last season's points and
+expected points per game; career games since 2015; and the week. Its
+forecast is how the 100 player-checkpoints most like him at his position
+finished (rest-of-season points per game). Only earlier seasons are used,
+because a same-season player's finish is still in the future at the
+checkpoint. Graded against our season value replayed through `ros_backtest`
+at weeks 3, 4, 5, 6, 8 and 10 of 2022-2025: players without an out or IR
+tag, valued 3+, with 3+ games left (5,801 player-checkpoints). Weight and
+`k` were picked on three seasons and scored on the fourth.
+
+| Season | Ours | Blend | Rank corr |
+|---|---|---|---|
+| 2022 | 2.633 | 2.617 | 0.708 -> 0.713 |
+| 2023 | 2.623 | 2.628 | 0.751 -> 0.751 |
+| 2024 | 2.905 | 2.900 | 0.714 -> 0.716 |
+| 2025 | 2.693 | 2.670 | 0.680 -> 0.683 |
+
+That is MAE 2.713 -> 2.704 per game, better in three of four seasons. The
+held-out weight was 0.20-0.25 every time. The comparisons alone were worse
+than ours (2.83 at best).
+
+The gain is small and borderline: 0.0125 a game, about two standard errors
+when clustered by player-season. It is concentrated where it matters. For
+players we value at 14+ a game the gain is 0.058; under 7 a game it is
+-0.009. By checkpoint it is largest at weeks 3-5 and gone by week 10. So
+it is applied as tested and no further:
+
+- 20% toward the comparison mean;
+- weeks 3-10 only;
+- players without an out or IR tag;
+- on the model's season value, before the FantasyPros consensus blend.
+
+Replayed through the production code, 2025 went 2.693 -> 2.670 and 2024
+went 2.905 -> 2.894, moving 98% of players. A card notes the comparison when
+it is a point or more from our value. The finished-season pool is cached in
+`data/raw` and costs about 1.3 seconds a projection. Config
+`roster.ros_comps`. By position only WR passed on its own; the pooled
+version is what ships. `scripts/fit_ros_comps.py` and
+`scripts/fit_player_comps.py` turn their own comparison off for the
+baseline, since the page now applies it.

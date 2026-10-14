@@ -1387,6 +1387,11 @@ def project_snapshot(
             comp_ids[str(nid)] = (_norm_team(q.team), q.position)
     comp_mean = comps.for_week(cfg, history, comp_ids, int(snapshot.season), int(snapshot.week)) \
         if comp_ids else {}
+    ros_conf = comps.ros_settings(cfg)
+    ros_ids = {str(matched.mapping[q.player_id]) for q in players
+               if q.position in SKILL and matched.mapping.get(q.player_id)}
+    ros_comp = comps.ros_for_week(cfg, ros_ids, int(snapshot.season), int(snapshot.week)) \
+        if ros_conf is not None else {}
 
     for p in players:
         mean: float | None = None
@@ -1588,6 +1593,14 @@ def project_snapshot(
         p.model_projection = round(own, 2)
         p.projection = round(mean, 2)
         p.projection_sd = round(sd, 2)
+        rc = ros_comp.get(str(matched.mapping.get(p.player_id))) if ros is not None else None
+        if (rc is not None and source.startswith("model")
+                and p.status not in OUT_STATUSES and p.status not in LONG_TERM_OUT_STATUSES):
+            w_rc = float(ros_conf["weight"])
+            if abs(rc - ros) >= 1.0:
+                p.signals.append(f"players most like him at this point of past seasons finished at {rc:.1f} a game "
+                                 f"(season value {ros:.1f}, {w_rc:.0%} toward them)")
+            ros = (1 - w_rc) * ros + w_rc * rc
         p.ros_value = round(ros, 2) if ros is not None else None
         p.projection_source = source
         report.projected += 1

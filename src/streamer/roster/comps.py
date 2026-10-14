@@ -149,3 +149,127 @@ def for_week(cfg: Config, history: pd.DataFrame, ids: dict[str, tuple[str, str]]
             continue
         out.update(zip(rows["player_id"], nearest_mean(pp, rows, k)))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Rest of season: players most like him at the same point of earlier seasons,
+# and how their seasons finished (scripts/fit_ros_comps.py). 20% toward their
+# mean beat our season value alone in 2022, 2024 and 2025 (MAE 2.713 ->
+# 2.704 per game); weeks 3-10 and players without an out/IR tag, as tested.
+# ---------------------------------------------------------------------------
+ROS_FEATURES = ["gp", "ppg", "xpg", "tpg", "cpg", "tsh", "fp4", "xfp4", "prev_ppg", "prev_xpg", "has_prev",
+                "career", "week"]
+ROS_LAST_WEEK = 17
+ROS_MIN_GAMES = 3
+ROS_POOL_WEEKS = tuple(range(3, 11))
+
+
+def _ros_context(h: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Each player-season's points and expected points per game (4+ games),
+    and his games in seasons before each season."""
+    h = h[h["week"] <= ROS_LAST_WEEK]
+    per = h.groupby(["season", "player_id"]).agg(ppg=("fantasy_points_ppr", "mean"),
+                                                 xpg=("total_fantasy_points_exp", "mean"), n=("week", "size"))
+    prev = per[per["n"] >= 4].reset_index()
+    games = h.groupby(["season", "player_id"]).size().unstack(0, fill_value=0)
+    career = games.cumsum(axis=1).shift(1, axis=1).fillna(0).stack().swaplevel().sort_index()
+    return prev, career
+
+
+def ros_rows(h: pd.DataFrame, season: int, week: int, prev: pd.DataFrame | None = None,
+             career: pd.Series | None = None) -> pd.DataFrame:
+    """Features at (season, week) for everyone with 2+ games before it, from
+    those games only, and his rest-of-season points per game (NaN under
+    ``ROS_MIN_GAMES`` games after it)."""
+    if prev is None or career is None:
+        prev, career = _ros_context(h[h["season"] <= season])
+    s = h[(h["season"] == season) & (h["week"] <= ROS_LAST_WEEK)]
+    before, after = s[s["week"] < week], s[s["week"] >= week]
+    if before.empty:
+        return pd.DataFrame(columns=["player_id", "position", *ROS_FEATURES, "ros_pg"])
+    g = before.sort_values("week").groupby("player_id")
+    f = pd.DataFrame({
+        "position": g["position"].last(), "gp": g.size(), "ppg": g["fantasy_points_ppr"].mean(),
+        "xpg": g["total_fantasy_points_exp"].mean(), "tpg": g["targets"].mean(), "cpg": g["carries"].mean(),
+        "tsh": g["target_share"].mean(),
+        "fp4": g["fantasy_points_ppr"].apply(lambda x: x.tail(4).mean()),
+        "xfp4": g["total_fantasy_points_exp"].apply(lambda x: x.tail(4).mean()),
+    })
+    f = f[f["gp"] >= 2]
+    a = after.groupby("player_id")["fantasy_points_ppr"].agg(["mean", "size"])
+    f["ros_pg"] = a["mean"].reindex(f.index).where(a["size"].reindex(f.index) >= ROS_MIN_GAMES)
+    pv = prev[prev["season"] == season - 1].set_index("player_id")
+    f["prev_ppg"] = pv["ppg"].reindex(f.index)
+    f["prev_xpg"] = pv["xpg"].reindex(f.index)
+    f["has_prev"] = f["prev_ppg"].notna().astype(float)
+    f[["prev_ppg", "prev_xpg"]] = f[["prev_ppg", "prev_xpg"]].fillna(0.0)
+    idx = pd.MultiIndex.from_product([[season], f.index])
+    f["career"] = career.reindex(idx).fillna(0).to_numpy().clip(max=80)
+    f["season"], f["week"] = season, week
+    f["tsh"] = f["tsh"].fillna(0.0)
+    return f.reset_index()
+
+
+def ros_table(h: pd.DataFrame, seasons, weeks) -> pd.DataFrame:
+    """:func:`ros_rows` for every season and week given."""
+    prev, career = _ros_context(h)
+    return pd.concat([ros_rows(h, s, w, prev, career) for s in seasons for w in weeks], ignore_index=True)
+
+
+def ros_pool(cfg: Config, since: int, before_season: int) -> pd.DataFrame:
+    """Player-checkpoints of the seasons before ``before_season`` with an
+    outcome, cached on disk (finished seasons do not change)."""
+    path = cfg.raw_dir / f"ros_comp_pool_{since}_{before_season}.parquet"
+    if path.exists():
+        try:
+            return pd.read_parquet(path)
+        except Exception:  # noqa: BLE001 - rebuilt below
+            pass
+    h = deep_history(cfg, since)
+    h = h[h["season"] < before_season]
+    out = ros_table(h, range(int(since), int(before_season)), ROS_POOL_WEEKS)
+    out = out[out["ros_pg"].notna()].reset_index(drop=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    out.to_parquet(path)
+    return out
+
+
+def ros_nearest(pool_rows: pd.DataFrame, rows: pd.DataFrame, k: int) -> np.ndarray:
+    """Mean rest-of-season points per game of each row's ``k`` nearest pool rows."""
+    mu, sd = pool_rows[ROS_FEATURES].mean(), pool_rows[ROS_FEATURES].std().replace(0.0, 1.0).fillna(1.0)
+    a = ((pool_rows[ROS_FEATURES] - mu) / sd).to_numpy(np.float64)
+    b = ((rows[ROS_FEATURES] - mu) / sd).to_numpy(np.float64)
+    d = (b * b).sum(1)[:, None] - 2 * b @ a.T + (a * a).sum(1)[None, :]
+    nearest = np.argpartition(d, k - 1, axis=1)[:, :k]
+    return pool_rows["ros_pg"].to_numpy(float)[nearest].mean(axis=1)
+
+
+def ros_settings(cfg: Config) -> dict | None:
+    conf = ((cfg.raw.get("roster") or {}).get("ros_comps")) or None
+    return conf if conf and float(conf.get("weight", 0.0)) > 0 else None
+
+
+def ros_for_week(cfg: Config, ids: set[str], season: int, week: int) -> dict[str, float]:
+    """nflverse id -> the rest-of-season comparison mean, for weeks inside the
+    tested range. Features come only from games before (season, week)."""
+    conf = ros_settings(cfg)
+    if conf is None or not ids or not (min(ROS_POOL_WEEKS) <= week <= max(ROS_POOL_WEEKS)):
+        return {}
+    since, k = int(conf.get("since", 2015)), int(conf.get("k", 100))
+    try:
+        h = deep_history(cfg, since)
+        h = h[(h["season"] < season) | ((h["season"] == season) & (h["week"] < week))]
+        rows = ros_rows(h, season, week)
+        rows = rows[rows["player_id"].isin(ids)]
+        if rows.empty:
+            return {}
+        pool_rows = ros_pool(cfg, since, season)
+    except Exception as exc:  # noqa: BLE001 - a refinement; the season value stands without it
+        log.warning("rest-of-season comparisons unavailable: %s", exc)
+        return {}
+    out: dict[str, float] = {}
+    for pos, r in rows.groupby("position"):
+        pp = pool_rows[pool_rows["position"] == pos]
+        if len(pp) >= k:
+            out.update(zip(r["player_id"], ros_nearest(pp, r, k)))
+    return out

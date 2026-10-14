@@ -129,7 +129,9 @@ def main() -> int:
     f = features(deep, games_frame(cfg))
     print(f"with features: {len(f)}")
 
-    # Our production model, replayed on the games before each week.
+    # Our production model, replayed on the games before each week, without
+    # the comparisons it now applies (the thing being tested).
+    cfg.raw.setdefault("roster", {})["comps"] = {}
     prod = load_history(cfg)
     ours = []
     for s in SEASONS:

@@ -421,6 +421,12 @@ roster:
   # 6.232); RB, WR and TE lost. scripts/fit_player_comps.py.
   comps:
     QB: {weight: 0.8, k: 100, since: 2015}
+  # Rest-of-season comparisons (roster/comps.py): the season value moves this
+  # share of the way to how the k players most like him at the same point of
+  # past seasons finished. Weeks 3-10, players without an out/IR tag.
+  # Held out 2022-2025: better in 3 of 4 seasons (MAE 2.713 -> 2.704 per
+  # game), mostly on the 14+ players. scripts/fit_ros_comps.py.
+  ros_comps: {weight: 0.2, k: 100, since: 2015}
   # Monte-Carlo draws per lineup evaluation. 20k keeps P(win) stable to ~0.5%.
   sims: 20000
   # Skill-position projection = opportunity x efficiency (validated
