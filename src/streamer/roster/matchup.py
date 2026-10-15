@@ -52,6 +52,8 @@ class MatchupReport:
     trade_eval: dict | None = None
     #: The "Try a pickup" table (:mod:`streamer.roster.add_drop`).
     add_drop: dict | None = None
+    #: Every team's best lineup this week (:mod:`streamer.roster.all_lineups`).
+    all_lineups: dict | None = None
     #: Your players valued for the rest of the season (:mod:`roster_view`).
     roster_values: list | None = None
 

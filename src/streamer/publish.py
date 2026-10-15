@@ -878,6 +878,13 @@ def team_panels_for(
                     log.warning("FantasyPros season blend for %s skipped: %s", name, exc)
             report = build_report(snap, bound)
             try:
+                from .roster import all_lineups
+
+                report.all_lineups = all_lineups.build(snap, report.optimisation,
+                                                       sims=int(bound.raw["roster"]["sims"]))
+            except Exception as exc:  # noqa: BLE001 - a bonus section
+                log.warning("every team's best lineup for %s skipped: %s", name, exc)
+            try:
                 from .roster import scorecard
                 from .roster.projections import load_history
 

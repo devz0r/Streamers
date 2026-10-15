@@ -175,6 +175,7 @@ def team_sections(
         lineup.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
     if has_vegas:
         lineup.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
+    lineup.append(_any_team_lineup(report))
     lineup.append(_sources(snapshot, cfg))
     for note in report.notes:
         lineup.append(f'<p class="sub">Note: {_e(note)}.</p>')
@@ -662,6 +663,59 @@ def _trades(report: MatchupReport) -> str:
         panes.append(f'<div class="tab-pane p{i}"><p class="sub">{note}</p>{body}</div>')
     return (head + '<div class="tabs">' + "".join(radios)
             + '<div class="tab-labels">' + "".join(labels) + "</div>" + "".join(panes) + "</div>")
+
+
+_TEAMS_JS = """
+(function(id){
+  var root=document.getElementById(id); if(!root) return;
+  var data=JSON.parse(root.querySelector('.al-data').textContent);
+  var team=root.querySelector('.al-team'), mode=root.querySelector('.al-mode'), out=root.querySelector('.al-out');
+  function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  data.teams.forEach(function(t,i){
+    var o=document.createElement('option'); o.value=i;
+    o.textContent=t.name+(t.id===data.mine?' (you)':'')+' '+t.record+' vs '+t.opp; team.appendChild(o);
+  });
+  function show(){
+    var t=data.teams[+team.value]; if(!t){out.innerHTML='';return;}
+    var v=t.views[mode.value]||t.views.current||t.views.ideal; if(!v){out.innerHTML='';return;}
+    var rows=v.lineup.map(function(r){
+      return '<tr><td>'+esc(r.slot)+'</td><td class="unit">'+esc(r.name)+' <span class="opp">'+esc(r.pos)+' '+esc(r.team)+
+        (r.status?' '+esc(r.status):'')+(r.locked?' &middot; locked':'')+'</span></td><td>'+r.proj.toFixed(1)+'</td></tr>';
+    }).join('');
+    var ch=v.changes.length?v.changes.map(function(c){return 'start '+esc(c.in)+(c.out?' over '+esc(c.out):'');}).join('; '):'no changes from the lineup set';
+    var head='P(win) '+v.win.toFixed(1)+'%'+(v.current_win!==null?' (as set: '+v.current_win.toFixed(1)+'%)':'')+
+      ' &middot; projected '+v.proj.toFixed(1)+(v.opp_proj!==null?' vs '+v.opp_proj.toFixed(1):'');
+    out.innerHTML='<p class="sub">'+head+'</p><p class="sub">'+ch+'</p>'+
+      '<div class="scroll"><table><thead><tr><th>Slot</th><th class="unit">Player</th><th>Proj</th></tr></thead><tbody>'+
+      rows+'</tbody></table></div>';
+  }
+  team.addEventListener('change',show); mode.addEventListener('change',show); show();
+})
+"""
+
+
+def _any_team_lineup(report: MatchupReport) -> str:
+    """Pick any team (yours first) and see its best lineup against this
+    week's opponent, as set or at its best (:mod:`streamer.roster.all_lineups`)."""
+    data = getattr(report, "all_lineups", None)
+    if not data or not data.get("teams"):
+        return ""
+    uid = f"al-{_e(report.snapshot.profile)}"
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    return (
+        f'<details class="card" id="{uid}"><summary><strong>Any team\'s best lineup</strong> '
+        '<span class="opp">pick a team: the lineup that maximises its P(win) this week</span></summary>'
+        '<p><select class="al-team"></select> <select class="al-mode">'
+        '<option value="current">vs their opponent\'s current lineup</option>'
+        '<option value="ideal">vs their opponent\'s ideal lineup</option></select></p>'
+        '<p class="sub">Current: the lineup the opponent has set (their best projected one if none is set). '
+        "Ideal: the opponent's best projected lineup. Your team uses the full simulation; other teams use "
+        "fewer draws, so their win odds are good to about a point.</p>"
+        '<div class="al-out"></div>'
+        f'<script type="application/json" class="al-data">{payload}</script>'
+        f"<script>{_TEAMS_JS}('{uid}');</script>"
+        "</details>"
+    )
 
 
 _PICKUP_JS = """

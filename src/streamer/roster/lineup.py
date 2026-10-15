@@ -416,8 +416,13 @@ def optimise(
     n_sims: int = 20000,
     seed: int = 7,
     min_edge: float = MIN_WIN_EDGE,
+    opponent_mode: str = "current",
 ) -> Optimisation:
-    """Find the lineup that maximises P(win) against the opponent."""
+    """Find the lineup that maximises P(win) against the opponent.
+
+    ``opponent_mode``: "current" faces the lineup the opponent has set (their
+    best projected one when none is set); "ideal" always faces their best
+    projected lineup."""
     rng = np.random.default_rng(seed)
     # A player parked in an IR slot cannot be started without a roster move
     # (activation needs a free spot), so the lineup is chosen from the rest.
@@ -432,9 +437,11 @@ def optimise(
     # unless they have already set one, in which case that is what we face.
     opp_lineup: dict[str, list[PlayerRow]] | None = None
     if opponent_roster:
-        opp_lineup = current_lineup(opponent_roster, slots)
+        opp_lineup = current_lineup(opponent_roster, slots) if opponent_mode == "current" else None
         if opp_lineup is None or sum(len(v) for v in opp_lineup.values()) < sum(slots.values()):
-            opp_lineups = enumerate_lineups(opponent_roster, slots)
+            # Their best: respecting kickoffs when it is the ideal asked for.
+            opp_lineups = (_with_locks(opponent_roster, slots) if opponent_mode == "ideal"
+                           else enumerate_lineups(opponent_roster, slots))
             if opp_lineups:
                 opp_lineup = max(opp_lineups, key=_projected)
 

@@ -3606,3 +3606,20 @@ is priced during the refresh (`roster/add_drop.py`):
 It costs about 25 seconds per league per refresh; the data is about 30 KB.
 It does not account for waiver priority or for the chance another team
 claims him first; the waiver cards above still do.
+
+### Any team's best lineup
+
+The Lineup tab gains "Any team's best lineup". Pick a team (yours is the
+default) and see the lineup that maximises its P(win) this week against its
+opponent, two ways:
+
+- **Current:** against the lineup the opponent has set (their best projected
+  lineup if none is set yet).
+- **Ideal:** against the opponent's best projected lineup, respecting games
+  already started (`optimise(..., opponent_mode="ideal")`).
+
+Each view gives P(win), the odds with the lineup as set, both projected
+totals, the changes from the set lineup, and the lineup slot by slot. Opponents
+come from the league schedule, so every team this week is covered. Your team
+uses the full simulation; the others use 4,000 draws, so their odds are good
+to about a point. It all runs in the refresh (a few seconds per league).
