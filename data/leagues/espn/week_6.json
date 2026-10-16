@@ -20054,7 +20054,7 @@
       "name": "AJ Dillon",
       "position": "RB",
       "team": "CAR",
-      "status": "QUESTIONABLE",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -33700,7 +33700,7 @@
       "player_id": "3916945",
       "name": "Darius Slayton",
       "position": "WR",
-      "team": "IND",
+      "team": null,
       "status": "",
       "slot": "FA",
       "eligible_slots": [
@@ -33710,7 +33710,7 @@
         "WR/RB",
         "WR/TE"
       ],
-      "on_bye": false,
+      "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 0.0,
       "percent_owned": 0.34,
@@ -42264,7 +42264,7 @@
       "name": "Darren Waller",
       "position": "TE",
       "team": "CAR",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -43752,7 +43752,7 @@
       "name": "Tommy Tremble",
       "position": "TE",
       "team": "CAR",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -57503,7 +57503,7 @@
     "my_points": 0.0,
     "opp_points": 17.0
   },
-  "synced_at": "2026-10-16T16:56:08.948415+00:00",
+  "synced_at": "2026-10-16T17:28:35.614638+00:00",
   "extra": {
     "nfl_week": 6,
     "current_week": 6
