@@ -93,7 +93,7 @@
           "name": "DeVonta Smith",
           "position": "WR",
           "team": "PHI",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "IR",
           "eligible_slots": [
             "FLEX",
@@ -103,7 +103,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 0.0,
+          "platform_projection": 13.51,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -225,7 +225,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 12.17,
+          "platform_projection": 12.09,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -781,7 +781,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 10.77,
+          "platform_projection": 10.64,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1091,7 +1091,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 9.39,
+          "platform_projection": 9.32,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1293,7 +1293,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 17.29,
+          "platform_projection": 17.28,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1604,7 +1604,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 16.38,
+          "platform_projection": 16.34,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1666,7 +1666,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 12.15,
+          "platform_projection": 12.12,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1787,7 +1787,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 14.75,
+          "platform_projection": 14.74,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1847,7 +1847,7 @@
             "SUPERFLEX"
           ],
           "on_bye": false,
-          "platform_projection": 16.82,
+          "platform_projection": 16.85,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -1909,7 +1909,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 12.52,
+          "platform_projection": 12.35,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -2031,7 +2031,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 13.95,
+          "platform_projection": 13.93,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -2296,7 +2296,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 15.77,
+          "platform_projection": 15.78,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -2543,7 +2543,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 16.07,
+          "platform_projection": 16.18,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -2790,7 +2790,7 @@
             "SUPERFLEX"
           ],
           "on_bye": false,
-          "platform_projection": 15.24,
+          "platform_projection": 15.19,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -3156,7 +3156,7 @@
             "DST"
           ],
           "on_bye": false,
-          "platform_projection": 8.97,
+          "platform_projection": 8.98,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -3218,7 +3218,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 6.99,
+          "platform_projection": 6.98,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4158,7 +4158,7 @@
             "DST"
           ],
           "on_bye": false,
-          "platform_projection": 7.63,
+          "platform_projection": 7.52,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4283,7 +4283,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 11.04,
+          "platform_projection": 11.05,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4360,7 +4360,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 22.99,
+          "platform_projection": 23.0,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4485,7 +4485,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 16.29,
+          "platform_projection": 16.28,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4548,7 +4548,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 17.35,
+          "platform_projection": 17.36,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4673,7 +4673,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 13.42,
+          "platform_projection": 13.43,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -4736,7 +4736,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 12.47,
+          "platform_projection": 12.46,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -5404,7 +5404,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 12.41,
+          "platform_projection": 12.34,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -5543,7 +5543,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 17.13,
+          "platform_projection": 17.09,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -5730,7 +5730,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 13.01,
+          "platform_projection": 12.53,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -5918,7 +5918,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 14.03,
+          "platform_projection": 14.01,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -6223,7 +6223,7 @@
             "SUPERFLEX"
           ],
           "on_bye": false,
-          "platform_projection": 18.23,
+          "platform_projection": 18.21,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -6604,7 +6604,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 18.79,
+          "platform_projection": 18.77,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -6657,7 +6657,7 @@
           "name": "Saquon Barkley",
           "position": "RB",
           "team": "PHI",
-          "status": "QUESTIONABLE",
+          "status": "OUT",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -6719,7 +6719,7 @@
           "name": "Zay Flowers",
           "position": "WR",
           "team": "BAL",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "WR",
           "eligible_slots": [
             "FLEX",
@@ -7165,7 +7165,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 9.95,
+          "platform_projection": 9.89,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -7227,7 +7227,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 8.08,
+          "platform_projection": 8.09,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -7529,7 +7529,7 @@
             "DST"
           ],
           "on_bye": false,
-          "platform_projection": 8.98,
+          "platform_projection": 8.97,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -7732,7 +7732,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 19.78,
+          "platform_projection": 19.77,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -8101,7 +8101,7 @@
             "SUPERFLEX"
           ],
           "on_bye": false,
-          "platform_projection": 18.77,
+          "platform_projection": 18.78,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -8226,7 +8226,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 14.82,
+          "platform_projection": 14.76,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -8288,7 +8288,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 14.78,
+          "platform_projection": 14.87,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -8593,7 +8593,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 10.96,
+          "platform_projection": 10.95,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -8733,7 +8733,7 @@
             "WR/RB"
           ],
           "on_bye": false,
-          "platform_projection": 21.65,
+          "platform_projection": 21.2,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -9168,7 +9168,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 10.8,
+          "platform_projection": 10.12,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -9604,7 +9604,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 7.12,
+          "platform_projection": 7.13,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -10050,7 +10050,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 15.96,
+          "platform_projection": 15.93,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -10172,7 +10172,7 @@
             "SUPERFLEX"
           ],
           "on_bye": false,
-          "platform_projection": 16.66,
+          "platform_projection": 16.7,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -10297,7 +10297,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 15.63,
+          "platform_projection": 15.67,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -10420,7 +10420,7 @@
             "WR/TE"
           ],
           "on_bye": false,
-          "platform_projection": 10.43,
+          "platform_projection": 8.66,
           "season_avg": 0.0,
           "percent_owned": null,
           "projection": null,
@@ -10473,7 +10473,7 @@
           "name": "Denzel Boston",
           "position": "WR",
           "team": "CLE",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
@@ -10979,7 +10979,7 @@
         "SUPERFLEX"
       ],
       "on_bye": false,
-      "platform_projection": 14.12,
+      "platform_projection": 14.13,
       "season_avg": 17.84,
       "percent_owned": 43.38,
       "projection": null,
@@ -11099,7 +11099,7 @@
         "SUPERFLEX"
       ],
       "on_bye": false,
-      "platform_projection": 17.74,
+      "platform_projection": 17.76,
       "season_avg": 13.1,
       "percent_owned": 27.83,
       "projection": null,
@@ -11399,7 +11399,7 @@
         "SUPERFLEX"
       ],
       "on_bye": false,
-      "platform_projection": 15.2,
+      "platform_projection": 15.18,
       "season_avg": 13.72,
       "percent_owned": 10.2,
       "projection": null,
@@ -11579,7 +11579,7 @@
         "SUPERFLEX"
       ],
       "on_bye": false,
-      "platform_projection": 13.01,
+      "platform_projection": 13.02,
       "season_avg": 12.35,
       "percent_owned": 5.05,
       "projection": null,
@@ -18008,7 +18008,7 @@
       "name": "Will Shipley",
       "position": "RB",
       "team": "PHI",
-      "status": "DOUBTFUL",
+      "status": "INJURY_RESERVE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -18389,7 +18389,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 8.46,
+      "platform_projection": 8.44,
       "season_avg": 4.8,
       "percent_owned": 7.68,
       "projection": null,
@@ -18575,7 +18575,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 5.07,
+      "platform_projection": 5.4,
       "season_avg": 2.8,
       "percent_owned": 5.77,
       "projection": null,
@@ -19319,7 +19319,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 3.27,
+      "platform_projection": 3.43,
       "season_avg": 0.94,
       "percent_owned": 1.68,
       "projection": null,
@@ -19381,7 +19381,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 3.45,
+      "platform_projection": 3.44,
       "season_avg": 2.02,
       "percent_owned": 1.04,
       "projection": null,
@@ -20125,7 +20125,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 4.25,
+      "platform_projection": 0.0,
       "season_avg": 1.65,
       "percent_owned": 0.42,
       "projection": null,
@@ -20373,7 +20373,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 0.0,
+      "platform_projection": 3.1,
       "season_avg": 3.88,
       "percent_owned": 0.33,
       "projection": null,
@@ -20869,7 +20869,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 5.75,
+      "platform_projection": 5.69,
       "season_avg": 0.0,
       "percent_owned": 0.19,
       "projection": null,
@@ -20993,7 +20993,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 5.29,
+      "platform_projection": 5.72,
       "season_avg": 0.64,
       "percent_owned": 0.15,
       "projection": null,
@@ -21799,7 +21799,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 5.31,
+      "platform_projection": 0.94,
       "season_avg": 0.0,
       "percent_owned": 0.07,
       "projection": null,
@@ -22109,7 +22109,7 @@
         "WR/RB"
       ],
       "on_bye": false,
-      "platform_projection": 0.4,
+      "platform_projection": 0.0,
       "season_avg": 1.3,
       "percent_owned": 0.04,
       "projection": null,
@@ -22543,7 +22543,7 @@
         "WR/RB"
       ],
       "on_bye": true,
-      "platform_projection": 0.0,
+      "platform_projection": 4.59,
       "season_avg": 0.0,
       "percent_owned": 0.04,
       "projection": null,
@@ -29678,7 +29678,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 8.38,
+      "platform_projection": 5.6,
       "season_avg": 5.06,
       "percent_owned": 44.6,
       "projection": null,
@@ -30371,7 +30371,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 8.98,
+      "platform_projection": 3.46,
       "season_avg": 8.8,
       "percent_owned": 13.4,
       "projection": null,
@@ -30812,7 +30812,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 5.72,
+      "platform_projection": 5.71,
       "season_avg": 6.96,
       "percent_owned": 7.82,
       "projection": null,
@@ -31190,7 +31190,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 4.68,
+      "platform_projection": 4.69,
       "season_avg": 8.86,
       "percent_owned": 4.69,
       "projection": null,
@@ -31253,7 +31253,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 6.45,
+      "platform_projection": 6.44,
       "season_avg": 2.55,
       "percent_owned": 4.43,
       "projection": null,
@@ -32261,7 +32261,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 6.73,
+      "platform_projection": 6.15,
       "season_avg": 3.85,
       "percent_owned": 1.41,
       "projection": null,
@@ -33332,7 +33332,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 5.04,
+      "platform_projection": 5.03,
       "season_avg": 4.38,
       "percent_owned": 0.45,
       "projection": null,
@@ -33395,7 +33395,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 4.41,
+      "platform_projection": 0.0,
       "season_avg": 2.1,
       "percent_owned": 0.43,
       "projection": null,
@@ -33521,7 +33521,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 7.63,
+      "platform_projection": 7.57,
       "season_avg": 5.34,
       "percent_owned": 0.41,
       "projection": null,
@@ -33710,7 +33710,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 7.31,
+      "platform_projection": 6.76,
       "season_avg": 0.02,
       "percent_owned": 0.35,
       "projection": null,
@@ -34277,7 +34277,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 5.79,
+      "platform_projection": 5.78,
       "season_avg": 0.0,
       "percent_owned": 0.2,
       "projection": null,
@@ -34403,7 +34403,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 1.23,
+      "platform_projection": 0.0,
       "season_avg": 0.0,
       "percent_owned": 0.18,
       "projection": null,
@@ -35096,7 +35096,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 5.07,
+      "platform_projection": 5.06,
       "season_avg": 0.72,
       "percent_owned": 0.12,
       "projection": null,
@@ -35537,7 +35537,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 2.73,
+      "platform_projection": 0.0,
       "season_avg": 2.95,
       "percent_owned": 0.09,
       "projection": null,
@@ -35663,7 +35663,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.7,
+      "platform_projection": 1.97,
       "season_avg": 0.48,
       "percent_owned": 0.08,
       "projection": null,
@@ -35852,7 +35852,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 3.76,
+      "platform_projection": 5.03,
       "season_avg": 1.4,
       "percent_owned": 0.08,
       "projection": null,
@@ -36041,7 +36041,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 3.19,
+      "platform_projection": 3.21,
       "season_avg": 5.53,
       "percent_owned": 0.08,
       "projection": null,
@@ -36104,7 +36104,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 3.59,
+      "platform_projection": 3.0,
       "season_avg": 2.67,
       "percent_owned": 0.08,
       "projection": null,
@@ -36797,7 +36797,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.06,
+      "platform_projection": 0.09,
       "season_avg": -0.4,
       "percent_owned": 0.05,
       "projection": null,
@@ -37553,7 +37553,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 2.13,
+      "platform_projection": 0.0,
       "season_avg": 0.0,
       "percent_owned": 0.04,
       "projection": null,
@@ -38120,7 +38120,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 1.18,
+      "platform_projection": 1.17,
       "season_avg": 4.9,
       "percent_owned": 0.03,
       "projection": null,
@@ -38309,7 +38309,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.0,
+      "platform_projection": 3.21,
       "season_avg": 1.3,
       "percent_owned": 0.03,
       "projection": null,
@@ -38803,7 +38803,7 @@
       "name": "Tylan Wallace",
       "position": "WR",
       "team": "CLE",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -39443,7 +39443,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.0,
+      "platform_projection": 3.03,
       "season_avg": 0.6,
       "percent_owned": 0.02,
       "projection": null,
@@ -42025,7 +42025,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 8.69,
+      "platform_projection": 8.7,
       "season_avg": 5.38,
       "percent_owned": 69.68,
       "projection": null,
@@ -42397,7 +42397,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 7.85,
+      "platform_projection": 7.84,
       "season_avg": 8.82,
       "percent_owned": 14.31,
       "projection": null,
@@ -43575,7 +43575,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 3.49,
+      "platform_projection": 0.0,
       "season_avg": 3.1,
       "percent_owned": 0.23,
       "projection": null,
@@ -43885,7 +43885,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 2.75,
+      "platform_projection": 2.74,
       "season_avg": 2.7,
       "percent_owned": 0.13,
       "projection": null,
@@ -44133,7 +44133,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 4.34,
+      "platform_projection": 4.33,
       "season_avg": 4.72,
       "percent_owned": 0.1,
       "projection": null,
@@ -44257,7 +44257,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 1.79,
+      "platform_projection": 1.76,
       "season_avg": 0.84,
       "percent_owned": 0.09,
       "projection": null,
@@ -45187,7 +45187,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 1.02,
+      "platform_projection": 1.01,
       "season_avg": 1.2,
       "percent_owned": 0.05,
       "projection": null,
@@ -45373,7 +45373,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 2.24,
+      "platform_projection": 1.13,
       "season_avg": 0.78,
       "percent_owned": 0.05,
       "projection": null,
@@ -46489,7 +46489,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.0,
+      "platform_projection": 3.52,
       "season_avg": 0.0,
       "percent_owned": 0.03,
       "projection": null,
@@ -47162,7 +47162,7 @@
       "name": "Carsen Ryan",
       "position": "TE",
       "team": "CLE",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -50519,7 +50519,7 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.65,
+      "platform_projection": 0.64,
       "season_avg": 0.98,
       "percent_owned": 0.01,
       "projection": null,
@@ -54200,7 +54200,7 @@
         "K"
       ],
       "on_bye": false,
-      "platform_projection": 7.24,
+      "platform_projection": 7.23,
       "season_avg": 6.2,
       "percent_owned": 6.13,
       "projection": null,
@@ -56442,7 +56442,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 7.96,
+      "platform_projection": 7.99,
       "season_avg": 4.1,
       "percent_owned": 47.88,
       "projection": null,
@@ -56501,7 +56501,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 9.07,
+      "platform_projection": 9.06,
       "season_avg": 9.2,
       "percent_owned": 33.82,
       "projection": null,
@@ -56855,7 +56855,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 5.5,
+      "platform_projection": 5.51,
       "season_avg": 9.3,
       "percent_owned": 17.12,
       "projection": null,
@@ -56914,7 +56914,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 6.39,
+      "platform_projection": 6.34,
       "season_avg": 8.4,
       "percent_owned": 14.37,
       "projection": null,
@@ -57032,7 +57032,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 6.71,
+      "platform_projection": 6.73,
       "season_avg": 10.7,
       "percent_owned": 12.78,
       "projection": null,
@@ -57150,7 +57150,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 6.5,
+      "platform_projection": 6.47,
       "season_avg": 9.8,
       "percent_owned": 8.22,
       "projection": null,
@@ -57268,7 +57268,7 @@
         "DST"
       ],
       "on_bye": false,
-      "platform_projection": 7.87,
+      "platform_projection": 7.8,
       "season_avg": 6.1,
       "percent_owned": 3.47,
       "projection": null,
@@ -57498,12 +57498,12 @@
     "week": 6,
     "my_team_id": "3",
     "opponent_team_id": "7",
-    "my_platform_projection": 130.72,
-    "opp_platform_projection": 139.12,
+    "my_platform_projection": 130.83,
+    "opp_platform_projection": 139.05,
     "my_points": 0.0,
     "opp_points": 17.0
   },
-  "synced_at": "2026-10-16T20:03:54.417692+00:00",
+  "synced_at": "2026-10-16T20:27:24.447626+00:00",
   "extra": {
     "nfl_week": 6,
     "current_week": 6
