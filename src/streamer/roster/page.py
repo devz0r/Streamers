@@ -726,17 +726,31 @@ _PICKUP_JS = """
 (function(id){
   var root=document.getElementById(id); if(!root) return;
   var data=JSON.parse(root.querySelector('.ad-data').textContent);
-  var sel=root.querySelector('.ad-pick'), out=root.querySelector('.ad-out');
+  var box=root.querySelector('.ad-search'), hits=root.querySelector('.ad-hits'), out=root.querySelector('.ad-out');
   function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function pts(v){return v===null||v===undefined?'--':(v>=0?'+':'')+v.toFixed(1);}
   function cls(v){return v===null||v===undefined?'':(v>0.05?' class="pos"':(v<-0.05?' class="neg"':''));}
-  data.adds.forEach(function(a,i){
-    var o=document.createElement('option'); o.value=i;
-    o.textContent=a.name+' ('+a.pos+(a.team?' '+a.team:'')+') '+a.ros.toFixed(1)+'/g';
-    sel.appendChild(o);
-  });
-  function show(){
-    var a=data.adds[+sel.value]; if(!a){out.innerHTML='';return;}
+  function norm(t){return String(t).normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,'');}
+  var all=data.adds.map(function(a,i){return {p:a,i:i};}).concat((data.others||[]).map(function(a){return {p:a,i:-1};}));
+  all.forEach(function(r){r.k=norm(r.p.name+' '+r.p.team+' '+r.p.pos);});
+  function label(p){return esc(p.name)+' <span class="opp">'+esc(p.pos)+(p.team?' '+esc(p.team):'')+
+    (p.status?' '+esc(p.status):'')+' &middot; '+p.ros.toFixed(1)+'/g</span>';}
+  function list(){
+    var q=norm(box.value).trim(), words=q?q.split(/ +/):[];
+    var found=all.filter(function(r){return words.every(function(w){return r.k.indexOf(w)>=0;});});
+    if(!words.length) found=found.filter(function(r){return r.i>=0;});
+    hits.innerHTML=found.slice(0,8).map(function(r,j){
+      return '<li><button type="button" data-j="'+all.indexOf(r)+'">'+label(r.p)+
+        (r.i<0?' <span class="opp">(not priced)</span>':'')+'</button></li>';}).join('')+
+      (found.length>8?'<li class="opp">'+(found.length-8)+' more: keep typing</li>':'')+
+      (words.length&&!found.length?'<li class="opp">No free agent matches. He may be on a roster.</li>':'');
+  }
+  function show(r){
+    hits.innerHTML=''; box.value=r.p.name;
+    if(r.i<0){out.innerHTML='<p class="sub"><strong>'+esc(r.p.name)+'</strong> ('+esc(r.p.pos)+' '+esc(r.p.team)+
+      '): not priced, '+esc(r.p.why)+'. '+r.p.ros.toFixed(1)+' a game for the season, '+r.p.proj.toFixed(1)+
+      ' this week.</p>';return;}
+    var a=r.p;
     var rows=a.drops.map(function(d){
       var tie=Math.abs(d.title)<=d.noise?' <span class="opp">toss-up</span>':'';
       return '<tr><td class="unit">'+esc(d.name)+' <span class="opp">'+esc(d.pos)+' '+esc(d.team)+'</span></td>'+
@@ -747,7 +761,13 @@ _PICKUP_JS = """
       '<div class="scroll"><table><thead><tr><th class="unit">Drop</th><th>RoS/g</th><th>Title</th><th>Win this week</th>'+
       '</tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
-  sel.addEventListener('change',show); show();
+  box.addEventListener('input',list);
+  box.addEventListener('focus',list);
+  box.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){var b=hits.querySelector('button'); if(b){e.preventDefault(); b.click();}}});
+  hits.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(b) show(all[+b.getAttribute('data-j')]);});
+  list();
 })
 """
 
@@ -764,14 +784,17 @@ def _try_pickup(report: MatchupReport) -> str:
     win = f", this week's win {base['win']:.0f}%" if base.get("win") is not None else ""
     return (
         f'<details class="card" id="{uid}"><summary><strong>Try a pickup</strong> '
-        '<span class="opp">pick a free agent: each drop\'s effect on your title odds and this week</span>'
+        '<span class="opp">search any free agent: each drop\'s effect on your title odds and this week</span>'
         "</summary>"
         f'<p class="sub">Now: title {base.get("title", 0):.1f}%{win}. Changes are in points of probability: '
         "title on the full season simulation (the add and the drop, every week to the final), this week by "
         "rebuilding your best lineup with him in and scoring it against your opponent. A title change "
         "inside the simulation's noise is marked toss-up. Drops are the cheapest to your title first; "
-        "players whose game has started are left out.</p>"
-        '<p><select class="ad-pick"></select></p><div class="ad-out"></div>'
+        "players whose game has started are left out. The top 40 free agents at the skill positions get six "
+        "drops each, the next 80 the three cheapest; the rest are listed, unpriced.</p>"
+        '<p><input type="search" class="ad-search" placeholder="Search free agents by name, team or position"'
+        ' autocomplete="off" aria-label="Search free agents"></p><ul class="ad-hits"></ul>'
+        '<div class="ad-out"></div>'
         f'<script type="application/json" class="ad-data">{payload}</script>'
         f"<script>{_PICKUP_JS}('{uid}');</script>"
         "</details>"

@@ -1,8 +1,9 @@
 """Pick a free agent, see what each drop does: the "Try a pickup" table.
 
-For the top free agents (by season value, skill positions plus a few
-defences and kickers), every sensible drop from your roster is priced two
-ways on the simulations the rest of the page uses:
+For the top free agents (by season value: 120 at the skill positions, six
+defences and six kickers), the sensible drops from your roster are priced
+two ways on the simulations the rest of the page uses -- six drops each for
+the top 40 skill players and every unit, the three cheapest for the rest:
 
 * **Title odds**: the add and the drop on the full season simulation
   (:meth:`TitleEngine.value_now`), against your roster as it stands.
@@ -11,7 +12,9 @@ ways on the simulations the rest of the page uses:
   and by your lineup as it stands (as :func:`lineup.pickup_options` does).
 
 A page cannot run either simulation per click, so every pair is priced
-ahead of time and the page only looks them up. Drops are the cheapest to
+ahead of time and the page only looks them up; the page searches them by
+name. Every other free agent is listed too, unpriced, so a search for him
+says why he is not there. Drops are the cheapest to
 your title first (and always the cheapest at his position), never a player
 whose game has started or one in an IR slot.
 """
@@ -25,10 +28,13 @@ from . import lineup as lu
 from .title_moves import drop_candidates
 
 #: Free agents priced, skill positions; and defences and kickers on top.
-N_SKILL = 24
-N_UNITS = 3
-#: Drops priced for each add.
+N_SKILL = 120
+N_UNITS = 6
+#: Drops priced for each add: the top ``N_FULL`` skill players and every
+#: unit get ``N_DROPS``, the long tail ``N_DROPS_TAIL`` (about 0.1 s each).
+N_FULL = 40
 N_DROPS = 6
+N_DROPS_TAIL = 3
 SIMS = 8000
 
 
@@ -49,10 +55,12 @@ def candidates(snapshot: LeagueSnapshot) -> list[PlayerRow]:
     return skill + units
 
 
-def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int = 31) -> dict | None:
-    """``{"base": {...}, "adds": [{player, drops: [{player, title, win}]}]}``;
-    title and win are changes in points of probability (None where the
-    week cannot be scored: no opponent)."""
+def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int = 31,
+          n_full: int = N_FULL, n_tail: int = N_DROPS_TAIL) -> dict | None:
+    """``{"base": {...}, "adds": [{player, drops: [{player, title, win}]}],
+    "others": [player, ...]}``; title and win are changes in points of
+    probability (None where the week cannot be scored: no opponent);
+    ``others`` are the free agents not priced, for the search."""
     snap = report.snapshot
     me = snap.my_team
     adds = [p for p in candidates(snap) if p.player_id in engine.model.pid]
@@ -100,8 +108,10 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
                 "status": p.status or ""}
 
     out = []
+    skill_rank = {p.player_id: i for i, p in enumerate(p for p in adds if p.position not in ("DST", "K"))}
     for a in adds:
-        drops = [d for d in drop_candidates(roster, a, n_drops + 2, worth) if not d.locked][:n_drops]
+        k = n_drops if skill_rank.get(a.player_id, 0) < n_full else min(n_tail, n_drops)
+        drops = [d for d in drop_candidates(roster, a, k + 2, worth) if not d.locked][:k]
         priced = []
         for d in drops:
             won = engine.value_now(a, d, per_sim=True)
@@ -114,6 +124,23 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
             out.append({**row(a), "drops": priced})
     out.sort(key=lambda r: -max(d["title"] for d in r["drops"]))
     base_win = None if week is None else float(week[5].mean())
+    priced = {a["id"] for a in out}
+    others = [{"name": p.name, "pos": p.position, "team": p.team or "", "status": p.status or "",
+               "ros": round(float(p.ros_value or 0.0), 1), "proj": round(float(p.projection or 0.0), 1),
+               "why": _why_not(p)}
+              for p in snap.free_agents if p.player_id not in priced and p.position in POSITIONS]
+    others.sort(key=lambda r: -r["ros"])
     return {"base": {"title": round(engine.base * 100, 1),
                      "win": None if base_win is None else round(base_win * 100, 1)},
-            "adds": out}
+            "adds": out, "others": others}
+
+
+POSITIONS = ("QB", "RB", "WR", "TE", "DST", "K")
+
+
+def _why_not(p: PlayerRow) -> str:
+    if not p.team or p.unsigned:
+        return "not on an NFL roster"
+    if p.is_long_term_out:
+        return "out long term"
+    return "below the free agents priced at his position"

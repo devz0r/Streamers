@@ -3339,6 +3339,42 @@ the weight can be refit on genuine pre-kickoff values once enough weeks
 are in (the same gate as the betting weight). A player Sleeper does not
 cover is left as before.
 
+#### Matching by name: Sleeper had covered one player in five
+
+Cade Otton was recommended as a start while he was a free agent, then lost
+to Tyler Higbee the moment he was added. His own number never moved (7.67
+before and after). Higbee's did: 7.25 -> 8.52, when Sleeper raised its
+projection for him from 4.4 to 9.4. Otton had no Sleeper number at all. The
+reason: Sleeper's projections were matched through the `gsis_id` in its
+player database, which is filled mostly for veterans. In the week-6 log,
+only 20% of projected players had a Sleeper number (Higbee, a 2016 draftee,
+did; Otton, 2022, did not), so the blend's last step moved some players and
+not others.
+
+Rows without a `gsis_id` are now matched by name on the same team and
+position, as the depth charts already were (`sleeper.match`); a name shared
+by two players on one team and position is left unmatched. The fit script
+uses the same matcher, and was rerun on everyone (2023-2025, 4,063 graded
+rows, 20-35% matched by id, the rest by name):
+
+| | MAE | Rank corr |
+|---|---|---|
+| Our model alone | 5.071 | 0.599 |
+| Sleeper | 4.922 | 0.640 |
+| Blend, weight fitted on the other seasons (0.70) | 4.886 | 0.640 |
+
+Better in all three seasons (4.898 -> 4.740, 5.105 -> 4.901, 5.210 -> 5.016).
+The newly matched players gain more than the veterans did (5.017 -> 4.793,
+against 5.186 -> 5.098). This season, weeks 3-6 (618 rows), moving the
+published blend toward Sleeper by 0 / 10 / 20 / 30 / 50% gave 5.332 / 5.327 /
+5.326 / 5.325 / 5.329. The weight stays at 0.25: the best published-blend
+gain is at 20-30%.
+
+Free agents and rostered players otherwise go through the same pipeline:
+the same model, platform blend, FantasyPros projection and betting props. The
+props are bought for the games holding your players in either league, which
+this week covered 26 teams; a free agent elsewhere is blended without them.
+
 ### Player comparisons: kept for quarterbacks only
 
 The kicker comparison worked (similar past matchups), so
@@ -3592,9 +3628,13 @@ sensible drop is shown with its change in title odds and in this week's win
 odds. A static page cannot run the season simulation per click, so every pair
 is priced during the refresh (`roster/add_drop.py`):
 
-- **Which players.** The top 24 skill-position free agents and the top 3
-  defences and kickers by season value, each against the 6 drops cheapest to
-  your title (always including the cheapest at his position). Players whose
+- **Which players.** The top 120 skill-position free agents and the top 6
+  defences and kickers by season value. The top 40 skill players and every
+  unit are priced against the 6 drops cheapest to your title (always
+  including the cheapest at his position), the next 80 against the 3
+  cheapest. Every other free agent is listed unpriced, with the reason
+  (below those priced at his position, out long term, or not on an NFL
+  roster). Players whose
   game has started, and players in IR slots, are not drop options.
 - **Title odds.** The add and the drop on the full season simulation
   (`TitleEngine.value_now`), with the simulation's own noise. A change
@@ -3603,7 +3643,11 @@ is priced during the refresh (`roster/add_drop.py`):
   drop gone. It is chosen on one sample and scored on a fresh one, against
   your opponent's lineup, on draws shared by every pair.
 
-It costs about 25 seconds per league per refresh; the data is about 30 KB.
+You find a player by **searching** (name, team or position, accents and
+punctuation ignored), not from a menu: the first version's menu of 30
+rarely held the player you were looking for. Pricing about 130 players
+costs about a minute per league per refresh (about 0.1 s per add/drop
+pair); the data is about 150 KB.
 It does not account for waiver priority or for the chance another team
 claims him first; the waiver cards above still do.
 
