@@ -86,16 +86,16 @@ def test_selling_a_player_the_market_overrates_is_called_out(cfg):
     assert selling and all(any("sell high" in r for r in t.why_you) for t in selling)
 
 
-def test_the_page_shows_four_views_one_per_team(finder):
+def test_the_page_shows_five_views_one_per_team(finder):
     from types import SimpleNamespace
 
     from streamer.roster.page import _trades
 
     board = finder.find(3)
     html = _trades(SimpleNamespace(trades=board, snapshot=finder.snapshot))
-    for label in ("Top trades", "Best for you", "Most likely yes", "By team"):
+    for label in ("Top trades", "Best for you", "Most likely yes", "Win/win", "By team"):
         assert label in html
-    assert html.count('type="radio"') == 4 and 'id="trades-espn-top"' in html
+    assert html.count('type="radio"') == 5 and 'id="trades-espn-top"' in html
     others = [t for t in finder.snapshot.teams if not t.is_mine]
     assert set(board.by_team) == {t.team_id for t in others}
     assert all(html.count(f"<strong>{t.name}</strong>") >= 1 for t in others)
@@ -176,3 +176,20 @@ def test_the_deadline_counts_down_and_closes(cfg):
     assert deadline_text(snap, date(2026, 11, 6)) == "Trades close in 12 days (Nov 18)"
     assert deadline_text(snap, date(2026, 11, 18)) == "Trades close today (Nov 18)"
     assert deadline_text(snap, date(2026, 11, 19)) == "Trading closed on Nov 18"
+
+
+def test_win_win_is_what_he_sees_not_our_title_odds(finder):
+    from streamer.roster.trades import MIN_GAIN, SEEN_WIN
+
+    board = finder.find(5)
+    for t in board.win_win:
+        assert t.their_seen >= SEEN_WIN and t.gain >= max(MIN_GAIN, 2 * t.noise)
+    exp = [t.expected for t in board.win_win]
+    assert exp == sorted(exp, reverse=True)
+    # The flag follows his perceived gain whatever our model says of his title odds.
+    t = board.top[0] if board.top else None
+    if t is not None:
+        t.their_seen, t.their_new, t.their_base = SEEN_WIN, 0.10, 0.20
+        assert t.win_win
+        t.their_seen = SEEN_WIN - 0.01
+        assert not t.win_win

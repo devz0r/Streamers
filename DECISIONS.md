@@ -3623,3 +3623,26 @@ totals, the changes from the set lineup, and the lineup slot by slot. Opponents
 come from the league schedule, so every team this week is covered. Your team
 uses the full simulation; the others use 4,000 draws, so their odds are good
 to about a point. It all runs in the refresh (a few seconds per league).
+
+### Win/win trades, as the other manager sees them
+
+The Trades tab gains a "Win/win" view. A trade is win/win when both of these
+hold:
+
+- **Your side:** it clearly raises your title odds. The gain must clear the
+  simulation's noise, the same bar as the other lists.
+- **His side:** he sees his roster gain at least 0.3 points a game
+  (`SEEN_WIN`), judged the way managers value players (`perception`: the
+  platform's projection, a player's name and last season, this season so
+  far).
+
+He cannot see title odds, so his side is judged on the market view, not
+on ours. The finder now also prices the trades he sees as best, best for
+you first, so the list is not limited to deals that made the other views.
+Each win/win card also says what our projections think of his side. In the
+week-6 ESPN run, all five win/win trades raised your title odds by 1.1-3.9
+points while lowering his by 0.3-2.6 on our numbers. He gains on how the
+market rates players, not on what we project, which is exactly why he would
+say yes. The hub's "win-win" tag now means the same thing; it used to mean
+his title odds rose on our model. With a fifth tab, the trade tab labels
+wrap onto a second row on a phone.

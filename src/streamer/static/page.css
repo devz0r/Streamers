@@ -218,15 +218,15 @@ footer { color: var(--faint); font-size: 12.5px; margin-top: 2.5rem; padding-top
 
 /* -- tabs inside a panel (trade views) ---------------------------------- */
 .tab-radio { position: absolute; opacity: 0; pointer-events: none; }
-.tab-labels { display: flex; gap: 4px; padding: 4px; margin: .5rem 0 .8rem; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow); }
-.tab-labels label { flex: 1; text-align: center; padding: 7px 8px; border-radius: 999px; font-size: 13px; font-weight: 650;
+.tab-labels { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin: .5rem 0 .8rem; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+.tab-labels label { flex: 1 1 auto; text-align: center; padding: 7px 8px; border-radius: 999px; font-size: 13px; font-weight: 650;
   color: var(--muted); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; white-space: nowrap; }
 .tab-pane { display: none; }
-.t0:checked ~ .p0, .t1:checked ~ .p1, .t2:checked ~ .p2, .t3:checked ~ .p3 { display: block; }
+.t0:checked ~ .p0, .t1:checked ~ .p1, .t2:checked ~ .p2, .t3:checked ~ .p3, .t4:checked ~ .p4 { display: block; }
 .t0:checked ~ .tab-labels label:nth-child(1), .t1:checked ~ .tab-labels label:nth-child(2),
 .t2:checked ~ .tab-labels label:nth-child(3),
-.t3:checked ~ .tab-labels label:nth-child(4) { background: var(--accent); color: var(--on-accent); }
+.t3:checked ~ .tab-labels label:nth-child(4), .t4:checked ~ .tab-labels label:nth-child(5) { background: var(--accent); color: var(--on-accent); }
 
 /* -- lineup editor and trade evaluator ---------------------------------- */
 .ed-buttons { display: flex; gap: 6px; flex-wrap: wrap; margin: .6rem 0; }

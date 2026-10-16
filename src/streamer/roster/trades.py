@@ -60,6 +60,9 @@ MY_MIN_VALUE = 0.2
 MIN_ACCEPT = 0.05
 #: "Best for you" only lists offers with at least this chance of a yes.
 BEST_MIN_ACCEPT = 0.15
+#: A win/win: he sees his roster gain at least this much a game, judged the
+#: way managers value players (``perception``) -- he cannot see title odds.
+SEEN_WIN = 0.3
 #: Offers priced in the simulator for each list, and per partner in each.
 PRICE_EACH = 24
 PRICE_PER_TEAM = 5
@@ -151,7 +154,9 @@ class Trade:
 
     @property
     def win_win(self) -> bool:
-        return self.their_gain >= 0
+        """Both sides come out ahead: your title odds (the caller requires
+        the gain to clear the noise) and his roster as he sees it."""
+        return self.their_seen >= SEEN_WIN
 
     @property
     def key(self) -> tuple:
@@ -164,6 +169,8 @@ class TradeBoard:
     top: list[Trade]
     best: list[Trade]
     likely: list[Trade]
+    #: Trades that clearly raise your title odds and that he sees as a gain.
+    win_win: list[Trade] = field(default_factory=list)
     screened: int = 0
     priced: int = 0
     #: Per team (id): its best priced trades, by expected gain -- every team,
@@ -458,6 +465,9 @@ class TradeFinder:
                             lambda t: t.my_value, PRICE_EACH, PRICE_PER_TEAM),
             self._shortlist([t for t in screened if t.my_value >= 2 * MY_MIN_VALUE],
                             lambda t: t.p_accept, PRICE_EACH, PRICE_PER_TEAM),
+            # Deals he sees as a gain, best for you first: the win/win list.
+            self._shortlist([t for t in screened if t.their_seen >= SEEN_WIN],
+                            lambda t: t.my_value, PRICE_EACH, PRICE_PER_TEAM),
         ]
         for team in self.snapshot.teams:
             if not team.is_mine:
@@ -476,6 +486,7 @@ class TradeFinder:
             top=self._distinct(good, lambda t: t.expected, n),
             best=self._distinct([t for t in good if t.p_accept >= BEST_MIN_ACCEPT], lambda t: t.gain, n),
             likely=self._distinct(good, lambda t: t.p_accept, n),
+            win_win=self._distinct([t for t in good if t.win_win], lambda t: t.expected, n),
             screened=len(screened), priced=len(priced),
             by_team={team.team_id: self._distinct([t for t in good if t.partner.team_id == team.team_id],
                                                   lambda t: t.expected, TEAM_SHOWN, TEAM_SHOWN)
@@ -548,7 +559,12 @@ class TradeFinder:
         elif acq is not None and engaged >= 0.95:
             them.append(f"an active manager ({acq} pickups)")
         if t.win_win:
+            them.append(f"win/win: as he sees it, his roster gains {t.their_seen:.1f} a game")
+        if t.their_gain >= 0:
             them.append(f"his title odds rise too ({t.their_base:.1%} to {t.their_new:.1%})")
+        elif t.win_win:
+            them.append(f"on our projections his title odds fall ({t.their_base:.1%} to {t.their_new:.1%}): "
+                        "he gains on how the market values players, not on what we project")
         if t.their_drop is not None:
             them.append(f"he would drop {t.their_drop.name} to make room")
         t.why_them = them
