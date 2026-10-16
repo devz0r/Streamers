@@ -2,7 +2,7 @@
 
 One more second forecast for the week, blended last
 (:func:`streamer.roster.vegas.blend_market`). Matching is by the nflverse id
-the platform rows already carry; DECISIONS.md, "Sleeper projections".
+where Sleeper has one, otherwise by name, team and position; DECISIONS.md, "Sleeper projections".
 """
 
 from __future__ import annotations
@@ -18,15 +18,16 @@ SKILL = ("QB", "RB", "WR", "TE")
 
 
 def attach(snapshot: LeagueSnapshot, cfg: Config, allow_network: bool = True) -> int:
-    """Set ``sleeper_projection`` on every skill player with one. Returns how
-    many matched (0 with no data)."""
-    proj = sleeper.projections(cfg, int(snapshot.season), int(snapshot.week), allow_network=allow_network)
-    if not proj:
+    """Set ``sleeper_projection`` on every skill player with one, matched by
+    nflverse id or else by name, team and position. Returns how many matched
+    (0 with no data)."""
+    rows = sleeper.projection_rows(cfg, int(snapshot.season), int(snapshot.week), allow_network=allow_network)
+    if not rows:
         return 0
-    n = 0
-    for p in snapshot.all_players():
-        if p.position in SKILL and p.nfl_id and str(p.nfl_id) in proj:
-            p.sleeper_projection = proj[str(p.nfl_id)]
-            n += 1
-    log.info("Sleeper projections matched %d players", n)
-    return n
+    skill = [p for p in snapshot.all_players() if p.position in SKILL]
+    got = sleeper.match(rows, ((id(p), p.nfl_id, p.name, p.team, p.position) for p in skill))
+    for p in skill:
+        if id(p) in got:
+            p.sleeper_projection = got[id(p)]
+    log.info("Sleeper projections matched %d of %d skill players", len(got), len(skill))
+    return len(got)

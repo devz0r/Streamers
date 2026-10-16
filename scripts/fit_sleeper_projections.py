@@ -9,7 +9,8 @@ The sandbox cannot reach api.sleeper.app, so this is a workflow job
    (every week) and this season's played weeks, cached under data/raw
    (never committed). Reports whether past weeks are served at all, rows per
    season, and how many carry a PPR projection and map to an nflverse id
-   (through ``gsis_id`` in Sleeper's player database).
+   (through ``gsis_id`` in Sleeper's player database, else by name, team
+   and position, as production matches).
 2. **Accuracy.** Against what players scored: Sleeper alone, and our
    production model's projection for the same week (replayed on the games
    before it, as ``ros_backtest`` does; weeks 4, 6, 8, 10, 12, 14), for
@@ -74,14 +75,21 @@ def fetch(cfg, season: int, week: int) -> list | None:
     return data
 
 
-def frame(data: list, gsis: dict, season: int, week: int) -> pd.DataFrame:
-    rows = []
-    for r in data or []:
-        stats = r.get("stats") or {}
-        pid = str(r.get("player_id"))
-        rows.append({"season": season, "week": week, "sleeper_id": pid, "gsis": gsis.get(pid),
-                     "sleeper": stats.get("pts_ppr")})
-    return pd.DataFrame(rows)
+def frame(cfg, data: list, db: dict, who: pd.DataFrame, season: int, week: int) -> pd.DataFrame:
+    """One week's projections mapped to nflverse ids the way production maps
+    them (``sleeper.match``): by gsis id, else by name, team and position
+    against the players in that week's box scores."""
+    from streamer.data import sleeper
+
+    rows = sleeper.projection_rows(cfg, season, week, allow_network=False, data=data, db=db)
+    if not rows:
+        return pd.DataFrame(columns=["season", "week", "gsis", "sleeper", "by_id"])
+    wk = who[(who.season == season) & (who.week == week)]
+    people = [(r.player_id, r.player_id, r.player_display_name, r.team, r.position) for r in wk.itertuples()]
+    got = sleeper.match(rows, people)
+    ids = {r["gsis"] for r in rows if r["gsis"]}
+    return pd.DataFrame([{"season": season, "week": week, "gsis": k, "sleeper": v, "by_id": k in ids}
+                         for k, v in got.items()])
 
 
 def score(d: pd.DataFrame, col: str) -> pd.DataFrame:
@@ -104,6 +112,9 @@ def main() -> int:
     db = sleeper.players(cfg) or {}
     gsis = {str(k): v.get("gsis_id") for k, v in db.items() if isinstance(v, dict) and v.get("gsis_id")}
     print(f"Sleeper player database: {len(db)} players, {len(gsis)} with a gsis_id")
+    history = load_history(cfg)
+    who = history[["season", "week", "player_id", "player_display_name", "team", "position"]] \
+        .drop_duplicates(["season", "week", "player_id"])
 
     # 1. Probe.
     frames = []
@@ -113,7 +124,7 @@ def main() -> int:
             data = fetch(cfg, season, week)
             if not data:
                 continue
-            f = frame(data, gsis, season, week)
+            f = frame(cfg, data, db, who, season, week)
             frames.append(f)
             served += 1
             got += len(f)
@@ -124,13 +135,12 @@ def main() -> int:
     sl = pd.concat(frames, ignore_index=True)
     sl["sleeper"] = pd.to_numeric(sl["sleeper"], errors="coerce")
     for s, g in sl.groupby("season"):
-        print(f"  {s}: PPR projection on {g.sleeper.notna().mean():.0%} of rows, "
-              f"mapped to nflverse on {g.gsis.notna().mean():.0%}, "
+        print(f"  {s}: {len(g)} rows mapped to nflverse players who played, "
+              f"{g.by_id.mean():.0%} of them by gsis id, the rest by name/team/position; "
               f"mean over the 3+ point rows {g.loc[g.sleeper >= 3, 'sleeper'].mean():.2f}")
     sl = sl.dropna(subset=["gsis", "sleeper"]).drop_duplicates(["season", "week", "gsis"])
 
     # 2. Ours, replayed on the games before each week.
-    history = load_history(cfg)
     actual = (history.groupby(["season", "week", "player_id"])["fantasy_points_ppr"].sum()
               .rename("actual").reset_index().rename(columns={"player_id": "gsis"}))
     rost = {s: rb.rosters(cfg, s) for s in SEASONS}
@@ -176,6 +186,10 @@ def main() -> int:
           f"rank {base['rank'].mean():.4f} -> {bl['rank'].mean():.4f}  [{'; '.join(picks)}]")
     for s in bl.index:
         print(f"    {s}: MAE {base.mae[s]:.3f} -> {bl.mae[s]:.3f}   rank {base['rank'][s]:.3f} -> {bl['rank'][s]:.3f}")
+    allb = pd.concat(blended)
+    for label, g in (("matched by gsis id", allb[allb.by_id]), ("matched by name", allb[~allb.by_id])):
+        print(f"    {label:18} n {len(g):5}  MAE {(g.ours - g.actual).abs().mean():.3f} -> "
+              f"{(g.blend - g.actual).abs().mean():.3f}")
     print(f"VERDICT (against our model alone): {'KEEP' if keep else 'DROP'}")
 
     # 4. This season, against the published blend.

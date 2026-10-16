@@ -58,15 +58,27 @@ def players(cfg: Config, refresh: bool = False) -> dict:
 PROJECTION_URL = "https://api.sleeper.app/projections/nfl/{season}/{week}"
 
 
-def projections(cfg: Config, season: int, week: int, allow_network: bool = True) -> dict[str, float]:
-    """nflverse id -> Sleeper's PPR projection for the week, for QB/RB/WR/TE.
+def _load_db(cfg: Config, allow_network: bool) -> dict:
+    if allow_network:
+        return players(cfg) or {}
+    try:
+        return json.loads((cfg.raw_dir / "sleeper_players.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def projection_rows(cfg: Config, season: int, week: int, allow_network: bool = True,
+                    data: list | None = None, db: dict | None = None) -> list[dict]:
+    """Sleeper's PPR projection for the week, one dict per QB/RB/WR/TE it
+    projects above zero: ``gsis`` (nflverse id, when Sleeper has it),
+    ``name``, ``team``, ``position``, ``points``.
 
     Pulled fresh each call (the projections move with injury news), falling
-    back to the last pull. Sleeper's own player ids are mapped through the
-    ``gsis_id`` in its player database. {} when neither is available."""
+    back to the last pull. Sleeper fills ``gsis_id`` mostly for veterans --
+    about one projected player in five -- so callers also match on name,
+    team and position (:func:`match`). [] when no projections are available."""
     path = cfg.raw_dir / "sleeper_proj" / f"{season}_{week}.json"
-    data = None
-    if allow_network:
+    if data is None and allow_network:
         import requests
 
         try:
@@ -84,22 +96,55 @@ def projections(cfg: Config, season: int, week: int, allow_network: bool = True)
         except ValueError:
             data = None
     if not data:
-        return {}
-    gsis = {str(k): v.get("gsis_id") for k, v in (players(cfg) if allow_network else {}).items()
-            if isinstance(v, dict) and v.get("gsis_id")}
-    if not gsis:
-        try:
-            cached = json.loads((cfg.raw_dir / "sleeper_players.json").read_text(encoding="utf-8"))
-            gsis = {str(k): v.get("gsis_id") for k, v in cached.items() if isinstance(v, dict) and v.get("gsis_id")}
-        except (OSError, ValueError):
-            return {}
-    out = {}
+        return []
+    db = _load_db(cfg, allow_network) if db is None else db
+    out = []
     for r in data:
         pts = (r.get("stats") or {}).get("pts_ppr")
-        gid = gsis.get(str(r.get("player_id")))
-        if gid and isinstance(pts, int | float) and pts > 0:
-            out[str(gid)] = float(pts)
+        if not isinstance(pts, int | float) or pts <= 0:
+            continue
+        rec = db.get(str(r.get("player_id"))) or {}
+        who = r.get("player") or {}
+        first, last = who.get("first_name") or rec.get("first_name"), who.get("last_name") or rec.get("last_name")
+        name = (f"{first} {last}" if first and last else None) or rec.get("full_name")
+        out.append({"gsis": rec.get("gsis_id") or None, "name": name,
+                    "team": r.get("team") or who.get("team") or rec.get("team"),
+                    "position": who.get("position") or rec.get("position"), "points": float(pts)})
     return out
+
+
+def match(rows: list[dict], people) -> dict:
+    """Pair Sleeper rows with our players: by nflverse id where Sleeper has
+    one, otherwise by name on the same team and position (as the depth charts
+    are). ``people`` is an iterable of ``(key, nfl_id, name, team, position)``;
+    returns key -> points. A name shared by two players on one team and
+    position is left unmatched rather than guessed."""
+    from ..roster.players import normalize_name
+    from ..teams import normalize_team
+
+    by_gsis = {r["gsis"]: r["points"] for r in rows if r.get("gsis")}
+    by_name: dict[tuple, list[float]] = {}
+    for r in rows:
+        if r.get("name") and r.get("team") and r.get("position"):
+            k = (normalize_team(r["team"]), r["position"], normalize_name(r["name"]))
+            by_name.setdefault(k, []).append(r["points"])
+    out = {}
+    for key, nid, name, team, pos in people:
+        if nid and str(nid) in by_gsis:
+            out[key] = by_gsis[str(nid)]
+            continue
+        if not (name and team and pos):
+            continue
+        hit = by_name.get((normalize_team(team), pos, normalize_name(name)))
+        if hit is not None and len(hit) == 1:
+            out[key] = hit[0]
+    return out
+
+
+def projections(cfg: Config, season: int, week: int, allow_network: bool = True) -> dict[str, float]:
+    """nflverse id -> Sleeper's projection, for the rows Sleeper gives a
+    ``gsis_id`` (see :func:`projection_rows` for everyone)."""
+    return {r["gsis"]: r["points"] for r in projection_rows(cfg, season, week, allow_network) if r["gsis"]}
 
 
 #: Positions whose depth order decides who is next in line.
