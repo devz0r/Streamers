@@ -114,6 +114,14 @@ def attach(
         row = by_name.get(normalize_name(p.name))
         if row is None:
             continue
+        if p.position == "K":
+            # His kicking-points line is not fantasy points (distance scoring):
+            # kept for the kicker log, not shown or blended as Vegas points.
+            if "kicking_points" in (row.stats or {}):
+                p.vegas_stats, p.vegas_books = dict(row.stats), int(row.books)
+            continue
+        if p.position == "DST":
+            continue
         p.vegas_points = float(row.vegas_points)
         p.vegas_stats = dict(row.stats)
         p.vegas_books = int(row.books)

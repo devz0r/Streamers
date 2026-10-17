@@ -863,6 +863,13 @@ def team_panels_for(
                 log_projections(snap, bound)
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)
+            try:
+                from .roster import unit_props
+
+                log.info("%s: kicker and defence lines: %d logged, %d on cards", name,
+                         unit_props.log_week(snap, bound, rankings), unit_props.annotate(snap, rankings))
+            except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                log.warning("kicker/defence line log for %s skipped: %s", name, exc)
             season_w = None
             if has_fp:
                 try:

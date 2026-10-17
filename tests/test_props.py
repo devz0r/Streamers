@@ -125,9 +125,9 @@ def test_payload_parses_into_one_row_per_player_market_book():
 
 def test_unknown_markets_are_ignored():
     p = payload()
-    p[0]["bookmakers"][0]["markets"].append({"key": "player_kicking_points",
+    p[0]["bookmakers"][0]["markets"].append({"key": "player_tackles_assists",
                                              "outcomes": _ou("Someone", 7.5)})
-    assert "player_kicking_points" not in set(parse_props_payload(p)["market"])
+    assert "player_tackles_assists" not in set(parse_props_payload(p)["market"])
 
 
 def test_points_are_the_scored_implied_stat_line(cfg):

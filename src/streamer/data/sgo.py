@@ -47,6 +47,8 @@ STATS: dict[str, tuple[str, str]] = {
     "touchdowns": ("anytime_td", "poisson"),
     "rushing+receiving_touchdowns": ("anytime_td", "poisson"),
     "anytime_touchdown": ("anytime_td", "poisson"),
+    # A kicker's points (field goals x 3 + extra points), if the feed lists it so.
+    "kicking_points": ("kicking_points", "normal"),
 }
 
 COLUMNS = ["event_id", "bookmaker", "market", "stat", "kind", "player", "line",

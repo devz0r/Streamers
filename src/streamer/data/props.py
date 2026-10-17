@@ -53,6 +53,10 @@ MARKETS: dict[str, tuple[str, str]] = {
     "player_receptions": ("receptions", "normal"),
     "player_reception_yds": ("receiving_yards", "normal"),
     "player_anytime_td": ("anytime_td", "anytime"),
+    # A kicker's field goals x 3 plus extra points. Logged and graded against
+    # the kicker projections (``roster.unit_props``), not scored as fantasy
+    # points: the leagues score field goals by distance.
+    "player_kicking_points": ("kicking_points", "normal"),
 }
 
 #: Stat -> the scoring key in a profile's ``offense_scoring`` block.
@@ -315,6 +319,8 @@ def to_fantasy_points(cons: pd.DataFrame, cfg: Config) -> pd.DataFrame:
         detail: dict[str, float] = {}
         for r in grp.itertuples():
             detail[r.stat] = round(float(r.mean), 2)
+            if r.stat not in SCORING_KEY and r.stat != "anytime_td":
+                continue                      # kicking points: kept, not scored here
             if r.stat == "anytime_td":
                 # Non-passing touchdowns: rushing and receiving score the same
                 # in both configured leagues, so one rate covers both.

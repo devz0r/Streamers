@@ -3722,3 +3722,39 @@ week 7 (measured on all returners, 2023-2025; suspension returns were not
 separated). On the week-6 ESPN snapshot this moves your title odds 11.4% ->
 12.0% and playoff odds 63.6% -> 66.1%. An entry is ignored once its week
 arrives, so it can be left in place.
+
+### Kicker props and the opposing QB's interception line: logged, graded first
+
+The kicker and D/ST models already rest on Vegas through the game lines
+(team and opponent implied totals) and beat a ranking by those alone. Two
+player-prop lines add something the game line does not know:
+
+- **A kicker's kicking points** (`player_kicking_points`: field goals x 3
+  plus extra points): drives that stall into field goals, his range, the
+  weather. Bought with the other props from this week on, one more credit
+  per game (8 markets, not 7; the monthly pacing buys a game or so fewer on
+  a Sunday). The line is converted to a mean on a normal with sd 3.5, flat
+  across levels (kicker games 2019-2024: 3.4-3.8 at every level). It is not
+  shown as Vegas points: the leagues score field goals by distance, so
+  kicking points are not fantasy points.
+- **The opposing quarterback's interceptions** (`player_pass_interceptions`,
+  already bought for the skill-player blend): the starter's posted line (a
+  line filled in from his recent games does not count).
+
+There is no free history of props, so neither can be backtested, and the
+skill log only started keeping each quarterback's lines in week 6. So both
+are logged each week beside our projection for the unit
+(`results/<profile>/unit_log.parquet`, `roster/unit_props.py`), replaced
+until his game starts, and shown on the unit's card, without moving its
+projection. `scripts/grade_unit_props.py` grades them against what the
+units scored, leaving one week out:
+
+- **kickers:** `(1 - w) * ours + w * c * line`, with `c` (kicking points to
+  fantasy points) and `w` fitted on the other weeks;
+- **defences:** `ours + b * (his line - that week's average)`, with `b`
+  fitted on the other weeks.
+
+Once there are 60 graded rows over 3 weeks or more, each is kept only if
+it is better overall and worse in at most one week in four, the usual rule.
+About 25-30 of each are priced a week, so the first verdict is about three
+weeks out.
