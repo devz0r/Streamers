@@ -253,25 +253,29 @@ class SeasonModel:
                 on_roster = (k_idx >= w) if joins else (k_idx < w)
                 lv[:, :, j] = np.where(on_roster, lv[:, :, j], -1.0)
         players = [self.players[c] for c in cols]
-        used = np.zeros(lv.shape, bool)
         total = np.zeros((self.n, len(self.weeks)))
-        slot_ix = np.arange(len(players))[None, None, :]
+        # Each slot takes its best eligible player not yet used, week by week;
+        # a used player is marked -2 in place (``lv`` is this call's copy), so
+        # no slot rebuilds a mask the size of every player-week. Ties fall to
+        # the first player, as before.
+        used = np.float32(-2.0)
         for slot, count in self.slots:
-            elig = np.array([_eligible(p, slot) for p in players])
+            idx = np.array([j for j, p in enumerate(players) if _eligible(p, slot)], dtype=np.intp)
             rep = self.slot_replacement(slot)
             rep_score = np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0) if rep > 0 else 0.0
+            floor = max(rep, 0.0) + 1e-6                                      # beats the wire
             for _ in range(count):
-                if not elig.any():
+                if idx.size == 0:
                     total += rep_score
                     continue
-                masked = np.where(elig[None, None, :] & ~used, lv, np.float32(-2.0))
-                pick = masked.argmax(axis=2)                                  # (n, k)
-                best = np.take_along_axis(masked, pick[:, :, None], axis=2)[:, :, 0]
-                ok = best >= max(rep, 0.0) + 1e-6                             # beats the wire
-                ok &= best > -0.5
-                gained = np.take_along_axis(sc, pick[:, :, None], axis=2)[:, :, 0]
-                total += np.where(ok, gained, rep_score)
-                used |= (slot_ix == pick[:, :, None]) & ok[:, :, None]
+                sub = lv[:, :, idx] if idx.size < len(players) else lv
+                local = sub.argmax(axis=2)                                    # (n, k)
+                best = np.take_along_axis(sub, local[:, :, None], axis=2)[:, :, 0]
+                ok = (best >= floor) & (best > -0.5)
+                pick = idx[local][:, :, None]
+                total += np.where(ok, np.take_along_axis(sc, pick, axis=2)[:, :, 0], rep_score)
+                cur = np.take_along_axis(lv, pick, axis=2)
+                np.put_along_axis(lv, pick, np.where(ok[:, :, None], used, cur), axis=2)
         return total
 
     def _this_week_is_settled(self, owner: str, roster_ids: list[str], available_from: dict,

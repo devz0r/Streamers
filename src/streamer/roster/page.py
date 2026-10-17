@@ -792,6 +792,9 @@ def _try_pickup(report: MatchupReport) -> str:
     win = f", this week's win {base['win']:.0f}%" if base.get("win") is not None else ""
     spot = (" You have an open roster spot, so each player's first line is adding him with nobody dropped."
             if data.get("open_spot") else "")
+    if data.get("priced_at"):
+        spot += (f" Game day: priced at {_e(str(data['priced_at'])[11:16])} UTC, the last full build; "
+                 "repriced once the games are over.")
     chips = "".join(f'<button type="button" data-pos="{p}" aria-pressed="{"true" if p == "All" else "false"}">'
                     f'{"D/ST" if p == "DST" else p}</button>' for p in ("All", "QB", "RB", "WR", "TE", "DST", "K"))
     return (

@@ -294,10 +294,13 @@ def drop_candidates(roster: list[PlayerRow], add: PlayerRow, n: int,
 class TitleEngine:
     def __init__(self, snapshot: LeagueSnapshot, cfg: Config, n_sims: int = 6000,
                  candidates: int = 20, drops: int = 4, seed: int = 29,
-                 extra: list[PlayerRow] | None = None):
+                 extra: list[PlayerRow] | None = None, model: SeasonModel | None = None):
         """``extra``: free agents to simulate as well, so moves involving them
         can be priced (:meth:`value_now`) -- this week's pickups -- without
-        joining the waiver candidates."""
+        joining the waiver candidates. ``model``: a season simulation already
+        run for this league (another team's view of it): reused as is, seen
+        from this snapshot's team, and only the free agents it simulated are
+        priced."""
         self.snapshot, self.cfg = snapshot, cfg
         me = snapshot.my_team
         self.me = me
@@ -333,7 +336,16 @@ class TitleEngine:
         self.n_drops = drops
         have = {p.player_id for p in self.candidates}
         also = [p for p in extra or [] if p.player_id not in have]
-        self.model = SeasonModel(snapshot, cfg, n_sims=n_sims, seed=seed, extra_players=self.candidates + also)
+        if model is not None:
+            import copy
+
+            self.model = copy.copy(model)            # shares the simulated seasons, read-only
+            self.model.snapshot, self.model.teams = snapshot, snapshot.teams
+            have = self.model.pid
+            self.candidates = [p for p in self.candidates if p.player_id in have]
+            self.playoff_units = [p for p in self.playoff_units if p.player_id in have]
+        else:
+            self.model = SeasonModel(snapshot, cfg, n_sims=n_sims, seed=seed, extra_players=self.candidates + also)
         self.mine = self.model.team_index[me.team_id]
         base_odds = self.model.odds()
         self.base_won = (base_odds.champion == self.mine).astype(float)
@@ -477,9 +489,19 @@ class TitleEngine:
     def _won(self, roster_ids: list[str], rivals: dict[str, np.ndarray] | None = None, **kw) -> np.ndarray:
         """Per simulated season: 1 if you win the title with this roster
         (and ``rivals`` -- other teams' scores after they land a player)."""
+        # The same roster is priced more than once (a move, the free-agent
+        # table, a waiver plan): the simulation is fixed, so the answer is too.
+        key = tuple(sorted(roster_ids)) if not rivals and not kw else None
+        cache = self.__dict__.setdefault("_won_cache", {})
+        if key is not None and key in cache:
+            return cache[key]
         scores = self.model.team_scores(roster_ids, owner=self.me.team_id, **kw)
         champ = self.model.odds(override={**(rivals or {}), self.me.team_id: scores}).champion
-        return (champ == self.mine).astype(float)
+        won = (champ == self.mine).astype(float)
+        if key is not None:
+            won.setflags(write=False)          # shared: a caller must not change it in place
+            cache[key] = won
+        return won
 
     # -- rivals on the wire ---------------------------------------------
     def _claimant(self, add: PlayerRow) -> np.ndarray:

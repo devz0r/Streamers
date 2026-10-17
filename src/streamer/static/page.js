@@ -214,6 +214,7 @@
           swap(lg, v.tabs, "Seen as <strong>" + name + "</strong>: every “you” on these tabs means them. " +
             (v.full ? "Full simulations, as for your team." :
               "Lighter numbers (fewer simulations): odds are good to a point or two.") +
+            (v.note ? " " + String(v.note).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }) : "") +
             ' <button type="button" class="view-back">Back to your team</button>');
           var back = $(".view-back", panel(lg));
           if (back) back.addEventListener("click", function () { sel.value = ""; swap(lg, null, ""); });

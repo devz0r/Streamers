@@ -296,9 +296,15 @@ def write_views(docs: Path, team_panels) -> int:
             d = root / str(league)
             d.mkdir(parents=True, exist_ok=True)
             (d / f"{tid}.json").write_text(json.dumps({"name": v["name"], "full": bool(v.get("full")),
-                                                       "tabs": v["tabs"]}, separators=(",", ":")),
+                                                       "tabs": v["tabs"], "note": v.get("note", ""),
+                                                       "built_at": v.get("built_at")}, separators=(",", ":")),
                                            encoding="utf-8")
             n += 1
+        if team.get("_cache"):
+            d = root / str(league)
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "_me.json").write_text(json.dumps(team["_cache"], separators=(",", ":"), default=str),
+                                        encoding="utf-8")
     return n
 
 
@@ -923,8 +929,12 @@ def team_panels_for(
                              season_w[0], season_w[1], moved)
                 except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
                     log.warning("FantasyPros season blend for %s skipped: %s", name, exc)
-            panels[name] = _team_panel(snap, bound, rankings, projected, status, primary=True)
-            views = _team_views(snap, bound, rankings, projected)
+            game_day = is_game_day()
+            shared = {"cache": read_me_cache(bound) if game_day else {}}
+            panels[name] = _team_panel(snap, bound, rankings, projected, status, primary=True,
+                                       shared=shared, game_day=game_day)
+            shared["odds"] = getattr(snap, "_season_odds", None)
+            views = _team_views(snap, bound, rankings, projected, shared=shared, game_day=game_day)
             if views:
                 panels[name]["_views"] = views
                 panels[name]["_me"] = snap.my_team.name
@@ -971,11 +981,17 @@ def _light_cfg(bound: Config) -> Config:
 
 
 def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool = True,
-                light: bool = False, seen=None) -> dict[str, str]:
+                light: bool = False, seen=None, shared: dict | None = None,
+                game_day: bool = False) -> dict[str, str]:
     """One team's tabs (tab key -> HTML). ``primary`` is your own team: it
     alone writes the logs (odds, scorecard) and carries the sections only you
     use (every team's lineup, the trade evaluator, waiver plans). ``light``
-    runs fewer simulations, for another team's view."""
+    runs fewer simulations, for another team's view. ``shared`` carries what
+    the league's views have in common: your season odds (every team's title
+    and playoff odds are read off that one simulation) and the lighter season
+    simulation the light views price their moves on (built by the first).
+    On ``game_day`` your trade search and free-agent pricing are taken from
+    the last full build (``views/<league>/_me.json``) instead of rerun."""
     import logging
 
     from .roster.matchup import build_report
@@ -1026,9 +1042,21 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
             extra = [o.player for o in report.pickups] + (
                 add_drop.candidates(snap, LIGHT["add_skill"], LIGHT["add_units"]) if light
                 else add_drop.candidates(snap))
-            engine = TitleEngine(snap, bound, extra=extra, **({"n_sims": LIGHT["title_sims"]} if light else {}))
+            reuse = (shared or {}).get("model") if light else None
+            engine = TitleEngine(snap, bound, extra=extra, model=reuse,
+                                 **({"n_sims": LIGHT["title_sims"]} if light else {}))
+            if light and shared is not None and reuse is None:
+                shared["model"] = engine.model
             engine.market = {pid: s.value for pid, s in (seen or {}).items()}
             report.season = engine.model.odds()
+            odds = (shared or {}).get("odds")
+            if not primary and odds is not None and snap.my_team.team_id in odds.team_ids:
+                import dataclasses
+
+                # Every team's odds off your simulation, so the views agree.
+                report.season = dataclasses.replace(odds, mine=odds.team_ids.index(snap.my_team.team_id))
+            if primary:
+                snap._season_odds = report.season
             if primary:
                 try:
                     from .roster import odds_log
@@ -1062,12 +1090,17 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
             try:
                 from .roster import add_drop
 
-                report.add_drop = (add_drop.build(engine, report, n_drops=LIGHT["add_drops"], n_sims=LIGHT["add_sims"],
-                                                  n_full=0, n_skill=LIGHT["add_skill"], n_units=LIGHT["add_units"])
-                                   if light else add_drop.build(engine, report))
+                cached = (shared or {}).get("cache") or {}
+                if game_day and primary and cached.get("add_drop"):
+                    report.add_drop = {**cached["add_drop"], "priced_at": cached.get("built_at")}
+                else:
+                    report.add_drop = (add_drop.build(engine, report, n_drops=LIGHT["add_drops"],
+                                                      n_sims=LIGHT["add_sims"], n_full=0,
+                                                      n_skill=LIGHT["add_skill"], n_units=LIGHT["add_units"])
+                                       if light else add_drop.build(engine, report))
             except Exception as exc:  # noqa: BLE001 - a bonus section
                 log.warning("add/drop table for %s skipped: %s", name, exc)
-            if primary:
+            if primary and not game_day:
                 try:
                     from .roster.waiver_plans import PlanFinder
 
@@ -1081,6 +1114,8 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                 left = days_to_deadline(snap)
                 if left is not None and left < 0:
                     log.info("%s: trading has closed; no trades searched", name)
+                elif game_day:
+                    log.info("%s: game day: trades kept from the last full build", name)
                 else:
                     finder = TradeFinder(snap, engine.model, seen=seen)
                     report.trades = finder.find(5)
@@ -1100,6 +1135,17 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
     panel = team_sections(snap, report, moves, cfg)
     if primary and status and not status.get("ok") and snap.week != rankings.week:
         panel["hub"] = render_sync_failure(status, bound, stale_week=snap.week) + panel.get("hub", "")
+    if primary:
+        cached = (shared or {}).get("cache") or {}
+        if game_day and cached.get("trades"):
+            when = str(cached.get("built_at", ""))[11:16]
+            panel["trades"] = (f'<p class="sub">Game day: trades as found at {_e(when)} UTC, the last full '
+                               "build; they are searched again once the games are over.</p>" + cached["trades"])
+        if not game_day:
+            panel["_cache"] = {"trades": panel.get("trades"), "add_drop": report.add_drop,
+                               "built_at": datetime.now(UTC).isoformat(timespec="minutes")}
+        elif cached:
+            panel["_cache"] = cached
     return panel
 
 
@@ -1119,49 +1165,110 @@ def view_as(snap, team_id: str):
     return view
 
 
-def _team_views(snap, bound: Config, rankings, projected) -> dict[str, dict]:
-    """Every other team's tabs (team id -> {name, full, tabs}). Teams named in
-    ``roster.views.full`` get the full simulations; the rest the lighter
-    settings. Stops starting new views past ``roster.views.budget_minutes``
-    so a refresh cannot run away; a team left out says so on the page."""
+def is_game_day(now: datetime | None = None) -> bool:
+    """Sunday's games under way: from 12:30 on Sunday to 4:00 on Monday,
+    US Eastern. ``STREAMER_GAME_DAY`` (1/0) overrides, for testing."""
+    import os
+    from zoneinfo import ZoneInfo
+
+    forced = os.environ.get("STREAMER_GAME_DAY", "").strip()
+    if forced in ("0", "1"):
+        return forced == "1"
+    et = (now or datetime.now(UTC)).astimezone(ZoneInfo("America/New_York"))
+    minutes = et.hour * 60 + et.minute
+    return (et.weekday() == 6 and minutes >= 12 * 60 + 30) or (et.weekday() == 0 and minutes < 4 * 60)
+
+
+def _views_dir(bound: Config) -> Path:
+    return bound.docs_dir / "views" / bound.profile
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def read_me_cache(bound: Config) -> dict:
+    """Your trades and free-agent pricing from the last full build."""
+    return _read_json(_views_dir(bound) / "_me.json")
+
+
+def _team_views(snap, bound: Config, rankings, projected, shared: dict | None = None,
+                game_day: bool = False) -> dict[str, dict]:
+    """Every other team's tabs (team id -> {name, full, tabs, note}). Teams
+    named in ``roster.views.full`` get the full simulations; the rest the
+    lighter settings, priced on one lighter season simulation shared by all
+    of them; every team's title and playoff odds come from yours. On game
+    day only the lineup, this week's win odds and the summary are rebuilt;
+    the other tabs are kept from the last full build. Stops starting new
+    views past ``roster.views.budget_minutes``; a team left out says so."""
+    import dataclasses
     import logging
     import time
+
+    from .roster.matchup import build_report
+    from .roster.page import team_sections
 
     log = logging.getLogger(__name__)
     conf = (bound.raw.get("roster") or {}).get("views") or {}
     if not conf.get("enabled", True):
         return {}
+    shared = {} if shared is None else shared
     full = {str(n).strip().lower() for n in conf.get("full", [])}
     budget = float(conf.get("budget_minutes", 20)) * 60
     seen = None
-    try:
-        from .roster import perception
-        from .roster.projections import load_history
+    if not game_day:
+        try:
+            from .roster import perception
+            from .roster.projections import load_history
 
-        seen = perception.for_snapshot(snap, load_history(bound))
-    except Exception as exc:  # noqa: BLE001
-        log.warning("market view for %s skipped: %s", bound.profile, exc)
+            seen = perception.for_snapshot(snap, load_history(bound))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("market view for %s skipped: %s", bound.profile, exc)
     me = snap.my_team.team_id
     others = sorted((t for t in snap.teams if t.team_id != me),
                     key=lambda t: (t.name.strip().lower() not in full, t.name.lower()))
+    odds = shared.get("odds")
     out: dict[str, dict] = {}
     t0 = time.monotonic()
     for team in others:
         is_full = team.name.strip().lower() in full
+        tid = str(team.team_id)
         if time.monotonic() - t0 > budget:
-            out[str(team.team_id)] = {"name": team.name, "full": is_full, "tabs": None}
+            out[tid] = {"name": team.name, "full": is_full, "tabs": None}
             continue
         start = time.monotonic()
         try:
-            panel = _team_panel(view_as(snap, team.team_id), bound, rankings, projected, None,
-                                primary=False, light=not is_full, seen=seen)
-            tabs = {k: panel[k] for k in (*VIEW_TABS, "kpis") if panel.get(k)}
-            if panel.get("streams"):
-                tabs["team_streams"] = panel["streams"]
-            out[str(team.team_id)] = {"name": team.name, "full": is_full, "tabs": tabs}
+            view = view_as(snap, team.team_id)
+            if game_day:
+                prev = _read_json(_views_dir(bound) / f"{tid}.json")
+                cfg = bound if is_full else _light_cfg(bound)
+                report = build_report(view, cfg)
+                if odds is not None and tid in odds.team_ids:
+                    report.season = dataclasses.replace(odds, mine=odds.team_ids.index(tid))
+                panel = team_sections(view, report, [], cfg)
+                tabs = dict(prev.get("tabs") or {})
+                tabs.update({k: panel[k] for k in ("hub", "lineup", "kpis") if panel.get(k)})
+                if panel.get("streams"):
+                    tabs["team_streams"] = panel["streams"]
+                when = str(prev.get("built_at", ""))[11:16]
+                note = ("Game day: the lineup, this week's win odds and the summary are live; the other tabs "
+                        + (f"are from {when} UTC." if when else "fill in after the games."))
+                out[tid] = {"name": team.name, "full": is_full, "tabs": tabs, "note": note,
+                            "built_at": prev.get("built_at")}
+            else:
+                panel = _team_panel(view, bound, rankings, projected, None, primary=False, light=not is_full,
+                                    seen=seen, shared=shared)
+                tabs = {k: panel[k] for k in (*VIEW_TABS, "kpis") if panel.get(k)}
+                if panel.get("streams"):
+                    tabs["team_streams"] = panel["streams"]
+                out[tid] = {"name": team.name, "full": is_full, "tabs": tabs,
+                            "built_at": datetime.now(UTC).isoformat(timespec="minutes")}
         except Exception as exc:  # noqa: BLE001 - one team's view never blocks the page
             log.warning("view as %s (%s) skipped: %s", team.name, bound.profile, exc)
-            out[str(team.team_id)] = {"name": team.name, "full": is_full, "tabs": None}
-        log.info("%s: view as %s (%s) in %.0fs", bound.profile, team.name, "full" if is_full else "light",
-                 time.monotonic() - start)
+            out[tid] = {"name": team.name, "full": is_full, "tabs": None}
+        log.info("%s: view as %s (%s%s) in %.0fs", bound.profile, team.name, "full" if is_full else "light",
+                 ", game day" if game_day else "", time.monotonic() - start)
     return out
