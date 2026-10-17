@@ -3771,3 +3771,29 @@ starting slots plus bench), the first line is adding him with nobody
 dropped, priced on the same simulations (`TitleEngine._won` on the roster
 plus him; this week's best lineup rebuilt with him in). Players beyond the
 ~130 priced are listed and say why they are not priced.
+
+### Any team's view: one "Viewing as" picker for every tab
+
+Each league's panel now opens with "Viewing as", defaulting to your team.
+Picking another team swaps the team tabs (Hub, Lineup, Roster, Waivers,
+Trades, Season, the summary tiles and the matchup part of D/ST & K) for that
+team's, worked out as if it were yours: its lineup against its opponent this
+week, its pickups and drops, its title odds and moves, its trades. The
+league-wide parts (the D/ST and K rankings, the Model tab) do not change.
+
+- **How:** the snapshot is copied with that team marked as yours and its
+  opponent from the schedule (`publish.view_as`), and the same code builds
+  its tabs (`publish._team_panel`). Your team's view alone writes the logs
+  (season odds, scorecard) and carries the sections only you use (every
+  team's lineup, the trade evaluator, waiver plans).
+- **Lighter for the others** (`publish.LIGHT`): 5,000 lineup draws instead of
+  20,000, 1,500 season simulations instead of 6,000, and 40 skill free agents
+  plus 3 defences and kickers, priced against 3 drops each. Their odds are
+  good to a point or two, and the page says so. **Let Kevin Cook** (config
+  `roster.views.full`) gets the full settings.
+- **Page weight:** each other team's tabs are written to
+  `views/<league>/<team id>.json` and loaded only when picked, so the page
+  itself is no heavier. The weekly archive copy has no picker (its views
+  would be overwritten by later weeks).
+- **Time:** views stop being started past `roster.views.budget_minutes` (20)
+  per league; a team left out is listed as not built this refresh.

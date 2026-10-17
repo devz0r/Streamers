@@ -158,6 +158,71 @@
     $$(".profile-panel").forEach(function (p) { apply(p.dataset.league); });
   });
 
+  // -- viewing as another team -------------------------------------------------
+  // The team tabs are swapped for that team's, loaded from views/<league>/<id>.json;
+  // the league-wide tabs (D/ST & K rankings, Model) stay. Your own view is kept
+  // in memory and put back when you pick your team again.
+  var VIEW_TABS = ["hub", "lineup", "roster", "waivers", "trades", "season"];
+  var original = {};
+  function run(root) {
+    $$("script", root).forEach(function (old) {
+      if (old.type && old.type !== "text/javascript") return;
+      var s = document.createElement("script");
+      s.textContent = old.textContent;
+      old.parentNode.replaceChild(s, old);
+    });
+  }
+  function targets(lg) {
+    var p = panel(lg), out = {};
+    VIEW_TABS.forEach(function (t) { var el = document.getElementById(lg + "-" + t); if (el) out[t] = el; });
+    out.kpis = $(".view-kpis", p);
+    out.team_streams = $(".team-streams", p);
+    return out;
+  }
+  function swap(lg, tabs, banner) {
+    var p = panel(lg), tg = targets(lg);
+    if (!original[lg]) {
+      original[lg] = {};
+      Object.keys(tg).forEach(function (k) { if (tg[k]) original[lg][k] = tg[k].innerHTML; });
+    }
+    Object.keys(tg).forEach(function (k) {
+      if (!tg[k]) return;
+      var html = tabs ? tabs[k] : original[lg][k];
+      tg[k].innerHTML = html || (tabs ? '<p class="sub">Nothing here for this team this week.</p>' : "");
+      if (tabs || html) run(tg[k]);
+    });
+    var b = $(".view-banner", p);
+    if (b) b.remove();
+    if (banner) {
+      b = document.createElement("div"); b.className = "view-banner"; b.innerHTML = banner;
+      $(".view-bar", p).insertAdjacentElement("afterend", b);
+    }
+    fold();
+    apply(lg);
+  }
+  $$("select.team-pick").forEach(function (sel) {
+    var lg = sel.dataset.league;
+    sel.value = "";
+    sel.addEventListener("change", function () {
+      var id = sel.value, opt = sel.options[sel.selectedIndex];
+      if (!id) { swap(lg, null, ""); return; }
+      sel.disabled = true;
+      fetch("views/" + lg + "/" + encodeURIComponent(id) + ".json?v=" + encodeURIComponent(sel.dataset.stamp || ""))
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (v) {
+          var name = String(v.name).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+          swap(lg, v.tabs, "Seen as <strong>" + name + "</strong>: every “you” on these tabs means them. " +
+            (v.full ? "Full simulations, as for your team." :
+              "Lighter numbers (fewer simulations): odds are good to a point or two.") +
+            ' <button type="button" class="view-back">Back to your team</button>');
+          var back = $(".view-back", panel(lg));
+          if (back) back.addEventListener("click", function () { sel.value = ""; swap(lg, null, ""); });
+        })
+        .catch(function () { opt.textContent = opt.textContent.replace(/ \(could not load\)$/, "") + " (could not load)"; sel.value = ""; })
+        .then(function () { sel.disabled = false; });
+    });
+  });
+
   restore();
   tools();
   fold();

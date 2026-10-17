@@ -151,6 +151,7 @@ def render_page(
     ranked: dict[str, Rankings] | Rankings,
     cfg: Config | None = None,
     team_panels: dict[str, dict[str, str] | str] | None = None,
+    views: bool = True,
 ) -> str:
     """Render the whole page to an HTML string.
 
@@ -229,9 +230,10 @@ def render_page(
         units = {pos: [str(t) for t in frame["team"]] for pos, frame in (("DST", rankings.dst), ("K", rankings.kicker))
                  if frame is not None and not frame.empty and "team" in frame}
         avail = unit_availability(bound, rankings.week, units) if team_panels else {}
-        sections = dict(team)
+        sections = {k: v for k, v in team.items() if not k.startswith("_")}
         sections["streams"] = "".join([
-            _badges(rankings, bound), _notices(rankings), team.get("streams", ""),
+            _badges(rankings, bound), _notices(rankings),
+            f'<div class="team-streams">{team.get("streams", "")}</div>',
             _two_week_section(rankings, avail),
             _ranking_section("Defense / Special Teams", rankings.dst, "DST", int(conf["top_n"]), bound, avail),
             _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound, avail),
@@ -239,7 +241,9 @@ def render_page(
         sections["model"] = "".join([team.get("model", ""), _benchmark_section(bound),
                                      _calibration_section(bound, rankings), _ledger_section(bound)])
         parts.append(f'<div class="profile-panel" id="panel-{_e(name)}" data-league="{_e(name)}">')
-        parts.append(team.get("kpis", ""))
+        if views and team.get("_views"):
+            parts.append(_team_picker(name, team, iso))
+        parts.append(f'<div class="view-kpis">{team.get("kpis", "")}</div>')
         parts.append(_section_tabs(name, sections))
         parts.append("</div>")
 
@@ -259,6 +263,43 @@ _LINE_BADGE = {
     "fallback": ("", None),        # the source phrase is the label
     "incomplete": ("warn", "incomplete lines"),
 }
+
+
+def _team_picker(league: str, team: dict, stamp: str) -> str:
+    """"Viewing as": every team in the league, yours first. Picking another
+    team swaps the team tabs for that team's (loaded from ``views/``)."""
+    me = team.get("_me") or "Your team"
+    opts = [f'<option value="">{_e(me)} (you)</option>']
+    views = team.get("_views") or {}
+    for tid, v in sorted(views.items(), key=lambda kv: (not kv[1].get("full"), kv[1]["name"].lower())):
+        tag = "" if v.get("tabs") else " (not built this refresh)"
+        opts.append(f'<option value="{_e(tid)}" data-full="{int(bool(v.get("full")))}"'
+                    f'{" disabled" if not v.get("tabs") else ""}>{_e(v["name"])}{tag}</option>')
+    return (f'<div class="view-bar"><label>Viewing as <select class="team-pick" data-league="{_e(league)}" '
+            f'data-stamp="{_e(stamp)}">{"".join(opts)}</select></label></div>')
+
+
+def write_views(docs: Path, team_panels) -> int:
+    """Each other team's tabs as ``views/<league>/<team id>.json``, fetched
+    when that team is picked. Old files are cleared first."""
+    import shutil
+
+    root = docs / "views"
+    shutil.rmtree(root, ignore_errors=True)
+    n = 0
+    for league, team in (team_panels or {}).items():
+        if not isinstance(team, dict):
+            continue
+        for tid, v in (team.get("_views") or {}).items():
+            if not v.get("tabs"):
+                continue
+            d = root / str(league)
+            d.mkdir(parents=True, exist_ok=True)
+            (d / f"{tid}.json").write_text(json.dumps({"name": v["name"], "full": bool(v.get("full")),
+                                                       "tabs": v["tabs"]}, separators=(",", ":")),
+                                           encoding="utf-8")
+            n += 1
+    return n
 
 
 def _badges(rankings: Rankings, cfg: Config) -> str:
@@ -642,13 +683,14 @@ def publish_profiles(
         import logging
 
         logging.getLogger(__name__).warning("D/ST and K consensus skipped: %s", exc)
-    html = render_page(ranked, cfg, team_panels)
+    html = render_page(ranked, cfg, team_panels, views=False)
 
     archive = docs / f"week_{week}.html"
     archive.write_text(html, encoding="utf-8")
     # Re-rendered so the index's archive list includes the week just written.
     index = docs / "index.html"
     index.write_text(render_page(ranked, cfg, team_panels), encoding="utf-8")
+    write_views(docs, team_panels)
 
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
@@ -695,11 +737,9 @@ def team_panels_for(
     import logging
 
     from .league.store import load_snapshot, read_status
-    from .roster.matchup import build_report
-    from .roster.page import render_sync_failure, team_sections
+    from .roster.page import render_sync_failure
     from .roster.projections import project_snapshot
     from .roster.vegas import attach as attach_vegas
-    from .roster.waivers import recommend
 
     log = logging.getLogger(__name__)
     panels: dict[str, dict[str, str]] = {}
@@ -883,113 +923,11 @@ def team_panels_for(
                              season_w[0], season_w[1], moved)
                 except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
                     log.warning("FantasyPros season blend for %s skipped: %s", name, exc)
-            report = build_report(snap, bound)
-            try:
-                from .roster import all_lineups
-
-                report.all_lineups = all_lineups.build(snap, report.optimisation,
-                                                       sims=int(bound.raw["roster"]["sims"]))
-            except Exception as exc:  # noqa: BLE001 - a bonus section
-                log.warning("every team's best lineup for %s skipped: %s", name, exc)
-            try:
-                from .roster import scorecard
-                from .roster.projections import load_history
-
-                report.scorecard = scorecard.build(bound, load_history(bound), snap.platform.upper()
-                                                   if snap.platform != "yahoo" else "Yahoo")
-                if season_w is not None:
-                    from .data.fantasypros import conf as fp_conf
-
-                    report.scorecard.season_weight = {
-                        "weight": round(season_w[0], 2), "games": season_w[1],
-                        "measured": season_w[1] >= int(fp_conf(bound).get("season_min_games", 150))}
-                scorecard.save(bound, report.scorecard)
-            except Exception as exc:  # noqa: BLE001 - grading is a bonus section
-                log.warning("scorecard for %s skipped: %s", name, exc)
-            if (snap.rules or {}).get("schedule"):
-                seen = None
-                try:
-                    from .roster import perception
-                    from .roster.projections import load_history
-
-                    seen = perception.for_snapshot(snap, load_history(bound))
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("market view for %s skipped: %s", name, exc)
-                try:
-                    from .roster import add_drop
-                    from .roster.title_moves import TitleEngine
-
-                    engine = TitleEngine(snap, bound, extra=[o.player for o in report.pickups]
-                                         + add_drop.candidates(snap))
-                    engine.market = {pid: s.value for pid, s in (seen or {}).items()}
-                    report.season = engine.model.odds()
-                    try:
-                        from .roster import odds_log
-
-                        odds_log.record(bound, snap, report.season)
-                        graded = odds_log.grade(bound, snap)
-                        if graded:
-                            log.info("%s: season odds graded: %s", name, graded["by_week"])
-                    except Exception as exc:  # noqa: BLE001 - a log must never block the page
-                        log.warning("odds log for %s skipped: %s", name, exc)
-                    report.title_moves = engine.moves(5)
-                    report.passed = engine.passed
-                    report.waiver_rank = engine.rank
-                    report.stakes = engine.model.stakes(snap.my_team.team_id)
-                    try:
-                        from .roster.matchup import price_pickups
-
-                        price_pickups(report, engine)
-                    except Exception as exc:  # noqa: BLE001 - pickups keep their P(win) without it
-                        log.warning("pricing this week's pickups for %s skipped: %s", name, exc)
-                    try:
-                        from .roster.roster_view import roster_values
-
-                        report.roster_values = roster_values(engine, report, seen)
-                    except Exception as exc:  # noqa: BLE001 - a bonus section
-                        log.warning("roster values for %s skipped: %s", name, exc)
-                except Exception as exc:  # noqa: BLE001 - odds are a bonus section
-                    log.warning("title engine for %s skipped: %s", name, exc)
-                    engine = None
-                if engine is not None:
-                    try:
-                        report.add_drop = add_drop.build(engine, report)
-                    except Exception as exc:  # noqa: BLE001 - a bonus section
-                        log.warning("add/drop table for %s skipped: %s", name, exc)
-                    try:
-                        from .roster.waiver_plans import PlanFinder
-
-                        report.plans = PlanFinder(engine, report.title_moves, seen=seen).find(3)
-                    except Exception as exc:  # noqa: BLE001
-                        log.warning("waiver plans for %s skipped: %s", name, exc)
-                    finder = None
-                    try:
-                        from .roster.trades import TradeFinder, days_to_deadline
-
-                        left = days_to_deadline(snap)
-                        if left is not None and left < 0:
-                            log.info("%s: trading has closed; no trades searched", name)
-                        else:
-                            finder = TradeFinder(snap, engine.model, seen=seen)
-                            report.trades = finder.find(5)
-                    except Exception as exc:  # noqa: BLE001
-                        log.warning("trade finder for %s skipped: %s", name, exc)
-                    if finder is not None:
-                        try:
-                            from .roster import trade_eval
-
-                            report.trade_eval = trade_eval.export(snap, engine.model, finder,
-                                                                  getattr(finder, "priced", []))
-                            log.info("trade evaluator for %s: %s", name, report.trade_eval.get("check"))
-                        except Exception as exc:  # noqa: BLE001 - a bonus section
-                            log.warning("trade evaluator for %s skipped: %s", name, exc)
-            report.notes.extend(n for n in projected.notes if "not playing" in n)
-            report.notes.extend(projected.lock_notes)
-            moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
-            panel = team_sections(snap, report, moves, bound)
-            if status and not status.get("ok") and snap.week != rankings.week:
-                panel["hub"] = render_sync_failure(status, bound, stale_week=snap.week) + panel.get("hub", "")
-            panels[name] = panel
+            panels[name] = _team_panel(snap, bound, rankings, projected, status, primary=True)
+            views = _team_views(snap, bound, rankings, projected)
+            if views:
+                panels[name]["_views"] = views
+                panels[name]["_me"] = snap.my_team.name
         except Exception as exc:  # noqa: BLE001
             log.warning("my-team panel for %s skipped: %s", name, exc)
     return panels
@@ -1012,3 +950,218 @@ def _json_rows(frame: pd.DataFrame) -> list[dict]:
     ]
     out = frame[cols].copy()
     return json.loads(out.to_json(orient="records"))
+
+
+# ---------------------------------------------------------------------------
+# Any team's view: the same tabs, seen from another team in the league
+# ---------------------------------------------------------------------------
+#: Tabs whose content is about one team (the rest are league-wide).
+VIEW_TABS = ("hub", "lineup", "roster", "waivers", "trades", "season")
+#: Lighter settings for another team's view (DECISIONS.md, "Any team's view").
+LIGHT = {"lineup_sims": 5000, "title_sims": 1500, "add_skill": 40, "add_units": 3, "add_drops": 3,
+         "add_sims": 3000}
+
+
+def _light_cfg(bound: Config) -> Config:
+    import copy
+
+    raw = copy.deepcopy(bound.raw)
+    raw["roster"]["sims"] = LIGHT["lineup_sims"]
+    return Config(raw=raw, root=bound.root, profile=bound.profile)
+
+
+def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool = True,
+                light: bool = False, seen=None) -> dict[str, str]:
+    """One team's tabs (tab key -> HTML). ``primary`` is your own team: it
+    alone writes the logs (odds, scorecard) and carries the sections only you
+    use (every team's lineup, the trade evaluator, waiver plans). ``light``
+    runs fewer simulations, for another team's view."""
+    import logging
+
+    from .roster.matchup import build_report
+    from .roster.page import render_sync_failure, team_sections
+    from .roster.waivers import recommend
+
+    log = logging.getLogger(__name__)
+    name = bound.profile
+    cfg = _light_cfg(bound) if light else bound
+    report = build_report(snap, cfg)
+    if primary:
+        try:
+            from .roster import all_lineups
+
+            report.all_lineups = all_lineups.build(snap, report.optimisation, sims=int(bound.raw["roster"]["sims"]))
+        except Exception as exc:  # noqa: BLE001 - a bonus section
+            log.warning("every team's best lineup for %s skipped: %s", name, exc)
+        try:
+            from .roster import scorecard
+            from .roster.projections import load_history
+
+            report.scorecard = scorecard.build(bound, load_history(bound), snap.platform.upper()
+                                               if snap.platform != "yahoo" else "Yahoo")
+            season_w = getattr(snap, "_season_weight", None)
+            if season_w is not None:
+                from .data.fantasypros import conf as fp_conf
+
+                report.scorecard.season_weight = {
+                    "weight": round(season_w[0], 2), "games": season_w[1],
+                    "measured": season_w[1] >= int(fp_conf(bound).get("season_min_games", 150))}
+            scorecard.save(bound, report.scorecard)
+        except Exception as exc:  # noqa: BLE001 - grading is a bonus section
+            log.warning("scorecard for %s skipped: %s", name, exc)
+    if (snap.rules or {}).get("schedule"):
+        if seen is None:
+            try:
+                from .roster import perception
+                from .roster.projections import load_history
+
+                seen = perception.for_snapshot(snap, load_history(bound))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("market view for %s skipped: %s", name, exc)
+        engine = None
+        try:
+            from .roster import add_drop
+            from .roster.title_moves import TitleEngine
+
+            extra = [o.player for o in report.pickups] + (
+                add_drop.candidates(snap, LIGHT["add_skill"], LIGHT["add_units"]) if light
+                else add_drop.candidates(snap))
+            engine = TitleEngine(snap, bound, extra=extra, **({"n_sims": LIGHT["title_sims"]} if light else {}))
+            engine.market = {pid: s.value for pid, s in (seen or {}).items()}
+            report.season = engine.model.odds()
+            if primary:
+                try:
+                    from .roster import odds_log
+
+                    odds_log.record(bound, snap, report.season)
+                    graded = odds_log.grade(bound, snap)
+                    if graded:
+                        log.info("%s: season odds graded: %s", name, graded["by_week"])
+                except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                    log.warning("odds log for %s skipped: %s", name, exc)
+            report.title_moves = engine.moves(5)
+            report.passed = engine.passed
+            report.waiver_rank = engine.rank
+            report.stakes = engine.model.stakes(snap.my_team.team_id)
+            try:
+                from .roster.matchup import price_pickups
+
+                price_pickups(report, engine)
+            except Exception as exc:  # noqa: BLE001 - pickups keep their P(win) without it
+                log.warning("pricing this week's pickups for %s skipped: %s", name, exc)
+            try:
+                from .roster.roster_view import roster_values
+
+                report.roster_values = roster_values(engine, report, seen)
+            except Exception as exc:  # noqa: BLE001 - a bonus section
+                log.warning("roster values for %s skipped: %s", name, exc)
+        except Exception as exc:  # noqa: BLE001 - odds are a bonus section
+            log.warning("title engine for %s skipped: %s", name, exc)
+            engine = None
+        if engine is not None:
+            try:
+                from .roster import add_drop
+
+                report.add_drop = (add_drop.build(engine, report, n_drops=LIGHT["add_drops"], n_sims=LIGHT["add_sims"],
+                                                  n_full=0, n_skill=LIGHT["add_skill"], n_units=LIGHT["add_units"])
+                                   if light else add_drop.build(engine, report))
+            except Exception as exc:  # noqa: BLE001 - a bonus section
+                log.warning("add/drop table for %s skipped: %s", name, exc)
+            if primary:
+                try:
+                    from .roster.waiver_plans import PlanFinder
+
+                    report.plans = PlanFinder(engine, report.title_moves, seen=seen).find(3)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("waiver plans for %s skipped: %s", name, exc)
+            finder = None
+            try:
+                from .roster.trades import TradeFinder, days_to_deadline
+
+                left = days_to_deadline(snap)
+                if left is not None and left < 0:
+                    log.info("%s: trading has closed; no trades searched", name)
+                else:
+                    finder = TradeFinder(snap, engine.model, seen=seen)
+                    report.trades = finder.find(5)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("trade finder for %s skipped: %s", name, exc)
+            if finder is not None and not light:
+                try:
+                    from .roster import trade_eval
+
+                    report.trade_eval = trade_eval.export(snap, engine.model, finder, getattr(finder, "priced", []))
+                    log.info("trade evaluator for %s: %s", name, report.trade_eval.get("check"))
+                except Exception as exc:  # noqa: BLE001 - a bonus section
+                    log.warning("trade evaluator for %s skipped: %s", name, exc)
+    report.notes.extend(n for n in projected.notes if "not playing" in n)
+    report.notes.extend(projected.lock_notes)
+    moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
+    panel = team_sections(snap, report, moves, cfg)
+    if primary and status and not status.get("ok") and snap.week != rankings.week:
+        panel["hub"] = render_sync_failure(status, bound, stale_week=snap.week) + panel.get("hub", "")
+    return panel
+
+
+def view_as(snap, team_id: str):
+    """A copy of the snapshot seen from ``team_id``: that team is "yours"
+    and its opponent this week comes from the schedule."""
+    import copy
+
+    from .league.model import Matchup
+    from .roster.all_lineups import pairings
+
+    opp = pairings(snap).get(str(team_id))
+    view = copy.deepcopy(snap)
+    for t in view.teams:
+        t.is_mine = str(t.team_id) == str(team_id)
+    view.matchup = Matchup(week=int(snap.week), my_team_id=str(team_id), opponent_team_id=opp) if opp else None
+    return view
+
+
+def _team_views(snap, bound: Config, rankings, projected) -> dict[str, dict]:
+    """Every other team's tabs (team id -> {name, full, tabs}). Teams named in
+    ``roster.views.full`` get the full simulations; the rest the lighter
+    settings. Stops starting new views past ``roster.views.budget_minutes``
+    so a refresh cannot run away; a team left out says so on the page."""
+    import logging
+    import time
+
+    log = logging.getLogger(__name__)
+    conf = (bound.raw.get("roster") or {}).get("views") or {}
+    if not conf.get("enabled", True):
+        return {}
+    full = {str(n).strip().lower() for n in conf.get("full", [])}
+    budget = float(conf.get("budget_minutes", 20)) * 60
+    seen = None
+    try:
+        from .roster import perception
+        from .roster.projections import load_history
+
+        seen = perception.for_snapshot(snap, load_history(bound))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("market view for %s skipped: %s", bound.profile, exc)
+    me = snap.my_team.team_id
+    others = sorted((t for t in snap.teams if t.team_id != me),
+                    key=lambda t: (t.name.strip().lower() not in full, t.name.lower()))
+    out: dict[str, dict] = {}
+    t0 = time.monotonic()
+    for team in others:
+        is_full = team.name.strip().lower() in full
+        if time.monotonic() - t0 > budget:
+            out[str(team.team_id)] = {"name": team.name, "full": is_full, "tabs": None}
+            continue
+        start = time.monotonic()
+        try:
+            panel = _team_panel(view_as(snap, team.team_id), bound, rankings, projected, None,
+                                primary=False, light=not is_full, seen=seen)
+            tabs = {k: panel[k] for k in (*VIEW_TABS, "kpis") if panel.get(k)}
+            if panel.get("streams"):
+                tabs["team_streams"] = panel["streams"]
+            out[str(team.team_id)] = {"name": team.name, "full": is_full, "tabs": tabs}
+        except Exception as exc:  # noqa: BLE001 - one team's view never blocks the page
+            log.warning("view as %s (%s) skipped: %s", team.name, bound.profile, exc)
+            out[str(team.team_id)] = {"name": team.name, "full": is_full, "tabs": None}
+        log.info("%s: view as %s (%s) in %.0fs", bound.profile, team.name, "full" if is_full else "light",
+                 time.monotonic() - start)
+    return out

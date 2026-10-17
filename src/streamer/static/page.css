@@ -338,3 +338,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
 .fa-drops li { padding: 7px 4px; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
 .fa-drops li:last-child { border-bottom: 0; }
 .fa-fx { color: var(--muted); margin-top: 2px; }
+
+/* Viewing as another team */
+.view-bar { margin: 0 0 10px; font-size: 13.5px; color: var(--muted); }
+.view-bar select { font: 650 14px var(--font); color: var(--text); background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 10px; padding: 7px 10px; margin-left: 6px; max-width: 70vw; }
+.view-banner { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 13.5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.view-back { font: 650 13px var(--font); color: var(--accent); background: none; border: 0; padding: 0 0 0 4px; cursor: pointer; text-decoration: underline; }

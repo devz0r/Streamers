@@ -38,7 +38,7 @@ N_DROPS_TAIL = 3
 SIMS = 8000
 
 
-def candidates(snapshot: LeagueSnapshot) -> list[PlayerRow]:
+def candidates(snapshot: LeagueSnapshot, n_skill: int | None = None, n_units: int | None = None) -> list[PlayerRow]:
     """The free agents worth pricing, best season value first."""
     def ok(p: PlayerRow) -> bool:
         return (bool(p.team) and not p.unsigned and not p.is_long_term_out
@@ -48,22 +48,23 @@ def candidates(snapshot: LeagueSnapshot) -> list[PlayerRow]:
         return -float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
 
     pool = [p for p in snapshot.free_agents if ok(p)]
-    skill = sorted((p for p in pool if p.position in ("QB", "RB", "WR", "TE")), key=key)[:N_SKILL]
+    skill = sorted((p for p in pool if p.position in ("QB", "RB", "WR", "TE")), key=key)[:N_SKILL if n_skill is None else n_skill]
     units = []
     for pos in ("DST", "K"):
-        units += sorted((p for p in pool if p.position == pos), key=key)[:N_UNITS]
+        units += sorted((p for p in pool if p.position == pos), key=key)[:N_UNITS if n_units is None else n_units]
     return skill + units
 
 
 def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int = 31,
-          n_full: int = N_FULL, n_tail: int = N_DROPS_TAIL) -> dict | None:
+          n_full: int = N_FULL, n_tail: int = N_DROPS_TAIL, n_skill: int | None = None,
+          n_units: int | None = None) -> dict | None:
     """``{"base": {...}, "adds": [{player, drops: [{player, title, win}]}],
     "others": [player, ...]}``; title and win are changes in points of
     probability (None where the week cannot be scored: no opponent);
     ``others`` are the free agents not priced, for the search."""
     snap = report.snapshot
     me = snap.my_team
-    adds = [p for p in candidates(snap) if p.player_id in engine.model.pid]
+    adds = [p for p in candidates(snap, n_skill, n_units) if p.player_id in engine.model.pid]
     if not adds:
         return None
     worth = engine.worth_mean()
