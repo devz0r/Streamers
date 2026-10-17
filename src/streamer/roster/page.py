@@ -1037,8 +1037,9 @@ def _proj_cell(p) -> str:
     cell = f"{p.week_value:.1f}"
     q = p.play_probability
     if p.actual_points is None and 0 < q < 1 and p.projection:
-        cell += (f' <span class="opp">({p.projection / q:.1f} if he plays, '
-                 f"{q:.0%})</span>")
+        # On its own line, so a narrow column does not cut it off.
+        cell += (f'<span class="ifplays">{p.projection / q:.1f} if he plays, '
+                 f"{q:.0%}</span>")
     return cell
 
 
