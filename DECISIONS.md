@@ -3797,3 +3797,32 @@ league-wide parts (the D/ST and K rankings, the Model tab) do not change.
   would be overwritten by later weeks).
 - **Time:** views stop being started past `roster.views.budget_minutes` (20)
   per league; a team left out is listed as not built this refresh.
+
+#### Trimming the refresh: faster scoring, one simulation, game day
+
+The first refresh with every team's view took 16 minutes (ESPN: your panel
+2 min, Let Kevin Cook 2 min, eight light views 25 s each; Yahoo: 1.5 min and
+thirteen light views). Profiled, 105 of a full panel's 186 seconds went to
+one function: scoring a roster's best lineup in every simulated week
+(`SeasonModel.team_scores`), called by the title moves, the free-agent
+table and the trades.
+
+- **Faster lineup scoring.** Each slot took its best player by building
+  three full-size arrays (every simulation x week x player). It now marks a
+  player used in place and takes each slot's best among only the players
+  eligible for it. Bit-identical on every roster tried in both leagues,
+  about 1.6x faster.
+- **Each roster priced once.** A roster's title odds are cached in the
+  engine (the free-agent table and the title moves price many of the same
+  add/drop pairs).
+- **One simulation per league for the odds.** Every team's title and
+  playoff odds in its view are read off your season simulation, so all the
+  views agree with yours exactly; the light views also share one lighter
+  simulation to price their moves on, instead of building one each.
+- **Game day** (`publish.is_game_day`: Sunday 12:30 to Monday 4:00 US
+  Eastern), when the page refreshes about every hour: other teams rebuild
+  only their lineup, this week's win odds and the summary, keeping the rest
+  from the last full build; your trade search and free-agent pricing are
+  kept from the last full build too (`views/<league>/_me.json`), and those
+  sections say when they were priced. Your lineup, win odds, late swaps and
+  title odds still update every run.
