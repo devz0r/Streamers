@@ -89,11 +89,11 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
         base_ind = (base_tot > opp_conf) + 0.5 * (base_tot == opp_conf)
         week = (index, select, confirm, opp_sel, opp_conf, base_ind)
 
-    def win_change(add: PlayerRow, drop: PlayerRow) -> float | None:
+    def win_change(add: PlayerRow, drop: PlayerRow | None) -> float | None:
         if week is None:
             return None
         index, select, confirm, opp_sel, opp_conf, base_ind = week
-        team = [p for p in roster if p.player_id != drop.player_id] + [add]
+        team = [p for p in roster if drop is None or p.player_id != drop.player_id] + [add]
         lineups = lu._with_locks(team, snap.starting_slots)
         if not lineups:
             return None
@@ -107,6 +107,9 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
                 "ros": round(float(p.ros_value or 0.0), 1), "proj": round(float(p.projection or 0.0), 1),
                 "status": p.status or ""}
 
+    # An open roster spot: he can be added with nobody dropped.
+    spots = sum(snap.starting_slots.values()) + int(snap.bench_size or 0)
+    open_spot = len(roster) < spots
     out = []
     skill_rank = {p.player_id: i for i, p in enumerate(p for p in adds if p.position not in ("DST", "K"))}
     for a in adds:
@@ -119,8 +122,16 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
             noise = float(np.std(won - engine.base_won) / np.sqrt(len(won)))
             priced.append({**row(d), "title": round(title * 100, 2), "noise": round(2 * noise * 100, 2),
                            "win": None if (w := win_change(a, d)) is None else round(w * 100, 2)})
+        if open_spot:
+            won = engine._won([p.player_id for p in me.roster] + [a.player_id])
+            noise = float(np.std(won - engine.base_won) / np.sqrt(len(won)))
+            w = win_change(a, None)
+            priced.append({"id": "", "name": "No drop (open roster spot)", "pos": "", "team": "", "ros": 0.0,
+                           "proj": 0.0, "status": "", "none": True,
+                           "title": round((float(won.mean()) - engine.base) * 100, 2),
+                           "noise": round(2 * noise * 100, 2), "win": None if w is None else round(w * 100, 2)})
         if priced:
-            priced.sort(key=lambda r: -r["title"])
+            priced.sort(key=lambda r: (not r.get("none"), -r["title"]))
             out.append({**row(a), "drops": priced})
     out.sort(key=lambda r: -max(d["title"] for d in r["drops"]))
     base_win = None if week is None else float(week[5].mean())
@@ -132,7 +143,7 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
     others.sort(key=lambda r: -r["ros"])
     return {"base": {"title": round(engine.base * 100, 1),
                      "win": None if base_win is None else round(base_win * 100, 1)},
-            "adds": out, "others": others}
+            "adds": out, "others": others, "open_spot": open_spot}
 
 
 POSITIONS = ("QB", "RB", "WR", "TE", "DST", "K")

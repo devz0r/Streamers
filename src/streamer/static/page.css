@@ -319,3 +319,22 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
 
 /* An injury-tagged player's projection: the if-he-plays number under it. */
 .ifplays { display: block; font-size: 11.5px; line-height: 1.25; color: var(--muted); white-space: nowrap; }
+
+/* Free agents: browse by position, tap for the drop table. */
+.fa-pos { margin: .4rem 0 .2rem; }
+.fa-table tr.fa-row { cursor: pointer; }
+.fa-table tr.fa-row:hover td, .fa-table tr.fa-row.open td { background: var(--panel-2); }
+.fa-table tr.fa-detail > td { padding: 4px 6px 12px; text-align: left; white-space: normal; }
+.fa-sort { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.fa-sort[aria-sort="descending"]::after { content: " \25BE"; }
+.fa-more { font: 650 13px var(--font); color: var(--accent); background: none; border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.fa-table { width: 100%; border-collapse: collapse; }
+.fa-table th, .fa-table td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+.fa-table th { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.fa-table .fa-name { text-align: left; }
+.fa-table td.fa-name { white-space: normal; }
+.fa-drops { list-style: none; margin: 0; padding: 0; }
+.fa-drops li { padding: 7px 4px; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+.fa-drops li:last-child { border-bottom: 0; }
+.fa-fx { color: var(--muted); margin-top: 2px; }

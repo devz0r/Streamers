@@ -3758,3 +3758,16 @@ Once there are 60 graded rows over 3 weeks or more, each is kept only if
 it is better overall and worse in at most one week in four, the usual rule.
 About 25-30 of each are priced a week, so the first verdict is about three
 weeks out.
+
+#### Free agents: browse by position, and adds with no drop
+
+"Try a pickup" became "Free agents": every free agent the page knows, with
+position filters (All, QB, RB, WR, TE, D/ST, K), a name/team search, and
+columns for season value a game and this week's projection (tap either to
+sort, 30 rows at a time). Tapping a player opens what adding him does: each
+sensible drop with its change in title odds and this week's win odds, as
+before. When your roster has an open spot (fewer players outside IR than
+starting slots plus bench), the first line is adding him with nobody
+dropped, priced on the same simulations (`TitleEngine._won` on the roster
+plus him; this week's best lineup rebuilt with him in). Players beyond the
+~130 priced are listed and say why they are not priced.

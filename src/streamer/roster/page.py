@@ -724,55 +724,65 @@ _PICKUP_JS = """
 (function(id){
   var root=document.getElementById(id); if(!root) return;
   var data=JSON.parse(root.querySelector('.ad-data').textContent);
-  var box=root.querySelector('.ad-search'), hits=root.querySelector('.ad-hits'), out=root.querySelector('.ad-out');
+  var box=root.querySelector('.ad-search'), body=root.querySelector('.fa-rows'), more=root.querySelector('.fa-more');
+  var pos='All', sort='ros', limit=30, open=null;
   function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function pts(v){return v===null||v===undefined?'--':(v>=0?'+':'')+v.toFixed(1);}
   function cls(v){return v===null||v===undefined?'':(v>0.05?' class="pos"':(v<-0.05?' class="neg"':''));}
   function norm(t){return String(t).normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,'');}
-  var all=data.adds.map(function(a,i){return {p:a,i:i};}).concat((data.others||[]).map(function(a){return {p:a,i:-1};}));
-  all.forEach(function(r){r.k=norm(r.p.name+' '+r.p.team+' '+r.p.pos);});
-  function label(p){return esc(p.name)+' <span class="opp">'+esc(p.pos)+(p.team?' '+esc(p.team):'')+
-    (p.status?' '+esc(p.status):'')+' &middot; '+p.ros.toFixed(1)+'/g</span>';}
-  function list(){
-    var q=norm(box.value).trim(), words=q?q.split(/ +/):[];
-    var found=all.filter(function(r){return words.every(function(w){return r.k.indexOf(w)>=0;});});
-    if(!words.length) found=found.filter(function(r){return r.i>=0;});
-    hits.innerHTML=found.slice(0,8).map(function(r,j){
-      return '<li><button type="button" data-j="'+all.indexOf(r)+'">'+label(r.p)+
-        (r.i<0?' <span class="opp">(not priced)</span>':'')+'</button></li>';}).join('')+
-      (found.length>8?'<li class="opp">'+(found.length-8)+' more: keep typing</li>':'')+
-      (words.length&&!found.length?'<li class="opp">No free agent matches. He may be on a roster.</li>':'');
-  }
-  function show(r){
-    hits.innerHTML=''; box.value=r.p.name;
-    if(r.i<0){out.innerHTML='<p class="sub"><strong>'+esc(r.p.name)+'</strong> ('+esc(r.p.pos)+' '+esc(r.p.team)+
-      '): not priced, '+esc(r.p.why)+'. '+r.p.ros.toFixed(1)+' a game for the season, '+r.p.proj.toFixed(1)+
-      ' this week.</p>';return;}
+  var all=data.adds.map(function(a){return {p:a,priced:true};}).concat((data.others||[]).map(function(a){return {p:a,priced:false};}));
+  all.forEach(function(r,i){r.i=i; r.k=norm(r.p.name+' '+r.p.team+' '+r.p.pos);});
+  function chip(p){var k=(p==='DST'?'DST':p); return '<span class="pc pc-'+esc(k)+'">'+esc(p==='DST'?'D/ST':p)+'</span>';}
+  function detail(r){
     var a=r.p;
+    if(!r.priced) return '<p class="sub">Not priced: '+esc(a.why)+'.</p>';
     var rows=a.drops.map(function(d){
       var tie=Math.abs(d.title)<=d.noise?' <span class="opp">toss-up</span>':'';
-      return '<tr><td class="unit">'+esc(d.name)+' <span class="opp">'+esc(d.pos)+' '+esc(d.team)+'</span></td>'+
-        '<td>'+d.ros.toFixed(1)+'</td><td'+cls(d.title)+'>'+pts(d.title)+tie+'</td><td'+cls(d.win)+'>'+pts(d.win)+'</td></tr>';
+      var who=d.none?'<strong>Add, no drop</strong> <span class="opp">open roster spot</span>':
+        'Drop <strong>'+esc(d.name)+'</strong> <span class="opp">'+esc(d.pos)+' '+esc(d.team)+' &middot; '+d.ros.toFixed(1)+'/g</span>';
+      return '<li><div>'+who+'</div><div class="fa-fx">Title <b'+cls(d.title)+'>'+pts(d.title)+'</b>'+tie+
+        ' &middot; This week <b'+cls(d.win)+'>'+pts(d.win)+'</b></div></li>';
     }).join('');
-    out.innerHTML='<p class="sub">Add <strong>'+esc(a.name)+'</strong> ('+esc(a.pos)+' '+esc(a.team)+
-      (a.status?', '+esc(a.status):'')+'): '+a.ros.toFixed(1)+' a game for the season, '+a.proj.toFixed(1)+' this week.</p>'+
-      '<div class="scroll"><table><thead><tr><th class="unit">Drop</th><th>RoS/g</th><th>Title</th><th>Win this week</th>'+
-      '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+    return '<ul class="fa-drops">'+rows+'</ul>';
   }
-  box.addEventListener('input',list);
-  box.addEventListener('focus',list);
-  box.addEventListener('keydown',function(e){
-    if(e.key==='Enter'){var b=hits.querySelector('button'); if(b){e.preventDefault(); b.click();}}});
-  hits.addEventListener('click',function(e){
-    var b=e.target.closest('button'); if(b) show(all[+b.getAttribute('data-j')]);});
-  list();
+  function render(){
+    var q=norm(box.value).trim(), words=q?q.split(/ +/):[];
+    var list=all.filter(function(r){return (pos==='All'||r.p.pos===pos)&&words.every(function(w){return r.k.indexOf(w)>=0;});});
+    list.sort(function(x,y){return (y.p[sort]-x.p[sort])||(y.p.ros-x.p.ros);});
+    var shown=list.slice(0,limit);
+    body.innerHTML=shown.map(function(r){
+      var a=r.p, isOpen=open===r.i;
+      return '<tr class="fa-row'+(isOpen?' open':'')+'" data-i="'+r.i+'" tabindex="0"><td class="fa-name">'+chip(a.pos)+' '+
+        esc(a.name)+' <span class="opp">'+esc(a.team)+(a.status?' '+esc(a.status):'')+(r.priced?'':' &middot; not priced')+
+        '</span></td><td>'+a.ros.toFixed(1)+'</td><td>'+a.proj.toFixed(1)+'</td></tr>'+
+        (isOpen?'<tr class="fa-detail"><td colspan="3">'+detail(r)+'</td></tr>':'');
+    }).join('')||'<tr><td colspan="3" class="opp">No free agent matches.</td></tr>';
+    more.hidden=list.length<=limit;
+    more.textContent='Show more ('+(list.length-limit)+' left)';
+  }
+  root.querySelectorAll('.fa-pos button').forEach(function(b){b.addEventListener('click',function(){
+    pos=b.getAttribute('data-pos'); limit=30;
+    root.querySelectorAll('.fa-pos button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+    render();});});
+  root.querySelectorAll('.fa-sort').forEach(function(th){th.addEventListener('click',function(){
+    sort=th.getAttribute('data-k');
+    root.querySelectorAll('.fa-sort').forEach(function(x){x.setAttribute('aria-sort',x===th?'descending':'none');});
+    render();});});
+  box.addEventListener('input',function(){limit=30;render();});
+  more.addEventListener('click',function(){limit+=30;render();});
+  function toggle(tr){var i=+tr.getAttribute('data-i'); open=(open===i)?null:i; render();}
+  body.addEventListener('click',function(e){var tr=e.target.closest('tr.fa-row'); if(tr) toggle(tr);});
+  body.addEventListener('keydown',function(e){var tr=e.target.closest('tr.fa-row'); if(tr&&(e.key==='Enter'||e.key===' ')){e.preventDefault();toggle(tr);}});
+  render();
 })
 """
 
 
 def _try_pickup(report: MatchupReport) -> str:
-    """Pick a free agent; every sensible drop with its change in title odds
-    and this week's win odds (priced ahead: :mod:`streamer.roster.add_drop`)."""
+    """Every free agent, by position: season value and this week's
+    projection; tap one for each sensible drop's change in title odds and
+    this week's win odds, or no drop when a roster spot is open (priced
+    ahead: :mod:`streamer.roster.add_drop`)."""
     data = getattr(report, "add_drop", None)
     if not data or not data.get("adds"):
         return ""
@@ -780,19 +790,28 @@ def _try_pickup(report: MatchupReport) -> str:
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     base = data.get("base") or {}
     win = f", this week's win {base['win']:.0f}%" if base.get("win") is not None else ""
+    spot = (" You have an open roster spot, so each player's first line is adding him with nobody dropped."
+            if data.get("open_spot") else "")
+    chips = "".join(f'<button type="button" data-pos="{p}" aria-pressed="{"true" if p == "All" else "false"}">'
+                    f'{"D/ST" if p == "DST" else p}</button>' for p in ("All", "QB", "RB", "WR", "TE", "DST", "K"))
     return (
-        f'<details class="card" id="{uid}"><summary><strong>Try a pickup</strong> '
-        '<span class="opp">search any free agent: each drop\'s effect on your title odds and this week</span>'
+        f'<details class="card" id="{uid}"><summary><strong>Free agents</strong> '
+        '<span class="opp">browse by position; tap a player for what adding him does to your team</span>'
         "</summary>"
-        f'<p class="sub">Now: title {base.get("title", 0):.1f}%{win}. Changes are in points of probability: '
-        "title on the full season simulation (the add and the drop, every week to the final), this week by "
-        "rebuilding your best lineup with him in and scoring it against your opponent. A title change "
-        "inside the simulation's noise is marked toss-up. Drops are the cheapest to your title first; "
-        "players whose game has started are left out. The top 40 free agents at the skill positions get six "
-        "drops each, the next 80 the three cheapest; the rest are listed, unpriced.</p>"
-        '<p><input type="search" class="ad-search" placeholder="Search free agents by name, team or position"'
-        ' autocomplete="off" aria-label="Search free agents"></p><ul class="ad-hits"></ul>'
-        '<div class="ad-out"></div>'
+        f'<p class="sub">Now: title {base.get("title", 0):.1f}%{win}. RoS/g is his season value a game, Wk this '
+        "week's projection; tap a column to sort. Tap a player for each drop's change in points of "
+        "probability: title on the full season simulation, this week by rebuilding your best lineup with him "
+        "in. A title change inside the simulation's noise is marked toss-up. The top 40 skill players and "
+        "every D/ST and K priced get six drops, the next 80 the three cheapest; the rest are listed, "
+        f"unpriced.{spot}</p>"
+        f'<div class="chips fa-pos">{chips}</div>'
+        '<p><input type="search" class="ad-search" placeholder="Search by name or team"'
+        ' autocomplete="off" aria-label="Search free agents"></p>'
+        '<table class="fa-table"><thead><tr><th class="fa-name">Player</th>'
+        '<th class="fa-sort" data-k="ros" aria-sort="descending">RoS/g</th>'
+        '<th class="fa-sort" data-k="proj" aria-sort="none">Wk</th></tr></thead>'
+        '<tbody class="fa-rows"></tbody></table>'
+        '<p><button type="button" class="fa-more">Show more</button></p>'
         f'<script type="application/json" class="ad-data">{payload}</script>'
         f"<script>{_PICKUP_JS}('{uid}');</script>"
         "</details>"
