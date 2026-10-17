@@ -3826,3 +3826,7 @@ table and the trades.
   kept from the last full build too (`views/<league>/_me.json`), and those
   sections say when they were priced. Your lineup, win odds, late swaps and
   title odds still update every run.
+
+Light views no longer search trades at all: the search was about 70% of
+each one's time, and only your trades and the full views' (Let Kevin Cook)
+are wanted. Your own trade search never used the other teams' views.

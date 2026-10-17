@@ -1117,6 +1117,8 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                     log.info("%s: trading has closed; no trades searched", name)
                 elif game_day:
                     log.info("%s: game day: trades kept from the last full build", name)
+                elif light:
+                    pass                    # other teams' trades are not shown (only yours and full views)
                 else:
                     finder = TradeFinder(snap, engine.model, seen=seen)
                     report.trades = finder.find(5)
