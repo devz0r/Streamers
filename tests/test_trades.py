@@ -178,18 +178,17 @@ def test_the_deadline_counts_down_and_closes(cfg):
     assert deadline_text(snap, date(2026, 11, 19)) == "Trading closed on Nov 18"
 
 
-def test_win_win_is_what_he_sees_not_our_title_odds(finder):
-    from streamer.roster.trades import MIN_GAIN, SEEN_WIN
+def test_win_win_raises_both_teams_title_odds(finder):
+    from streamer.roster.trades import MIN_GAIN
 
     board = finder.find(5)
     for t in board.win_win:
-        assert t.their_seen >= SEEN_WIN and t.gain >= max(MIN_GAIN, 2 * t.noise)
+        assert t.their_new > t.their_base and t.gain >= max(MIN_GAIN, 2 * t.noise)
     exp = [t.expected for t in board.win_win]
     assert exp == sorted(exp, reverse=True)
-    # The flag follows his perceived gain whatever our model says of his title odds.
     t = board.top[0] if board.top else None
     if t is not None:
-        t.their_seen, t.their_new, t.their_base = SEEN_WIN, 0.10, 0.20
+        t.their_base, t.their_new = 0.20, 0.21
         assert t.win_win
-        t.their_seen = SEEN_WIN - 0.01
+        t.their_new = 0.19
         assert not t.win_win

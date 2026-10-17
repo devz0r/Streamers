@@ -3690,3 +3690,14 @@ market rates players, not on what we project, which is exactly why he would
 say yes. The hub's "win-win" tag now means the same thing; it used to mean
 his title odds rose on our model. With a fifth tab, the trade tab labels
 wrap onto a second row on a phone.
+
+#### Win/win back to both teams' title odds
+
+The perception version above looked little different from the other lists:
+a deal he sees as a gain is mostly a deal he is likely to accept, which "Most
+likely yes" already shows. So win/win is back to its first meaning: **both
+teams' title odds rise on our season simulation**, yours by more than the
+noise. To find them, the finder now also prices the deals that raise his
+roster value on our projections (best for you first), not only those that
+made the other lists. The chance he says yes is still judged on how he sees
+it, and each card still shows it.

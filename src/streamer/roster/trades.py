@@ -60,9 +60,6 @@ MY_MIN_VALUE = 0.2
 MIN_ACCEPT = 0.05
 #: "Best for you" only lists offers with at least this chance of a yes.
 BEST_MIN_ACCEPT = 0.15
-#: A win/win: he sees his roster gain at least this much a game, judged the
-#: way managers value players (``perception``) -- he cannot see title odds.
-SEEN_WIN = 0.3
 #: Offers priced in the simulator for each list, and per partner in each.
 PRICE_EACH = 24
 PRICE_PER_TEAM = 5
@@ -129,6 +126,7 @@ class Trade:
     consolidation: float      # +1 he gets a clearly best player of an uneven deal, -1 he gives him up
     p_accept: float
     p_base: float = 0.0
+    their_ours: float = 0.0       # his roster value change on our projections (the win/win screen)
     p_new: float = 0.0
     po_base: float = 0.0          # P(make the playoffs) now and after the trade
     po_new: float = 0.0
@@ -154,9 +152,9 @@ class Trade:
 
     @property
     def win_win(self) -> bool:
-        """Both sides come out ahead: your title odds (the caller requires
-        the gain to clear the noise) and his roster as he sees it."""
-        return self.their_seen >= SEEN_WIN
+        """Both teams' title odds rise on our season simulation (yours by
+        more than the noise: the caller requires it)."""
+        return self.their_gain > 0
 
     @property
     def key(self) -> tuple:
@@ -330,6 +328,7 @@ class TradeFinder:
                 continue
             theirs = _tradeable(team)
             their0 = self.seen_roster_value(team.roster, self.his(team))
+            self._their_ours0 = self.my_roster_value(team.roster)
             his = self.his(team)
             pair_mine = sorted(mine, key=lambda p: -self.ours(p))[:PAIR_POOL]
             pair_theirs = sorted(theirs, key=lambda p: -his(p))[:PAIR_POOL]
@@ -377,13 +376,15 @@ class TradeFinder:
         if dv_me < MY_MIN_VALUE:
             return None
         seen_gain = self.seen_roster_value(their_new, his) - their0
+        their_ours = self.my_roster_value(their_new) - self._their_ours0
         consolidation = self._consolidation(give, get, his)
         p = perception.p_accept(seen_gain, consolidation, self.engaged.get(team.team_id, 0.8))
         if p < MIN_ACCEPT:
             return None
         return Trade(partner=team, give=give, get=get, their_drop=their_drop, my_drop=my_drop,
                      my_value=dv_me, my_lineup=self._lineup(my_new, self.ours) - my_l0,
-                     their_seen=seen_gain, consolidation=consolidation, p_accept=p, my_add=my_add)
+                     their_seen=seen_gain, their_ours=their_ours, consolidation=consolidation,
+                     p_accept=p, my_add=my_add)
 
     @staticmethod
     def _consolidation(give, get, his) -> float:
@@ -465,8 +466,9 @@ class TradeFinder:
                             lambda t: t.my_value, PRICE_EACH, PRICE_PER_TEAM),
             self._shortlist([t for t in screened if t.my_value >= 2 * MY_MIN_VALUE],
                             lambda t: t.p_accept, PRICE_EACH, PRICE_PER_TEAM),
-            # Deals he sees as a gain, best for you first: the win/win list.
-            self._shortlist([t for t in screened if t.their_seen >= SEEN_WIN],
+            # Deals that also help him on our projections, best for you
+            # first: the candidates for the win/win list.
+            self._shortlist([t for t in screened if t.their_ours > 0],
                             lambda t: t.my_value, PRICE_EACH, PRICE_PER_TEAM),
         ]
         for team in self.snapshot.teams:
@@ -559,12 +561,7 @@ class TradeFinder:
         elif acq is not None and engaged >= 0.95:
             them.append(f"an active manager ({acq} pickups)")
         if t.win_win:
-            them.append(f"win/win: as he sees it, his roster gains {t.their_seen:.1f} a game")
-        if t.their_gain >= 0:
-            them.append(f"his title odds rise too ({t.their_base:.1%} to {t.their_new:.1%})")
-        elif t.win_win:
-            them.append(f"on our projections his title odds fall ({t.their_base:.1%} to {t.their_new:.1%}): "
-                        "he gains on how the market values players, not on what we project")
+            them.append(f"win/win: his title odds rise too ({t.their_base:.1%} to {t.their_new:.1%})")
         if t.their_drop is not None:
             them.append(f"he would drop {t.their_drop.name} to make room")
         t.why_them = them

@@ -622,10 +622,8 @@ _TRADE_TABS = (
     ("top", "Top trades", "By expected gain: the chance he says yes times the title odds you gain."),
     ("best", "Best for you", "By title odds gained, among offers with at least a 15% chance of a yes."),
     ("likely", "Most likely yes", "By the chance he says yes, among offers that clearly raise your title odds."),
-    ("win_win", "Win/win", "Both sides come out ahead: your title odds clearly rise, and he sees his roster gain "
-                           "at least 0.3 points a game the way managers value players (the platform's "
-                           "projection, a player's name and last season, this season so far) -- he cannot "
-                           "see title odds. By expected gain."),
+    ("win_win", "Win/win", "Both teams' title odds rise on our season simulation: yours clearly, his too. "
+                           "By expected gain."),
     ("by_team", "By team", "Pick a team: its best offers, by expected gain -- each team's most promising "
                            "deals are priced, not only the ones that made the league-wide lists."),
 )
