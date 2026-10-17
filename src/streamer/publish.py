@@ -1002,6 +1002,7 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
     name = bound.profile
     cfg = _light_cfg(bound) if light else bound
     report = build_report(snap, cfg)
+    report.light = light
     if primary:
         try:
             from .roster import all_lineups
@@ -1246,6 +1247,7 @@ def _team_views(snap, bound: Config, rankings, projected, shared: dict | None = 
                 prev = _read_json(_views_dir(bound) / f"{tid}.json")
                 cfg = bound if is_full else _light_cfg(bound)
                 report = build_report(view, cfg)
+                report.light = not is_full
                 if odds is not None and tid in odds.team_ids:
                     report.season = dataclasses.replace(odds, mine=odds.team_ids.index(tid))
                 panel = team_sections(view, report, [], cfg)

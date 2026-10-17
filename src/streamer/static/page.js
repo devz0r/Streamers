@@ -207,6 +207,9 @@
       var id = sel.value, opt = sel.options[sel.selectedIndex];
       if (!id) { swap(lg, null, ""); return; }
       sel.disabled = true;
+      var wait = $(".view-banner", panel(lg));
+      if (!wait) { wait = document.createElement("div"); wait.className = "view-banner"; $(".view-bar", panel(lg)).insertAdjacentElement("afterend", wait); }
+      wait.textContent = "Loading " + opt.textContent + "…";
       fetch("views/" + lg + "/" + encodeURIComponent(id) + ".json?v=" + encodeURIComponent(sel.dataset.stamp || ""))
         .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(function (v) {
@@ -219,7 +222,7 @@
           var back = $(".view-back", panel(lg));
           if (back) back.addEventListener("click", function () { sel.value = ""; swap(lg, null, ""); });
         })
-        .catch(function () { opt.textContent = opt.textContent.replace(/ \(could not load\)$/, "") + " (could not load)"; sel.value = ""; })
+        .catch(function () { var w = $(".view-banner", panel(lg)); if (w) w.remove(); opt.textContent = opt.textContent.replace(/ \(could not load\)$/, "") + " (could not load)"; sel.value = ""; })
         .then(function () { sel.disabled = false; });
     });
   });

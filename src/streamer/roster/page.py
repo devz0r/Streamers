@@ -169,7 +169,8 @@ def team_sections(
         '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
         "percentile), with teammates and opponents correlated as they are on the field.</p>")
     lineup.append(_compare_lineups(opt))
-    lineup.append(_editor(snapshot, opt))
+    if not getattr(report, "light", False):          # another team's lighter view: no lineup lab
+        lineup.append(_editor(snapshot, opt))
     if opt.reasons:
         items = "".join(f"<li>{_e(r)}</li>" for r in opt.reasons)
         lineup.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
