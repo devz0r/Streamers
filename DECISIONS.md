@@ -3701,3 +3701,24 @@ noise. To find them, the finder now also prices the deals that raise his
 roster value on our projections (best for you first), not only those that
 made the other lists. The chance he says yes is still judged on how he sees
 it, and each card still shows it.
+
+### Confirmed returns: Josh Jacobs off the exempt list
+
+Josh Jacobs (ESPN roster) had missed GB's first five games on the
+commissioner's exempt list, tagged day-to-day. The simulator read that as an
+injury absence five games old: the measured absence lengths, conditioned on
+lasting more than five games, kept him out for most of the season, and
+`season_loss` (low share of games played, none this season) gave a 54% chance
+that any later absence would end his season. The news (removed from the list
+Monday, eligible for week 7) settles both.
+
+`roster.known_returns` (config) takes name -> the week he is back. While that
+week is still to come, the simulator sits him for exactly the weeks before it
+(byes not counted), the season-loss read is replaced by the base share (a
+suspension ending says nothing about a lost job or a fragile body), and his
+card says so. Everything else is unchanged: his week-6 zero, his season value
+(11.5 a game, with MarShawn Lloyd back), and the first-game-back discount in
+week 7 (measured on all returners, 2023-2025; suspension returns were not
+separated). On the week-6 ESPN snapshot this moves your title odds 11.4% ->
+12.0% and playoff odds 63.6% -> 66.1%. An entry is ignored once its week
+arrives, so it can be left in place.

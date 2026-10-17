@@ -426,6 +426,13 @@ roster:
   # ("2+"). Held out 2023-2025 (scripts/fit_first_game_back.py): players back
   # scored 80% and 69% of it; clean players 105%. MAE 5.039 -> 5.003, 3/3.
   first_game_back: {"1": 0.80, "2+": 0.69}
+  # Returns already confirmed -- a suspension or exempt-list stint with an
+  # end date -- as name: the week he is back. The season simulation sits him
+  # exactly until then (rather than drawing how long a 5-game absence runs,
+  # which reads like a long injury) and does not read the absence as a sign
+  # he will lose his season. Ignored once that week arrives.
+  known_returns:
+    Josh Jacobs: 7      # off the commissioner's exempt list, eligible week 7
   # Rest-of-season comparisons (roster/comps.py): the season value moves this
   # share of the way to how the k players most like him at the same point of
   # past seasons finished. Weeks 3-10, players without an out/IR tag.

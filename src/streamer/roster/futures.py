@@ -421,6 +421,13 @@ def simulate(
     shade = np.zeros((n_sims, n_p))
     out_left = np.stack([_initial_absence(p, n_sims, rng, conf) for p in players], axis=1) \
         if players else np.zeros((n_sims, 0), int)
+    # A return already confirmed (a suspension ending): he sits the weeks
+    # before it, byes not counted, and nothing longer.
+    for j, p in enumerate(players):
+        back = getattr(p, "return_week", None)
+        if back is not None:
+            out_left[:, j] = sum(1 for w in weeks if w < int(back)
+                                 and not (p.team and w in byes.get(p.team, set())))
     # A role that holds: in each simulated season a player keeps a lasting
     # tilt toward playing or sitting (``role_spread`` by position, a
     # mean-one lognormal on his absence hazard), tied by ``role_corr`` to how

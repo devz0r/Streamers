@@ -230,3 +230,16 @@ def test_a_manager_sees_only_part_of_how_a_player_has_changed(monkeypatch):
     assert part.levels[on, 0, 6].std() < 0.6 * full.levels[on, 0, 6].std()
     # The player is the same either way; only the read of him changed.
     assert np.allclose(full.scores, part.scores)
+
+
+def test_a_confirmed_return_sits_him_exactly_until_then():
+    """Jacobs again, week 6: off the exempt list, eligible week 7. With the
+    return known he sits this week only (a bye in between is not counted)."""
+    p = _p("back", "RB", 12.0, team="GB")
+    p.play_probability, p.games_missed, p.return_week = 0.0, 5, 8
+    f = simulate([p], weeks=list(range(6, 12)), byes={"GB": {7}}, n_sims=4000)
+    assert (f.levels[:, 0, 0] == 0).all()                 # week 6: still out
+    back = (f.levels[:, 0, 2] > 0).mean()                 # week 8: back, bar a fresh absence
+    p.return_week = None
+    g = simulate([p], weeks=list(range(6, 12)), byes={"GB": {7}}, n_sims=4000)
+    assert back > 0.9 and back > (g.levels[:, 0, 2] > 0).mean() + 0.2

@@ -118,6 +118,11 @@ class PlayerRow:
     #: (:func:`streamer.roster.futures.season_loss`); None: the simulator's
     #: base share.
     season_loss: float | None = None
+    #: The week a player out now is confirmed to return (a suspension or
+    #: exempt-list stint with an end date: config ``roster.known_returns``);
+    #: the simulator then sits him exactly until then instead of drawing
+    #: how long the absence lasts. None: not known.
+    return_week: int | None = None
     #: For a player on no NFL roster whom the news has close to signing
     #: (``data.news``): the team when one is named, his chance of signing and
     #: playing this season, the games before he could, the share of the rest

@@ -1388,6 +1388,11 @@ def project_snapshot(
         if market_conf.get("cells") else {}
 
     fgb_conf = ((cfg.raw.get("roster") or {}).get("first_game_back")) or {}
+    # Returns already confirmed (a suspension or exempt-list stint ending):
+    # name -> the week he is back. Only while that week is still to come.
+    from .players import normalize_name as _norm_name
+
+    returns = {_norm_name(k): int(v) for k, v in (conf.get("known_returns") or {}).items()}
     # Similar past player-weeks (comps.py): quarterbacks only, as measured.
     from ..teams import normalize_team as _norm_team
     from . import comps
@@ -1418,6 +1423,8 @@ def project_snapshot(
         p.games_missed = 0
         p.experience = None
         platform_says_sits = p.player_id in sits
+        back = returns.get(_norm_name(p.name)) if p.position in SKILL else None
+        p.return_week = back if back is not None and back > int(snapshot.week) else None
         plat = p.platform_projection
         # A bye has no projection; a feed that shows one anyway has misread
         # its columns (Yahoo once gave % rostered: 95 for a defence on bye).
@@ -1433,7 +1440,10 @@ def project_snapshot(
             tw = team_weeks.get(normalize_team(p.team)) if p.team else None
             if tw and nfl_id is not None:
                 p.games_missed = _missed_in_a_row(tw, played_weeks.get(str(nfl_id), set()))
-                if p.games_missed >= 2 and (platform_says_sits or p.is_out or p.is_long_term_out) \
+                if p.return_week is not None:
+                    p.signals.append(f"confirmed back in week {p.return_week} (after missing his team's last "
+                                     f"{p.games_missed}): the simulation sits him until then, no longer")
+                elif p.games_missed >= 2 and (platform_says_sits or p.is_out or p.is_long_term_out) \
                         and not p.on_bye:
                     p.signals.append(f"has missed his team's last {p.games_missed} games: an absence that has "
                                      "run this long tends to run longer")
@@ -1645,7 +1655,9 @@ def project_snapshot(
     fut_conf = outcome.load().get("futures", {})
     counts = season_loss_counts(players, history, int(snapshot.season), int(snapshot.week))
     for p in players:
-        p.season_loss = season_loss(p, *counts[p.player_id], fut_conf) if p.player_id in counts else None
+        # A confirmed return is not an injury or a lost job: the base share.
+        p.season_loss = season_loss(p, *counts[p.player_id], fut_conf) \
+            if p.player_id in counts and p.return_week is None else None
     # Who he faces in the weeks to come (quarterbacks, backs, defences and
     # kickers, as measured):
     # a factor per future week the season simulator plays.
