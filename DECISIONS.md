@@ -3618,6 +3618,33 @@ Blocked kicks and the return unit's own muffed punts are not in the box score,
 so they are read from the play-by-play. The card says the platform's own score
 is the final word.
 
+### Live P(win): early pace does not predict the rest of the game
+
+One idea was to weight each live draw by how well it fits the game so far: a
+quarterback on a hot pace would make the draws where he is good count more,
+and through them, his receivers' draws. Tested on 2022-2025 play-by-play
+(13,864 player-games with a projection of 5 or more; fantasy points rebuilt
+quarter by quarter matched nflverse's finals exactly for 98.8% of games). At
+the end of each quarter, the final score was predicted from the points so
+far and the pre-game projection, and graded by CRPS (the whole predicted
+range, in points):
+
+| end of | as built | weighted, strongest tested | weakest tested |
+|---|---|---|---|
+| Q1 | **3.44** | 4.32 | 3.44 (a tie) |
+| Q2 | **2.70** | 3.78 | 2.70 (a tie) |
+| Q3 | **1.93** | 2.90 | 1.93 (a tie) |
+
+Every weighting did worse, in every season; the lighter the weight, the
+closer it came to the method as built, and it never beat it. A player's early
+points say almost nothing about the rest of his game beyond his projection:
+the points already scored count, and what is left is about what was expected.
+
+The same data checked how the method as built shrinks the spread for the time
+left. Scaling it by the square root of the share remaining beat powers of
+0.35, 0.65, 0.8 and 1.0 in every season (CRPS 2.66-2.77 by season, against
+2.67-2.84 for the alternatives). So the live P(win) is unchanged.
+
 ### Yahoo's free agents: the top 150 offensive players, not 50
 
 The Yahoo sync read two pages of the offensive free-agent list (the top 50
