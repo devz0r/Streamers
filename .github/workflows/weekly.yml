@@ -56,6 +56,8 @@ on:
 permissions:
   contents: write
   issues: write
+  pages: write       # read how the site is served; deploy it when served from Actions
+  id-token: write    # the deploy proves where it came from
 
 concurrency:
   group: weekly
@@ -64,6 +66,8 @@ concurrency:
 jobs:
   weekly:
     runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.deploy.outputs.due }}
     env:
       ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
       # League sync (optional). ESPN needs the league id plus the two cookies
@@ -97,6 +101,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e .
+
+      # "legacy" = Pages serves the docs/ folder of the branch, so every page
+      # rebuild is committed; "workflow" = Settings > Pages > Source: GitHub
+      # Actions, so the page is deployed from this run and the files that
+      # change on every run stay out of git (DECISIONS.md, "Publishing without
+      # committing the page"). Until the setting is switched, nothing changes.
+      - name: Find out how the site is served
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TYPE=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.build_type' 2>/dev/null || echo unknown)
+          echo "build_type=$TYPE" >> "$GITHUB_OUTPUT"
+          echo "Pages build type: $TYPE"
+
+      # The last run's team views, kept between runs: a game-day refresh
+      # rebuilds only the views that changed (publish.read_me_cache).
+      - name: Restore the team views
+        if: steps.pages.outputs.build_type == 'workflow'
+        uses: actions/cache@v4
+        with:
+          path: docs/views
+          key: views-${{ github.run_id }}
+          restore-keys: views-
 
       - name: Cache raw nflverse pulls
         uses: actions/cache@v4
@@ -252,11 +280,39 @@ jobs:
           WEEK="${{ steps.week.outputs.upcoming_week }}"
           streamer rank --week "$WEEK" --publish
 
+      - name: Package the page
+        id: package
+        if: |
+          steps.pages.outputs.build_type == 'workflow' &&
+          contains(fromJSON('["publish", "both", "refresh"]'), steps.mode.outputs.mode) &&
+          hashFiles('docs/index.html') != ''
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Note that a deploy is due
+        id: deploy
+        run: echo "due=${{ steps.package.outcome == 'success' }}" >> "$GITHUB_OUTPUT"
+
       - name: Commit the refreshed page
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A docs reports results data/leagues
+          if [ "${{ steps.pages.outputs.build_type }}" = "workflow" ]; then
+            # Deployed from this run: the page, its data and the team views are
+            # not committed (a first run takes them out of git). Last week's
+            # archive pages are, but only when the week is published, not on
+            # every refresh.
+            git rm -r -q --cached --ignore-unmatch docs/index.html docs/latest.json docs/views
+            if [ "${{ steps.mode.outputs.mode }}" = "refresh" ]; then
+              git add -A reports results data/leagues
+              git checkout -- docs 2>/dev/null || true
+            else
+              git add -A docs reports results data/leagues
+            fi
+          else
+            git add -A docs reports results data/leagues
+          fi
           if git diff --staged --quiet; then
             echo "Nothing changed."
           else
@@ -272,3 +328,14 @@ jobs:
             done
             exit 1
           fi
+
+  deploy:
+    needs: weekly
+    if: needs.weekly.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

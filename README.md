@@ -238,11 +238,13 @@ other scripts.
    ```
 
 2. **Enable Pages:** repo → **Settings** → **Pages** → under *Build and
-   deployment* set **Source: Deploy from a branch**, then pick **the branch you
-   pushed** and **Folder: `/docs`** → **Save**.
+   deployment* set **Source: GitHub Actions**. The weekly workflow deploys the
+   page itself and keeps the files that change on every run out of git, so the
+   repository stops growing with each refresh.
 
-   The branch dropdown lists what actually exists in your repo, which may not be
-   `main` — if you pushed a feature branch, select that one.
+   (**Deploy from a branch**, `/docs` folder, still works: the workflow reads
+   the setting and, in that mode, commits the page as it always did. Switch
+   between the two at any time.)
 
 3. **Add the odds key** (optional): repo → **Settings** → **Secrets and
    variables** → **Actions** → **New repository secret** → name `ODDS_API_KEY`,

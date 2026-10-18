@@ -20,3 +20,9 @@ dist/
 
 # Yahoo OAuth token file materialised at sync time; never commit it.
 data/.yahoo_oauth.json
+
+# Rebuilt and deployed on every run when Pages is served from Actions
+# (tracked files are unaffected until the workflow untracks them).
+docs/index.html
+docs/latest.json
+docs/views/

@@ -2118,6 +2118,35 @@ of what those carried, and depth rank is read from the role. The shipped
 values stay: they are the ones graded end to end above. After a refit,
 `scripts/fit_ros.py` matches the hazard by level again.
 
+### Publishing without committing the page
+Every refresh committed the rebuilt page, its data and the team views to
+`main`: 126 commits in a week. Packed, the whole repository was 47 MB after
+three weeks (about 16 MB a week, 0.8 GB a year -- far less than the raw
+5 MB-a-commit it looks like, since the pages compress well against each
+other), but it is all churn: `docs/index.html`, `docs/latest.json`,
+`docs/views/` and the current week's archive page change on every run, and
+every clone carries every version.
+
+With Settings > Pages > Source set to **GitHub Actions**, the workflow
+(`weekly.yml`) deploys `docs/` as a Pages artifact and no longer commits
+those files. It asks GitHub how the site is served each run
+(`build_type`: `workflow` or `legacy`), so nothing changes until the setting
+is switched and either way can be restored by switching it back.
+
+- Not committed: `docs/index.html`, `docs/latest.json`, `docs/views/`
+  (gitignored; the first deployed run takes them out of git). The current
+  week's archive page is committed only when the week is published, not on
+  refreshes.
+- Still committed: `results/`, `reports/`, `data/leagues/` -- the state the
+  next run reads. (`data/leagues` is the largest part of the raw churn; its
+  past weeks never change again, so it packs well, but it could be next.)
+- `docs/views/` is state, not just output: a game-day refresh reuses the
+  last run's panels (`publish.read_me_cache`). It is kept between runs with
+  Actions cache. If the cache is evicted, the next run rebuilds the views
+  from scratch -- slower, same result.
+- A run that does not rank (probes, scoring only) deploys nothing, so the
+  last deployed page stays up.
+
 ### A record of missed games
 The season simulator started new absences at one rate for everyone at a
 position and projection level. Two things a manager can see say more,
