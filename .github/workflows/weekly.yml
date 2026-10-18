@@ -56,7 +56,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, dstk-blend, wind-fit, sleeper-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, dstk-blend, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -189,6 +189,12 @@ jobs:
       - name: Probe player news
         if: steps.mode.outputs.mode == 'news-probe'
         run: streamer news-probe
+
+      # Whether the page can read live NFL scores from ESPN in the browser
+      # (CORS) and what the box score looks like: headers and shapes only.
+      - name: Probe ESPN live scores
+        if: steps.mode.outputs.mode == 'live-probe'
+        run: python scripts/live_probe.py
 
       # Our D/ST and K rankings blended with the FantasyPros consensus, graded
       # on 2023-2025 (aggregates only; the consensus stays in data/raw).
