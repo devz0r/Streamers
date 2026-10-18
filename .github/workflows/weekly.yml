@@ -40,6 +40,11 @@ on:
     # page stays within a few hours of the news; the Refresh link is instant.
     - cron: "41 0,2,4,12,14,16,18,20,22 * * *"
     - cron: "11 13-21 * * 0"
+    # Night games: right after the inactives (about 90 minutes before the
+    # 8:15/8:20 PM ET kickoffs on Thursday, Sunday and Monday), so the page
+    # shows who is out and the fallback in time to make the swap. Two times
+    # because cron is UTC: 22:55 is 6:55 PM EDT, 23:55 is 6:55 PM EST.
+    - cron: "55 22,23 * * 0,1,4"
   workflow_dispatch:
     inputs:
       week:
@@ -150,6 +155,7 @@ jobs:
               "17 8 * * 0") MODE=publish ;;
               "41 0,2,4,12,14,16,18,20,22 * * *") MODE=refresh ;;
               "11 13-21 * * 0") MODE=refresh ;;
+              "55 22,23 * * 0,1,4") MODE=refresh ;;
               *)            MODE=both ;;
             esac
           fi

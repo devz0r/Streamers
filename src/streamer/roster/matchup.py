@@ -10,6 +10,7 @@ from .lineup import (
     Optimisation,
     PickupOption,
     StreamOption,
+    Wire,
     optimise,
     pickup_options,
     stream_options,
@@ -84,6 +85,35 @@ class MatchupReport:
         return sorted(starters, key=lambda p: -(p.projection_sd or 0.0))[:n]
 
 
+#: Free agents per position kept as possible last-minute replacements.
+WIRE_PER_POSITION = 6
+
+
+def late_wire(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Wire | None:
+    """Free agents who could replace a starter ruled out at the last minute,
+    and the room you will have then: empty bench spots, and empty IR slots
+    (a starter tagged out can move into one). Config ``roster.late_wire``
+    (default on) switches it off."""
+    from .title_moves import ir_capacity
+
+    conf = (cfg or get_config()).raw.get("roster", {})
+    if not conf.get("late_wire", True):
+        return None
+    me = snapshot.my_team
+    active = [p for p in me.roster if not p.in_ir_slot]
+    size = sum(snapshot.starting_slots.values()) + int(snapshot.bench_size or 0)
+    open_spots = max(size - len(active), 0) if snapshot.bench_size else 0
+    ir_open = max(ir_capacity(snapshot) - sum(1 for p in me.roster if p.in_ir_slot), 0)
+    players = []
+    for pos in ("QB", "RB", "WR", "TE"):
+        at = sorted((p for p in snapshot.free_agents
+                     if p.position == pos and p.team and p.kickoff and not p.on_bye and not p.is_out
+                     and not p.locked and not p.unsigned and p.projection is not None),
+                    key=lambda p: -p.week_value)
+        players.extend(at[:WIRE_PER_POSITION])
+    return Wire(players=players, open_spots=open_spots, ir_open=ir_open)
+
+
 def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> MatchupReport:
     """Optimise the user's lineup against this week's opponent."""
     cfg = cfg or get_config()
@@ -92,10 +122,11 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
     notes: list[str] = []
     if opp is None:
         notes.append("no matchup found in the snapshot; optimising for expected points only")
+    wire = late_wire(snapshot, cfg)
     result = optimise(
         me.roster, snapshot.starting_slots,
         opp.roster if opp else None,
-        n_sims=int(cfg.raw["roster"]["sims"]),
+        n_sims=int(cfg.raw["roster"]["sims"]), wire=wire,
     )
     if result.current is None:
         notes.append("no lineup is currently set on the platform")
@@ -113,7 +144,8 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
             streams[pos] = []
     near: list[PickupOption] = []
     try:
-        pickups = this_week_pickups(snapshot, result, n_sims=int(cfg.raw["roster"]["sims"]), near=near)
+        pickups = this_week_pickups(snapshot, result, n_sims=int(cfg.raw["roster"]["sims"]), near=near,
+                                    wire=wire)
     except Exception:  # noqa: BLE001 - a bonus table never blocks the report
         pickups = []
     return MatchupReport(
@@ -132,7 +164,7 @@ PICKUPS_NEAR = 3
 
 
 def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int = 20000,
-                      near: list | None = None) -> list[PickupOption]:
+                      near: list | None = None, wire: Wire | None = None) -> list[PickupOption]:
     """Free agents who would raise your P(win) this week, each with the
     player he would start over and the cheapest one to drop.
 
@@ -156,7 +188,7 @@ def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int =
                      and p.projection is not None and p.week_value >= floor),
                     key=lambda p: -p.week_value)
         pool.extend(at[:PICKUPS_PER_POSITION])
-    options = pickup_options(opt, me.roster, snapshot.starting_slots, pool, n_sims=n_sims)
+    options = pickup_options(opt, me.roster, snapshot.starting_slots, pool, n_sims=n_sims, wire=wire)
     if near is not None:
         near.extend([o for o in options if o.gain <= 0][:PICKUPS_NEAR])
     out = []

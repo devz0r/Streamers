@@ -33,3 +33,11 @@ def test_the_volatile_files_are_ignored():
     ignored = (WORKFLOW.parents[2] / ".gitignore").read_text()
     for path in ("docs/index.html", "docs/latest.json", "docs/views/"):
         assert path in ignored
+
+
+def test_night_games_get_a_refresh_after_their_inactives():
+    wf = _load()
+    crons = [c["cron"] for c in wf[True]["schedule"]] if True in wf else [c["cron"] for c in wf["on"]["schedule"]]
+    assert "55 22,23 * * 0,1,4" in crons
+    mode = next(s for s in wf["jobs"]["weekly"]["steps"] if s.get("name") == "Decide which half to run")["run"]
+    assert '"55 22,23 * * 0,1,4") MODE=refresh' in mode

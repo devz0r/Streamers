@@ -3575,6 +3575,48 @@ Kickoffs come from the nflverse schedule already used for locks
 from the same draws without the swap, so for a lineup with a covered
 questionable starter it shows slightly lower odds than the recommendation.
 
+### Late swaps from the wire, cover pickups and the night-game refresh
+
+A questionable starter in the last game of your week, such as Mike Evans on
+Monday night, had no swap at all. By his inactives every bench player's game
+is over, so none of them can come in. On ESPN they cannot be dropped either
+once their games have begun. The only replacement then is a free agent
+playing that night, and only if the roster has room to add him.
+
+- **Free agents count as late swaps** (`lineup.Wire`, `swap_plan`). The
+  matchup report keeps the best few free agents per position
+  (`matchup.late_wire`) and the room the roster will have when the
+  inactives come out: empty bench spots, and empty IR slots (a starter
+  ruled out can move into one; ESPN lets an OUT player sit there). A
+  free agent covers a starter only if his game starts no earlier than 90
+  minutes before the starter's, he is eligible for the slot, and there is
+  room. Each spot is used once. A bench player is preferred unless the
+  free agent projects higher. A drop is never counted on: by then the
+  bench is locked, and the drop is the manager's call anyway. Config
+  `roster.late_wire` switches it off.
+- **The start/sit choice sees the real fallback.** With a Monday free agent
+  available, a questionable Monday starter is worth more than a sure
+  Sunday player of the same expected points. The optimiser now starts him
+  where that holds; before, he only counted as a coin flip against zero.
+- **Cover pickups are priced** (`pickup_options`). A free agent no longer
+  has to start to help: he can be held on the bench as cover for a
+  questionable starter in a game that kicks off before his. He is priced
+  the same way, as P(win) against the opponent on shared draws, with late
+  swaps counted on both sides, so his worth is what he adds over the
+  fallback you already had. The page says "hold him on the bench to
+  replace X if he is ruled out".
+- **The Lineup tab shows "If a questionable starter is ruled out".** For
+  each one: when his inactives come out (ET), and his replacements, best
+  first, with what each takes (from your bench, your open roster spot, or
+  moving him to IR and then adding a free agent). It also marks which one
+  the win odds count on, and warns that the free-agent pool cannot tell a
+  free agent from a player on waivers.
+- **The night games get a refresh after their inactives.** It runs at 6:55
+  PM ET on Thursday, Sunday and Monday. The cron is in UTC, so it has two
+  entries (22:55 and 23:55), one for each side of the clock change. Before
+  this, the 22:41 UTC run came just before the inactives and the next one
+  after kickoff.
+
 ### Quarterback bias: not systematic, no correction
 
 The weekly replays showed quarterbacks projected 0.5 to 1.2 points low in

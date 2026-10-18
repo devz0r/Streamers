@@ -22,6 +22,49 @@ from .waiver_plans import drops_text
 from .waivers import Move, drop_watch, stashes
 
 
+def _fallback_card(opt) -> str:
+    """"If he is ruled out": for each questionable starter, when you will know
+    and who could take his slot then, best first, with what it takes (a bench
+    swap, an open roster spot, or moving him to IR to add a free agent)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from .lineup import HOW_BENCH, HOW_IR, HOW_OPEN
+
+    plans = getattr(opt, "fallbacks", None) or []
+    if not plans:
+        return ""
+    et = ZoneInfo("America/New_York")
+    out = ['<h3>If a questionable starter is ruled out</h3>']
+    for f in plans:
+        when = f.deadline.astimezone(et)
+        now = datetime.now(et)
+        day = "" if when.date() == now.date() else when.strftime("%A ")
+        head = (f"<p class='sub'><b>{_e(f.starter.name)}</b> ({_e(f.slot)}, "
+                f"{f.starter.play_probability:.0%} to play): inactives about {day}{when.strftime('%-I:%M %p')} ET.")
+        if not f.options:
+            out.append(head + " Nobody could take his slot then: his game is the last of yours and you "
+                       "will have no open roster spot or IR slot -- a free agent would need a drop, and "
+                       "players whose games have begun cannot be dropped.</p>")
+            continue
+        rows = []
+        for c, how in f.options:
+            step = ("from your bench" if how == HOW_BENCH else
+                    "free agent: add him to your open roster spot" if how == HOW_OPEN else
+                    f"free agent: move {f.starter.name} to IR once he is marked out, then add him"
+                    if how == HOW_IR else how)
+            mark = " <b>&larr; counted in your P(win)</b>" if f.priced is not None and c.player_id == f.priced.player_id else ""
+            rows.append(f"<li>{_e(c.name)} ({_e(c.position)}, {_e(c.team or '--')}) "
+                        f"{c.week_value:.1f} -- {_e(step)}{mark}</li>")
+        tail = ("" if any(h != HOW_BENCH for _c, h in f.options) else
+                " (no free agent counted: you will have no open roster spot or IR slot then)")
+        out.append(head + tail + f"</p><ul class='sub'>{''.join(rows)}</ul>")
+    out.append("<p class='sub'>A free agent must be a free agent then, not on waivers; check before relying "
+               "on one. The page refreshes about 6:55 PM ET before Thursday, Sunday and Monday night games, "
+               "after their inactives.</p>")
+    return "".join(out)
+
+
 def _e(v: object) -> str:
     return html.escape("" if v is None else str(v))
 
@@ -165,6 +208,7 @@ def team_sections(
     else:
         lineup.append('<p class="sub">Your set lineup is already the recommended one.</p>')
     lineup.append(_bench(snapshot, opt, has_vegas))
+    lineup.append(_fallback_card(opt))
     lineup.append(
         '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
         "percentile), with teammates and opponents correlated as they are on the field.</p>")

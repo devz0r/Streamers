@@ -535,3 +535,69 @@ def test_a_covered_questionable_starter_is_worth_more_and_the_swap_is_named():
     opt = lineup.optimise(players, {"WR": 1}, None, n_sims=4000)
     assert opt.best_win.player_ids == {"q"}
     assert any("Bench Guy" in r and "Q Starter" in r for r in opt.reasons)
+
+
+# ---------------------------------------------------------------------------
+# Late swaps from the wire
+# ---------------------------------------------------------------------------
+MON = "2026-10-20T00:15:00+00:00"       # Monday night
+SUN = "2026-10-19T17:00:00+00:00"       # Sunday 1 PM ET
+
+
+def _fa(pid, kick, proj=8.0, pos="WR"):
+    return PlayerRow(player_id=pid, name=f"FA {pid}", position=pos, slot="", projection=proj,
+                     projection_sd=5.0, outcome_sd=5.0, kickoff=kick)
+
+
+def test_a_free_agent_covers_a_monday_starter_only_when_there_is_room():
+    q, b = _q_starter_and_bench(MON, SUN)            # the bench player's game is long over by then
+    fa = _fa("w", MON)
+    assert lineup.swap_plan({"WR": [q]}, [q, b], lineup.Wire([fa])) == []                  # no room
+    assert lineup.swap_plan({"WR": [q]}, [q, b], lineup.Wire([fa], ir_open=1)) == [(q, fa, lineup.HOW_IR)]
+    assert lineup.swap_plan({"WR": [q]}, [q, b], lineup.Wire([fa], open_spots=1)) == [(q, fa, lineup.HOW_OPEN)]
+
+
+def test_a_late_bench_player_beats_a_worse_free_agent_and_a_better_one_wins():
+    q, b = _q_starter_and_bench("2026-10-19T17:00:00+00:00", "2026-10-19T20:25:00+00:00")
+    weak, strong = _fa("weak", MON, proj=6.0), _fa("strong", MON, proj=12.0)
+    assert lineup.swap_plan({"WR": [q]}, [q, b], lineup.Wire([weak], ir_open=1)) == [(q, b, lineup.HOW_BENCH)]
+    assert lineup.swap_plan({"WR": [q]}, [q, b], lineup.Wire([strong], ir_open=1)) == [(q, strong, lineup.HOW_IR)]
+
+
+def test_the_optimiser_counts_the_wire_and_lists_the_fallbacks():
+    q, b = _q_starter_and_bench(MON, SUN)
+    fa = _fa("w", MON, proj=9.0)
+    plain = lineup.optimise([q, b], {"WR": 1}, None, n_sims=4000)
+    covered = lineup.optimise([q, b], {"WR": 1}, None, n_sims=4000, wire=lineup.Wire([fa], ir_open=1))
+    # With nobody to come in Monday, the sure Sunday player starts; with a
+    # Monday free agent to fall back on, the questionable starter is worth more.
+    assert plain.best_win.player_ids == {"b"} and covered.best_win.player_ids == {"q"}
+    assert any("IR slot" in r and "FA w" in r for r in covered.reasons)
+    (f,) = covered.fallbacks
+    assert f.starter is q and f.priced is fa and f.options[0] == (fa, lineup.HOW_IR)
+    assert f.deadline.isoformat().startswith("2026-10-19T22:45")
+
+
+def test_a_monday_free_agent_is_priced_as_cover_for_a_questionable_starter():
+    from streamer.roster.lineup import pickup_options
+
+    q, b = _q_starter_and_bench(MON, SUN)
+    b.projection = 4.0                               # the questionable starter starts
+    opp = PlayerRow(player_id="o", name="Opp", position="WR", slot="WR", projection=8.0,
+                    projection_sd=4.0, outcome_sd=4.0, kickoff=SUN)
+    fa = _fa("w", MON, proj=9.0)
+    opt = lineup.optimise([q, b], {"WR": 1}, [opp], n_sims=4000)
+    (o,) = pickup_options(opt, [q, b], {"WR": 1}, [fa], n_sims=8000)
+    assert o.cover is q and not o.changes and o.gain > 0.05
+    assert "replace Q Starter" in o.moves_text
+
+
+def test_the_fallback_card_names_the_steps():
+    from streamer.roster.page import _fallback_card
+
+    q, b = _q_starter_and_bench(MON, SUN)
+    fa = _fa("w", MON, proj=9.0)
+    opt = lineup.optimise([q, b], {"WR": 1}, None, n_sims=2000, wire=lineup.Wire([fa], ir_open=1))
+    html = _fallback_card(opt)
+    assert "If a questionable starter is ruled out" in html and "Q Starter" in html
+    assert "move Q Starter to IR" in html and "counted in your P(win)" in html

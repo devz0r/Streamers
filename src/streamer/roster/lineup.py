@@ -82,6 +82,25 @@ class LineupResult:
 
 
 @dataclass
+class Fallback:
+    """If a questionable starter is ruled out: when you will know (his
+    inactives, about 90 minutes before his game) and who could take his slot
+    then -- ``options`` as (player, how), best first, the first being the one
+    the win odds count on when there is room for him."""
+
+    starter: PlayerRow
+    slot: str
+    deadline: datetime
+    options: list[tuple[PlayerRow, str]] = field(default_factory=list)
+    #: The replacement the win odds count on (None: none in time).
+    priced: PlayerRow | None = None
+
+
+#: Replacements listed per questionable starter.
+FALLBACKS_SHOWN = 4
+
+
+@dataclass
 class Optimisation:
     """Everything the CLI and page need from one optimisation."""
 
@@ -105,6 +124,9 @@ class Optimisation:
     #: Benched player id -> why the P(win) lineup sits him despite projecting
     #: more than a starter he could replace.
     bench_reasons: dict[str, str] = field(default_factory=dict)
+    #: For each questionable starter in the recommended lineup: who could
+    #: replace him if he is ruled out, best first (:class:`Fallback`).
+    fallbacks: list[Fallback] = field(default_factory=list)
 
     @property
     def win_gain(self) -> float:
@@ -219,15 +241,51 @@ def _kick(p: PlayerRow) -> datetime | None:
         return None
 
 
-def swap_pairs(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow]) -> list[tuple[PlayerRow, PlayerRow]]:
-    """(questionable starter, the bench player who would replace him) for each
-    starter who may sit and has a replacement you could still put in when his
-    inactives come out: on the bench, eligible for his slot, not out, and
-    whose own game has not kicked off by then. Best bench player first; one
-    replacement per starter."""
+@dataclass
+class Wire:
+    """Free agents a starter ruled out at the last minute could be replaced
+    with, and the room on your roster to add one then: an empty bench spot,
+    or an empty IR slot the ruled-out starter moves into (a player tagged out
+    can go there). Once his inactives are out, your bench players whose games
+    have begun can no longer be dropped, so a drop is never counted on."""
+
+    players: list[PlayerRow] = field(default_factory=list)
+    open_spots: int = 0
+    ir_open: int = 0
+
+    def without(self, p: PlayerRow) -> Wire:
+        """The wire after ``p`` is added to your roster now (he takes an open
+        spot if there is one)."""
+        return Wire([w for w in self.players if w.player_id != p.player_id],
+                    max(self.open_spots - 1, 0), self.ir_open)
+
+
+#: How a ruled-out starter is replaced: from the bench, or by adding a free
+#: agent to an open spot or after moving the starter to IR.
+HOW_BENCH, HOW_OPEN, HOW_IR = "bench", "open spot", "IR slot"
+
+
+def _in_time(b: PlayerRow, kx: datetime) -> bool:
+    kb = _kick(b)
+    return kb is not None and kb >= kx - INACTIVES_LEAD
+
+
+def swap_plan(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow],
+              wire: Wire | None = None) -> list[tuple[PlayerRow, PlayerRow, str]]:
+    """(questionable starter, who replaces him, how) for each starter who may
+    sit and has a replacement you could still put in when his inactives come
+    out: a bench player eligible for his slot, not out, whose own game has not
+    kicked off by then -- or, where the roster has room then, a free agent
+    like that. The better of the two by this week's projection; one
+    replacement per starter, each used once."""
     started = {p.player_id for ps in lineup.values() for p in ps}
     bench = sorted((p for p in roster if p.player_id not in started and not p.locked and not p.in_ir_slot),
                    key=lambda p: -p.week_value)
+    have = {p.player_id for p in roster}
+    free = sorted((p for p in (wire.players if wire else [])
+                   if p.player_id not in have and not p.locked and not p.is_out and not p.in_ir_slot),
+                  key=lambda p: -p.week_value)
+    open_spots, ir_open = (wire.open_spots, wire.ir_open) if wire else (0, 0)
     used: set[str] = set()
     out = []
     for slot, ps in lineup.items():
@@ -236,26 +294,41 @@ def swap_pairs(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow]) -> l
             kx = _kick(x)
             if x.locked or q >= 1.0 or q <= 0.0 or kx is None:
                 continue
-            for b in bench:
-                kb = _kick(b)
-                if (b.player_id in used or kb is None or kb < kx - INACTIVES_LEAD
-                        or not _eligible(b, slot)):
-                    continue
-                out.append((x, b))
+            ok = lambda c, kx=kx, slot=slot: (c.player_id not in used and _in_time(c, kx)  # noqa: E731
+                                              and _eligible(c, slot))
+            b = next((c for c in bench if ok(c)), None)
+            w = next((c for c in free if ok(c)), None) if (open_spots or ir_open) else None
+            if w is not None and (b is None or w.week_value > b.week_value):
+                how = HOW_OPEN if open_spots else HOW_IR
+                if open_spots:
+                    open_spots -= 1
+                else:
+                    ir_open -= 1
+                out.append((x, w, how))
+                used.add(w.player_id)
+            elif b is not None:
+                out.append((x, b, HOW_BENCH))
                 used.add(b.player_id)
-                break
     return out
 
 
-def _swap_totals(lineups, samples, sits, index, roster) -> np.ndarray:
+def swap_pairs(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow],
+               wire: Wire | None = None) -> list[tuple[PlayerRow, PlayerRow]]:
+    """(questionable starter, the player who would replace him): :func:`swap_plan`
+    without the how."""
+    return [(x, b) for x, b, _how in swap_plan(lineup, roster, wire)]
+
+
+def _swap_totals(lineups, samples, sits, index, roster, wire: Wire | None = None) -> np.ndarray:
     """``(n_lineups, n_sims)`` points each lineup gains from swapping in a
-    bench player wherever a questionable starter sat."""
+    bench player (or a free agent, where the roster has room) wherever a
+    questionable starter sat."""
     out = np.zeros((len(lineups), samples.shape[0]))
     if sits is None or not sits.any():
         return out
     cache: dict[tuple[str, str], np.ndarray] = {}
     for i, lu in enumerate(lineups):
-        for x, b in swap_pairs(lu, roster):
+        for x, b in swap_pairs(lu, roster, wire):
             key = (x.player_id, b.player_id)
             if key not in cache:
                 cache[key] = sits[:, index[x.player_id]] * samples[:, index[b.player_id]]
@@ -375,13 +448,14 @@ def _totals(
     return ind @ samples.T
 
 
-def _win_rates(lineups, samples, index, opp_total, chunk: int = 256, sits=None, roster=None) -> np.ndarray:
+def _win_rates(lineups, samples, index, opp_total, chunk: int = 256, sits=None, roster=None,
+               wire: Wire | None = None) -> np.ndarray:
     """P(win) per lineup, in chunks so thousands of lineups stay in memory."""
     out = np.empty(len(lineups))
     for lo in range(0, len(lineups), chunk):
         t = _totals(lineups[lo:lo + chunk], samples, index)
         if sits is not None and roster is not None:
-            t = t + _swap_totals(lineups[lo:lo + chunk], samples, sits, index, roster)
+            t = t + _swap_totals(lineups[lo:lo + chunk], samples, sits, index, roster, wire)
         out[lo:lo + chunk] = (t > opp_total).mean(axis=1) + 0.5 * (t == opp_total).mean(axis=1)
     return out
 
@@ -417,12 +491,14 @@ def optimise(
     seed: int = 7,
     min_edge: float = MIN_WIN_EDGE,
     opponent_mode: str = "current",
+    wire: Wire | None = None,
 ) -> Optimisation:
     """Find the lineup that maximises P(win) against the opponent.
 
     ``opponent_mode``: "current" faces the lineup the opponent has set (their
     best projected one when none is set); "ideal" always faces their best
-    projected lineup."""
+    projected lineup. ``wire``: free agents who could replace a starter ruled
+    out at the last minute, and the room to add one (:class:`Wire`)."""
     rng = np.random.default_rng(seed)
     # A player parked in an IR slot cannot be started without a roster move
     # (activation needs a free spot), so the lineup is chosen from the rest.
@@ -446,6 +522,10 @@ def optimise(
                 opp_lineup = max(opp_lineups, key=_projected)
 
     everyone = list(roster) + (list(opponent_roster) if opponent_roster else [])
+    if wire is not None:
+        seen = {p.player_id for p in everyone}
+        wire = Wire([w for w in wire.players if w.player_id not in seen], wire.open_spots, wire.ir_open)
+        everyone += wire.players
     index = {p.player_id: i for i, p in enumerate(everyone)}
 
     # Select on one sample, confirm on a fresh one: picking the best of
@@ -457,7 +537,7 @@ def optimise(
     sits_sel = np.zeros((n_sims, len(everyone)), dtype=bool)
     select = sample_points(everyone, n_sims, rng, sits=sits_sel)
     opp_sel = _totals([opp_lineup], select, index)[0] if opp_lineup is not None else np.zeros(n_sims)
-    wins_sel = _win_rates(mine, select, index, opp_sel, sits=sits_sel, roster=roster)
+    wins_sel = _win_rates(mine, select, index, opp_sel, sits=sits_sel, roster=roster, wire=wire)
     projected = np.array([_projected(lu) for lu in mine])
     ev_best = int(np.argmax(projected))
     top = list(np.argsort(-wins_sel)[:CONFIRM_TOP])
@@ -468,7 +548,7 @@ def optimise(
     confirm = sample_points(everyone, n_sims, rng, sits=sits)
     opp_total = _totals([opp_lineup], confirm, index)[0] if opp_lineup is not None else np.zeros(n_sims)
     cand = [mine[i] for i in top]
-    totals = _totals(cand, confirm, index) + _swap_totals(cand, confirm, sits, index, roster)
+    totals = _totals(cand, confirm, index) + _swap_totals(cand, confirm, sits, index, roster, wire)
     win_ind = (totals > opp_total) + 0.5 * (totals == opp_total)
     wins = win_ind.mean(axis=1)
     leader = int(np.argmax(wins))
@@ -492,7 +572,7 @@ def optimise(
     current = None
     cur = current_lineup(roster, slots)
     if cur is not None:
-        t = _totals([cur], confirm, index)[0] + _swap_totals([cur], confirm, sits, index, roster)[0]
+        t = _totals([cur], confirm, index)[0] + _swap_totals([cur], confirm, sits, index, roster, wire)[0]
         current = LineupResult(
             starters=cur, expected=_projected(cur), sd=float(t.std()),
             win_probability=float((t > opp_total).mean() + 0.5 * (t == opp_total).mean()),
@@ -508,9 +588,14 @@ def optimise(
               for p in everyone}
     bench_reasons: dict[str, str] = {}
     reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges, bench_reasons)
-    for x, b in swap_pairs(best_win.starters, roster):
+    for x, b, how in swap_plan(best_win.starters, roster, wire):
+        add = ("" if how == HOW_BENCH else
+               " (a free agent: add him to your open roster spot)" if how == HOW_OPEN else
+               f" (a free agent: move {x.name} to your empty IR slot once he is marked out, then add him)")
         reasons.append(f"if {x.name} is ruled out ({x.play_probability:.0%} to play; inactives come out about "
-                       f"90 minutes before his game), start {b.name} in his place -- the win odds count on that swap")
+                       f"90 minutes before his game), start {b.name} in his place{add} -- the win odds count "
+                       "on that swap")
+    fallbacks = fallback_plans(best_win.starters, roster, wire)
 
     keep = min(EDITOR_SIMS, n_sims)
     ids = [p.player_id for p in roster]
@@ -519,8 +604,38 @@ def optimise(
         changes=diff_lineups(current.starters if current else None, best_win.starters),
         n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges, bench_reasons=bench_reasons,
         sample_ids=ids, samples=confirm[:keep, [index[i] for i in ids]],
-        opp_samples=opp_total[:keep],
+        opp_samples=opp_total[:keep], fallbacks=fallbacks,
     )
+
+
+def fallback_plans(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow],
+                   wire: Wire | None = None) -> list[Fallback]:
+    """Each questionable starter's replacements if he is ruled out, best
+    first: bench players and free agents whose games have not begun by his
+    inactives (a free agent only where the roster will have room), and which
+    of them the win odds count on (:func:`swap_plan`)."""
+    priced = {x.player_id: b for x, b, _how in swap_plan(lineup, roster, wire)}
+    started = {p.player_id for ps in lineup.values() for p in ps}
+    have = {p.player_id for p in roster}
+    room = HOW_OPEN if wire and wire.open_spots else HOW_IR if wire and wire.ir_open else None
+    out = []
+    for slot, ps in lineup.items():
+        for x in ps:
+            q = float(x.play_probability if x.play_probability is not None else 1.0)
+            kx = _kick(x)
+            if x.locked or q >= 1.0 or q <= 0.0 or kx is None:
+                continue
+            fits = lambda c, kx=kx, slot=slot: (_in_time(c, kx) and _eligible(c, slot)  # noqa: E731
+                                                and not c.locked)
+            opts = [(c, HOW_BENCH) for c in roster
+                    if c.player_id not in started and not c.in_ir_slot and fits(c)]
+            if room is not None:
+                opts += [(c, room) for c in wire.players
+                         if c.player_id not in have and not c.is_out and not c.in_ir_slot and fits(c)]
+            opts.sort(key=lambda o: -o[0].week_value)
+            out.append(Fallback(starter=x, slot=slot, deadline=kx - INACTIVES_LEAD,
+                                options=opts[:FALLBACKS_SHOWN], priced=priced.get(x.player_id)))
+    return out
 
 
 def _strongest(pool: list[PlayerRow], who: PlayerRow, sign: int,
@@ -695,6 +810,9 @@ class PickupOption:
     #: Changes from your best lineup as it stands: (slot, benched, started).
     changes: list[tuple[str, PlayerRow | None, PlayerRow]] = field(default_factory=list)
     drop: PlayerRow | None = None
+    #: A pickup who helps from the bench: the questionable starter he would
+    #: replace if that starter is ruled out (None: he starts, or does not).
+    cover: PlayerRow | None = None
     #: Title odds of the whole move (this week and the rest of the season,
     #: the drop included), when the season engine priced it.
     title_gain: float | None = None
@@ -706,7 +824,10 @@ class PickupOption:
 
     @property
     def moves_text(self) -> str:
-        """"start A over B; start C over D" -- every lineup change he brings."""
+        """"start A over B; start C over D" -- every lineup change he brings,
+        or, for cover, what he is held for."""
+        if not self.changes and self.cover is not None:
+            return f"hold him on the bench to replace {self.cover.name} if he is ruled out"
         return "; ".join(f"start {s.name}" + (f" over {b.name}" if b is not None else "")
                          for _slot, b, s in self.changes)
 
@@ -723,15 +844,19 @@ def pickup_options(
     candidates: list[PlayerRow],
     n_sims: int = 20000,
     seed: int = 13,
+    wire: Wire | None = None,
 ) -> list[PickupOption]:
     """P(win) this week with each free agent on the roster.
 
-    Your best lineup is rebuilt around each candidate (he has to start to
-    help this week) and scored against the opponent's lineup on draws shared
-    by every candidate and by your lineup as it stands, so the differences
-    are the players, not the luck of the draw. The lineup is chosen on one
-    sample and scored on a fresh one, as :func:`optimise` does. Who to drop
-    is left to the caller: this week it is anyone who would not start.
+    Your best lineup is rebuilt around each candidate, or kept as it is with
+    him on the bench as cover for a questionable starter (a late game, so he
+    can come in if that starter is ruled out), and scored against the
+    opponent's lineup on draws shared by every candidate and by your lineup
+    as it stands -- late swaps counted on both sides, from the bench and the
+    wire (``wire``) -- so the differences are the players, not the luck of
+    the draw. The lineup is chosen on one sample and scored on a fresh one,
+    as :func:`optimise` does. Who to drop is left to the caller: this week it
+    is anyone who would not start.
     """
     if opt.opponent is None:
         return []
@@ -743,34 +868,46 @@ def pickup_options(
         return []
     theirs = [p for _s, p in opt.opponent.flat()]
     everyone, seen = [], set()
-    for p in roster + theirs + pool:
+    for p in roster + theirs + pool + (wire.players if wire else []):
         if p.player_id not in seen:
             seen.add(p.player_id)
             everyone.append(p)
     index = {p.player_id: i for i, p in enumerate(everyone)}
     rng = np.random.default_rng(seed)
-    select = sample_points(everyone, n_sims, rng)
-    confirm = sample_points(everyone, n_sims, rng)
+    sits_sel = np.zeros((n_sims, len(everyone)), dtype=bool)
+    sits = np.zeros((n_sims, len(everyone)), dtype=bool)
+    select = sample_points(everyone, n_sims, rng, sits=sits_sel)
+    confirm = sample_points(everyone, n_sims, rng, sits=sits)
     opp_sel = _totals([opt.opponent.starters], select, index)[0]
     opp_conf = _totals([opt.opponent.starters], confirm, index)[0]
-    base_tot = _totals([opt.best_win.starters], confirm, index)[0]
+    base = [opt.best_win.starters]
+    base_tot = _totals(base, confirm, index)[0] + _swap_totals(base, confirm, sits, index, roster, wire)[0]
     base_ind = (base_tot > opp_conf) + 0.5 * (base_tot == opp_conf)
     out = []
     for c in pool:
-        lineups = [lu for lu in _with_locks(roster + [c], slots)
+        mine, rest = roster + [c], (wire.without(c) if wire else None)
+        lineups = [lu for lu in _with_locks(mine, slots)
                    if any(p.player_id == c.player_id for ps in lu.values() for p in ps)]
+        # Or keep the lineup and hold him as cover (only worth it if a swap uses him).
+        cover = next((x for x, b in swap_pairs(opt.best_win.starters, mine, rest)
+                      if b.player_id == c.player_id), None)
+        if cover is not None:
+            lineups.append(opt.best_win.starters)
         if not lineups:
             continue
-        best = lineups[int(np.argmax(_win_rates(lineups, select, index, opp_sel)))]
-        tot = _totals([best], confirm, index)[0]
+        best = lineups[int(np.argmax(_win_rates(lineups, select, index, opp_sel, sits=sits_sel,
+                                                roster=mine, wire=rest)))]
+        tot = _totals([best], confirm, index)[0] + _swap_totals([best], confirm, sits, index, mine, rest)[0]
         ind = (tot > opp_conf) + 0.5 * (tot == opp_conf)
         diff = ind - base_ind
+        held = best is opt.best_win.starters
         out.append(PickupOption(
             player=c, win_probability=float(ind.mean()), base=float(base_ind.mean()),
             noise=float(diff.std() / np.sqrt(n_sims)),
             lineup=LineupResult(starters=best, expected=_projected(best), sd=float(tot.std()),
                                 win_probability=float(ind.mean())),
-            changes=diff_lineups(opt.best_win.starters, best)))
+            changes=[] if held else diff_lineups(opt.best_win.starters, best),
+            cover=cover if held else None))
     out.sort(key=lambda o: -o.gain)
     return out
 
