@@ -155,28 +155,58 @@ def _eligible(p: PlayerRow, slot: str) -> bool:
     return p.position in SLOT_ELIGIBILITY.get(slot, ())
 
 
+_SLOT_SETS: dict[tuple, frozenset] = {}
+
+
+def _slot_set(p: PlayerRow) -> frozenset:
+    """Every slot he can fill (what :func:`_eligible` answers one slot at a
+    time), remembered by position and listed slots: rosters are valued
+    hundreds of thousands of times in a search."""
+    k = (p.position, tuple(p.eligible_slots) if p.eligible_slots else ())
+    got = _SLOT_SETS.get(k)
+    if got is None:
+        got = _SLOT_SETS[k] = frozenset(
+            slot for slot in set(SLOT_ELIGIBILITY) | set(k[1])
+            if (k[1] and slot in k[1]) or p.position in SLOT_ELIGIBILITY.get(slot, ()))
+    return got
+
+
+_SLOT_ORDER: dict[tuple, list] = {}
+
+
+def _ordered_slots(slots: dict[str, int]) -> list:
+    k = tuple(slots.items())
+    got = _SLOT_ORDER.get(k)
+    if got is None:
+        got = _SLOT_ORDER[k] = sorted(
+            slots.items(), key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]))
+    return got
+
+
+def _assign(players: list[PlayerRow], vals: list[float], slots: dict[str, int]) -> dict[str, str]:
+    """:func:`lineup_slots` on values already worked out."""
+    order = sorted(range(len(players)), key=vals.__getitem__, reverse=True)
+    ranked = [(players[i].player_id, _slot_set(players[i])) for i in order]
+    assigned: dict[str, str] = {}
+    for slot, count in _ordered_slots(slots):
+        taken = 0
+        for pid, can in ranked:
+            if taken >= count:
+                break
+            if pid in assigned or slot not in can:
+                continue
+            assigned[pid] = slot
+            taken += 1
+    return assigned
+
+
 def lineup_slots(players: list[PlayerRow], slots: dict[str, int], key: Key) -> dict[str, str]:
     """Greedy best lineup on ``key``: player id -> the slot he fills.
 
     Dedicated slots first, flex slots last; exact for the usual one-flex
     structure and a close approximation otherwise.
     """
-    ordered = sorted(
-        slots.items(),
-        key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]),
-    )
-    ranked = sorted(players, key=key, reverse=True)
-    assigned: dict[str, str] = {}
-    for slot, count in ordered:
-        taken = 0
-        for p in ranked:
-            if taken >= count:
-                break
-            if p.player_id in assigned or not _eligible(p, slot):
-                continue
-            assigned[p.player_id] = slot
-            taken += 1
-    return assigned
+    return _assign(players, [key(p) for p in players], slots)
 
 
 def best_lineup(players: list[PlayerRow], slots: dict[str, int], key: Key) -> tuple[set[str], float]:
@@ -208,27 +238,31 @@ def roster_value(
     """Best-lineup points plus replacement-level bench depth, plus -- for the
     rest-of-season horizon -- the upside of bench players whose role could
     grow past the weakest starter they are eligible to replace."""
-    assigned = lineup_slots(players, slots, key)
-    starters = set(assigned)
-    total = sum(key(p) for p in players if p.player_id in assigned)
+    vals = [key(p) for p in players]
+    assigned = _assign(players, vals, slots)
+    total = 0.0
     bench: dict[str, list[float]] = {}
-    for p in players:
-        if p.player_id not in starters:
-            bench.setdefault(p.position, []).append(key(p))
-    for pos, vals in bench.items():
-        vals.sort(reverse=True)
+    for p, v in zip(players, vals):
+        if p.player_id in assigned:
+            total += v
+        else:
+            bench.setdefault(p.position, []).append(v)
+    for pos, vs in bench.items():
+        vs.sort(reverse=True)
         level = replacement.get(pos, 0.0)
-        for w, v in zip(BENCH_WEIGHTS.get(pos, ()), vals):
+        for w, v in zip(BENCH_WEIGHTS.get(pos, ()), vs):
             total += w * max(v - level, 0.0)
     if with_upside:
-        by_id = {p.player_id: p for p in players}
-        for p in players:
-            if p.player_id in starters or p.position not in UPSIDE_POSITIONS or p.ros_sd is None:
+        by_id = {p.player_id: v for p, v in zip(players, vals)}
+        starters = [(by_id[i], slot) for i, slot in assigned.items()]
+        for p, v in zip(players, vals):
+            if p.player_id in assigned or p.position not in UPSIDE_POSITIONS or p.ros_sd is None:
                 continue
             # He can only take the job of a starter whose slot he can fill.
-            rivals = [key(by_id[i]) for i, slot in assigned.items() if _eligible(p, slot)]
+            can = _slot_set(p)
+            rivals = [sv for sv, slot in starters if slot in can]
             if rivals:
-                total += upside(key(p), float(p.ros_sd), min(rivals))
+                total += upside(v, float(p.ros_sd), min(rivals))
     return total
 
 

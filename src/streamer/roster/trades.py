@@ -228,21 +228,28 @@ def _counts(roster: list[PlayerRow]) -> dict[str, int]:
     return counts
 
 
-def _keeps_minimums(roster: list[PlayerRow], before: list[PlayerRow]) -> bool:
+def _keeps_minimums(roster: list[PlayerRow], before: list[PlayerRow], was: dict[str, int] | None = None) -> bool:
     """No position falls below its minimum -- or below what the roster had,
     if it already had fewer (a league without kickers). Checking only the
-    skill positions let a two-for-one drop a team's only D/ST to make room."""
-    now, was = _counts(roster), _counts(before)
+    skill positions let a two-for-one drop a team's only D/ST to make room.
+    ``was``: the counts of ``before``, if already worked out."""
+    now = _counts(roster)
+    was = _counts(before) if was is None else was
     return all(now.get(pos, 0) >= min(n, was.get(pos, 0)) for pos, n in MIN_KEEP.items())
 
 
 def _make_room(roster: list[PlayerRow], extra: int, keep: set[str], key) -> tuple[list[PlayerRow], PlayerRow | None]:
     """Drop ``extra`` of the least valuable bench players on ``key`` (never one just received)."""
     dropped = None
-    before = roster
+    was = _counts(roster)
     for _ in range(extra):
-        options = [p for p in roster if p.player_id not in keep and not p.in_ir_slot]
-        options = [p for p in options if _keeps_minimums([q for q in roster if q is not p], before)]
+        now = _counts(roster)
+        # Dropping a player takes one off his position's count (he is not in
+        # the IR slot: those are never options), so the minimums are checked
+        # against the counts here instead of on a rebuilt roster each time.
+        options = [p for p in roster if p.player_id not in keep and not p.in_ir_slot
+                   and all(now.get(pos, 0) - (pos == p.position) >= min(n, was.get(pos, 0))
+                           for pos, n in MIN_KEEP.items())]
         if not options:
             break
         worst = min(options, key=key)
@@ -321,6 +328,7 @@ class TradeFinder:
         me = self.me
         mine = _tradeable(me)
         my0 = self.my_roster_value(me.roster)
+        self._was_mine = _counts(me.roster)
         my_l0 = self._lineup(me.roster, self.ours)
         out: list[Trade] = []
         for team in self.snapshot.teams:
@@ -329,6 +337,7 @@ class TradeFinder:
             theirs = _tradeable(team)
             their0 = self.seen_roster_value(team.roster, self.his(team))
             self._their_ours0 = self.my_roster_value(team.roster)
+            self._was_theirs = _counts(team.roster)
             his = self.his(team)
             pair_mine = sorted(mine, key=lambda p: -self.ours(p))[:PAIR_POOL]
             pair_theirs = sorted(theirs, key=lambda p: -his(p))[:PAIR_POOL]
@@ -367,7 +376,8 @@ class TradeFinder:
                                          lambda p: self.ours(p) + float(p.ros_sd or 0.0))
         if len(give) > len(get):
             their_new, their_drop = _make_room(their_new, len(give) - len(get), give_ids, his)
-        if not (_keeps_minimums(my_new, self.me.roster) and _keeps_minimums(their_new, team.roster)):
+        if not (_keeps_minimums(my_new, self.me.roster, self._was_mine)
+                and _keeps_minimums(their_new, team.roster, self._was_theirs)):
             return None
         my_add = self._fill(my_new) if len(give) > len(get) else None
         if my_add is not None:
