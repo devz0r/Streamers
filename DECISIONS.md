@@ -3575,6 +3575,49 @@ Kickoffs come from the nflverse schedule already used for locks
 from the same draws without the swap, so for a lineup with a covered
 questionable starter it shows slightly lower odds than the recommendation.
 
+### Live scores in the browser
+
+During games the page used each starter's pre-game projection until nflverse
+published the final stats, often a day later. More full refreshes would have
+been the wrong fix: 6-8 minutes each, more Yahoo page loads on your cookie,
+and every projection rebuilt when only the scores moved.
+
+The page now reads live scores itself, with no workflow runs. ESPN's public NFL
+scoreboard and game summaries answer browsers on other sites
+(`Access-Control-Allow-Origin: *`, probed with the `live-probe` job).
+`roster/live.py` puts a live card at the top of the Lineup tab. It carries both
+sides' starters (your lineup as set and your opponent's), their ESPN athlete
+ids (ESPN's league ids are ESPN's; Yahoo's are matched through nflverse's
+roster table, with the name as a fallback), the league's scoring rules, and
+2,000 of the draws that priced the matchup, starter by starter.
+`static/live.js` turns each box score into fantasy points with those rules
+and rescores the draws:
+
+- a finished game counts what he scored;
+- one not started counts the draw;
+- one in progress counts his points so far plus the draw's share of the time
+  left: the mean scaled by the share left, the spread by its square root;
+- a defence in progress is blended instead: the current points (its
+  points-allowed tier moves with the score) weighed against the draw by the
+  time left.
+
+P(win) is the share of draws you finish ahead, shown beside the pre-game
+figure, with both scores so far and the projected finals. It polls once a
+minute while the page is open and a game is on, and stops when every game is
+final. The card stays hidden until a game has started.
+
+Checked against week 5's fifteen finished games (`live-check` job,
+agreement only):
+
+- skill players against nflverse's PPR points: 99.4% exact (336 players); two
+  were 2 points low, probably two-point conversions written differently;
+- kickers against our recorded actuals: 100% (30);
+- defences: 90% (30); three were 2 points high.
+
+Blocked kicks and the return unit's own muffed punts are not in the box score,
+so they are read from the play-by-play. The card says the platform's own score
+is the final word.
+
 ### Yahoo's free agents: the top 150 offensive players, not 50
 
 The Yahoo sync read two pages of the offensive free-agent list (the top 50

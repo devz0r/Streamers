@@ -121,6 +121,10 @@ class Optimisation:
     sample_ids: list[str] = field(default_factory=list)
     samples: np.ndarray | None = None
     opp_samples: np.ndarray | None = None
+    #: The opponent's starters (ids) and, for the same draws, each one's score:
+    #: what the page's live scores condition on, player by player.
+    opp_ids: list[str] = field(default_factory=list)
+    opp_player_samples: np.ndarray | None = None
     #: Benched player id -> why the P(win) lineup sits him despite projecting
     #: more than a starter he could replace.
     bench_reasons: dict[str, str] = field(default_factory=dict)
@@ -599,12 +603,14 @@ def optimise(
 
     keep = min(EDITOR_SIMS, n_sims)
     ids = [p.player_id for p in roster]
+    opp_ids = [p.player_id for ps in (opp_lineup or {}).values() for p in ps if p.player_id in index]
     return Optimisation(
         best_win=best_win, best_ev=best_ev, current=current, opponent=opponent,
         changes=diff_lineups(current.starters if current else None, best_win.starters),
         n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges, bench_reasons=bench_reasons,
         sample_ids=ids, samples=confirm[:keep, [index[i] for i in ids]],
         opp_samples=opp_total[:keep], fallbacks=fallbacks,
+        opp_ids=opp_ids, opp_player_samples=confirm[:keep, [index[i] for i in opp_ids]] if opp_ids else None,
     )
 
 

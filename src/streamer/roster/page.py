@@ -22,6 +22,19 @@ from .waiver_plans import drops_text
 from .waivers import Move, drop_watch, stashes
 
 
+def _live_card(snapshot, opt, cfg, opponent_name: str) -> str:
+    """Live scores and P(win) while the games are on (static/live.js fills
+    it in the browser; hidden until a game has started)."""
+    if cfg is None:
+        return ""
+    from .live import block
+
+    try:
+        return block(snapshot, opt, cfg.for_profile(snapshot.profile), opponent_name)
+    except Exception:  # noqa: BLE001 - a live card never blocks the page
+        return ""
+
+
 def _fallback_card(opt) -> str:
     """"If he is ruled out": for each questionable starter, when you will know
     and who could take his slot then, best first, with what it takes (a bench
@@ -192,6 +205,7 @@ def team_sections(
         f'<p class="sub">vs {_e(report.opponent_name or "?")}: P(win) <b>{_pct(report.win_probability)}</b>'
         f"{_e(gain)}</p>",
         _pickup_pointer(report, uid),
+        _live_card(snapshot, opt, cfg, report.opponent_name),
         "<h3>Recommended lineup</h3>"
         '<div class="scroll"><table class="lineup-table"><thead><tr><th>Slot</th><th class="unit">Player</th>'
         f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"

@@ -321,7 +321,8 @@ def test_my_team_panel_renders(cfg):
     assert moves and moves[0].add.name in html
     # The comparison works without script; only the lineup editor uses it.
     assert "Best P(win)" in html and "Most points" in html
-    assert html.count("<script") == 2 and 'class="ed-data"' in html
+    # Two for the lineup lab, two for the live card (static/live.js fills it during games).
+    assert html.count("<script") == 4 and 'class="ed-data"' in html and 'class="live-data"' in html
     # Split by tab: every key a known tab, the lineup on its own tab, and the
     # hub links to it by switching tabs, not by scrolling.
     parts = team_sections(snap, report, moves, cfg)

@@ -28,7 +28,7 @@ league); a switch picks the league. Under it, tabs:
 | Tab | The decision it answers |
 |---|---|
 | **Hub** | Every move you can make, ranked by points of title odds: lineup changes, streams, waiver claims, trades, multi-move plans. Breaking news for everyone in the league sits at the bottom. |
-| **Lineup** | Who to start. The lineup that maximises P(win) against this week's opponent, with the changes from what you have set, the range of each player, where each projection came from, and **"If a questionable starter is ruled out"**: when his inactives come out and who replaces him. A lab lets you try any lineup. |
+| **Lineup** | Who to start. During games, a **live** card: both sides' points so far from ESPN's box scores, and P(win) updated every minute while the page is open. The lineup that maximises P(win) against this week's opponent, with the changes from what you have set, the range of each player, where each projection came from, and **"If a questionable starter is ruled out"**: when his inactives come out and who replaces him. A lab lets you try any lineup. |
 | **Roster** | What each of your players is worth for the rest of the season, the title odds you would lose without him, and what other managers think he is worth. |
 | **Waivers** | Free agents who raise this week's P(win) (including ones held on the bench as cover), the best add/drop pairs for the rest of the season, upside stashes, drop watch, and a browser of the free agents at each position. On Yahoo, which lets you drop a bench player after his game starts, a free agent to grab before each kickoff window still to come. |
 | **Trades** | Offers ranked by chance of a yes x title odds gained, plus an evaluator for any trade you are offered or considering. |

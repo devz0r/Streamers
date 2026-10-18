@@ -31,6 +31,7 @@ STATIC = Path(__file__).parent / "static"
 #: is CSS -- and the script only adds to it.
 STYLE = (STATIC / "page.css").read_text(encoding="utf-8")
 SCRIPT = (STATIC / "page.js").read_text(encoding="utf-8")
+LIVE_SCRIPT = (STATIC / "live.js").read_text(encoding="utf-8")
 #: Files the page links to, copied beside it when it is published.
 ASSETS = ("icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png")
 
@@ -251,6 +252,7 @@ def render_page(
     parts.append(_footer())
     parts.append("</div>")
     parts.append(f"<script data-enhance>{SCRIPT}</script>")
+    parts.append(f"<script data-enhance>{LIVE_SCRIPT}</script>")
     parts.append("</body></html>")
     return "\n".join(p for p in parts if p)
 
