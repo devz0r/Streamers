@@ -109,7 +109,14 @@ def main() -> int:
     # Skill players: nflverse PPR, matched through the roster table's ESPN ids.
     ps = pd.read_parquet(cfg.raw_dir / f"player_stats_{season}.parquet")
     ps = ps[(ps.week == week) & (ps.season_type == "REG") & ps.position.isin(["QB", "RB", "WR", "TE"])]
-    ro = pd.read_parquet(cfg.raw_dir / f"rosters_weekly_{season}.parquet", columns=["gsis_id", "espn_id"]).dropna()
+    path = cfg.raw_dir / f"rosters_weekly_{season}.parquet"
+    if path.exists():
+        ro = pd.read_parquet(path, columns=["gsis_id", "espn_id"])
+    else:
+        import nflreadpy
+
+        ro = nflreadpy.load_rosters_weekly(seasons=[season]).to_pandas()[["gsis_id", "espn_id"]]
+    ro = ro.dropna()
     espn = dict(zip(ro.gsis_id, ro.espn_id.astype(str).str.split(".").str[0]))
     theirs = pd.Series({espn[g]: v for g, v in zip(ps.player_id, ps.fantasy_points_ppr) if g in espn})
     agree(pd.Series(ours["skill"], dtype=float), theirs, "skill players vs nflverse PPR")
