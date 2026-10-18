@@ -441,6 +441,13 @@ roster:
   # games (roster/idle.py): the trailing averages otherwise skip them and run
   # high for backups. Held out 2023-2025: MAE 4.091 -> 4.013, 3/3 seasons.
   idle_games: true
+  # The wire, week by week, in the season simulation (season.SeasonModel):
+  # a free agent on bye fills nothing that week, and when several teams need
+  # the same fill-in at a slot listed in wire_compete, the ones ahead in
+  # waiver order take the best (D/ST and K left to byes: their streams follow
+  # matchups). DECISIONS.md, "Bye weeks thin the wire".
+  wire_thinning: true
+  wire_compete: [QB, RB, WR, TE, FLEX]
   # Returns already confirmed -- a suspension or exempt-list stint with an
   # end date -- as name: the week he is back. The season simulation sits him
   # exactly until then (rather than drawing how long a 5-game absence runs,

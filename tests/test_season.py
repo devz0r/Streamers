@@ -207,3 +207,54 @@ def test_a_backup_quarterback_takes_the_job_or_sits_not_a_scattering_of_games(mo
     held_mean, held_ends = seasons({k: conf[k] for k in ("role_spread", "role_scale", "role_corr")})
     assert held_ends > flat_ends + 0.05                       # all or nothing more often
     assert abs(held_mean - flat_mean) < 0.05                  # about as many games on average
+
+
+# ---------------------------------------------------------------------------
+# The wire, week by week
+# ---------------------------------------------------------------------------
+def _fa(pid, pos, value, team):
+    return PlayerRow(player_id=pid, name=pid, position=pos, team=team, projection=value,
+                     projection_sd=5.0, outcome_sd=5.0, ros_value=value,
+                     eligible_slots=[pos, "FLEX"] if pos != "QB" else ["QB"])
+
+
+def test_a_free_agent_on_bye_fills_nothing_that_week(cfg, monkeypatch):
+    snap = _league([1.0, 1.0, 1.0, 1.0])
+    snap.free_agents = [_fa("te1", "TE", 9.0, "BUF"), _fa("te2", "TE", 8.0, "BUF"), _fa("te3", "TE", 4.0, "MIA")]
+    monkeypatch.setattr(season_mod, "nfl_byes", lambda *a, **k: {"BUF": {5}})
+    model = SeasonModel(snap, cfg, n_sims=200)
+    te = model._rep_table["TE"]
+    assert te[model.weeks.index(4), 0] == 8.0          # the second best, as before
+    assert te[model.weeks.index(5), 0] == 4.0          # both BUF tight ends on bye
+    assert model.slot_replacement("TE") == 8.0
+
+
+def test_the_flex_level_without_competition_is_the_old_one(cfg):
+    snap = _league([1.0, 1.0, 1.0, 1.0])
+    snap.free_agents = [_fa("w1", "WR", 10.0, "KC"), _fa("w2", "WR", 7.0, "KC"),
+                        _fa("t1", "TE", 9.0, "KC"), _fa("t2", "TE", 6.5, "KC")]
+    model = SeasonModel(snap, cfg, n_sims=200)
+    assert model._rep_table["FLEX"][0, 0] == model.slot_replacement("FLEX") == 7.0
+
+
+def test_rivals_with_the_same_hole_leave_a_worse_fill(cfg):
+    snap = _league([1.0, 1.0, 1.0, 1.0])
+    snap.free_agents = [_fa(f"te{k}", "TE", 30.0 - 4 * k, "KC") for k in range(8)]   # far above any rostered TE
+    model = SeasonModel(snap, cfg, n_sims=300)
+    alone = model._wire_level("TE", 0, compete=False)
+    shared = model._wire_level("TE", 0)
+    assert model._demand["TE"].mean() == pytest.approx(4.0)                 # every team streams the TE
+    assert (shared <= alone).all() and shared.mean() < alone.mean() - 2.0
+
+
+def test_thinning_off_is_the_old_flat_level(cfg):
+    snap = _league([1.0, 1.1, 0.9, 1.0])
+    snap.free_agents = [_fa("te1", "TE", 9.0, "BUF"), _fa("te2", "TE", 8.0, "BUF")]
+    saved = dict(cfg.raw["roster"])
+    try:
+        cfg.raw["roster"]["wire_thinning"] = False
+        model = SeasonModel(snap, cfg, n_sims=200)
+        assert not model._rep_table and model._wire_level("TE", 0) == model.slot_replacement("TE") == 8.0
+    finally:
+        cfg.raw["roster"].clear()
+        cfg.raw["roster"].update(saved)

@@ -221,16 +221,91 @@ class SeasonModel:
         self.replacement = replacement_levels(snapshot)
         noise_rng = np.random.default_rng(seed + 7)
         self.rep_noise = {slot: noise_rng.standard_normal((n_sims, len(self.weeks))) for slot, _c in self.slots}
-        self.base_scores = np.stack([self.team_scores([p.player_id for p in t.roster]) for t in self.teams])
+        # The wire, week by week (``roster.wire_thinning``): a free agent on
+        # bye fills nothing that week, and when several teams need the same
+        # fill-in, the ones ahead of you in waiver order take the best. Each
+        # team's holes are counted first on today's rosters (``_holes``), then
+        # every lineup is scored against what the others leave.
+        self.thinning = bool(roster_conf.get("wire_thinning", True))
+        # Claims compete at these slots only: D/ST and K streams follow the
+        # week's matchups, so the k-th best streamer is far closer to the best
+        # than a list by season value says (that list cost a streaming team
+        # 4 points of playoff odds), and they are left to byes alone.
+        self._compete_slots = set(roster_conf.get("wire_compete", ["QB", "RB", "WR", "TE", "FLEX"]))
+        self._rep_table: dict[str, np.ndarray] = {}
+        self._holes: list[dict[str, np.ndarray]] = []
+        self._demand: dict[str, np.ndarray] = {}
+        self._ahead_share = np.full(len(self.teams), 0.5)
+        if self.thinning:
+            self._rep_table = self._wire_by_week(snapshot, byes)
+            n_t = len(self.teams)
+            ranks = [t.waiver_rank for t in self.teams]
+            if n_t > 1 and any(ranks):
+                # Waiver order (1 = first claim): the share of rival claimants
+                # ahead of each team; an unknown rank sits in the middle. The
+                # order turns over as claims are made, so today's holds only
+                # for the next ``PRIORITY_WEEKS``; after that, the middle.
+                self._ahead_share = np.array([(int(r) - 1) / (n_t - 1) if r else 0.5 for r in ranks], float)
+            for t in self.teams:
+                holes: dict[str, np.ndarray] = {}
+                self.team_scores([p.player_id for p in t.roster], _holes=holes, _compete=False)
+                self._holes.append(holes)
+            for slot, _c in self.slots:
+                self._demand[slot] = sum((h.get(slot, 0) for h in self._holes),
+                                         np.zeros((n_sims, len(self.weeks)), np.int16))
+        self.base_scores = np.stack([self.team_scores([p.player_id for p in t.roster], owner=None,
+                                                      _team=i) for i, t in enumerate(self.teams)])
+
+    #: Free agents per slot kept for the week-by-week wire: deeper than any
+    #: week's competition reaches.
+    WIRE_DEPTH = 16
+    #: Weeks (from now) today's waiver order still holds for.
+    PRIORITY_WEEKS = 2
+
+    def _wire_by_week(self, snapshot: LeagueSnapshot, byes: dict[str, set[int]]) -> dict[str, np.ndarray]:
+        """Per starting slot, ``(weeks, WIRE_DEPTH)``: the free agents a team
+        could fill it with each week, best first, those on bye left out --
+        starting from the second best, as :func:`replacement_levels` does
+        (the best for D/ST and K, streamed weekly)."""
+        pool: dict[str, list[tuple[float, str]]] = {}
+        for p in snapshot.free_agents:
+            if p.is_long_term_out or not p.team:
+                continue
+            v = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+            pool.setdefault(p.position, []).append((v, p.team))
+        out = {}
+        for slot, _c in self.slots:
+            positions = SLOT_ELIGIBILITY.get(slot, (slot,))
+            table = np.zeros((len(self.weeks), self.WIRE_DEPTH))
+            for k, week in enumerate(self.weeks):
+                # Each position's own list from its second best (its best for
+                # D/ST and K), merged: with nobody else claiming, a flex slot
+                # is filled at the best of those, as slot_replacement says.
+                vals = []
+                for pos in positions:
+                    here = sorted((v for v, team in pool.get(pos, []) if week not in byes.get(team, set())),
+                                  reverse=True)
+                    first = 0 if pos in ("K", "DST") else min(1, max(len(here) - 1, 0))
+                    vals += here[first:]
+                vals = sorted(vals, reverse=True)[:self.WIRE_DEPTH]
+                if vals:
+                    vals += [vals[-1]] * (self.WIRE_DEPTH - len(vals))
+                    table[k] = vals
+            out[slot] = table
+        return out
 
     # -- lineups ---------------------------------------------------------
     def team_scores(self, roster_ids: list[str], available_from: dict[str, int] | None = None,
-                    gone_from: dict[str, int] | None = None, owner: str | None = None) -> np.ndarray:
+                    gone_from: dict[str, int] | None = None, owner: str | None = None,
+                    _team: int | None = None, _holes: dict | None = None, _compete: bool = True) -> np.ndarray:
         """``(n_sims, weeks)`` points from starting the best lineup each week.
 
         ``available_from`` / ``gone_from`` map a player to the week index he
         joins / leaves the roster, per simulation (arrays) or for all.
+        ``owner``: whose roster this is (his settled week, his place in the
+        waiver order and his own holes are then known).
         """
+        team = _team if _team is not None else self.team_index.get(owner) if owner is not None else None
         if owner is not None:
             roster_ids, available_from, gone_from = self._this_week_is_settled(
                 owner, list(roster_ids), dict(available_from or {}), dict(gone_from or {}))
@@ -261,17 +336,25 @@ class SeasonModel:
         used = np.float32(-2.0)
         for slot, count in self.slots:
             idx = np.array([j for j, p in enumerate(players) if _eligible(p, slot)], dtype=np.intp)
-            rep = self.slot_replacement(slot)
-            rep_score = np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0) if rep > 0 else 0.0
-            floor = max(rep, 0.0) + 1e-6                                      # beats the wire
+            rep = self._wire_level(slot, team, _compete)
+            if np.ndim(rep):
+                rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0), 0.0)
+                floor = np.maximum(rep, 0.0) + 1e-6
+            else:
+                rep_score = np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0) if rep > 0 else 0.0
+                floor = max(rep, 0.0) + 1e-6                                  # beats the wire
             for _ in range(count):
                 if idx.size == 0:
                     total += rep_score
+                    if _holes is not None:
+                        _holes[slot] = _holes.get(slot, 0) + np.ones(total.shape, np.int16)
                     continue
                 sub = lv[:, :, idx] if idx.size < len(players) else lv
                 local = sub.argmax(axis=2)                                    # (n, k)
                 best = np.take_along_axis(sub, local[:, :, None], axis=2)[:, :, 0]
                 ok = (best >= floor) & (best > -0.5)
+                if _holes is not None:
+                    _holes[slot] = _holes.get(slot, 0) + (~ok).astype(np.int16)
                 pick = idx[local][:, :, None]
                 total += np.where(ok, np.take_along_axis(sc, pick, axis=2)[:, :, 0], rep_score)
                 cur = np.take_along_axis(lv, pick, axis=2)
@@ -302,6 +385,29 @@ class SeasonModel:
                 roster_ids.append(pid)
                 gone_from[pid] = leave
         return roster_ids, available_from, gone_from
+
+    def _wire_level(self, slot: str, team: int | None, compete: bool = True):
+        """What a team can fill ``slot`` with from the wire: one number for
+        every week (thinning off), else ``(n_sims, weeks)`` -- that week's
+        free agents off bye, as deep as the rival claimants ahead of him in
+        waiver order reach (holes the other teams have that week, at the
+        same slot, times the share of them ahead of him)."""
+        table = self._rep_table.get(slot)
+        if table is None:
+            return self.slot_replacement(slot)
+        if not compete or not self._demand or slot not in self._compete_slots:
+            return np.broadcast_to(table[:, 0], (self.n, len(self.weeks)))
+        demand = self._demand[slot].astype(float)
+        n_w = len(self.weeks)
+        share = np.full(n_w, 0.5)
+        if team is not None and team < len(self._holes):
+            others = demand - self._holes[team].get(slot, 0)
+            share[: self.PRIORITY_WEEKS] = float(self._ahead_share[team])
+        else:
+            n_t = max(len(self.teams), 1)
+            others = demand * (n_t - 1) / n_t
+        ahead = np.clip(np.rint(np.maximum(others, 0.0) * share[None, :]).astype(np.intp), 0, table.shape[1] - 1)
+        return table[np.arange(len(self.weeks))[None, :], ahead]
 
     def slot_replacement(self, slot: str) -> float:
         positions = SLOT_ELIGIBILITY.get(slot, (slot,))

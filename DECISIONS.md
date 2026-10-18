@@ -3575,6 +3575,51 @@ Kickoffs come from the nflverse schedule already used for locks
 from the same draws without the swap, so for a lineup with a covered
 questionable starter it shows slightly lower odds than the recommendation.
 
+### Bye weeks thin the wire
+
+The season simulation filled any hole from the wire at one fixed
+replacement level for every week: the second-best free agent today. Two
+things it missed. A free agent on bye that week fills nothing. And when
+several teams need the same fill-in, they cannot all get the second-best
+one.
+
+`SeasonModel` now builds the wire week by week (`_wire_by_week`). For each
+starting slot and future week it lists the free agents off bye that week,
+best first, starting where `replacement_levels` starts: each position's
+second best (the best for D/ST and K), merged at FLEX. With no byes and no
+competition it reproduces the old level exactly. With the switch off it
+reproduces the old numbers to the bit (checked on the live ESPN league).
+
+The competition step works in two passes. First, every team's holes are
+counted per simulated week on today's rosters. A hole is a slot whose
+best rostered option falls below the wire. Then each lineup is scored
+against what the others leave (`_wire_level`). A team's fill comes from
+as far down the list as the rival claimants ahead of it reach: the other
+teams' holes at that slot that week, times the share of them ahead in
+waiver order. Today's order is used for the next two weeks
+(`PRIORITY_WEEKS`), because the order turns over as claims are made.
+After that every team sits in the middle.
+
+Claims compete at QB, RB, WR, TE and FLEX only (`roster.wire_compete`).
+Competing at D/ST and K as well cost a team that streams them every week
+4 points of playoff odds (66.1% -> 62.1%, ESPN). That number is not
+believable. The list ranks streamers by season value, but a real stream
+follows the week's matchups, so the 4th-best option in a given week is
+much closer to the best than the season list suggests. D/ST and K
+therefore get byes only, until there is a matchup-aware version.
+
+What it moved (4,000 simulated seasons, today's rosters):
+
+- ESPN: at most 0.7 points of playoff odds. Yours went 66.1% -> 65.7%
+  (title 12.0% -> 11.7%). Almost all of that is your week-11 receiver byes.
+- Yahoo: concentrated where byes stack. Near Ja'marr 67.8% -> 64.9%, CMoney
+  +1.7, Macky +2.0. Yours went 80.4% -> 81.3%, because rivals' holes now
+  cost them more.
+
+There is no held-out test. Past weekly free-agent pools are not kept, so
+this is a modelling correction checked for sense, not a fitted gain.
+`roster.wire_thinning: false` turns it off.
+
 ### Late swaps from the wire, cover pickups and the night-game refresh
 
 A questionable starter in the last game of your week, such as Mike Evans on
