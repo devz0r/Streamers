@@ -43,7 +43,7 @@ for (const g of games) {
       if (s['kicking.fieldGoalsMade/fieldGoalAttempts'] !== undefined) out.k[tm] = L.kickerPoints(s, plays, tm, sc.k);
     }
     const opp = g.home === tm ? g.away : g.home;
-    out.dst[tm] = L.dstPoints(box, plays, tm, opp, g.score[opp] || 0, sc.dst);
+    out.dst[tm] = L.dstPoints(box, plays, tm, opp, g.score[opp] || 0, sc.dst, L.unitPlays(g.summary, teams));
   }
 }
 console.log(JSON.stringify(out));
@@ -61,9 +61,13 @@ def agree(ours: pd.Series, theirs: pd.Series, label: str) -> None:
     if both.empty:
         print(f"{label}: nothing to compare")
         return
-    d = (both.ours - both.theirs).abs()
+    diff = both.ours - both.theirs
+    d = diff.abs()
     print(f"{label}: {len(both)} compared, exact (within 0.05) {np.mean(d <= 0.05):.1%}, "
           f"within 1 point {np.mean(d <= 1.0):.1%}, mean miss {d.mean():.2f}, worst {d.max():.1f}")
+    off = diff[d > 0.05].round(1).value_counts().sort_index()
+    if len(off):
+        print(f"  misses (ours minus theirs: count): {dict(off)}")
 
 
 def main() -> int:

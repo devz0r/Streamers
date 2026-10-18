@@ -59,11 +59,34 @@
   function twoPoints(plays) {
     var out = {};
     plays.forEach(function (p) {
-      var m = /\(([^()]*?) (?:pass|Pass) to ([^()]*?) for Two-Point Conversion\)/.exec(p.text);
-      var r = /\(([^()]*?) (?:run|Run) for Two-Point Conversion\)/.exec(p.text);
-      if (/Failed/i.test(p.text)) return;
+      var m = /\(([^()]*?) pass to ([^()]*?) for (?:a )?two[- ]point conversion\)/i.exec(p.text);
+      var r = /\(([^()]*?) (?:run|rush) for (?:a )?two[- ]point conversion\)/i.exec(p.text);
+      if (/two[- ]point[^()]*failed/i.test(p.text)) return;
       if (m) { [m[1], m[2]].forEach(function (n) { out[norm(n)] = (out[norm(n)] || 0) + 1; }); }
       else if (r) { out[norm(r[1])] = (out[norm(r[1])] || 0) + 1; }
+    });
+    return out;
+  }
+
+  /* What the box score leaves out, read from the play-by-play: kicks a team
+     blocked, and the returning unit's own muffed punts recovered by the
+     kicking team (a D/ST fumble lost). Team -> {blocked, lost}. */
+  function unitPlays(summary, alias) {
+    var out = {}, drives = (summary && summary.drives) || {};
+    var all = (drives.previous || []).concat(drives.current ? [drives.current] : []);
+    var add = function (tm, k) { out[tm] = out[tm] || { blocked: 0, lost: 0 }; out[tm][k] += 1; };
+    var teams = {};
+    all.forEach(function (d) { var tm = teamOf((d.team || {}).abbreviation, alias); if (tm) teams[tm] = 1; });
+    all.forEach(function (d) {
+      var offense = teamOf((d.team || {}).abbreviation, alias);
+      var other = Object.keys(teams).filter(function (t) { return t !== offense; })[0];
+      (d.plays || []).forEach(function (pl) {
+        var type = String(((pl.type || {}).text) || ""), text = String(pl.text || "");
+        if (!other || /no play/i.test(text)) return;
+        if (/(punt|field goal|extra point|PAT)/i.test(type + " " + text) && /\bblocked\b/i.test(text)) add(other, "blocked");
+        var rec = /RECOVERED by ([A-Z]{2,3})-/.exec(text);
+        if (/punt/i.test(type) && /muff/i.test(text) && rec && teamOf(rec[1], alias) === offense) add(other, "lost");
+      });
     });
     return out;
   }
@@ -127,10 +150,12 @@
   /* A defence: sacks and interceptions from its defenders, fumbles from what
      the other side lost, touchdowns and safeties from the scoring plays,
      points and yards allowed from the score and the other side's yards. */
-  function dstPoints(box, plays, team, opp, oppScore, dst) {
+  function dstPoints(box, plays, team, opp, oppScore, dst, unit) {
     var T = box[team], O = box[opp];
     if (!T) return 0;
     var pts = T.def.sacks * (dst.sack || 0) + T.def.ints * (dst.interception || 0);
+    var u = (unit && unit[team]) || { blocked: 0, lost: 0 };
+    pts += u.blocked * (dst.blocked_kick || 0) + u.lost * (dst.fumble_lost || 0);
     pts += num(teamStat(O, ["fumblesLost"])) * (dst.fumble_recovery || 0);
     plays.forEach(function (p) {
       if (p.team !== team) return;
@@ -152,7 +177,7 @@
     var box = boxStats(summary, alias), plays = scoringPlays(summary, alias), tm = player.tm;
     if (player.pos === "DST") {
       var opp = game.home === tm ? game.away : game.home;
-      return dstPoints(box, plays, tm, opp, game.score[opp] || 0, sc.dst);
+      return dstPoints(box, plays, tm, opp, game.score[opp] || 0, sc.dst, unitPlays(summary, alias));
     }
     var s = find(box[tm], player);
     if (player.pos === "K") return kickerPoints(s, plays, tm, sc.k);
@@ -324,7 +349,7 @@
 
   var api = { mount: mount, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
               kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games,
-              evaluate: evaluate, twoPoints: twoPoints, scoringPlays: scoringPlays };
+              evaluate: evaluate, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.StreamerLive = api;
   if (typeof document !== "undefined") {

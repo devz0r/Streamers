@@ -128,7 +128,7 @@ def held_out_loss(ev: pd.DataFrame) -> pd.DataFrame:
         p1 = p0 * m / (1 - p0 + p0 * m)       # on the odds, as the simulator applies it
         y = te["y"].to_numpy()
 
-        def ll(p):
+        def ll(p, y=y):
             return float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
 
         rows.append({"season": s, "loss without": ll(p0), "loss with": ll(p1)})
