@@ -56,7 +56,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, dstk-blend, wind-fit, sleeper-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, dstk-blend, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -195,6 +195,12 @@ jobs:
       - name: Probe ESPN live scores
         if: steps.mode.outputs.mode == 'live-probe'
         run: python scripts/live_probe.py
+
+      # The page's live scoring (static/live.js) against a finished week:
+      # agreement only, never a name or a score.
+      - name: Check live scoring against last week
+        if: steps.mode.outputs.mode == 'live-check'
+        run: python scripts/live_check.py
 
       # Our D/ST and K rankings blended with the FantasyPros consensus, graded
       # on 2023-2025 (aggregates only; the consensus stays in data/raw).
