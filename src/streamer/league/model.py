@@ -118,6 +118,9 @@ class PlayerRow:
     #: (:func:`streamer.roster.futures.season_loss`); None: the simulator's
     #: base share.
     season_loss: float | None = None
+    #: His own multiplier on the season simulator's absence hazard, from the
+    #: games he has missed this season and last (None: none).
+    hazard_mult: float | None = None
     #: The week a player out now is confirmed to return (a suspension or
     #: exempt-list stint with an end date: config ``roster.known_returns``);
     #: the simulator then sits him exactly until then instead of drawing

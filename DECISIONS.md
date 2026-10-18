@@ -2118,6 +2118,49 @@ of what those carried, and depth rank is read from the role. The shipped
 values stay: they are the ones graded end to end above. After a refit,
 `scripts/fit_ros.py` matches the hazard by level again.
 
+### A record of missed games
+The season simulator started new absences at one rate for everyone at a
+position and projection level. Two things a manager can see say more,
+measured over every game a contributor played, 2022-2025 (did he miss his
+team's next game?), each season fitted on the other three:
+
+- the share of his team's games he has missed this season: the biggest
+  (odds about 3.5x for a player who has missed most of them against one who
+  has missed none) -- re-injury, a role already slipping;
+- the share of last season he missed (1.8x for all of it).
+
+Age said nothing once the level was known (older players a touch higher,
+younger a touch lower, worse held out in 2022), so it is left out.
+
+`futures.hazard_mult` turns the record into a multiplier on the odds of a
+new absence (fitted as a logistic over the position-and-level rate, centred
+so the average is unchanged, clipped to 0.5-3x); a healthy player with a
+full last season sits at about 0.75x. Applied to the rate instead of the
+odds it made two seasons worse. Next-game log loss, held out, fell in every
+season (0.324/0.292/0.278/0.283 -> 0.318/0.286/0.278/0.281).
+
+Quarterbacks are left out: with them in, availability improved but their
+80% bands narrowed (2024 76% -> 70%) -- a backup made to sit more never gets
+a starter's upside, as "Who loses his season" found. Without them, in the
+replay (each season simulated with the fit from the other three), for
+healthy and questionable players:
+
+| | 2022 | 2023 | 2024 | 2025 |
+|---|---|---|---|---|
+| games-played share, squared error | .0697 -> .0646 | .0667 -> .0600 | .0697 -> .0656 | .0690 -> .0670 |
+| points per team game, miss | 2.456 -> 2.426 | 2.315 -> 2.264 | 2.660 -> 2.629 | 2.485 -> 2.446 |
+| in 80% band | 77.6 -> 78.6% | 80.4 -> 81.4% | 74.7 -> 75.9% | 76.2 -> 77.2% |
+| quarterbacks in 80% band | 83.0 -> 83.6% | 78.4 -> 78.7% | 75.7 -> 75.2% | 73.1 -> 73.6% |
+
+Refitting the level calibrations on top (`scripts/fit_ros.py`) evened the
+bias but missed points per team game by more in both held-out halves
+(2.398 -> 2.422, 2.218 -> 2.276), so the calibrations stand. Left: players
+valued under 4 now play about 6% fewer of their games in the simulation
+than they did (3% more before) -- waiver fodder, where it matters least.
+
+Cards show the note when the odds are 1.5x or more. `scripts/fit_hazard_history.py`
+refits it (and grades it in the replay first; it writes only if the rule holds).
+
 ### The top of the season range, and the backup who takes the job
 With who loses his season in, 11.6% of rest-of-season outcomes still fell
 above the 90th percentile (QB 15.3%). Replayed on 2022-2025 (11,848

@@ -153,6 +153,32 @@ def _hazard(pos: str, level: np.ndarray, conf: dict) -> np.ndarray:
     return base[idx] * float(conf.get("absence_scale", 1.2))
 
 
+def hazard_history_inputs(played: int, team_games: int, prev_games: int | None) -> dict[str, float]:
+    """What a player's record says about his next absence: the share of his
+    team's games he has missed this season, the share of last season he
+    missed, and no games last season at all."""
+    return {"missed_share": 1.0 - min(played / team_games, 1.0) if team_games else 0.0,
+            "prev_missed": min(max((17 - prev_games) / 17, 0.0), 1.0) if prev_games is not None else 0.0,
+            "no_prev": float(prev_games is None)}
+
+
+def hazard_mult(p: PlayerRow, played: int, team_games: int, prev_games: int | None, conf: dict) -> float | None:
+    """How much higher (or lower) than others' at his position and level a
+    player's odds of starting a new absence are, from his record (``hazard_history``, fitted
+    by ``scripts/fit_hazard_history.py``): a player who has missed games this
+    season or last misses more. Age said nothing once the level was known.
+    None -- no adjustment -- without a fit or outside its positions (not
+    quarterbacks: a backup made to sit more never gets a starter's upside,
+    and their bands narrowed)."""
+    hh = conf.get("hazard_history")
+    if not hh or p.position not in hh.get("positions", SKILL):
+        return None
+    x = hazard_history_inputs(played, team_games, prev_games)
+    eta = sum(float(hh["coef"][k]) * v for k, v in x.items()) - float(hh["centre"])
+    lo, hi = hh.get("clip", [0.5, 3.0])
+    return float(np.clip(np.exp(eta), lo, hi))
+
+
 def season_loss_inputs(p: PlayerRow, played: int, team_games: int, prev_games: int | None) -> dict[str, float]:
     """What says a player is about to lose his season, as a manager can see
     it now (``scripts/fit_season_loss.py`` fits on exactly these): the share
@@ -443,6 +469,9 @@ def simulate(
         # leaves more players playing every week than it sidelines.
         scale_r = np.array([float((conf.get("role_scale") or {}).get(p.position, 1.0)) for p in players])[None, :]
         tilt = scale_r * np.exp(sig_r * u - 0.5 * sig_r ** 2)
+    # A record of missed games: his own multiplier on the odds of a new
+    # absence (1 without one).
+    risk = np.array([float(getattr(p, "hazard_mult", None) or 1.0) for p in players])
     share = np.zeros((n_sims, n_p))          # the heir's share of this absence
     was_out = np.zeros((n_sims, n_p), bool)
     # Against the calibrated start, so the week in progress still plays at
@@ -482,8 +511,10 @@ def simulate(
             # projection (where it has drifted to), not the hidden truth: a
             # star simulated to be worse than his number is not a backup.
             risk_at = np.maximum(walk[:, j], 0.0) if conf.get("hazard_on") == "projection" else level[:, j]
-            fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < np.minimum(
-                _hazard(p.position, risk_at, conf) * tilt[:, j], 1.0))
+            h = np.minimum(_hazard(p.position, risk_at, conf) * tilt[:, j], 1.0)
+            if risk[j] != 1.0:
+                h = h * risk[j] / (1.0 - h + h * risk[j])      # on the odds, as fitted
+            fresh = (out_left[:, j] == 0) & (rng.random(n_sims) < h)
             if fresh.any():
                 dur = _durations(p.position, int(fresh.sum()), rng, conf)
                 # Some absences end his season (a lost job, a release, a long

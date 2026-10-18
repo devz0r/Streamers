@@ -1653,7 +1653,7 @@ def project_snapshot(
     assign_roles(players)
     # Who is about to lose his season (a job, a roster spot, a long injury):
     # read from his season so far, priced by the season simulator.
-    from .futures import season_loss
+    from .futures import hazard_mult, season_loss
 
     fut_conf = outcome.load().get("futures", {})
     counts = season_loss_counts(players, history, int(snapshot.season), int(snapshot.week))
@@ -1661,6 +1661,12 @@ def project_snapshot(
         # A confirmed return is not an injury or a lost job: the base share.
         p.season_loss = season_loss(p, *counts[p.player_id], fut_conf) \
             if p.player_id in counts and p.return_week is None else None
+        p.hazard_mult = hazard_mult(p, *counts[p.player_id], fut_conf) if p.player_id in counts else None
+        if p.hazard_mult is not None and p.hazard_mult >= 1.5 and p.status not in LONG_TERM_OUT_STATUSES:
+            played, team_games, prev = counts[p.player_id]
+            last = f", {prev} of 17 last season" if prev is not None and prev < 14 else ""
+            p.signals.append(f"has played {played} of his team's {team_games} games{last}: the season simulator "
+                             f"gives him {p.hazard_mult:.1f}x the usual odds of a new absence")
     # Who he faces in the weeks to come (quarterbacks, backs, defences and
     # kickers, as measured):
     # a factor per future week the season simulator plays.

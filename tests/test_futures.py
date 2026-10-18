@@ -243,3 +243,25 @@ def test_a_confirmed_return_sits_him_exactly_until_then():
     p.return_week = None
     g = simulate([p], weeks=list(range(6, 12)), byes={"GB": {7}}, n_sims=4000)
     assert back > 0.9 and back > (g.levels[:, 0, 2] > 0).mean() + 0.2
+
+
+def test_a_record_of_missed_games_raises_the_odds_of_another_absence():
+    from streamer.roster.futures import hazard_mult
+
+    conf = {"hazard_history": {"coef": {"missed_share": 1.3, "prev_missed": 0.4, "no_prev": -0.2},
+                               "centre": 0.3, "clip": [0.5, 3.0]}}
+    p = _p("a")
+    healthy = hazard_mult(p, 6, 6, 17, conf)
+    hurt = hazard_mult(p, 3, 6, 9, conf)
+    assert healthy < 1.0 < hurt <= 3.0
+    assert hazard_mult(p, 6, 6, 17, {}) is None
+    assert hazard_mult(_p("k", pos="K"), 6, 6, 17, conf) is None
+
+    weeks = list(range(8, 18))
+    played = []
+    for mult in (None, 2.5):
+        q = _p("a")
+        q.hazard_mult = mult
+        f = simulate([q], weeks=weeks, byes={}, n_sims=4000, seed=3)
+        played.append(f.played[:, 0, :].mean())
+    assert played[1] < played[0] - 0.02
