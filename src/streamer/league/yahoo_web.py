@@ -944,6 +944,15 @@ def matchup_pairs(html: str, league_id: str) -> set[tuple[int, str, str]]:
     return out
 
 
+def scheduled_opponent(schedule: list, week: int, my_id: str) -> str | None:
+    """Your opponent this week from the league schedule ([week, a, b] rows)."""
+    for row in schedule:
+        w, a, b = int(row[0]), str(row[1]), str(row[2])
+        if w == int(week) and my_id in (a, b):
+            return b if a == my_id else a
+    return None
+
+
 def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
     """The other team linked from your matchup page."""
     ids = {i for i in re.findall(rf"/f1/{re.escape(league_id)}/(\d+)(?=[\"'?#/]|$)", html)}
@@ -1094,6 +1103,15 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
     opp_players = rosters.get(str(opp_id), []) if opp_id else []
 
     rules = _league_rules(get, league, week, len(standings), league_html, known or [], season)
+    if not opp_id:
+        # With games on, the matchup page links every team on the scoreboard,
+        # so it no longer names one opponent; the schedule still does.
+        opp_id = scheduled_opponent(rules.get("schedule") or [], week, str(my_id))
+        if opp_id:
+            log.info("Yahoo opponent taken from the schedule (the matchup page named none)")
+            if str(opp_id) not in rosters:
+                rosters[str(opp_id)], _s, _b = parse_roster(get(f"/f1/{league}/{opp_id}?week={week}"))
+            opp_players = rosters.get(str(opp_id), [])
 
     free_agents: list = []
     for pos, pages, sort in (("O", OFFENSE_PAGES, "PTS"), ("K", (0,), "PTS"), ("DEF", (0,), "PTS"),

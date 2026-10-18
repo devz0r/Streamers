@@ -346,3 +346,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
 .view-banner { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 13.5px;
   background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
 .view-back { font: 650 13px var(--font); color: var(--accent); background: none; border: 0; padding: 0 0 0 4px; cursor: pointer; text-decoration: underline; }
+
+/* Live card: four narrow columns that fit a phone without scrolling. */
+.live-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: .25rem 0 .75rem; font-size: .9rem; }
+.live-table th, .live-table td { padding: .3rem .25rem; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-table .live-slot, .live-table th:first-child { width: 3.2rem; color: var(--muted, #6b7280); font-size: .8rem; }
+.live-table .live-pts, .live-table th:nth-child(3) { width: 3.4rem; text-align: right; }
+.live-table .live-st, .live-table th:nth-child(4) { width: 5.6rem; text-align: right; color: var(--muted, #6b7280); font-size: .8rem; }

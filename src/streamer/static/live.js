@@ -197,6 +197,23 @@
     return Math.min(Math.max(1 - played / 3600, 0), 1);
   }
 
+  /* "Final", "Q3 7:12", "Half", or the kickoff as "Mon 8:15p": short enough
+     for a phone. */
+  function shortLabel(g, date) {
+    var st = g.status || {}, type = st.type || {};
+    if (type.state === "post" || type.completed) return "Final";
+    if (type.state === "in") {
+      if (/HALFTIME/.test(type.name || "")) return "Half";
+      var q = num(st.period);
+      return (q > 4 ? "OT" : "Q" + q) + " " + (st.displayClock || "");
+    }
+    var d = date ? new Date(date) : null;
+    if (!d || isNaN(d)) return type.shortDetail || "";
+    var h = d.getHours(), m = d.getMinutes();
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()] + " " + ((h % 12) || 12) +
+      (m ? ":" + (m < 10 ? "0" : "") + m : "") + (h < 12 ? "a" : "p");
+  }
+
   function games(scoreboard, alias) {
     var out = {};
     ((scoreboard && scoreboard.events) || []).forEach(function (e) {
@@ -208,7 +225,7 @@
       });
       g.left = remaining(g.status);
       g.state = (g.status.type || {}).state;
-      g.label = (g.status.type || {}).shortDetail || "";
+      g.label = shortLabel(g, e.date);
       if (g.home) out[g.home] = g;
       if (g.away) out[g.away] = g;
     });
@@ -291,20 +308,20 @@
   function render(el, D, R) {
     var pct = function (x) { return Math.round(x * 100) + "%"; };
     var row = function (r) {
-      var st = r.state === "post" ? "Final" : r.state === "in" ? r.label : r.label || "";
       var pts = r.state && r.state !== "pre" ? r.now.toFixed(1) : "–";
-      return "<tr><td>" + esc(r.p.slot) + "</td><td>" + esc(r.p.n) + "</td><td class='sub'>" + esc(st) +
-        "</td><td><b>" + pts + "</b></td></tr>";
+      return "<tr><td class='live-slot'>" + esc(r.p.slot) + "</td><td class='live-name'>" + esc(r.p.n) +
+        "</td><td class='live-pts'><b>" + pts + "</b></td><td class='live-st'>" + esc(r.label || "") + "</td></tr>";
     };
     var t = new Date();
     el.querySelector(".live-out").innerHTML =
       "<h3>Live</h3><p class='sub'>You <b>" + R.nowMe.toFixed(1) + "</b> – <b>" + R.nowOpp.toFixed(1) + "</b> " +
       esc(D.opp_name || "them") + " so far · projected " + R.projMe.toFixed(1) + " – " + R.projOpp.toFixed(1) +
       " · P(win) <b>" + pct(R.p) + "</b> (" + pct(R.p0) + " before kickoff)</p>" +
-      "<div class='scroll'><table><thead><tr><th>Slot</th><th>You</th><th></th><th>Pts</th></tr></thead><tbody>" +
-      R.me.map(row).join("") + "</tbody></table></div>" +
-      "<div class='scroll'><table><thead><tr><th>Slot</th><th>Them</th><th></th><th>Pts</th></tr></thead><tbody>" +
-      R.opp.map(row).join("") + "</tbody></table></div>" +
+      "<table class='live-table'><thead><tr><th></th><th>You</th><th>Pts</th><th></th></tr></thead><tbody>" +
+      R.me.map(row).join("") + "</tbody></table>" +
+      "<table class='live-table'><thead><tr><th></th><th>" + esc(D.opp_name || "Them") +
+      "</th><th>Pts</th><th></th></tr></thead><tbody>" +
+      R.opp.map(row).join("") + "</tbody></table>" +
       "<p class='sub'>ESPN live box scores, scored with this league's rules; updated " +
       t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
       (R.done ? " (all games final)." : ", every minute while this page is open.") +
@@ -348,7 +365,7 @@
   }
 
   var api = { mount: mount, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
-              kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games,
+              kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games, shortLabel: shortLabel,
               evaluate: evaluate, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.StreamerLive = api;

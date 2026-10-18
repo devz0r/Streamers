@@ -367,3 +367,26 @@ def test_the_free_agent_list_is_read_down_to_its_end(monkeypatch):
     offense = [u for u in fake.asked if "pos=O" in u and "sort=PTS" in u]
     assert [int(u.rsplit("count=", 1)[1]) for u in offense] == [0, 25, 50, 75]          # stops at the first empty page
     assert len({p.player_id for p in snap.free_agents}) == len(snap.free_agents) >= 6
+
+
+def test_the_opponent_comes_from_the_schedule_when_the_matchup_page_names_none():
+    from streamer.league.yahoo_web import scheduled_opponent
+
+    schedule = [[6, "1", "12"], [6, "5", "11"], [7, "11", "5"], [7, "2", "6"]]
+    assert scheduled_opponent(schedule, 6, "5") == "11"
+    assert scheduled_opponent(schedule, 7, "5") == "11"
+    assert scheduled_opponent(schedule, 8, "5") is None
+
+
+def test_a_live_matchup_page_with_every_team_falls_back_to_the_schedule(monkeypatch):
+    """Sunday afternoon: the matchup page links the whole scoreboard."""
+    import streamer.league.yahoo_web as yw
+
+    pages = [(u, (league_week_page([(3, "5", "6"), (3, "2", "7")]) if "/matchup" in u else h)) for u, h in _pages()]
+    fake = _FakeSession(pages)
+    monkeypatch.setattr(yw, "_session", lambda cookie: fake)
+    monkeypatch.setenv("YAHOO_COOKIE", "A1=x; T=y; Y=z")
+    monkeypatch.setenv("YAHOO_LEAGUE_ID", LEAGUE)
+    monkeypatch.delenv("YAHOO_TEAM_ID", raising=False)
+    snap = yw.fetch_snapshot(2026, 3, "yahoo", pause=0)
+    assert snap.matchup is not None and snap.matchup.opponent_team_id == "6"
