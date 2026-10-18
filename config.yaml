@@ -437,6 +437,10 @@ roster:
     enabled: true
     full: ["Let Kevin Cook"]
     budget_minutes: 20
+  # Count games a skill player had offensive snaps but no stat line as zero-point
+  # games (roster/idle.py): the trailing averages otherwise skip them and run
+  # high for backups. Held out 2023-2025: MAE 4.091 -> 4.013, 3/3 seasons.
+  idle_games: true
   # Returns already confirmed -- a suspension or exempt-list stint with an
   # end date -- as name: the week he is back. The season simulation sits him
   # exactly until then (rather than drawing how long a 5-game absence runs,

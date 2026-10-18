@@ -1244,6 +1244,9 @@ def project_snapshot(
     report = ProjectionReport()
 
     history = load_history(cfg) if history is None else history
+    from . import idle
+
+    history = idle.with_idle_games(history, cfg, int(snapshot.season), int(snapshot.week), allow_network)
     sds = sd_table(history, cfg)
     scale, report.line_source = _implied_scale(snapshot, cfg, allow_network)
     damping = float(conf["vegas_damping"])

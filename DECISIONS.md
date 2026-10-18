@@ -3830,3 +3830,42 @@ table and the trades.
 Light views no longer search trades at all: the search was about 70% of
 each one's time, and only your trades and the full views' (Let Kevin Cook)
 are wanted. Your own trade search never used the other teams' views.
+
+### Games on the field with no stat line
+
+nflverse's weekly player stats have no row for a skill player who played
+offensive snaps and carried, caught and scored nothing. Every trailing
+average in the projection (volume, efficiency, the last-17-games windows)
+skipped those games, so backups and rotational players ran high: in weeks 3-5
+of 2026 players projected under 3 points by the model alone were projected
+2.65 and scored 1.79 (the published blend, which also uses the platform,
+Vegas, FantasyPros and Sleeper, was at 1.77). The same gap made the
+touchdown model overrate backup receivers until it was trained on every game
+a player was on the field.
+
+`roster/idle.py` adds a zero-point row for every game a QB/RB/WR/TE had an
+offensive snap and no stat line (matched by name and position from the snap
+counts), at the top of `project_snapshot`, so everything downstream sees
+them. `scripts/check_active_zero.py` replays the production projection on the
+games before weeks 4, 6, 8, 10, 12 and 14 of 2023-2025, the switch off and on
+(`roster.idle_games`), graded on every snap-active player, a zero counting as
+a zero (5,859 player-weeks):
+
+| | MAE | Bias | Rank corr |
+|---|---|---|---|
+| Before | 4.091 | -0.15 | 0.717 |
+| After | 4.008 | -0.33 | 0.722 |
+
+Better in all three seasons (3.981 -> 3.893, 4.095 -> 4.014, 4.204 -> 4.123)
+and at every position (tight ends most, 2.985 -> 2.814). Players projected
+under 3 went from 1.93 to 1.53 against 1.61 scored; those between 3 and 6
+from 4.32 to 3.90 against 3.83. The mid and high groups are unchanged. It
+moves live values modestly: fringe players' season values fall 0.2-0.6 a
+game (Tyler Higbee 9.4 -> 8.8), starters not at all.
+
+A variant that kept the position averages (the shrinkage target) to real
+stat lines only was no better (4.0245). **Known limit:** a game he left
+injured after a few snaps also counts as a zero game (Rashee Rice, 6 snaps in
+week 4, 14.6 -> 12.2); injury exits are a small share of the games and the
+net is positive, but the weeks after a long absence read low until he is back
+on the field.
