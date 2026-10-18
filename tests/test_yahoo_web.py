@@ -201,18 +201,18 @@ def test_snapshot_assembles_from_the_website(monkeypatch):
     assert snap.opponent is not None and snap.opponent.team_id == "6"
     assert snap.opponent.name == "The Rival" and len(snap.opponent.roster) == 11
     assert snap.slots["FLEX"] == 1 and snap.bench_size == 2
-    # Offense (two pages), K and DEF lists were each requested.
-    # Two projection pages of skill players, kickers, defences, and one page
-    # by overall rank for the injured (IR stashes) the projection buries.
+    # Offense (a second page, which here repeats the first, so the list ends
+    # there), K and DEF lists were each requested, and one page by overall
+    # rank for the injured (IR stashes) the projection buries.
     assert sum("players?" in u for u in fake.asked) == 5
     assert sum("sort=OR" in u for u in fake.asked) == 1
     assert all("stat1=S_PW_3" in u for u in fake.asked if "players?" in u)
-    assert len(snap.free_agents) == 8
+    assert len(snap.free_agents) == 2          # the fixture serves the same two players on every page
     # Round-trips through the same JSON the ESPN snapshots use.
     from streamer.league.model import LeagueSnapshot
 
     again = LeagueSnapshot.from_dict(__import__("json").loads(snap.to_json()))
-    assert again.my_team.team_id == "5" and len(again.free_agents) == 8
+    assert again.my_team.team_id == "5" and len(again.free_agents) == 2
     # Every team's roster, waiver order and pickups, for the season simulator.
     by_id = {t.team_id: t for t in snap.teams}
     assert len(by_id["2"].roster) == 11
@@ -336,3 +336,34 @@ def test_a_platform_projection_is_ignored_on_a_bye_or_when_implausible(cfg):
     projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=empty)
     assert bye.ros_value is not None and bye.ros_value < 20
     assert silly.ros_value is not None and silly.ros_value < 20
+
+
+def test_the_free_agent_list_is_read_down_to_its_end(monkeypatch):
+    """Offense is read 25 a page, best projection first, until a page has nobody new."""
+    import streamer.league.yahoo_web as yw
+
+    def page(first_pid, n):
+        html = free_agent_page(True, 3)
+        # the fixture's two players, renamed per page so each page has different people
+        return html.replace("901", str(first_pid)).replace("902", str(first_pid + 1)) if n == 2 else html
+
+    class Paged(_FakeSession):
+        def get(self, url, timeout=None):
+            self.asked.append(url)
+            if "/players?" in url and "pos=O" in url and "sort=PTS" in url:
+                offset = int(url.rsplit("count=", 1)[1])
+                if offset in (0, 25, 50):
+                    return _FakeResp(url, page(1000 + offset, 2))
+                return _FakeResp(url, "<html></html>")             # the list has ended
+            return super().get(url, timeout)
+
+    fake = Paged(_pages())
+    monkeypatch.setattr(yw, "_session", lambda cookie: fake)
+    monkeypatch.setenv("YAHOO_COOKIE", "A1=x; T=y; Y=z")
+    monkeypatch.setenv("YAHOO_LEAGUE_ID", LEAGUE)
+    monkeypatch.delenv("YAHOO_TEAM_ID", raising=False)
+
+    snap = yw.fetch_snapshot(2026, 3, "yahoo", pause=0)
+    offense = [u for u in fake.asked if "pos=O" in u and "sort=PTS" in u]
+    assert [int(u.rsplit("count=", 1)[1]) for u in offense] == [0, 25, 50, 75]          # stops at the first empty page
+    assert len({p.player_id for p in snap.free_agents}) == len(snap.free_agents) >= 6

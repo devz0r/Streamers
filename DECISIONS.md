@@ -3575,6 +3575,18 @@ Kickoffs come from the nflverse schedule already used for locks
 from the same draws without the swap, so for a lineup with a covered
 questionable starter it shows slightly lower odds than the recommendation.
 
+### Yahoo's free agents: the top 150 offensive players, not 50
+
+The Yahoo sync read two pages of the offensive free-agent list (the top 50
+by this week's projection), plus the top kickers and defences. In a 14-team
+league the wire is thin: the Week 6 snapshot held 100 free agents, with only
+6 running backs and 13 tight ends, so a sleeper with a modest projection
+never reached the Yahoo waiver advice or the title engine's pickup list. It
+now reads up to six pages (`yahoo_web.OFFENSE_PAGES`, offsets 0 to 125) and
+stops at the first page with nobody new, so the list ends where Yahoo's does.
+Players are de-duplicated by id. About four more page loads per sync, at the
+same pace as before. Nothing else about how free agents are priced changed.
+
 ### Bye weeks thin the wire
 
 The season simulation filled any hole from the wire at one fixed

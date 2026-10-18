@@ -951,6 +951,13 @@ def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
     return sorted(ids, key=int)[0] if len(ids) == 1 else None
 
 
+#: Offsets (25 a page) of the offensive free agents read, best projection
+#: first: the top 150. The wire of a 14-team league is thin, so two pages
+#: (the top 50) left out every sleeper with a modest projection; the list
+#: stops early where a page has nobody new. About four more page loads.
+OFFENSE_PAGES = (0, 25, 50, 75, 100, 125)
+
+
 def free_agent_path(league_id: str, pos: str, week: int, offset: int, sort: str = "PTS") -> str:
     """The player-list URL: available players, this week's projection, best first.
 
@@ -1089,7 +1096,8 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
     rules = _league_rules(get, league, week, len(standings), league_html, known or [], season)
 
     free_agents: list = []
-    for pos, pages, sort in (("O", (0, 25), "PTS"), ("K", (0,), "PTS"), ("DEF", (0,), "PTS"), ("O", (0,), "OR")):
+    for pos, pages, sort in (("O", OFFENSE_PAGES, "PTS"), ("K", (0,), "PTS"), ("DEF", (0,), "PTS"),
+                             ("O", (0,), "OR")):
         for offset in pages:
             path = free_agent_path(league, pos, week, offset, sort)
             try:
@@ -1099,12 +1107,16 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
             except Exception as exc:  # noqa: BLE001 - a thin wire beats no snapshot
                 log.warning("Yahoo free agents %s@%s failed: %s", pos, offset, exc)
                 continue
+            have = {p.player_id for p in free_agents}
             if sort != "PTS":
                 # The rank-ordered page is read for the injured it reaches;
                 # everyone else on it is already on the projection pages.
-                have = {p.player_id for p in free_agents}
                 rows = [p for p in rows if p.player_id not in have and p.status in IR_ELIGIBLE_STATUSES]
                 log.info("Yahoo free agents by rank: %d on a reserve list or out", len(rows))
+            else:
+                rows = [p for p in rows if p.player_id not in have]
+                if not rows:
+                    break                    # the end of the list: later pages have nobody new
             free_agents.extend(rows)
 
     teams = []
