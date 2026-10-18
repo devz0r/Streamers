@@ -930,11 +930,12 @@ def team_panels_for(
                 except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
                     log.warning("FantasyPros season blend for %s skipped: %s", name, exc)
             game_day = is_game_day()
-            shared = {"cache": read_me_cache(bound) if game_day else {}}
+            # (Not ``shared``: that is the sportsbook props pulled for every league.)
+            view_shared = {"cache": read_me_cache(bound) if game_day else {}}
             panels[name] = _team_panel(snap, bound, rankings, projected, status, primary=True,
-                                       shared=shared, game_day=game_day)
-            shared["odds"] = getattr(snap, "_season_odds", None)
-            views = _team_views(snap, bound, rankings, projected, shared=shared, game_day=game_day)
+                                       shared=view_shared, game_day=game_day)
+            view_shared["odds"] = getattr(snap, "_season_odds", None)
+            views = _team_views(snap, bound, rankings, projected, shared=view_shared, game_day=game_day)
             if views:
                 panels[name]["_views"] = views
                 panels[name]["_me"] = snap.my_team.name
