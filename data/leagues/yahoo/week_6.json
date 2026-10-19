@@ -3023,7 +3023,7 @@
         },
         {
           "player_id": "100033",
-          "name": "Ravens",
+          "name": "Baltimore",
           "position": "DST",
           "team": "BAL",
           "status": "",
@@ -7036,7 +7036,7 @@
         },
         {
           "player_id": "100026",
-          "name": "Seattle",
+          "name": "Seahawks",
           "position": "DST",
           "team": "SEA",
           "status": "",
@@ -9042,7 +9042,7 @@
         },
         {
           "player_id": "100014",
-          "name": "Los Angeles",
+          "name": "Rams",
           "position": "DST",
           "team": "LA",
           "status": "",
@@ -9982,7 +9982,7 @@
         },
         {
           "player_id": "100017",
-          "name": "New England",
+          "name": "Patriots",
           "position": "DST",
           "team": "NE",
           "status": "",
@@ -10861,7 +10861,7 @@
         },
         {
           "player_id": "100019",
-          "name": "New York",
+          "name": "Giants",
           "position": "DST",
           "team": "NYG",
           "status": "",
@@ -12805,7 +12805,7 @@
         },
         {
           "player_id": "100005",
-          "name": "Cleveland",
+          "name": "Browns",
           "position": "DST",
           "team": "CLE",
           "status": "",
@@ -21867,15 +21867,12 @@
     },
     {
       "player_id": "99001",
-      "name": "Travis Hunter",
-      "position": "WR",
-      "team": "JAX",
-      "status": "",
+      "name": "--empty--",
+      "position": "",
+      "team": null,
+      "status": "NA",
       "slot": "FA",
-      "eligible_slots": [
-        "WR",
-        "FLEX"
-      ],
+      "eligible_slots": [],
       "on_bye": false,
       "platform_projection": null,
       "season_avg": null,
@@ -26173,7 +26170,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-19T00:28:50.010213+00:00",
+  "synced_at": "2026-10-19T00:34:59.168993+00:00",
   "extra": {
     "source": "yahoo-web"
   },
