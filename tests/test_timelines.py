@@ -50,7 +50,7 @@ def test_a_reported_timeline_sets_when_he_is_back(cfg, monkeypatch):
     snap = _snap()
     monkeypatch.setattr(news, "player_items", lambda *a, **k: _items(
         ("2026-10-19T15:00:00Z", "Davante Adams (knee) expected to miss 6-10 weeks", "Adams will be out 6-10 weeks.")))
-    lines = news.timelines(snap, cfg, {"davante adams": "9", "healthy guy": "8"}, now=NOW)
+    lines = news.timelines(snap, cfg, {"davante adams": "9", "healthy guy": "8"}, allow_network=False, now=NOW)
     p = snap.teams[0].roster[0]
     assert p.reported_back == [13, 17] and p.reported_share == pytest.approx(3 / 11, abs=0.01)
     assert "6-10 weeks" in p.reported_note and lines and "back around week 13-17" in lines[0]
@@ -61,12 +61,12 @@ def test_an_older_report_counts_down_and_a_newer_healthy_item_cancels_it(cfg, mo
     snap = _snap()
     monkeypatch.setattr(news, "player_items", lambda *a, **k: _items(
         ("2026-10-06T15:00:00Z", "Davante Adams out 6-10 weeks", "He will miss 6-10 weeks.")))        # two weeks ago
-    news.timelines(snap, cfg, {"davante adams": "9"}, now=NOW)
+    news.timelines(snap, cfg, {"davante adams": "9"}, allow_network=False, now=NOW)
     assert snap.teams[0].roster[0].reported_back == [11, 15]
     monkeypatch.setattr(news, "player_items", lambda *a, **k: _items(
         ("2026-10-20T09:00:00Z", "Davante Adams practiced fully", "He is a full participant."),
         ("2026-10-06T15:00:00Z", "Davante Adams out 6-10 weeks", "He will miss 6-10 weeks.")))
-    news.timelines(snap, cfg, {"davante adams": "9"}, now=NOW)
+    news.timelines(snap, cfg, {"davante adams": "9"}, allow_network=False, now=NOW)
     assert snap.teams[0].roster[0].reported_back is None
 
 
@@ -74,7 +74,7 @@ def test_a_season_ending_report_removes_him_for_the_year(cfg, monkeypatch):
     snap = _snap()
     monkeypatch.setattr(news, "player_items", lambda *a, **k: _items(
         ("2026-10-19T15:00:00Z", "Adams tears ACL; out for the season", "Adams is done for the season.")))
-    news.timelines(snap, cfg, {"davante adams": "9"}, now=NOW)
+    news.timelines(snap, cfg, {"davante adams": "9"}, allow_network=False, now=NOW)
     p = snap.teams[0].roster[0]
     assert p.reported_back == [99, 99] and p.reported_share == 0.0
 
