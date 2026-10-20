@@ -56,7 +56,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, dstk-blend, wind-fit, sleeper-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, dstk-blend, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -195,6 +195,12 @@ jobs:
       - name: Probe ESPN live scores
         if: steps.mode.outputs.mode == 'live-probe'
         run: python scripts/live_probe.py
+
+      # What the injury-timeline reader made of a few players' news (public
+      # news text only).
+      - name: Probe injury timelines
+        if: steps.mode.outputs.mode == 'timeline-probe'
+        run: python scripts/timeline_probe.py
 
       # The page's live scoring (static/live.js) against a finished week:
       # agreement only, never a name or a score.
