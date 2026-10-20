@@ -3714,6 +3714,19 @@ whether to shade them (teams return players early and late). Until then a
 reported range is the best information there is, and the generic draw was
 known to be wrong for it.
 
+The second live run still read 13 of 26 wrong, every one a number or phrase
+that was not about his time away: stat lines ("over six games", "sat out a
+combined 19 games in 2023", "three Week 6 practices"), past counts ("the
+Chargers' prior two games"), a list article whose "out for the season"
+belonged to the item before his, and a blurb about him that gave another
+player's injury ("after Jayden Reed (neck) will undergo season-ending
+surgery"). Now a count needs words for time away right before it ("will
+miss", "out", "ruled out for the next", "sidelined for") or after it ("a
+six-week recovery"); a list in an article is read item by item (split at
+semicolons); a time that follows another player's "Name (injury)" is his,
+not ours; and "6-to-8 weeks" reads as a range. Every sentence from that run
+is a test case.
+
 ### Bye weeks thin the wire
 
 The season simulation filled any hole from the wire at one fixed

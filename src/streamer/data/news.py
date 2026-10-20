@@ -536,14 +536,15 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
 _NUMS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
          "ten": 10, "eleven": 11, "twelve": 12, "a couple": 2, "couple": 2}
 _N = r"(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a couple of|a couple)"
-_RANGE = re.compile(rf"\b{_N}\s*(?:-|\u2013|to|or)\s*{_N}\s*(?:more\s+)?(?:weeks?|games?)\b", re.I)
-_SINGLE = re.compile(rf"(?<![\d-])\b{_N}\s*(?:more\s+)?(?:weeks?|games?)\b", re.I)
+_RANGE = re.compile(rf"\b{_N}\s*(?:-to-|-|\u2013|to|or)\s*{_N}\s*(?:more\s+)?(?:weeks?|games?)\b(?!\s*\d)", re.I)
+_SINGLE = re.compile(rf"(?<![\d-])\b{_N}\s*(?:more\s+)?(?:weeks?|games?)\b(?!\s*\d)", re.I)
 _MONTHS = re.compile(r"\b(?:about |around |roughly )?(a|one|two|three) months?\b", re.I)
 _SEASON = re.compile(r"season-ending|out for (?:the )?(?:rest of the )?(?:season|year)|"
                      r"(?:miss|missing|sit out|done for) (?:the )?(?:rest|remainder) of (?:the )?(?:season|year)|"
                      r"done for the (?:season|year)", re.I)
 _CONTEXT = re.compile(r"miss|out\b|sideline|timetable|recover|return|absence|expected|surgery|rehab|sit\b", re.I)
-_PAST = re.compile(r"\b(last|past|previous|first|opening|consecutive|straight|every)\s*$|missed (?:the )?$|"
+_PAST = re.compile(r"\b(last|past|previous|prior|first|opening|consecutive|straight|every|combined|"
+                   r"total)\s*$|missed (?:the )?$|"
                    r"has (?:missed|been out)[^.]{0,20}$", re.I)
 #: A floor, not a timeline: an injured-reserve stint "requires missing at
 #: least four games", and the player is often out much longer.
@@ -553,6 +554,17 @@ _FLOOR = re.compile(r"\b(at least|minimum of|requisite|required to miss|requires
 _HEDGE = re.compile(r"\b(fear\w*|worr\w*|concern\w*|possib\w*|potential\w*|could|might|may|if|unclear|unknown|"
                     r"without a timeline|no timeline|hope\w*|optimis\w*|best[- ]case)\b", re.I)
 _WEEK_LABEL = re.compile(r"\bweeks?\s*$|\bwk\.?\s*$", re.I)
+#: A count of weeks is a timeline only right after words for time away
+#: ("will miss", "out", "ruled out for the next", "sidelined for about") or
+#: right before them ("a six-week recovery"): otherwise it is a stat line
+#: ("8 of 12 targets over six games", "3.4 a carry through four games").
+_CUE_BEFORE = re.compile(r"\b(miss|missing|out|sidelined|sideline|shelved|absent|timetable|timeline|"
+                         r"recovery|return in|back in)\b(?:\W+[\w'-]+){0,4}?\W+$", re.I)
+_CUE_AFTER = re.compile(r"\s*(?:absence|recovery|layoff|timetable|timeline|stint)\b", re.I)
+#: "Name (injury)": who a clause is about. A sentence that names him can
+#: still give someone else's timeline ("Moore is next up after Jayden Reed
+#: (neck) will undergo season-ending surgery").
+_TAGGED = re.compile(r"\b([A-Z][\w'.-]+)\s*\((?:[a-z]+[ /-]?){1,3}\)")
 
 
 def _n(word: str) -> int:
@@ -560,21 +572,27 @@ def _n(word: str) -> int:
     return int(word) if word.isdigit() else _NUMS.get(word.replace(" of", ""), 0)
 
 
-def timeline(text: str) -> tuple[int, int] | str | None:
+def _someone_else(sentence: str, pos: int, last: str | None) -> bool:
+    tagged = list(_TAGGED.finditer(sentence[:pos]))
+    return bool(last and tagged and re.sub(r"'s?$", "", tagged[-1].group(1)) != last)
+
+
+def timeline(text: str, last: str | None = None) -> tuple[int, int] | str | None:
     """How long a report says a player is out: ``(low, high)`` in weeks,
     ``"season"`` for a season-ending injury, None when no time is given.
     "Expected to miss 6-10 weeks" -> (6, 10); "out four to six weeks" -> (4, 6);
     "about a month" -> (4, 4). Not a timeline, so not read: past counts
     ("missed the last three weeks"), "Week 7" and "Week 7 game", a floor
     ("must miss at least four games" on injured reserve), a guess ("fear a
-    season-ending injury", "hopeful to return"), and a number with nothing
-    about missing time."""
+    season-ending injury", "hopeful to return"), a number with no words for
+    time away beside it, and, given his ``last`` name, a time that follows
+    another player's "Name (injury)"."""
     text = str(text or "")
     for sentence in re.split(r"(?<=[.!?])\s+", text):
         if _HEDGE.search(sentence):
             continue
         sm = _SEASON.search(sentence)
-        if sm and not _FLOOR.search(sentence[:sm.start()]):
+        if sm and not _FLOOR.search(sentence[:sm.start()]) and not _someone_else(sentence, sm.start(), last):
             return "season"
         if not _CONTEXT.search(sentence):
             continue
@@ -583,13 +601,18 @@ def timeline(text: str) -> tuple[int, int] | str | None:
                 before = sentence[max(0, m.start() - 40):m.start()]
                 if _PAST.search(before[-24:]) or _FLOOR.search(before) or _WEEK_LABEL.search(before):
                     continue
+                if not (_CUE_BEFORE.search(before) or _CUE_AFTER.match(sentence[m.end():])) \
+                        or _someone_else(sentence, m.start(), last):
+                    continue
                 lo = _n(m.group(1))
                 hi = _n(m.group(2)) if pair else lo
-                if 0 < lo <= hi <= 24:
+                if 0 < lo <= hi <= 17:
                     return (lo, hi)
         m = _MONTHS.search(sentence)
-        if m and not (_PAST.search(sentence[max(0, m.start() - 24):m.start()])
-                      or _FLOOR.search(sentence[max(0, m.start() - 40):m.start()])):
+        if m and _CUE_BEFORE.search(sentence[max(0, m.start() - 40):m.start()]) \
+                and not (_PAST.search(sentence[max(0, m.start() - 24):m.start()])
+                         or _FLOOR.search(sentence[max(0, m.start() - 40):m.start()])
+                         or _someone_else(sentence, m.start(), last)):
             k = {"a": 1, "one": 1, "two": 2, "three": 3}[m.group(1).lower()] * 4
             return (k, k)
     return None
@@ -613,11 +636,11 @@ def player_timeline(item: dict, last: str) -> tuple[tuple[int, int] | str, str] 
     about_him = item.get("type") in PLAYER_TYPES
     text = f"{head}. {body}" if about_him else _plain(f"{head}. {body}")
     for para in text.split("\n"):
-        for sentence in re.split(r"(?<=[.!?])\s+", para):
+        for sentence in re.split(r"(?<=[.!?])\s+" if about_him else r"(?<=[.!?])\s+|;", para):
             names_him = re.search(rf"\b{re.escape(last)}\b", sentence) is not None
             if not (names_him or (about_him and re.match(r"\s*(He|His|The injury)\b", sentence))):
                 continue
-            t = timeline(sentence)
+            t = timeline(sentence, last)
             if t is not None:
                 return t, sentence.strip()[:240]
     return None

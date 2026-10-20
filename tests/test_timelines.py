@@ -33,6 +33,16 @@ NOW = datetime(2026, 10, 20, 14, 0, tzinfo=UTC)
     ("The Colts are without a timeline for a return.", None),
     ("Hurts is expected to miss the rest of the season after new imaging.", "season"),
     ("had 12 games with 5 receptions", None),
+    # Stat lines and past counts, from the first live runs:
+    ("Kirk, Zay Jones and Jamal Agnew sat out a combined 19 games in 2023.", None),
+    ("Shipley is averaging 3.4 yards per carry though four games this season.", None),
+    ("Cameron has caught eight of 12 targets over six games.", None),
+    ("Croskey-Merritt will end up missing all three Week 6 practices while recovering.", None),
+    ("Kolar progressed enough to draw the questionable tag after missing the Chargers' prior two games.", None),
+    ("Mason has already missed the required four games after landing on injured reserve.", None),
+    ("With Bryant ruled out for the next four games, Troy Franklin steps in.", (4, 4)),
+    ("The move to IR rules him out for the next four games, but he is projected to miss around 6-to-8 weeks.",
+     (6, 8)),
 ])
 def test_the_timeline_is_read_from_the_report(text, expected):
     assert news.timeline(text) == expected
@@ -144,6 +154,19 @@ def test_a_timeline_in_an_article_counts_only_for_the_player_it_names():
     assert news.player_timeline(article, "Kelce") is None                  # not named anywhere
     blurb = {"type": "Rotowire", "headline": "Cooper Kupp (hamstring) is out.", "story": "He should miss four weeks."}
     assert news.player_timeline(blurb, "Kupp")[0] == (4, 4)                 # "He" in a blurb about him
+
+
+def test_a_list_or_another_players_injury_is_not_his_timeline():
+    dump = {"type": "Story", "headline": "Dump list",
+            "description": "<p>Running backs to dump: De'Von Achane, Miami Dolphins (41.4%, injured, out for the "
+                           "season); Isiah Pacheco, Detroit Lions (20.1%).</p>"}
+    assert news.player_timeline(dump, "Achane")[0] == "season"
+    assert news.player_timeline(dump, "Pacheco") is None
+    moore = {"type": "Rotowire", "headline": "Skyy Moore: In line for bigger role",
+             "story": "LaFleur said Moore will be the next man up after Jayden Reed (neck) will undergo "
+                      "season-ending surgery."}
+    assert news.player_timeline(moore, "Moore") is None
+    assert news.timeline("Hurts (calf) is expected to miss the rest of the season.", "Hurts") == "season"
 
 
 def test_an_article_is_used_when_the_blurbs_give_no_time(cfg, monkeypatch):
