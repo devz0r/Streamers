@@ -541,10 +541,18 @@ _SINGLE = re.compile(rf"(?<![\d-])\b{_N}\s*(?:more\s+)?(?:weeks?|games?)\b", re.
 _MONTHS = re.compile(r"\b(?:about |around |roughly )?(a|one|two|three) months?\b", re.I)
 _SEASON = re.compile(r"season-ending|out for (?:the )?(?:rest of the )?(?:season|year)|"
                      r"(?:miss|missing|sit out|done for) (?:the )?(?:rest|remainder) of (?:the )?(?:season|year)|"
-                     r"done for the (?:season|year)|\b(?:tore|torn|tearing|ruptured) (?:his |an? |the )?(?:ACL|Achilles)", re.I)
+                     r"done for the (?:season|year)", re.I)
 _CONTEXT = re.compile(r"miss|out\b|sideline|timetable|recover|return|absence|expected|surgery|rehab|sit\b", re.I)
 _PAST = re.compile(r"\b(last|past|previous|first|opening|consecutive|straight|every)\s*$|missed (?:the )?$|"
                    r"has (?:missed|been out)[^.]{0,20}$", re.I)
+#: A floor, not a timeline: an injured-reserve stint "requires missing at
+#: least four games", and the player is often out much longer.
+_FLOOR = re.compile(r"\b(at least|minimum of|requisite|required to miss|requires? a player to miss|no fewer than|"
+                    r"as few as)\b[^.]{0,30}$", re.I)
+#: A guess or an absence of one: nothing is being reported.
+_HEDGE = re.compile(r"\b(fear\w*|worr\w*|concern\w*|possib\w*|potential\w*|could|might|may|if|unclear|unknown|"
+                    r"without a timeline|no timeline|hope\w*|optimis\w*|best[- ]case)\b", re.I)
+_WEEK_LABEL = re.compile(r"\bweeks?\s*$|\bwk\.?\s*$", re.I)
 
 
 def _n(word: str) -> int:
@@ -556,31 +564,69 @@ def timeline(text: str) -> tuple[int, int] | str | None:
     """How long a report says a player is out: ``(low, high)`` in weeks,
     ``"season"`` for a season-ending injury, None when no time is given.
     "Expected to miss 6-10 weeks" -> (6, 10); "out four to six weeks" -> (4, 6);
-    "about a month" -> (4, 4). Past counts ("missed the last three weeks"),
-    a number without a word about missing time, and "week 7" are not read."""
+    "about a month" -> (4, 4). Not a timeline, so not read: past counts
+    ("missed the last three weeks"), "Week 7" and "Week 7 game", a floor
+    ("must miss at least four games" on injured reserve), a guess ("fear a
+    season-ending injury", "hopeful to return"), and a number with nothing
+    about missing time."""
     text = str(text or "")
-    if _SEASON.search(text):
-        return "season"
     for sentence in re.split(r"(?<=[.!?])\s+", text):
+        if _HEDGE.search(sentence):
+            continue
+        sm = _SEASON.search(sentence)
+        if sm and not _FLOOR.search(sentence[:sm.start()]):
+            return "season"
         if not _CONTEXT.search(sentence):
             continue
         for rx, pair in ((_RANGE, True), (_SINGLE, False)):
             for m in rx.finditer(sentence):
-                if _PAST.search(sentence[max(0, m.start() - 24):m.start()]):
+                before = sentence[max(0, m.start() - 40):m.start()]
+                if _PAST.search(before[-24:]) or _FLOOR.search(before) or _WEEK_LABEL.search(before):
                     continue
                 lo = _n(m.group(1))
                 hi = _n(m.group(2)) if pair else lo
                 if 0 < lo <= hi <= 24:
                     return (lo, hi)
         m = _MONTHS.search(sentence)
-        if m and not _PAST.search(sentence[max(0, m.start() - 24):m.start()]):
+        if m and not (_PAST.search(sentence[max(0, m.start() - 24):m.start()])
+                      or _FLOOR.search(sentence[max(0, m.start() - 40):m.start()])):
             k = {"a": 1, "one": 1, "two": 2, "three": 3}[m.group(1).lower()] * 4
             return (k, k)
     return None
 
 
-#: Reports are read when no older than this (days).
+def _plain(html: str) -> str:
+    """An article's text with its markup out, one paragraph per line."""
+    text = re.sub(r"</p>|<br\s*/?>", "\n", str(html or ""), flags=re.I)
+    text = re.sub(r"<[^>]+>", "", text)
+    return re.sub(r"&amp;", "&", re.sub(r"&#?\w+;", " ", text))
+
+
+def player_timeline(item: dict, last: str) -> tuple[tuple[int, int] | str, str] | None:
+    """The timeline ``item`` gives for the player whose last name is ``last``,
+    with the sentence it was read from. A RotoWire blurb or an ESPN headline is
+    about him, so its sentences count when they name him or say "he/his"; an
+    ESPN article is about many players, so only a sentence that names him
+    counts."""
+    head = str(item.get("headline") or item.get("title") or "")
+    body = str(item.get("story") or item.get("description") or "")
+    about_him = item.get("type") in PLAYER_TYPES
+    text = f"{head}. {body}" if about_him else _plain(f"{head}. {body}")
+    for para in text.split("\n"):
+        for sentence in re.split(r"(?<=[.!?])\s+", para):
+            names_him = re.search(rf"\b{re.escape(last)}\b", sentence) is not None
+            if not (names_him or (about_him and re.match(r"\s*(He|His|The injury)\b", sentence))):
+                continue
+            t = timeline(sentence)
+            if t is not None:
+                return t, sentence.strip()[:240]
+    return None
+
+
+#: Reports are read when no older than this (days); ESPN's articles, which
+#: cover many players, only when this fresh.
 TIMELINE_DAYS = 28
+ARTICLE_DAYS = 7
 
 
 def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool = True,
@@ -616,19 +662,20 @@ def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bo
         for it in player_items(cfg, eid, allow_network):
             when = _when(it)
             head = str(it.get("headline") or "")
-            text = f"{head} {it.get('story') or it.get('description') or ''}"
-            if when is None or now - when > timedelta(days=TIMELINE_DAYS) or it.get("type") not in PLAYER_TYPES \
-                    or last not in text or IN_GAME.search(head):
+            kind = it.get("type")
+            if when is None or now - when > timedelta(days=TIMELINE_DAYS) or IN_GAME.search(head):
                 continue
-            if tag_of(head) == "healthy" and found is None:
+            if kind not in PLAYER_TYPES and not (kind == "Story" and now - when <= timedelta(days=ARTICLE_DAYS)):
+                continue
+            if kind in PLAYER_TYPES and tag_of(head) == "healthy" and found is None:
                 break                                  # the newest word is that he is back
-            t = timeline(text)
-            if t is not None:
-                found = (t, when, head)
+            got = player_timeline(it, last)
+            if got is not None:
+                found = (got[0], when, got[1])
                 break
         if found is None:
             continue
-        t, when, head = found
+        t, when, evidence = found
         elapsed = max(int(round((now - when).total_seconds() / (7 * 86400))), 0)
         if t == "season":
             lo = hi = 99
@@ -649,7 +696,7 @@ def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bo
         logged.append({"season": int(snapshot.season), "name": p.name, "position": p.position,
                        "reported": when.isoformat(), "weeks_low": None if t == "season" else t[0],
                        "weeks_high": None if t == "season" else t[1], "season_ending": t == "season",
-                       "back_lo": lo, "back_hi": hi, "logged_week": week})
+                       "back_lo": lo, "back_hi": hi, "logged_week": week, "evidence": evidence})
     if allow_network and logged:
         try:
             record_timelines(cfg.results_dir / "timeline_log.parquet", logged)

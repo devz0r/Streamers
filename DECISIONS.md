@@ -3688,6 +3688,22 @@ a newer item that says he practiced fully or was cleared cancels it. It sets:
   (player, report time, the range, when he was logged), so each report can
   be graded against the week he actually came back.
 
+The first live run found real problems, all fixed before relying on it. It
+read an injured-reserve stint's floor ("required to miss *at least four
+games*") as a four-game timeline, "the Packers' *Week 7 game*" as seven
+games, a signing story's mention of a *past* torn Achilles as a
+season-ending injury, an ESPN article about forty players as news about each
+of them, and a team that "*fears* a season-ending injury" before an MRI as
+a confirmed one. Each is now not a timeline: a floor (at least, minimum,
+requisite), a hedge (fear, hope, possible, could, may, if, without a
+timeline), a week label, a past count. ESPN's articles are read only for a
+sentence that names the player, from the last seven days. The log keeps the
+sentence it read from, so a wrong one can be found. Hurts, whom the first run
+also marked out for the season, was right (blood clots, "miss the rest of the
+season"). Adams's 6-10 weeks is in an ESPN article, not a blurb, which is why
+the first version missed him; the RotoWire blurb said only that he
+ruptured a hamstring and would have a procedure.
+
 On the Adams case: the generic draw had him back in week 8 in 48% of
 simulated seasons and playing 79% of the time by week 12. With the report he
 plays 0% until week 13, 20% that week, and 92% by week 17.

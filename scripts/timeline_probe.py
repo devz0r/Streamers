@@ -12,9 +12,8 @@ as the page's breaking-news list. Run as the ``timeline-probe`` job.
 from __future__ import annotations
 
 import glob
-import re
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -44,14 +43,9 @@ def main() -> int:
         for it in items[:6]:
             when = news._when(it)
             head = str(it.get("headline") or "")
-            text = f"{head} {it.get('story') or it.get('description') or ''}"
-            t = news.timeline(text)
-            hit = ""
-            if t is not None:
-                for sent in re.split(r"(?<=[.!?])\s+", text):
-                    if news.timeline(sent) is not None:
-                        hit = sent[:230]
-                        break
+            got = news.player_timeline(it, p.name.split()[-1])
+            t = got[0] if got else None
+            hit = got[1] if got else ""
             age = f"{(now - when).days}d" if when else "?"
             print(f"   [{age} {it.get('type')}] tag={news.tag_of(head)!r} timeline={t} :: {head[:140]}")
             if hit:

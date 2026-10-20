@@ -26,6 +26,12 @@ NOW = datetime(2026, 10, 20, 14, 0, tzinfo=UTC)
     ("He has missed the last three weeks and is week-to-week.", None),
     ("Lamb is questionable for Week 7 with a shoulder issue.", None),
     ("He practiced fully and should return after the bye in Week 9.", None),
+    ("As a result, Hurts will be required to miss at least four games.", None),             # an IR floor
+    ("McLaurin is slated for an MRI after what the Commanders fear was a season-ending knee injury.", None),
+    ("He will be eligible to play as soon as the Packers' Week 7 game at Detroit.", None),
+    ("Ekeler returns after his 2025 campaign ended with a torn Achilles.", None),            # a past injury
+    ("The Colts are without a timeline for a return.", None),
+    ("Hurts is expected to miss the rest of the season after new imaging.", "season"),
     ("had 12 games with 5 receptions", None),
 ])
 def test_the_timeline_is_read_from_the_report(text, expected):
@@ -127,3 +133,28 @@ def test_each_report_is_logged_once(tmp_path):
            "weeks_low": 6, "weeks_high": 10, "season_ending": False, "back_lo": 13, "back_hi": 17, "logged_week": 7}
     assert news.record_timelines(path, [row]) == 1
     assert news.record_timelines(path, [row, dict(row, name="Other Guy")]) == 2
+
+
+def test_a_timeline_in_an_article_counts_only_for_the_player_it_names():
+    article = {"type": "Story", "headline": "Fantasy buzz",
+               "description": "<p>The news on <a href='x'>Davante Adams</a>' injury is devastating. "
+                              "Adams is expected to miss 6-10 weeks.</p><p>Evans, meanwhile, will miss 4 weeks.</p>"}
+    assert news.player_timeline(article, "Adams") == ((6, 10), "Adams is expected to miss 6-10 weeks.")
+    assert news.player_timeline(article, "Evans")[0] == (4, 4)
+    assert news.player_timeline(article, "Kelce") is None                  # not named anywhere
+    blurb = {"type": "Rotowire", "headline": "Cooper Kupp (hamstring) is out.", "story": "He should miss four weeks."}
+    assert news.player_timeline(blurb, "Kupp")[0] == (4, 4)                 # "He" in a blurb about him
+
+
+def test_an_article_is_used_when_the_blurbs_give_no_time(cfg, monkeypatch):
+    snap = _snap()
+    items = _items(("2026-10-19T15:00:00Z", "Adams sustained a ruptured hamstring", "He will have a procedure."))
+    items.append({"type": "Story", "published": "2026-10-20T08:00:00Z", "headline": "Fantasy buzz",
+                  "description": "<p>Adams is expected to miss 6-10 weeks.</p>"})
+    monkeypatch.setattr(news, "player_items", lambda *a, **k: items)
+    news.timelines(snap, cfg, {"davante adams": "9"}, allow_network=False, now=NOW)
+    assert snap.teams[0].roster[0].reported_back == [13, 17]
+    old = dict(items[-1], published="2026-10-05T08:00:00Z")                 # an old article is not trusted
+    monkeypatch.setattr(news, "player_items", lambda *a, **k: items[:-1] + [old])
+    news.timelines(snap, cfg, {"davante adams": "9"}, allow_network=False, now=NOW)
+    assert snap.teams[0].roster[0].reported_back is None
