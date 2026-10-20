@@ -1,6 +1,6 @@
 # Week 6 review (2026)
 
-_Generated 2026-10-20 10:01 UTC._
+_Generated 2026-10-20 12:46 UTC._
 
 ## How the model did
 
@@ -65,18 +65,18 @@ Each factor's correlation with actual fantasy points, over the full historical w
 
 | Factor | Historical r | Season r | Last 4wk r | Blended r | Weight | Moved |
 |---|---|---|---|---|---|---|
-| Opponent implied total | -0.289 | -0.243 | -0.219 | -0.269 | -0.891 | +0.016 |
-| Point spread | 0.265 | 0.129 | 0.075 | 0.207 | 0.827 | -0.021 |
-| Opp points per drive | -0.185 | -0.130 | -0.082 | -0.161 | 0.116 | +0.012 |
-| Opp sack rate allowed (O-line) | 0.161 | 0.099 | 0.163 | 0.134 | 0.069 | -0.005 |
-| Sack opportunity (def x O-line x volume) | 0.160 | 0.106 | 0.220 | 0.137 | 0.082 | +0.001 |
-| Opp pressure rate allowed | 0.152 | 0.004 | 0.054 | 0.089 | 0.103 | +0.011 |
-| Game total | -0.124 | -0.226 | -0.244 | -0.167 | -0.372 | -0.002 |
-| Takeaway opportunity | 0.119 | 0.014 | 0.060 | 0.074 | 0.062 | +0.011 |
-| Defense points allowed per drive | -0.098 | -0.101 | -0.153 | -0.099 | -0.016 | +0.009 |
-| Opp INT rate | 0.093 | -0.020 | 0.013 | 0.045 | 0.006 | +0.013 |
-| Defense INT rate | 0.085 | 0.002 | 0.009 | 0.049 | 0.044 | -0.020 |
-| Opp drives per game | 0.084 | 0.157 | 0.066 | 0.115 | 0.126 | +0.006 |
+| Opponent implied total | -0.289 | -0.243 | -0.219 | -0.269 | -0.891 | +0.000 |
+| Point spread | 0.265 | 0.129 | 0.075 | 0.207 | 0.827 | +0.000 |
+| Opp points per drive | -0.185 | -0.130 | -0.082 | -0.161 | 0.116 | +0.000 |
+| Opp sack rate allowed (O-line) | 0.161 | 0.099 | 0.163 | 0.134 | 0.069 | +0.000 |
+| Sack opportunity (def x O-line x volume) | 0.160 | 0.106 | 0.220 | 0.137 | 0.082 | +0.000 |
+| Opp pressure rate allowed | 0.152 | 0.004 | 0.054 | 0.089 | 0.103 | +0.000 |
+| Game total | -0.124 | -0.226 | -0.244 | -0.167 | -0.372 | +0.000 |
+| Takeaway opportunity | 0.119 | 0.014 | 0.060 | 0.074 | 0.062 | +0.000 |
+| Defense points allowed per drive | -0.098 | -0.101 | -0.153 | -0.099 | -0.016 | +0.000 |
+| Opp INT rate | 0.093 | -0.020 | 0.013 | 0.045 | 0.006 | +0.000 |
+| Defense INT rate | 0.085 | 0.002 | 0.009 | 0.049 | 0.044 | +0.000 |
+| Opp drives per game | 0.084 | 0.157 | 0.066 | 0.115 | 0.126 | +0.000 |
 
 **Biggest divergences from the historical prior:**
 
@@ -88,18 +88,18 @@ Each factor's correlation with actual fantasy points, over the full historical w
 
 | Factor | Historical r | Season r | Last 4wk r | Blended r | Weight | Moved |
 |---|---|---|---|---|---|---|
-| Point spread | 0.134 | -0.042 | -0.032 | 0.059 | 0.361 | -0.029 |
-| Team implied total | 0.122 | -0.038 | -0.051 | 0.053 | 0.223 | -0.030 |
-| Implied total x FG rate | 0.109 | -0.077 | -0.086 | 0.030 | -0.002 | +0.001 |
-| Implied total x red-zone stall | 0.106 | -0.065 | -0.077 | 0.033 | 0.000 | +0.002 |
-| Opponent implied total | -0.099 | 0.026 | -0.004 | -0.045 | -0.001 | +0.001 |
-| Wind (mph) | -0.097 | -0.014 | -0.044 | -0.062 | -0.389 | -0.032 |
-| Dome / indoors | 0.094 | -0.052 | -0.036 | 0.032 | 0.070 | -0.036 |
-| Wind x 50+ attempt share | -0.080 | 0.001 | -0.030 | -0.046 | 0.009 | +0.001 |
-| Kicker 50+ attempt share | 0.058 | 0.067 | 0.048 | 0.062 | 0.068 | +0.003 |
-| Home field | 0.046 | -0.178 | -0.159 | -0.050 | -0.105 | -0.036 |
-| TDs per drive | 0.038 | 0.004 | 0.008 | 0.024 | -0.002 | +0.006 |
-| Red-zone trips per drive | 0.037 | -0.029 | -0.020 | 0.009 | -0.003 | +0.007 |
+| Point spread | 0.134 | -0.042 | -0.032 | 0.059 | 0.361 | +0.000 |
+| Team implied total | 0.122 | -0.038 | -0.051 | 0.053 | 0.223 | +0.000 |
+| Implied total x FG rate | 0.109 | -0.077 | -0.086 | 0.030 | -0.002 | +0.000 |
+| Implied total x red-zone stall | 0.106 | -0.065 | -0.077 | 0.033 | 0.000 | +0.000 |
+| Opponent implied total | -0.099 | 0.026 | -0.004 | -0.045 | -0.001 | +0.000 |
+| Wind (mph) | -0.097 | -0.014 | -0.044 | -0.062 | -0.389 | +0.000 |
+| Dome / indoors | 0.094 | -0.052 | -0.036 | 0.032 | 0.070 | +0.000 |
+| Wind x 50+ attempt share | -0.080 | 0.001 | -0.030 | -0.046 | 0.009 | +0.000 |
+| Kicker 50+ attempt share | 0.058 | 0.067 | 0.048 | 0.062 | 0.068 | +0.000 |
+| Home field | 0.046 | -0.178 | -0.159 | -0.050 | -0.105 | +0.000 |
+| TDs per drive | 0.038 | 0.004 | 0.008 | 0.024 | -0.002 | +0.000 |
+| Red-zone trips per drive | 0.037 | -0.029 | -0.020 | 0.009 | -0.003 | +0.000 |
 
 **Biggest divergences from the historical prior:**
 
