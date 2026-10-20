@@ -3724,7 +3724,9 @@ surgery"). Now a count needs words for time away right before it ("will
 miss", "out", "ruled out for the next", "sidelined for") or after it ("a
 six-week recovery"); a list in an article is read item by item (split at
 semicolons); a time that follows another player's "Name (injury)" is his,
-not ours; and "6-to-8 weeks" reads as a range. Every sentence from that run
+not ours; a time given before his name in a sentence that names him is
+someone else's (Ekeler got Jonathon Brooks' six weeks); and "6-to-8 weeks"
+reads as a range. Every sentence from those runs
 is a test case.
 
 ### Bye weeks thin the wire

@@ -166,6 +166,14 @@ def test_a_list_or_another_players_injury_is_not_his_timeline():
              "story": "LaFleur said Moore will be the next man up after Jayden Reed (neck) will undergo "
                       "season-ending surgery."}
     assert news.player_timeline(moore, "Moore") is None
+    ekeler = {"type": "Rotowire", "headline": "Austin Ekeler: Chance at bigger role",
+              "story": "With Rapoport reporting that Jonathon Brooks is scheduled to undergo surgery and is likely "
+                       "to miss six weeks, the Panthers will see how Ekeler looks."}
+    assert news.player_timeline(ekeler, "Ekeler") is None
+    baker = {"type": "Story", "headline": "QB notes",
+             "description": "<p>Shortly after Mayfield was diagnosed with the dislocated thumb, Adam Schefter "
+                            "reported a loose recovery timeline in the range of 3-to-6 weeks.</p>"}
+    assert news.player_timeline(baker, "Mayfield")[0] == (3, 6)
     assert news.timeline("Hurts (calf) is expected to miss the rest of the season.", "Hurts") == "season"
 
 

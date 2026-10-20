@@ -637,10 +637,14 @@ def player_timeline(item: dict, last: str) -> tuple[tuple[int, int] | str, str] 
     text = f"{head}. {body}" if about_him else _plain(f"{head}. {body}")
     for para in text.split("\n"):
         for sentence in re.split(r"(?<=[.!?])\s+" if about_him else r"(?<=[.!?])\s+|;", para):
-            names_him = re.search(rf"\b{re.escape(last)}\b", sentence) is not None
-            if not (names_him or (about_him and re.match(r"\s*(He|His|The injury)\b", sentence))):
+            named = re.search(rf"\b{re.escape(last)}\b", sentence)
+            if not (named or (about_him and re.match(r"\s*(He|His|The injury)\b", sentence))):
                 continue
-            t = timeline(sentence, last)
+            if named and _HEDGE.search(sentence):
+                continue
+            # A time given before his name is someone else's ("Brooks is likely
+            # to miss six weeks, so the Panthers will see how Ekeler looks").
+            t = timeline(sentence[named.start():] if named else sentence, last)
             if t is not None:
                 return t, sentence.strip()[:240]
     return None
