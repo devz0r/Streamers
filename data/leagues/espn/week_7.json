@@ -1247,7 +1247,7 @@
           "position": "RB",
           "team": "BUF",
           "status": "",
-          "slot": "RB",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -1314,7 +1314,7 @@
           "position": "RB",
           "team": "CIN",
           "status": "",
-          "slot": "BN",
+          "slot": "RB",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -1585,7 +1585,7 @@
           "position": "QB",
           "team": "WAS",
           "status": "",
-          "slot": "QB",
+          "slot": "BN",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -1983,7 +1983,7 @@
           "position": "QB",
           "team": "NO",
           "status": "",
-          "slot": "BN",
+          "slot": "QB",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -59638,7 +59638,7 @@
       "name": "Zane Gonzalez",
       "position": "K",
       "team": null,
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "K"
@@ -62011,7 +62011,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-20T17:33:18.206740+00:00",
+  "synced_at": "2026-10-20T17:55:48.164379+00:00",
   "extra": {
     "nfl_week": 7,
     "current_week": 7
