@@ -454,6 +454,20 @@ def simulate(
         if back is not None:
             out_left[:, j] = sum(1 for w in weeks if w < int(back)
                                  and not (p.team and w in byes.get(p.team, set())))
+    # A reported timeline ("expected to miss 6-10 weeks", ``reported_back``):
+    # he is back in a week drawn evenly from the range, or not at all for a
+    # season-ending injury. Replaces the generic draw and the reserve-list
+    # table, which know nothing of the report; a confirmed return wins.
+    for j, p in enumerate(players):
+        rb = getattr(p, "reported_back", None)
+        if not rb or getattr(p, "return_week", None) is not None:
+            continue
+        lo, hi = int(rb[0]), int(rb[1])
+        playable = np.array([not (p.team and w in byes.get(p.team, set())) for w in weeks])
+        games_before = np.concatenate([[0], np.cumsum(playable)])          # games before the k-th week
+        back = rng.integers(lo, hi + 1, size=n_sims)
+        k = np.searchsorted(np.asarray(weeks), back, side="left")        # weeks before his return week
+        out_left[:, j] = np.where(back > weeks[-1], GONE, games_before[np.minimum(k, len(weeks))])
     # A role that holds: in each simulated season a player keeps a lasting
     # tilt toward playing or sitting (``role_spread`` by position, a
     # mean-one lognormal on his absence hazard), tied by ``role_corr`` to how

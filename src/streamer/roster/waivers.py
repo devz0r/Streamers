@@ -138,6 +138,10 @@ def _ros(p: PlayerRow) -> float:
     if p.is_long_term_out:
         return 0.0
     base = p.ros_value if p.ros_value is not None else (p.projection or 0.0)
+    if p.reported_share is not None:
+        # The news says how long he is out: only the games after it count
+        # (the season simulation prices the same report week by week).
+        return float(base) * float(p.reported_share)
     return float(base)
 
 

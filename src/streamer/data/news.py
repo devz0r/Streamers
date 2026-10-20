@@ -531,6 +531,151 @@ def attach(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool 
 
 
 # ---------------------------------------------------------------------------
+# How long the news says an injured player is out
+# ---------------------------------------------------------------------------
+_NUMS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+         "ten": 10, "eleven": 11, "twelve": 12, "a couple": 2, "couple": 2}
+_N = r"(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a couple of|a couple)"
+_RANGE = re.compile(rf"\b{_N}\s*(?:-|\u2013|to|or)\s*{_N}\s*(?:more\s+)?(?:weeks?|games?)\b", re.I)
+_SINGLE = re.compile(rf"(?<![\d-])\b{_N}\s*(?:more\s+)?(?:weeks?|games?)\b", re.I)
+_MONTHS = re.compile(r"\b(?:about |around |roughly )?(a|one|two|three) months?\b", re.I)
+_SEASON = re.compile(r"season-ending|out for (?:the )?(?:rest of the )?(?:season|year)|"
+                     r"(?:miss|missing|sit out|done for) (?:the )?(?:rest|remainder) of (?:the )?(?:season|year)|"
+                     r"done for the (?:season|year)|\b(?:tore|torn|tearing|ruptured) (?:his |an? |the )?(?:ACL|Achilles)", re.I)
+_CONTEXT = re.compile(r"miss|out\b|sideline|timetable|recover|return|absence|expected|surgery|rehab|sit\b", re.I)
+_PAST = re.compile(r"\b(last|past|previous|first|opening|consecutive|straight|every)\s*$|missed (?:the )?$|"
+                   r"has (?:missed|been out)[^.]{0,20}$", re.I)
+
+
+def _n(word: str) -> int:
+    word = word.lower().strip()
+    return int(word) if word.isdigit() else _NUMS.get(word.replace(" of", ""), 0)
+
+
+def timeline(text: str) -> tuple[int, int] | str | None:
+    """How long a report says a player is out: ``(low, high)`` in weeks,
+    ``"season"`` for a season-ending injury, None when no time is given.
+    "Expected to miss 6-10 weeks" -> (6, 10); "out four to six weeks" -> (4, 6);
+    "about a month" -> (4, 4). Past counts ("missed the last three weeks"),
+    a number without a word about missing time, and "week 7" are not read."""
+    text = str(text or "")
+    if _SEASON.search(text):
+        return "season"
+    for sentence in re.split(r"(?<=[.!?])\s+", text):
+        if not _CONTEXT.search(sentence):
+            continue
+        for rx, pair in ((_RANGE, True), (_SINGLE, False)):
+            for m in rx.finditer(sentence):
+                if _PAST.search(sentence[max(0, m.start() - 24):m.start()]):
+                    continue
+                lo = _n(m.group(1))
+                hi = _n(m.group(2)) if pair else lo
+                if 0 < lo <= hi <= 24:
+                    return (lo, hi)
+        m = _MONTHS.search(sentence)
+        if m and not _PAST.search(sentence[max(0, m.start() - 24):m.start()]):
+            k = {"a": 1, "one": 1, "two": 2, "three": 3}[m.group(1).lower()] * 4
+            return (k, k)
+    return None
+
+
+#: Reports are read when no older than this (days).
+TIMELINE_DAYS = 28
+
+
+def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bool = True,
+              now: datetime | None = None) -> list[str]:
+    """Who is out how long, from the news: for each player who is out (or
+    just had news that says he may be) and has a recent report with a time
+    in it, set ``reported_back`` (the earliest and latest NFL week he is
+    back, or both 99 for a season-ending injury), ``reported_share`` (the
+    share of the rest of the season he is expected to play) and a note. The
+    season simulation then sits him until then instead of drawing how long
+    absences usually last, which for a player not yet moved to IR said two
+    weeks whatever the report. A newer item that says he is healthy (back at
+    practice, cleared) cancels it. Returns a line per player."""
+    from ..roster.players import normalize_name
+
+    for p in snapshot.all_players():
+        p.reported_back, p.reported_share, p.reported_note = None, None, ""
+    now = now or datetime.now(UTC)
+    week = int(snapshot.week)
+    news_names = {normalize_name(n.name) for n in getattr(snapshot, "_news", []) if n.tag in ("out", "injury")}
+    out, logged = [], []
+    for p in snapshot.all_players():
+        if p.position not in ("QB", "RB", "WR", "TE") or p.unsigned:
+            continue
+        key = normalize_name(p.name)
+        if not (p.is_out or p.is_long_term_out or p.in_ir_slot or key in news_names):
+            continue
+        eid = espn_ids.get(key)
+        if not eid:
+            continue
+        last = p.name.split()[-1]
+        found = None
+        for it in player_items(cfg, eid, allow_network):
+            when = _when(it)
+            head = str(it.get("headline") or "")
+            text = f"{head} {it.get('story') or it.get('description') or ''}"
+            if when is None or now - when > timedelta(days=TIMELINE_DAYS) or it.get("type") not in PLAYER_TYPES \
+                    or last not in text or IN_GAME.search(head):
+                continue
+            if tag_of(head) == "healthy" and found is None:
+                break                                  # the newest word is that he is back
+            t = timeline(text)
+            if t is not None:
+                found = (t, when, head)
+                break
+        if found is None:
+            continue
+        t, when, head = found
+        elapsed = max(int(round((now - when).total_seconds() / (7 * 86400))), 0)
+        if t == "season":
+            lo = hi = 99
+            note = f"reported out for the season ({when:%b %d})"
+            share = 0.0
+        else:
+            lo, hi = week + max(t[0] - elapsed, 0), week + max(t[1] - elapsed, 0)
+            if hi <= week:
+                continue                               # the reported time is up: nothing to say now
+            lo = max(lo, week + 1) if (p.is_out or p.is_long_term_out or p.in_ir_slot) else lo
+            span = f"{t[0]}-{t[1]} weeks" if t[1] != t[0] else f"{t[0]} weeks"
+            note = (f"reported out {span} ({when:%b %d}): back around week "
+                    f"{lo}{'-' + str(hi) if hi != lo else ''}")
+            weeks_left = max(LAST_WEEK - week + 1, 1)
+            share = min(max(LAST_WEEK - (lo + hi) / 2 + 1, 0.0) / weeks_left, 1.0)
+        p.reported_back, p.reported_share, p.reported_note = [lo, hi], round(share, 3), note
+        out.append(f"{p.name}: {note}")
+        logged.append({"season": int(snapshot.season), "name": p.name, "position": p.position,
+                       "reported": when.isoformat(), "weeks_low": None if t == "season" else t[0],
+                       "weeks_high": None if t == "season" else t[1], "season_ending": t == "season",
+                       "back_lo": lo, "back_hi": hi, "logged_week": week})
+    if allow_network and logged:
+        try:
+            record_timelines(cfg.results_dir / "timeline_log.parquet", logged)
+        except Exception as exc:  # noqa: BLE001 - a log; never block the page
+            log.warning("timeline log not written: %s", exc)
+    return out
+
+
+def record_timelines(path, rows: list[dict]) -> int:
+    """Keep every reported timeline once (player and report time), so that
+    over the season each can be graded against the week he actually came
+    back: do reports run long or short, and by how much."""
+    import pandas as pd
+
+    new = pd.DataFrame(rows)
+    if path.exists():
+        old = pd.read_parquet(path)
+        seen = set(zip(old["season"], old["name"], old["reported"]))
+        new = new[[k not in seen for k in zip(new["season"], new["name"], new["reported"])]]
+        new = pd.concat([old, new], ignore_index=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new.to_parquet(path, index=False)
+    return len(new)
+
+
+# ---------------------------------------------------------------------------
 # Breaking news, for everyone
 # ---------------------------------------------------------------------------
 #: Hours FantasyPros' league-wide feed (its latest 100 items) is reused: it

@@ -3657,6 +3657,47 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Reported injury timelines
+
+The recommendation to trade for Davante Adams exposed a gap: he was out with a
+reported 6-10 weeks, tagged plain OUT (his team had stashed him in an IR slot,
+but the platform tag is not an IR status), and the season simulator treated a
+plain OUT as an ordinary absence: back in about two games (45% one game, 19%
+two). Nothing read the news for how long. The status tag was all it knew.
+Anyone with a reported multi-week injury and no IR tag had the same error,
+and the rest-of-season value, title odds and trade pricing built on it.
+
+`data.news.timelines` now reads the time out of the news about every player
+who is out (or whom the news flags with an injury) and ESPN's feed carries a
+recent RotoWire or ESPN item for: "expected to miss 6-10 weeks", "out four to
+six weeks", "about a month", "a couple of weeks", "season-ending", "out for the
+season", a torn ACL or Achilles. Past counts ("has missed the last three
+weeks"), "Week 7" and a number with nothing about missing time are not read.
+A report counts down from the day it was written, rounded to whole weeks, and
+a newer item that says he practiced fully or was cleared cancels it. It sets:
+
+- `reported_back`: the earliest and latest NFL week he is back (99 for a
+  season-ending injury). The simulator draws his return week evenly from the
+  range, in every simulated season, byes not counted as games, instead of the
+  generic draw or the reserve-list table. A confirmed return
+  (`roster.known_returns`) still wins.
+- `reported_share`: the share of the rest of the season he plays on
+  average, which scales his value in the quick screens that rank trades and
+  claims before the simulation prices them.
+- a note on his card, and a row in `results/<profile>/timeline_log.parquet`
+  (player, report time, the range, when he was logged), so each report can
+  be graded against the week he actually came back.
+
+On the Adams case: the generic draw had him back in week 8 in 48% of
+simulated seasons and playing 79% of the time by week 12. With the report he
+plays 0% until week 13, 20% that week, and 92% by week 17.
+
+Not validated held out: there is no history of past news to test on. Reports
+are used as given, evenly across their range; the log exists to find out
+whether to shade them (teams return players early and late). Until then a
+reported range is the best information there is, and the generic draw was
+known to be wrong for it.
+
 ### Bye weeks thin the wire
 
 The season simulation filled any hole from the wire at one fixed

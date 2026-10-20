@@ -126,6 +126,14 @@ class PlayerRow:
     #: the simulator then sits him exactly until then instead of drawing
     #: how long the absence lasts. None: not known.
     return_week: int | None = None
+    #: What the news says about how long he is out (``data.news.timelines``):
+    #: the earliest and latest NFL week he is back (99, 99: season-ending),
+    #: the share of the rest of the season he is expected to play, and the
+    #: note for his card. The simulator sits him until then instead of
+    #: drawing a generic absence. None / empty: no report with a time.
+    reported_back: list[int] | None = None
+    reported_share: float | None = None
+    reported_note: str = ""
     #: For a player on no NFL roster whom the news has close to signing
     #: (``data.news``): the team when one is named, his chance of signing and
     #: playing this season, the games before he could, the share of the rest

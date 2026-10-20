@@ -1428,6 +1428,9 @@ def project_snapshot(
         platform_says_sits = p.player_id in sits
         back = returns.get(_norm_name(p.name)) if p.position in SKILL else None
         p.return_week = back if back is not None and back > int(snapshot.week) else None
+        if p.reported_note and p.return_week is None:
+            p.signals.append(f"{p.reported_note}: the season simulation sits him until then, in place of "
+                             "how long absences usually last")
         plat = p.platform_projection
         # A bye has no projection; a feed that shows one anyway has misread
         # its columns (Yahoo once gave % rostered: 95 for a defence on bye).
