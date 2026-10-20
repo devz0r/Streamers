@@ -8229,7 +8229,7 @@
         },
         {
           "player_id": "100026",
-          "name": "Seahawks",
+          "name": "Seattle",
           "position": "DST",
           "team": "SEA",
           "status": "",
@@ -9150,7 +9150,7 @@
         },
         {
           "player_id": "100019",
-          "name": "Giants",
+          "name": "New York",
           "position": "DST",
           "team": "NYG",
           "status": "",
@@ -27172,7 +27172,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-20T17:26:29.118831+00:00",
+  "synced_at": "2026-10-20T17:33:49.896064+00:00",
   "extra": {
     "source": "yahoo-web"
   },
