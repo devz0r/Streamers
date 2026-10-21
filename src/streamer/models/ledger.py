@@ -111,7 +111,13 @@ class FactorLedger:
 
         prev_lookup: dict[str, float] = {}
         if previous is not None and not previous.empty:
-            prev = previous[previous["position"] == position]
+            # The last refit before this one: a rerun of the same week (the
+            # Tuesday update can run more than once) would otherwise compare
+            # the weights with themselves and show nothing moved.
+            prev = previous[(previous["position"] == position)
+                            & ((previous["asof_season"] < asof_season)
+                               | ((previous["asof_season"] == asof_season)
+                                  & (previous["asof_week"] < asof_week)))]
             if not prev.empty:
                 latest = prev.sort_values(["asof_season", "asof_week"]).groupby("factor").tail(1)
                 prev_lookup = dict(zip(latest["factor"], latest["model_weight"]))

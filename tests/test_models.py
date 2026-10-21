@@ -212,6 +212,14 @@ def test_ledger_records_weight_movement(cfg, synthetic_dst):
     assert moves["opp_implied_total"] == pytest.approx(-0.4)
     assert moves["opp_sack_rate_allowed"] == pytest.approx(0.4)
     assert not second.top_movers(2).empty
+    # A rerun of week 9 still measures the move from week 8, not from itself.
+    import pandas as pd
+    rerun = FactorLedger.compute(
+        synthetic_dst, factors, "fantasy_points", "DST", 2024, 9, cfg,
+        previous=pd.concat([first.frame, second.frame], ignore_index=True),
+    )
+    rerun.attach_model_weights({"opp_implied_total": -1.4, "opp_sack_rate_allowed": 0.9})
+    assert rerun.frame.set_index("factor")["weight_delta"]["opp_implied_total"] == pytest.approx(-0.4)
 
 
 def test_ledger_survives_a_factor_with_no_data(cfg, synthetic_dst):
