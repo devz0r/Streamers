@@ -803,8 +803,8 @@ _TOP_JS = """
     body.innerHTML=list.slice(0,limit).map(function(r,i){
       return '<tr'+(r.mine?' class="tp-mine"':'')+'><td>'+(i+1)+'</td><td class="fa-name">'+chip(r.pos)+' '+esc(r.name)+
         ' <span class="opp">'+esc(r.team)+(r.status?' '+esc(r.status):'')+' &middot; '+esc(r.owner)+'</span></td>'+
-        '<td><b>'+num(r.vor)+'</b></td><td>'+num(r.ros)+'</td><td>'+num(r.proj)+'</td><td class="tp-x">'+num(r.games)+'</td>'+
-        '<td class="opp tp-x">'+num(r.lo)+'&ndash;'+num(r.hi)+'</td><td>'+num(r.mkt)+'</td></tr>';
+        '<td><b>'+num(r.vor)+'</b></td><td>'+num(r.up)+'</td><td>'+num(r.ros)+'</td><td>'+num(r.proj)+'</td><td class="tp-x">'+num(r.games)+'</td>'+
+        '<td class="opp tp-x">'+num(r.lo)+'&ndash;'+num(r.hi)+'</td><td class="tp-x">'+num(r.mkt)+'</td></tr>';
     }).join('')||'<tr><td colspan="8" class="opp">No player matches.</td></tr>';
     more.hidden=list.length<=limit;
     more.textContent='Show more ('+(list.length-limit)+' left)';
@@ -838,17 +838,19 @@ def _top_players(report: MatchupReport) -> str:
     chips = "".join(f'<button type="button" data-pos="{p}" aria-pressed="{"true" if p == "All" else "false"}">'
                     f'{"D/ST" if p == "DST" else p}</button>'
                     for p in ("All", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"))
-    cols = (("vor", "Value"), ("ros", "RoS/g"), ("proj", "Wk"), ("games", "G"), ("hi", "Range"), ("mkt", "Mkt"))
-    heads = "".join(f'<th class="fa-sort tp-sort{" tp-x" if k in ("games", "hi") else ""}" data-k="{k}" aria-sort="{"descending" if k == "vor" else "none"}">'
+    cols = (("vor", "Value"), ("up", "Upside"), ("ros", "RoS/g"), ("proj", "Wk"), ("games", "G"), ("hi", "Range"), ("mkt", "Mkt"))
+    heads = "".join(f'<th class="fa-sort tp-sort{" tp-x" if k in ("games", "hi", "mkt") else ""}" data-k="{k}" aria-sort="{"descending" if k == "vor" else "none"}">'
                     f"{label}</th>" for k, label in cols)
     return (
         f'<div id="{uid}"><h2>Most valuable players</h2>'
         f'<p class="sub"><strong>Value</strong> is points above a waiver pickup at his position, summed over '
         f"weeks {lo}-{hi}: what he is simulated to score each week he plays, less what the pickup would. Weeks "
-        "he misses (byes, injuries, a reported timeline) count nothing, so a hurt star drops down."
+        "he misses (byes, injuries, a reported timeline) count nothing, so a hurt star drops down. "
+        "<strong>Upside</strong> is that value in his best tenth of simulated seasons: a breakout, a bigger "
+        "role, a clean bill of health."
         + (f" Pickup level a game: {_e(repl)}." if repl else "") + " RoS/g is his season value a game, Wk this week's projection, G games "
-        "expected and Range his points a week (10th-90th percentile; both on wider screens), Mkt what the rest "
-        "of the league sees him worth a game. Tap a column to sort; your players are highlighted.</p>"
+        "expected, Range his points a week (10th-90th percentile) and Mkt what the rest of the league sees "
+        "him worth a game (those three on wider screens). Tap a column to sort; your players are highlighted.</p>"
         f'<div class="chips fa-pos tp-pos">{chips}</div>'
         '<p><input type="search" class="tp-search" placeholder="Search by name, team or manager"'
         ' autocomplete="off" aria-label="Search players"></p>'

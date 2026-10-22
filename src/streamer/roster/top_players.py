@@ -10,7 +10,9 @@ so injuries, timelines, byes and the next man up are already in it.
 Replacement is :func:`season.replacement_levels`: the second-best free agent's
 season value a game at each position (the best for D/ST and K, streamed).
 Points over a pickup make positions comparable on one list, where raw points
-would put every quarterback first. Also carried for sorting: season value a
+would put every quarterback first. Upside is the same value in his best
+tenth of simulated seasons (the 90th percentile): a breakout, a bigger role,
+health. Also carried for sorting: season value a
 game, this week's projection, the 10th-90th percentile of points a week, and
 what the rest of the league sees him worth (the trade model's market view).
 """
@@ -54,6 +56,7 @@ def build(snapshot: LeagueSnapshot, model, seen: dict | None = None) -> dict | N
             "name": p.name, "pos": p.position, "team": p.team or "", "status": p.status or "",
             "owner": team.name if team else "FA", "mine": bool(team and team.team_id == mine),
             "vor": round(float(vor.mean()), 1),
+            "up": round(float(np.quantile(vor, 0.9)), 1),
             "ros": round(float(p.ros_value if p.ros_value is not None else (p.projection or 0.0)), 1),
             "proj": round(float(p.week_value), 1),
             "games": round(float(played.sum(axis=1).mean()), 1),

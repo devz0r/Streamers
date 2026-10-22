@@ -41,9 +41,10 @@ def test_value_is_points_over_a_pickup_and_a_reported_absence_costs_it(cfg):
     assert rows["1-WR0"]["vor"] == 0.0 and rows["1-WR0"]["games"] == 0.0
     assert rows["1-RB0"]["vor"] > rows["0-RB0"]["vor"] > 0   # the stronger team's lead back first
     assert rows["fa-rb1"]["owner"] == "FA" and rows["0-RB0"]["mine"]
+    assert all(r["up"] >= r["vor"] for r in data["rows"])          # his best tenth of seasons
 
     report = MatchupReport(snapshot=snap, optimisation=None, top_players=data)
     html = _top_players(report)
-    assert 'data-pos="FLEX"' in html and "Most valuable players" in html
+    assert 'data-pos="FLEX"' in html and 'data-k="up"' in html
     payload = html.split('class="tp-data">')[1].split("</script>")[0]
     assert len(json.loads(payload)["rows"]) == len(data["rows"])
