@@ -276,7 +276,12 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
             wait = rng.choice(np.arange(len(pmf)), size=n, p=pmf / pmf.sum())
             return np.where(gone, GONE, wait)
         return np.maximum(_durations(pos, n, rng, conf, already), 4)
-    if p.is_out and not p.on_bye:
+    if p.on_bye:
+        # A bye is not an absence: the bye week is skipped by ``byes`` and he
+        # plays the next one. (His chance to play this week reads 0, which
+        # once drew an injury's worth of missed games for everyone on bye.)
+        return np.zeros(n, int)
+    if p.is_out:
         return _durations(pos, n, rng, conf, already)
     q = p.play_probability if p.play_probability is not None else 1.0
     if q < 1.0:

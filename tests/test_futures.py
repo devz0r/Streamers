@@ -265,3 +265,23 @@ def test_a_record_of_missed_games_raises_the_odds_of_another_absence():
         f = simulate([q], weeks=weeks, byes={}, n_sims=4000, seed=3)
         played.append(f.played[:, 0, :].mean())
     assert played[1] < played[0] - 0.02
+
+
+def test_a_bye_this_week_is_not_an_absence():
+    """On bye his chance to play this week reads 0; that once drew an
+    injury's worth of missed games (Josh Allen played 6 of his 10 left)."""
+    import numpy as np
+
+    from streamer.league.model import PlayerRow
+    from streamer.roster import futures as fut
+
+    bye = PlayerRow(player_id="a", name="a", position="QB", team="BUF", projection=0.0, ros_value=21.4,
+                    on_bye=True, play_probability=0.0)
+    playing = PlayerRow(player_id="b", name="b", position="QB", team="DET", projection=19.0, ros_value=21.4,
+                        play_probability=1.0)
+    f = fut.simulate([bye, playing], list(range(7, 18)), {"BUF": {7}}, n_sims=3000)
+    weekly = f.played.mean(axis=0)
+    assert weekly[0, 0] == 0.0                                  # the bye itself
+    # Back the next week, then as anyone a game behind (before the fix he
+    # was out the week after the bye in every season and 30% two weeks on).
+    assert np.allclose(weekly[0, 1:], weekly[1, :-1], atol=0.04)

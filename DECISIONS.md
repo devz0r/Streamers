@@ -3673,6 +3673,15 @@ a receiver. Filters by position and FLEX (RB/WR/TE); sortable by season
 value, this week, games, range and the market's view. No fitting, so nothing
 to validate: it reads numbers already graded elsewhere.
 
+Its first day showed Jared Goff above Josh Allen, and that exposed a bug in
+the season simulation: a player on bye this week has a 0% chance to play
+this week, and the simulator read that as an injury, drawing several more
+missed games after the bye. Allen played 6.1 of his 10 games left instead of
+about 9. Every player on bye was undervalued in the title odds, trades and
+waivers from week 5 (the first byes) until the fix. The replays the
+simulator was fitted on never mark a bye this way, so no fitted setting
+changed; the live pages were wrong.
+
 ### Reported injury timelines
 
 The recommendation to trade for Davante Adams exposed a gap: he was out with a
