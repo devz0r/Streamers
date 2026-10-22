@@ -353,3 +353,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
 .live-table .live-slot, .live-table th:first-child { width: 3.2rem; color: var(--muted, #6b7280); font-size: .8rem; }
 .live-table .live-pts, .live-table th:nth-child(3) { width: 3.4rem; text-align: right; }
 .live-table .live-st, .live-table th:nth-child(4) { width: 5.6rem; text-align: right; color: var(--muted, #6b7280); font-size: .8rem; }
+
+.tp-table tr.tp-mine td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+@media (max-width: 480px) { .tp-table .tp-x { display: none; } }

@@ -122,7 +122,8 @@ def range_bar(lo: float | None, hi: float | None) -> str:
 
 #: The tabs a league's page is split into, in order: (key, label).
 TABS = (("hub", "Hub"), ("lineup", "Lineup"), ("roster", "Roster"), ("waivers", "Waivers"),
-        ("trades", "Trades"), ("streams", "D/ST & K"), ("season", "Season"), ("model", "Model"))
+        ("trades", "Trades"), ("players", "Players"), ("streams", "D/ST & K"), ("season", "Season"),
+        ("model", "Model"))
 #: Which tab explains each kind of hub move.
 _TAB_OF = {"lineup": "lineup", "streams": "streams", "waivers": "waivers", "trades": "trades"}
 
@@ -304,6 +305,10 @@ def team_sections(
     season = _season(report) + _stakes(report)
     if season:
         out["season"] = season
+
+    players = _top_players(report)
+    if players:
+        out["players"] = players
 
     card = _scorecard(report)
     if card:
@@ -776,6 +781,82 @@ def _any_team_lineup(report: MatchupReport) -> str:
         f'<script type="application/json" class="al-data">{payload}</script>'
         f"<script>{_TEAMS_JS}('{uid}');</script>"
         "</details>"
+    )
+
+
+_TOP_JS = """
+(function(id){
+  var root=document.getElementById(id); if(!root) return;
+  var data=JSON.parse(root.querySelector('.tp-data').textContent);
+  var body=root.querySelector('.tp-rows'), more=root.querySelector('.tp-more'), box=root.querySelector('.tp-search');
+  var pos='All', sort='vor', limit=40, flex={RB:1,WR:1,TE:1};
+  function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function norm(t){return String(t).normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,'');}
+  function chip(p){return '<span class="pc pc-'+esc(p)+'">'+esc(p==='DST'?'D/ST':p)+'</span>';}
+  function num(v){return v===null||v===undefined?'--':v.toFixed(1);}
+  data.rows.forEach(function(r){r.k=norm(r.name+' '+r.team+' '+r.owner);});
+  function render(){
+    var words=norm(box.value).trim().split(/ +/).filter(Boolean);
+    var list=data.rows.filter(function(r){
+      return (pos==='All'||(pos==='FLEX'?flex[r.pos]:r.pos===pos))&&words.every(function(w){return r.k.indexOf(w)>=0;});});
+    list.sort(function(x,y){var a=x[sort],b=y[sort]; a=a===null?-1e9:a; b=b===null?-1e9:b; return (b-a)||(y.vor-x.vor);});
+    body.innerHTML=list.slice(0,limit).map(function(r,i){
+      return '<tr'+(r.mine?' class="tp-mine"':'')+'><td>'+(i+1)+'</td><td class="fa-name">'+chip(r.pos)+' '+esc(r.name)+
+        ' <span class="opp">'+esc(r.team)+(r.status?' '+esc(r.status):'')+' &middot; '+esc(r.owner)+'</span></td>'+
+        '<td><b>'+num(r.vor)+'</b></td><td>'+num(r.ros)+'</td><td>'+num(r.proj)+'</td><td class="tp-x">'+num(r.games)+'</td>'+
+        '<td class="opp tp-x">'+num(r.lo)+'&ndash;'+num(r.hi)+'</td><td>'+num(r.mkt)+'</td></tr>';
+    }).join('')||'<tr><td colspan="8" class="opp">No player matches.</td></tr>';
+    more.hidden=list.length<=limit;
+    more.textContent='Show more ('+(list.length-limit)+' left)';
+  }
+  root.querySelectorAll('.tp-pos button').forEach(function(b){b.addEventListener('click',function(){
+    pos=b.getAttribute('data-pos'); limit=40;
+    root.querySelectorAll('.tp-pos button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+    render();});});
+  root.querySelectorAll('.tp-sort').forEach(function(th){th.addEventListener('click',function(){
+    sort=th.getAttribute('data-k');
+    root.querySelectorAll('.tp-sort').forEach(function(x){x.setAttribute('aria-sort',x===th?'descending':'none');});
+    render();});});
+  box.addEventListener('input',function(){limit=40;render();});
+  more.addEventListener('click',function(){limit+=40;render();});
+  render();
+})
+"""
+
+
+def _top_players(report: MatchupReport) -> str:
+    """The league's most valuable players, rostered or free, by value over a
+    waiver pickup for the rest of the season (:mod:`streamer.roster.top_players`);
+    filter by position or FLEX, sort by any column."""
+    data = getattr(report, "top_players", None)
+    if not data or not data.get("rows"):
+        return ""
+    uid = f"tp-{_e(report.snapshot.profile)}"
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    repl = ", ".join(f"{'D/ST' if k == 'DST' else k} {v:.1f}" for k, v in data["repl"].items())
+    lo, hi = data["weeks"]
+    chips = "".join(f'<button type="button" data-pos="{p}" aria-pressed="{"true" if p == "All" else "false"}">'
+                    f'{"D/ST" if p == "DST" else p}</button>'
+                    for p in ("All", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"))
+    cols = (("vor", "Value"), ("ros", "RoS/g"), ("proj", "Wk"), ("games", "G"), ("hi", "Range"), ("mkt", "Mkt"))
+    heads = "".join(f'<th class="fa-sort tp-sort{" tp-x" if k in ("games", "hi") else ""}" data-k="{k}" aria-sort="{"descending" if k == "vor" else "none"}">'
+                    f"{label}</th>" for k, label in cols)
+    return (
+        f'<div id="{uid}"><h2>Most valuable players</h2>'
+        f'<p class="sub"><strong>Value</strong> is points above a waiver pickup at his position, summed over '
+        f"weeks {lo}-{hi}: what he is simulated to score each week he plays, less what the pickup would. Weeks "
+        "he misses (byes, injuries, a reported timeline) count nothing, so a hurt star drops down."
+        + (f" Pickup level a game: {_e(repl)}." if repl else "") + " RoS/g is his season value a game, Wk this week's projection, G games "
+        "expected and Range his points a week (10th-90th percentile; both on wider screens), Mkt what the rest "
+        "of the league sees him worth a game. Tap a column to sort; your players are highlighted.</p>"
+        f'<div class="chips fa-pos tp-pos">{chips}</div>'
+        '<p><input type="search" class="tp-search" placeholder="Search by name, team or manager"'
+        ' autocomplete="off" aria-label="Search players"></p>'
+        '<div class="scroll"><table class="fa-table tp-table"><thead><tr><th>#</th><th class="fa-name">Player</th>'
+        f'{heads}</tr></thead><tbody class="tp-rows"></tbody></table></div>'
+        '<p><button type="button" class="fa-more tp-more">Show more</button></p>'
+        f'<script type="application/json" class="tp-data">{payload}</script>'
+        f"<script>{_TOP_JS}('{uid}');</script></div>"
     )
 
 

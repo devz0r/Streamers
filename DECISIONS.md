@@ -3657,6 +3657,22 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### The league's most valuable players
+
+A Players tab ranks every player the season simulation carries (all rosters
+and the free agents worth pricing) on value over replacement: the points he
+is simulated to score above a waiver pickup at his position, summed over the
+weeks left (this week through 17). Replacement is the second-best free
+agent's season value a game (the best for D/ST and K), as waivers and trades
+already use. A week he does not play counts nothing, since you would start the
+pickup either way: byes, injuries, reported timelines and the next man up all
+come from the same simulated seasons as the title odds, so Adams out 6-10
+weeks ranks on the few weeks he has left. Raw points were the alternative and
+were rejected: they rank every quarterback first and make a kicker look like
+a receiver. Filters by position and FLEX (RB/WR/TE); sortable by season
+value, this week, games, range and the market's view. No fitting, so nothing
+to validate: it reads numbers already graded elsewhere.
+
 ### Reported injury timelines
 
 The recommendation to trade for Davante Adams exposed a gap: he was out with a

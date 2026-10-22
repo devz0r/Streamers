@@ -57,6 +57,8 @@ class MatchupReport:
     all_lineups: dict | None = None
     #: Your players valued for the rest of the season (:mod:`roster_view`).
     roster_values: list | None = None
+    #: The league's most valuable players (:mod:`streamer.roster.top_players`).
+    top_players: dict | None = None
 
     @property
     def win_probability(self) -> float:

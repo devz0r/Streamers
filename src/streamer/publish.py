@@ -62,6 +62,7 @@ ICONS = {
     "streams": "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
     "season": "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
     "model": "M3 3v18h18M7 16v-5M12 16V8M17 16V7",
+    "players": "M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z",
     "more": "M5 12h.01M12 12h.01M19 12h.01",
 }
 #: The tabs a phone's bottom bar shows; the rest sit behind "More".
@@ -1089,6 +1090,12 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                 report.roster_values = roster_values(engine, report, seen)
             except Exception as exc:  # noqa: BLE001 - a bonus section
                 log.warning("roster values for %s skipped: %s", name, exc)
+            try:
+                from .roster import top_players
+
+                report.top_players = top_players.build(snap, engine.model, seen)
+            except Exception as exc:  # noqa: BLE001 - a bonus section
+                log.warning("top players for %s skipped: %s", name, exc)
         except Exception as exc:  # noqa: BLE001 - odds are a bonus section
             log.warning("title engine for %s skipped: %s", name, exc)
             engine = None
