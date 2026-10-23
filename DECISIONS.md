@@ -3657,6 +3657,20 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### The market's view, refit at week 7
+
+The perception weights (how managers value a player) were fitted at week 3,
+when this season was 13% of the blend. Refit on Yahoo's % rostered at week 7
+(338 players): platform 0.41 -> 0.11, reputation 0.46 -> 0.43, this season
+0.13 -> 0.46 (90% interval 0.29-0.67); out-of-sample R^2 0.824 against our
+projection alone at 0.814. A breakout is now read as managers read it:
+Kenneth Walker III (25.2 a game this season, 13.5 his old reputation) 17.3 ->
+19.5 in the market's eyes, Puka Nacua 23.6 -> 23.3.
+
+The chance a manager accepts is still an assumed curve (no record of offers
+and answers exists to fit it); it ranks offers, and the percentage is not a
+measured rate.
+
 ### Back from a season-start reserve list
 
 The teammate-return correction (a back's work while the lead was out is

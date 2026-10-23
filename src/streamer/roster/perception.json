@@ -1,8 +1,8 @@
 {
   "weights": {
-    "platform": 0.413,
-    "reputation": 0.461,
-    "season": 0.126
+    "platform": 0.107,
+    "reputation": 0.43,
+    "season": 0.463
   },
   "reputation_prior_games": 4.0,
   "season_prior_games": 2.0,
@@ -12,7 +12,7 @@
   "full_season_games": 14,
   "fitted": {
     "season": 2026,
-    "week": 3,
-    "players": 237
+    "week": 7,
+    "players": 338
   }
 }
