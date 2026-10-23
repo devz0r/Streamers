@@ -12,7 +12,6 @@ from streamer.roster import top_players
 from streamer.roster.matchup import MatchupReport
 from streamer.roster.page import _top_players
 from streamer.roster.season import SeasonModel
-
 from test_season import _league
 
 

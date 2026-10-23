@@ -1132,7 +1132,8 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                 elif light:
                     pass                    # other teams' trades are not shown (only yours and full views)
                 else:
-                    finder = TradeFinder(snap, engine.model, seen=seen)
+                    finder = TradeFinder(snap, engine.model, seen=seen,
+                                         check=engine.confirmation().model if engine.confirm else None)
                     report.trades = finder.find(5)
             except Exception as exc:  # noqa: BLE001
                 log.warning("trade finder for %s skipped: %s", name, exc)

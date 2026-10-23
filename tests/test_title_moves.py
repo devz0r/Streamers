@@ -86,7 +86,8 @@ def test_passing_on_a_breakout_lets_a_rival_have_him(cfg):
     moves = {m.add.player_id: m for m in engine.moves(5)}
     if "riser" in moves:
         m = moves["riser"]
-        assert m.p_free == engine.base and m.rival_share > 0 and m.rival_name
+        # Shown on the confirming simulation: its own seasons, its own baseline.
+        assert m.p_free == engine.confirmation().base and m.rival_share > 0 and m.rival_name
 
 
 def test_drops_the_simulation_cannot_separate_are_all_offered_with_their_odds(cfg):
@@ -258,3 +259,21 @@ def test_playoff_units_wait_until_late_unless_the_playoffs_are_near_certain(cfg)
     assert TitleEngine._hold_units_now(snap, cfg, 0.97)
     snap.week = reg - 2
     assert TitleEngine._hold_units_now(snap, cfg, 0.6)
+
+
+def test_the_moves_shown_are_judged_on_a_second_independent_simulation(cfg):
+    """Picking the best of many noisy estimates picks the luckiest; the
+    shortlist is priced again on fresh seasons, and that is what is shown."""
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    snap.free_agents = [_fa("star", "RB", 24.0), _fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0),
+                        _fa("rep3", "RB", 5.5), _fa("rep4", "WR", 5.5)]
+    for t in snap.teams:
+        t.acquisitions = 3
+    engine = TitleEngine(snap, cfg, n_sims=1500, candidates=8)
+    star = next(m for m in engine.moves(5) if m.add.player_id == "star")
+    check = engine.confirmation()
+    assert check._seed != engine._seed and not check.confirm
+    assert star.p_now == pytest.approx(check.value_now(star.add, star.drop))
+    assert any("second, independent simulation" in r for r in star.reasons)
+    # A reused simulation (another team's view) is not confirmed again.
+    assert not TitleEngine(snap, cfg, model=engine.model).confirm

@@ -137,6 +137,9 @@ class Trade:
     why_them: list[str] = field(default_factory=list)
     #: The free agent who takes the roster spot the deal frees, if any.
     my_add: PlayerRow | None = None
+    #: The title-odds gain on the first simulation, when the shown numbers
+    #: come from the independent check (``TradeFinder(check=...)``).
+    first_gain: float | None = None
 
     @property
     def gain(self) -> float:
@@ -269,8 +272,13 @@ class TradeFinder:
     """
 
     def __init__(self, snapshot: LeagueSnapshot, model: SeasonModel, history=None,
-                 seen: dict[str, perception.Perceived] | None = None):
+                 seen: dict[str, perception.Perceived] | None = None, check: SeasonModel | None = None):
+        """``check``: the same league on an independent simulation: the
+        trades shown are priced again on it and judged on that, since the
+        best of many priced on one set of seasons is the luckiest
+        (:data:`streamer.roster.title_moves.CONFIRM_EXTRA`)."""
         self.snapshot, self.model = snapshot, model
+        self.check = check
         self.slots = snapshot.starting_slots
         self.replacement = replacement_levels(snapshot)
         self.seen = seen if seen is not None else perception.for_snapshot(snapshot, history)
@@ -425,19 +433,44 @@ class TradeFinder:
             theirs = [i for i in theirs if i != t.their_drop.player_id]
         return mine, theirs
 
-    def price(self, t: Trade) -> Trade:
+    def price(self, t: Trade, model: SeasonModel | None = None) -> Trade:
+        """Title and playoff odds with the trade, on ``model`` (default: the
+        finder's own simulation)."""
         mine, theirs = self._rosters(t)
-        m = self.model
+        m = model or self.model
+        if m is self.model:
+            base_champ, base_p, base_po = self.base_champ, self.base_p, self.base_po
+        else:
+            base = m.odds()
+            base_champ, base_p, base_po = base.champion, base.p_title, base.p_playoffs
+        me = m.team_index[self.me.team_id]
         odds = m.odds(override={self.me.team_id: m.team_scores(mine, owner=self.me.team_id),
                                 t.partner.team_id: m.team_scores(theirs, owner=t.partner.team_id)})
         k = m.team_index[t.partner.team_id]
-        won_new = (odds.champion == self.mine).astype(float)
-        won_base = (self.base_champ == self.mine).astype(float)
-        t.p_base, t.p_new = float(self.base_p[self.mine]), float(odds.p_title[self.mine])
-        t.their_base, t.their_new = float(self.base_p[k]), float(odds.p_title[k])
-        t.po_base, t.po_new = float(self.base_po[self.mine]), float(odds.p_playoffs[self.mine])
+        won_new = (odds.champion == me).astype(float)
+        won_base = (base_champ == me).astype(float)
+        t.p_base, t.p_new = float(base_p[me]), float(odds.p_title[me])
+        t.their_base, t.their_new = float(base_p[k]), float(odds.p_title[k])
+        t.po_base, t.po_new = float(base_po[me]), float(odds.p_playoffs[me])
         t.noise = float((won_new - won_base).std() / np.sqrt(len(won_new)))
         return t
+
+    def _confirm(self, boards: list[list[Trade]]) -> list[Trade]:
+        """The trades on ``boards``, priced again on the check simulation;
+        only those still worth more than its noise are kept."""
+        from dataclasses import replace
+
+        seen: dict[tuple, Trade] = {}
+        for board in boards:
+            for t in board:
+                seen.setdefault(t.key, t)
+        out = []
+        for t in seen.values():
+            c = self.price(replace(t), self.check)
+            if c.gain >= max(MIN_GAIN, 2.0 * c.noise):
+                c.first_gain = t.gain
+                out.append(c)
+        return out
 
     @staticmethod
     def _shortlist(trades: list[Trade], key, n: int, per_team: int) -> list[Trade]:
@@ -492,6 +525,18 @@ class TradeFinder:
         priced = [self.price(t) for t in chosen.values()]
         self.priced = priced
         good = [t for t in priced if t.gain >= max(MIN_GAIN, 2.0 * t.noise)]
+        if self.check is not None and good:
+            # Everything a board could show (its top n and a few more), on
+            # fresh seasons; the boards are then built from those numbers.
+            extra = n + 3
+            good = self._confirm([
+                self._distinct(good, lambda t: t.expected, extra),
+                self._distinct([t for t in good if t.p_accept >= BEST_MIN_ACCEPT], lambda t: t.gain, extra),
+                self._distinct(good, lambda t: t.p_accept, extra),
+                self._distinct([t for t in good if t.win_win], lambda t: t.expected, extra),
+                *[self._distinct([t for t in good if t.partner.team_id == team.team_id],
+                                 lambda t: t.expected, TEAM_SHOWN + 1, TEAM_SHOWN + 1)
+                  for team in self.snapshot.teams if not team.is_mine]])
         for t in good:
             self._explain(t)
         return TradeBoard(
@@ -524,6 +569,9 @@ class TradeFinder:
             you.append(f"then add {t.my_add.name} from the wire with the spot it opens (priced in)")
         elif len(t.get) < len(t.give):
             you.append("opens a roster spot for a pickup")
+        if t.first_gain is not None:
+            you.append(f"checked on a second, independent simulation (the first, which picked it out of "
+                       f"{len(self.priced)} priced, read {t.first_gain * 100:+.1f})")
         t.why_you = you
 
         them = [f"as he would see it, his roster {t.their_seen:+.1f} a game"]

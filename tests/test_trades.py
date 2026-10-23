@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
@@ -192,3 +194,18 @@ def test_win_win_raises_both_teams_title_odds(finder):
         assert t.win_win
         t.their_new = 0.19
         assert not t.win_win
+
+
+def test_the_trades_shown_are_priced_again_on_independent_seasons(cfg):
+    """The best of many priced on one set of seasons is the luckiest, so the
+    shown trades are judged on a second simulation."""
+    snap = _league()
+    check = SeasonModel(snap, cfg, n_sims=1500, seed=99)
+    f = TradeFinder(snap, SeasonModel(snap, cfg, n_sims=1500), check=check)
+    board = f.find(5)
+    shown = board.top + board.best + board.likely
+    assert shown
+    for t in shown:
+        again = f.price(replace(t), check)
+        assert t.p_new == pytest.approx(again.p_new) and t.first_gain is not None
+        assert any("second, independent simulation" in r for r in t.why_you)

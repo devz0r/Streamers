@@ -3657,6 +3657,28 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### The best of many is the luckiest
+
+Waivers price twenty-odd free agents (each with several drops) and trades
+dozens of deals on one simulation of the season, then show the best. The
+best of many noisy estimates is the luckiest: Malik Willis showed +1.2 title
+points on the Yahoo page, a third quarterback behind Stafford and Brissett.
+
+Measured on the Yahoo league, 12 seeds x 10 moves: each run's own error bar
+is about right (spread between runs 1.14x the stated standard error), but
+among the nine moves with no real edge, the one each run ranked first read
++0.55 on its own run and +0.09 across the other eleven. The fix is the
+standard one: the shortlist (the moves shown and three more; the trades on
+any board and a few more) is priced again on a second, independent
+simulation (seed + 7919), and the numbers, the claim/lean verdict and the
+order come from that. A move or trade that falls short there is not shown.
+The card says so, with what the first pass read. Cost: about 40 seconds per
+league per full build. On the same snapshot Willis reads "wait" either way;
+Pierre Strong Jr. (the one clear edge) stays a claim.
+
+Waiver plans are left as they were: they must beat the best single move,
+which is itself the luckiest of its pool, so they lean conservative already.
+
 ### The market's view, refit at week 7
 
 The perception weights (how managers value a player) were fitted at week 3,
