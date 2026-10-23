@@ -589,6 +589,14 @@ roster:
     # 6.03 -> 5.96, WR 5.95 -> 5.93, TE 5.13 -> 5.09 (scripts/
     # fit_teammate_back_prior.py; DECISIONS.md, "Last season's stand-in games").
     prior_season: true
+    # A teammate who has not played this season counts as back when his team
+    # carried him on a reserve list this season (back from a season-start IR).
+    # Walk-forward 2023-2025, on/off: RB 6.75 -> 6.67 RMSE on the 27
+    # player-weeks it moves (better in 2 of 3 seasons), TE 6.25 -> 6.20 (10,
+    # 1 of 2); WR worse (4.94 -> 4.95), left out (scripts/
+    # fit_teammate_back_reserve.py; DECISIONS.md, "Back from a season-start
+    # reserve list").
+    reserve_return: [RB, TE]
   # Efficiency (points per expected point) mostly regresses, so it moves
   # slowly: long-run rate shrunk to the position's with this many expected
   # points of prior, and only a quarter of the weight on recent games.

@@ -3657,6 +3657,27 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Back from a season-start reserve list
+
+The teammate-return correction (a back's work while the lead was out is
+read at what he keeps once the lead is back) only counted a teammate who had
+played for the team this season. That guard was for players carried on a
+roster without a snap (Salvon Ahmed), but it also skipped anyone back from a
+season-start IR: Zach Charbonnet, on Seattle's IR weeks 1-6 and questionable
+after a full practice in week 7, did not count, so Emanuel Wilson's 14-21
+carries a game were priced as his to keep (10.3 a game for the season) and
+he was recommended as a pickup. Now a teammate who has not played this season
+counts when his team carried him on a reserve list this season (weekly
+rosters, weeks before this one only).
+
+Walk-forward 2023-2025 at the shares already fitted (scripts/
+fit_teammate_back_reserve.py), on the player-weeks it moves: RB RMSE 6.75 ->
+6.67 (27 player-weeks, better in 2024 and 2025, worse in 2023), TE 6.25 ->
+6.20 (10, better in 1 of 2), WR 4.94 -> 4.95 (worse overall, left out).
+Small samples, but the rule held for backs and tight ends; it is on for
+those (``teammate_back.reserve_return``). Wilson: 10.3 -> 8.5 a game for the
+season, 9.7 -> 8.8 this week; George Holani 5.4 -> 2.5.
+
 ### The league's most valuable players
 
 A Players tab ranks every player the season simulation carries (all rosters

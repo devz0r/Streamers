@@ -536,6 +536,25 @@ def test_a_teammate_who_has_not_played_this_season_is_not_coming_back(cfg):
     assert not isinstance(back.loc["cuff-back", "back_from"], str)
 
 
+def test_a_lead_back_from_a_season_start_reserve_list_takes_his_job_back(cfg, monkeypatch):
+    """Zach Charbonnet, on IR weeks 1-6 and back in week 7: Emanuel Wilson's
+    work while he was out was priced as Wilson's to keep."""
+    from streamer.roster import projections
+
+    hist = _return_history(lead_seen_2026=False)
+    away = player_table(hist, 2026, 5, cfg).set_index("player_id")
+    monkeypatch.setattr(projections, "prior_absences",
+                        lambda _c, season: {(w, "KC", "lead-back") for w in (1, 2, 3, 4)} if season == 2026 else set())
+    back = player_table(hist, 2026, 5, cfg, back=ALL_BACK).set_index("player_id")
+    assert back.loc["cuff-back", "back_from"] == "Lead Back"
+    assert back.loc["cuff-back", "vol_ros"] < away.loc["cuff-back", "vol"] - 2.0
+    # Only reserve weeks before this one count: a later listing is the future.
+    monkeypatch.setattr(projections, "prior_absences",
+                        lambda _c, season: {(5, "KC", "lead-back")} if season == 2026 else set())
+    later = player_table(hist, 2026, 5, cfg, back=ALL_BACK).set_index("player_id")
+    assert later.loc["cuff-back", "vol_ros"] == pytest.approx(away.loc["cuff-back", "vol"])
+
+
 def test_the_season_value_and_the_card_say_the_lead_is_back(cfg):
     from streamer.roster import projections
 

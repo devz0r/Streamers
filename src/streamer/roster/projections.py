@@ -347,7 +347,8 @@ def prior_absences(cfg: Config, season: int) -> set[tuple[int, str, str]]:
 
 def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[float, float]],
                conf: dict, pos_mean: pd.Series, season: int,
-               prior_out: set[tuple[int, str, str]] | None = None) -> pd.DataFrame:
+               prior_out: set[tuple[int, str, str]] | None = None,
+               season_out: set[tuple[int, str, str]] | None = None) -> pd.DataFrame:
     """A teammate back from an absence takes his work back.
 
     The games a player had this season while a regular at his position --
@@ -368,6 +369,12 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     one counts only when it was his game for the team he plays for now and
     the teammate -- on that team now and playing for it this season -- was
     on that team's injured reserve or game-day inactive list that week.
+
+    ``season_out`` (:func:`prior_absences` for this season, weeks before
+    this one) lets a teammate who has not played this season count when that
+    team carried him on a reserve list this season: back from a season-start
+    IR (Zach Charbonnet, out weeks 1-6, back as Emanuel Wilson's 21 carries a
+    game were priced as his to keep).
 
     Adds ``vol_ros``, ``vol_before_back`` and ``back_from`` (the teammate
     whose return moves him most).
@@ -397,12 +404,15 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     cur = prior[prior["season"] == season]
     played = set(zip(cur["week"].astype(int), cur["team"].map(normalize_team), cur["player_id"]))
     this_season = set(zip(cur["team"].map(normalize_team), cur["player_id"]))
+    reserved = {(t, g) for _w, t, g in (season_out or ())}
+    reserve_pos = set(rule.get("reserve_return") or ())
     groups: dict[tuple[str, str], list] = {}
     for r in returning.itertuples():
         # Only a teammate who has played for this team this season: a player
         # carried on a roster without a snap (Salvon Ahmed, last seen in 2023,
         # listed by Miami without an injury tag) is not one coming back.
-        if (r.team, r.player_id) in this_season:
+        if (r.team, r.player_id) in this_season or (
+                r.position in reserve_pos and (r.team, str(r.player_id)) in reserved):
             groups.setdefault((r.team, r.position), []).append(r)
     if not groups:
         return out
@@ -528,7 +538,9 @@ def player_table(history: pd.DataFrame, season: int, week: int, cfg: Config,
     target = _team_discount(prior, target, teams, conf, pos_mean_all)
     prior_out = (prior_absences(cfg, season - 1)
                  if back and (conf.get("teammate_back") or {}).get("prior_season") else None)
-    target = _returning(prior, target, back or {}, conf, pos_mean_all, season, prior_out)
+    season_out = ({x for x in prior_absences(cfg, season) if x[0] < week}
+                  if back and (conf.get("teammate_back") or {}).get("reserve_return") else None)
+    target = _returning(prior, target, back or {}, conf, pos_mean_all, season, prior_out, season_out)
     target["blend"] = target["vol"] * target["eff"]
     target = target[target["blend"].notna()]
     # Opportunity over the last two games against the games before them: the
