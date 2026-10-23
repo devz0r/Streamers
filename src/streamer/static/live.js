@@ -274,7 +274,7 @@
         var g = gamesByTeam[p.tm];
         if (!g) return { p: p, now: 0, left: p.m > 0 ? 1 : 0, dst: p.pos === "DST", label: "no game" };
         var sum = summaries[g.id], now = 0;
-        if (g.state !== "pre" && sum) now = pointsFor(p, g, sum, D.sc, D.teams);
+        if (g.state !== "pre" && sum) now = Math.round(pointsFor(p, g, sum, D.sc, D.teams) * 100) / 100;   // leagues score to the hundredth
         var left = g.state !== "pre" && !sum ? 1 : g.left;    // no box score yet: still the draw
         return { p: p, now: now, left: left, dst: p.pos === "DST", label: g.label, state: g.state };
       });
@@ -308,13 +308,13 @@
   function render(el, D, R) {
     var pct = function (x) { return Math.round(x * 100) + "%"; };
     var row = function (r) {
-      var pts = r.state && r.state !== "pre" ? r.now.toFixed(1) : "–";
+      var pts = r.state && r.state !== "pre" ? r.now.toFixed(2) : "–";
       return "<tr><td class='live-slot'>" + esc(r.p.slot) + "</td><td class='live-name'>" + esc(r.p.n) +
         "</td><td class='live-pts'><b>" + pts + "</b></td><td class='live-st'>" + esc(r.label || "") + "</td></tr>";
     };
     var t = new Date();
     el.querySelector(".live-out").innerHTML =
-      "<h3>Live</h3><p class='sub'>You <b>" + R.nowMe.toFixed(1) + "</b> – <b>" + R.nowOpp.toFixed(1) + "</b> " +
+      "<h3>Live</h3><p class='sub'>You <b>" + R.nowMe.toFixed(2) + "</b> – <b>" + R.nowOpp.toFixed(2) + "</b> " +
       esc(D.opp_name || "them") + " so far · projected " + R.projMe.toFixed(1) + " – " + R.projOpp.toFixed(1) +
       " · P(win) <b>" + pct(R.p) + "</b> (" + pct(R.p0) + " before kickoff)</p>" +
       "<table class='live-table'><thead><tr><th></th><th>You</th><th>Pts</th><th></th></tr></thead><tbody>" +

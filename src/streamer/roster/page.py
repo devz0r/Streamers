@@ -1197,8 +1197,10 @@ def _lottery(snapshot: LeagueSnapshot, cfg: Config) -> str:
 
 
 def _proj_cell(p) -> str:
-    """The projection, and for an injury tag what he projects if he plays."""
-    cell = f"{p.week_value:.1f}"
+    """The projection, and for an injury tag what he projects if he plays. A
+    final score shows to the hundredth, as leagues score (a quarterback's
+    0.04 a passing yard is never a round tenth)."""
+    cell = f"{p.week_value:.2f}" if p.actual_points is not None else f"{p.week_value:.1f}"
     q = p.play_probability
     if p.actual_points is None and 0 < q < 1 and p.projection:
         # On its own line, so a narrow column does not cut it off.

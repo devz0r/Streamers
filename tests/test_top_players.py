@@ -48,3 +48,12 @@ def test_value_is_points_over_a_pickup_and_a_reported_absence_costs_it(cfg):
     assert 'data-pos="FLEX"' in html and 'data-k="up"' in html
     payload = html.split('class="tp-data">')[1].split("</script>")[0]
     assert len(json.loads(payload)["rows"]) == len(data["rows"])
+
+
+def test_a_final_score_shows_to_the_hundredth():
+    from streamer.roster.page import _proj_cell
+
+    done = PlayerRow(player_id="q", name="q", position="QB", team="KC", projection=20.0, actual_points=18.46)
+    pending = PlayerRow(player_id="r", name="r", position="QB", team="KC", projection=18.46)
+    assert _proj_cell(done) == "18.46"
+    assert _proj_cell(pending) == "18.5"
