@@ -33,8 +33,11 @@ back, against the rivals who want him then.
 
 from __future__ import annotations
 
+import json
+import math
 from dataclasses import dataclass, field
 from math import comb
+from pathlib import Path
 
 import numpy as np
 
@@ -135,7 +138,8 @@ CLAIM_INTEREST = 0.35
 #: Chance a rival puts in a claim this week for a free agent who would start
 #: for him / who is in the news (starting for an injured lead: on every
 #: waiver list) / otherwise, before scaling by how active that manager is.
-#: Assumptions, like :data:`CLAIM_INTEREST` -- failed claims are never
+#: Assumptions (used only where a league has no fit in claim_odds.json,
+#: :func:`pickup_fit`), like :data:`CLAIM_INTEREST` -- failed claims are never
 #: published -- set so a pickup who would start for half an active league
 #: draws two or three claims, and a backup quarterback almost none.
 CLAIM_IF_STARTS = 0.5
@@ -147,6 +151,19 @@ CLAIM_OTHERWISE = 0.05
 #: this many points a game over the man he would replace. (Jacoby Brissett
 #: at 17.0 against Jalen Hurts at 16.9 is not a claim anyone puts in.)
 NEED_MARGIN = 1.5
+
+
+CLAIM_ODDS_PATH = Path(__file__).with_name("claim_odds.json")
+
+
+def pickup_fit(profile: str) -> dict | None:
+    """This league's fitted chance a rival picks up an unowned player within
+    a week (scripts/fit_claim_odds.py), or None before there is one: then
+    the claim-interest guesses above stand in."""
+    try:
+        return json.loads(CLAIM_ODDS_PATH.read_text(encoding="utf-8"))["leagues"].get(profile)
+    except (OSError, ValueError, KeyError):
+        return None
 
 
 def would_start(x: PlayerRow, roster: list[PlayerRow], slots: dict[str, int]) -> bool:
@@ -404,6 +421,16 @@ class TitleEngine:
         not on waivers is no claim at all: he is yours the moment you add him."""
         if x.on_waivers is False:
             return 0.0, 0.0
+        fit = pickup_fit(self.snapshot.profile)
+        if fit is not None:
+            # Measured in this league: the chance a rival picks him up within
+            # a week, by how widely he is rostered across the platform. The
+            # ones ahead of you get him first in proportion to their number.
+            z = fit["intercept"] + fit["slope"] * float(x.percent_owned or 0.0) / 100.0
+            anyone = 1.0 / (1.0 + math.exp(-z))
+            rivals = max(self.n_teams - 1, 1)
+            ahead = sum(1 for i in range(self.n_teams) if i != self.mine and self.ranks[i] < self.rank)
+            return anyone, anyone * ahead / rivals
         weeks = max(int(self.snapshot.week) - 1, 1)
         news = any(s.startswith("next man up") for s in x.signals)
         slots = self.snapshot.starting_slots

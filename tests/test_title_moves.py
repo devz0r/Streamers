@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from streamer.league.model import PlayerRow
@@ -286,7 +288,27 @@ def test_a_free_agent_is_an_instant_add_not_a_contested_claim(cfg):
     for t in snap.teams:
         t.acquisitions = 6
     engine = TitleEngine(snap, cfg, n_sims=300, candidates=8)
-    star.on_waivers = True
-    assert engine.claim_odds(star)[0] > 0.5            # a 24-point back on waivers draws claims
+    star.on_waivers, star.percent_owned = True, 90.0
+    assert engine.claim_odds(star)[0] > 0.5            # widely rostered, on waivers: he draws claims
     star.on_waivers = False
     assert engine.claim_odds(star) == (0.0, 0.0)       # free agent: yours the moment you add him
+
+
+def test_the_chance_a_rival_adds_him_is_this_leagues_measured_rate(cfg, monkeypatch):
+    """Kendre Miller (45% rostered on Yahoo) read 98% from the old guess --
+    he would start for most rivals -- while he sat on the wire for days."""
+    from streamer.roster import title_moves
+
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    miller = _fa("miller", "RB", 14.0)
+    miller.percent_owned = 45.0
+    snap.free_agents = [miller, _fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0)]
+    for t in snap.teams:
+        t.acquisitions = 6
+    engine = TitleEngine(snap, cfg, n_sims=300, candidates=8)
+    monkeypatch.setattr(title_moves, "pickup_fit", lambda _p: {"intercept": -2.363, "slope": 2.491})
+    anyone, ahead = engine.claim_odds(miller)
+    assert anyone == pytest.approx(1 / (1 + math.exp(2.363 - 2.491 * 0.45)))       # about 22%
+    assert 0.0 <= ahead <= anyone
+    monkeypatch.setattr(title_moves, "pickup_fit", lambda _p: None)
+    assert engine.claim_odds(miller)[0] > anyone                                     # the old guess, as a fallback

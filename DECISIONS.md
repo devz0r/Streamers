@@ -3657,6 +3657,24 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Who actually gets picked up
+
+The chance another manager takes a player this week was a guess: each
+active rival claims with chance 0.5 if he would start for him. Over 13
+rivals that read 98-99% for Kendre Miller and Darren Waller, who sat on the
+Yahoo wire for days. Measured on the stored weekly snapshots (3,051 unowned
+player-weeks: was he on a rival's roster the next week?), "would start for
+rivals" says nothing (ESPN, would start for 3-5 rivals: 1.6% picked up);
+platform-wide % rostered does. Fitted per league (scripts/fit_claim_odds.py,
+claim_odds.json): ESPN picks up 2.2% of its unowned players a week, from
+about 1% under 10% rostered to a third above 60% (log loss 0.087 against a
+flat 0.106); Yahoo 10.1%, barely moved by % rostered (0.322 against 0.328).
+Miller (45% rostered) now reads about 22% on Yahoo. The ones ahead of you in
+the order are taken to get him in proportion to their number. Refit as the
+snapshots accumulate. The separate assumption of how many managers chase a
+real breakout (CLAIM_INTEREST) is unchanged: that is a different event,
+and no record of it exists to fit.
+
 ### Free agents are added, not claimed
 
 Every unowned player was priced as a waiver claim: "98% chance another

@@ -1,0 +1,17 @@
+{
+ "leagues": {
+  "espn": {
+   "intercept": -4.434,
+   "slope": 6.089,
+   "player_weeks": 2735
+  },
+  "yahoo": {
+   "intercept": -2.363,
+   "slope": 2.491,
+   "player_weeks": 316
+  }
+ },
+ "evidence": {
+  "player_weeks": 3051
+ }
+}
