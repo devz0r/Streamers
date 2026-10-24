@@ -967,7 +967,8 @@ def opponent_id(html: str, league_id: str, my_id: str) -> str | None:
 OFFENSE_PAGES = (0, 25, 50, 75, 100, 125)
 
 
-def free_agent_path(league_id: str, pos: str, week: int, offset: int, sort: str = "PTS") -> str:
+def free_agent_path(league_id: str, pos: str, week: int, offset: int, sort: str = "PTS",
+                    status: str = "A") -> str:
     """The player-list URL: available players, this week's projection, best first.
 
     One definition shared by the sync and the probe, so the probe always
@@ -975,7 +976,7 @@ def free_agent_path(league_id: str, pos: str, week: int, offset: int, sort: str 
     Yahoo's overall rank instead, which reaches the injured players a
     projection of zero buries (IR stashes).
     """
-    return (f"/f1/{league_id}/players?status=A&pos={pos}&cut_type=9"
+    return (f"/f1/{league_id}/players?status={status}&pos={pos}&cut_type=9"
             f"&stat1=S_PW_{week}&myteam=0&sort={sort}&sdir=1&count={offset}")
 
 
@@ -1151,6 +1152,22 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
                 if not rows:
                     break                    # the end of the list: later pages have nobody new
             free_agents.extend(rows)
+    # The player list has no owner column: the waivers are their own list
+    # (status=W); anyone on it is a claim, everyone else a free agent.
+    try:
+        waived: set[str] = set()
+        for offset in (0, 25, 50, 75):
+            rows = parse_free_agents(get(free_agent_path(league, "O", week, offset, "PTS", status="W")), week)
+            new = {p.player_id for p in rows} - waived
+            if not new:
+                break
+            waived |= new
+        for p in free_agents:
+            p.on_waivers = p.player_id in waived
+    except RuntimeError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - unknown is the old behaviour (every add a claim)
+        log.warning("Yahoo waiver list unavailable: %s", exc)
     log.info("Yahoo unowned players: %d on waivers, %d free agents, %d unknown",
              sum(p.on_waivers is True for p in free_agents), sum(p.on_waivers is False for p in free_agents),
              sum(p.on_waivers is None for p in free_agents))

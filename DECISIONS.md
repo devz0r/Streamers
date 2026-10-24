@@ -3683,8 +3683,9 @@ free agents, added at once with no claim and no priority spent; only players
 recently dropped (or, in some leagues, everyone until waivers clear) are on
 waivers. Both platforms list the two together, so the sync now reads which
 is which: ESPN by asking for the players on waivers on their own (its
-free-agent call keeps no status), Yahoo from the player list's Owner column
-("FA" or "W (date)"). A free agent has no claim odds, costs no priority, and
+free-agent call keeps no status; the bare filter was refused, so it is
+built as espn-api builds its own), Yahoo from its waivers-only player list
+(status=W; the main list has no owner column, as the first run showed). A free agent has no claim odds, costs no priority, and
 goes first in a plan ("add now"); unknown status keeps the old behaviour.
 The chance a rival adds him later, if he breaks out, is unchanged.
 

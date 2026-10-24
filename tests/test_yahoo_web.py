@@ -204,7 +204,11 @@ def test_snapshot_assembles_from_the_website(monkeypatch):
     # Offense (a second page, which here repeats the first, so the list ends
     # there), K and DEF lists were each requested, and one page by overall
     # rank for the injured (IR stashes) the projection buries.
-    assert sum("players?" in u for u in fake.asked) == 5
+    # Then the waivers on their own (status=W, a second page repeating the
+    # first ends it): the fixture's two players are on it, so both are claims.
+    assert sum("players?" in u for u in fake.asked) == 7
+    assert sum("status=W" in u for u in fake.asked) == 2
+    assert all(p.on_waivers is True for p in snap.free_agents)
     assert sum("sort=OR" in u for u in fake.asked) == 1
     assert all("stat1=S_PW_3" in u for u in fake.asked if "players?" in u)
     assert len(snap.free_agents) == 2          # the fixture serves the same two players on every page
@@ -364,7 +368,7 @@ def test_the_free_agent_list_is_read_down_to_its_end(monkeypatch):
     monkeypatch.delenv("YAHOO_TEAM_ID", raising=False)
 
     snap = yw.fetch_snapshot(2026, 3, "yahoo", pause=0)
-    offense = [u for u in fake.asked if "pos=O" in u and "sort=PTS" in u]
+    offense = [u for u in fake.asked if "pos=O" in u and "sort=PTS" in u and "status=A" in u]
     assert [int(u.rsplit("count=", 1)[1]) for u in offense] == [0, 25, 50, 75]          # stops at the first empty page
     assert len({p.player_id for p in snap.free_agents}) == len(snap.free_agents) >= 6
 

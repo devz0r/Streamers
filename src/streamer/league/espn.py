@@ -320,13 +320,16 @@ def fetch_snapshot(
     return snap
 
 
-def waiver_ids(league: Any, week: int, size: int = 1000) -> set[str]:
+def waiver_ids(league: Any, week: int, size: int = 300) -> set[str]:
     """Ids of the unowned players on waivers (a claim, not an instant add):
     ``espn-api``'s free-agent call asks for both kinds and keeps no status,
     so the waivers are asked for on their own."""
     import json
 
-    filters = {"players": {"filterStatus": {"value": ["WAIVERS"]}, "limit": size}}
+    # The filter as espn-api builds it for free agents (a bare one is refused, HTTP 400).
+    filters = {"players": {"filterStatus": {"value": ["WAIVERS"]}, "filterSlotIds": {"value": []},
+                           "limit": size, "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+                           "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"}}}
     data = league.espn_request.league_get(params={"view": "kona_player_info", "scoringPeriodId": week},
                                           headers={"x-fantasy-filter": json.dumps(filters)})
     return {str(e.get("id")) for e in data.get("players", []) if e.get("status") == "WAIVERS"}
