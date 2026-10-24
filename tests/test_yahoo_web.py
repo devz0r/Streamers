@@ -390,3 +390,11 @@ def test_a_live_matchup_page_with_every_team_falls_back_to_the_schedule(monkeypa
     monkeypatch.delenv("YAHOO_TEAM_ID", raising=False)
     snap = yw.fetch_snapshot(2026, 3, "yahoo", pause=0)
     assert snap.matchup is not None and snap.matchup.opponent_team_id == "6"
+
+
+def test_the_owner_column_says_free_agent_or_waivers():
+    from streamer.league.yahoo_web import waiver_status
+
+    assert waiver_status("FA") is False
+    assert waiver_status("W (Oct 27)") is True
+    assert waiver_status("") is None

@@ -277,3 +277,16 @@ def test_the_moves_shown_are_judged_on_a_second_independent_simulation(cfg):
     assert any("second, independent simulation" in r for r in star.reasons)
     # A reused simulation (another team's view) is not confirmed again.
     assert not TitleEngine(snap, cfg, model=engine.model).confirm
+
+
+def test_a_free_agent_is_an_instant_add_not_a_contested_claim(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    star = _fa("star", "RB", 24.0)
+    snap.free_agents = [star, _fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0)]
+    for t in snap.teams:
+        t.acquisitions = 6
+    engine = TitleEngine(snap, cfg, n_sims=300, candidates=8)
+    star.on_waivers = True
+    assert engine.claim_odds(star)[0] > 0.5            # a 24-point back on waivers draws claims
+    star.on_waivers = False
+    assert engine.claim_odds(star) == (0.0, 0.0)       # free agent: yours the moment you add him

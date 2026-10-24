@@ -3657,6 +3657,19 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Free agents are added, not claimed
+
+Every unowned player was priced as a waiver claim: "98% chance another
+manager claims him", a claim order, waiver priority spent. Most of them are
+free agents, added at once with no claim and no priority spent; only players
+recently dropped (or, in some leagues, everyone until waivers clear) are on
+waivers. Both platforms list the two together, so the sync now reads which
+is which: ESPN by asking for the players on waivers on their own (its
+free-agent call keeps no status), Yahoo from the player list's Owner column
+("FA" or "W (date)"). A free agent has no claim odds, costs no priority, and
+goes first in a plan ("add now"); unknown status keeps the old behaviour.
+The chance a rival adds him later, if he breaks out, is unchanged.
+
 ### The best of many is the luckiest
 
 Waivers price twenty-odd free agents (each with several drops) and trades

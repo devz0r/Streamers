@@ -309,4 +309,24 @@ def fetch_snapshot(
         except Exception as exc:  # noqa: BLE001 - one position failing must not sink the sync
             log.warning("ESPN free agents for %s failed: %s", position, exc)
 
-    return build_snapshot(league, week, profile, my_team_id, box_scores, free_agents)
+    snap = build_snapshot(league, week, profile, my_team_id, box_scores, free_agents)
+    try:
+        waived = waiver_ids(league, week)
+        for p in snap.free_agents:
+            p.on_waivers = p.player_id in waived
+        log.info("ESPN: %d of %d unowned players on waivers", len(waived), len(snap.free_agents))
+    except Exception as exc:  # noqa: BLE001 - unknown is the old behaviour (every add a claim)
+        log.warning("ESPN waiver status unavailable: %s", exc)
+    return snap
+
+
+def waiver_ids(league: Any, week: int, size: int = 1000) -> set[str]:
+    """Ids of the unowned players on waivers (a claim, not an instant add):
+    ``espn-api``'s free-agent call asks for both kinds and keeps no status,
+    so the waivers are asked for on their own."""
+    import json
+
+    filters = {"players": {"filterStatus": {"value": ["WAIVERS"]}, "limit": size}}
+    data = league.espn_request.league_get(params={"view": "kona_player_info", "scoringPeriodId": week},
+                                          headers={"x-fantasy-filter": json.dumps(filters)})
+    return {str(e.get("id")) for e in data.get("players", []) if e.get("status") == "WAIVERS"}

@@ -592,6 +592,8 @@ def _title_moves(report: MatchupReport) -> str:
     cards = []
     for m in moves:
         label, css = _VERDICT[m.verdict]
+        if m.verdict == "claim" and m.add.on_waivers is False:
+            label = "Add now"                   # a free agent: no claim to put in
         cards.append(
             '<div class="card"><div class="row">'
             f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
@@ -640,11 +642,13 @@ def _plans(report: MatchupReport) -> str:
                  else '<span class="opp">close call</span>')
         claims = "".join(
             f"<li><b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')})"
-            + (f" &middot; {plan.claim_odds[a.player_id][0]:.0%} chance another manager claims him"
+            + (" &middot; free agent: add now, no claim" if a.on_waivers is False
+               else f" &middot; {plan.claim_odds[a.player_id][0]:.0%} chance another manager claims him"
                if a.player_id in plan.claim_odds else "") + "</li>"
             for a, _d in plan.moves)
         toss = " <i>(the one-of drop is a toss-up: your call)</i>" if plan.drop_options else ""
-        steps = (f"<b>Claim, in this order:</b><ol class=\"steps\">{claims}</ol>"
+        verb = "Add" if all(a.on_waivers is False for a, _d in plan.moves) else "Claim"
+        steps = (f"<b>{verb}, in this order:</b><ol class=\"steps\">{claims}</ol>"
                  f"<p><b>Drop:</b> {_e(drops_text(plan))}{toss}. The percentages are your title odds for the "
                  "whole plan with that drop; a single move's card prices that one move alone.</p>")
         cards.append(

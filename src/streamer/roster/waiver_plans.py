@@ -288,7 +288,8 @@ class PlanFinder:
             order = [first] + rest
         else:
             order = sorted(plan.adds, key=lambda x: -value[x.player_id])
-        plan.moves.sort(key=lambda m: order.index(m[0]))
+        # Free agents are added at once, before any claim is processed.
+        plan.moves.sort(key=lambda m: (m[0].on_waivers is not False, order.index(m[0])))
 
     def market_value(self, p: PlayerRow) -> float:
         s = self.seen.get(p.player_id)
@@ -353,10 +354,15 @@ class PlanFinder:
         elif plan.gain < plan.summed - tolerance:
             bits.append(f"they overlap: {pts(plan.gain)} together against {pts(plan.summed)} priced one at a time")
         rank = self.engine.rank
-        if self.engine.priority_waivers and plan.claim_odds:
-            first = plan.moves[0][0]
+        free = [a for a, _d in plan.moves if a.on_waivers is False]
+        if free:
+            bits.append(f"{', '.join(a.name for a in free)}: free agent{'s' if len(free) > 1 else ''}, not on "
+                        "waivers -- add now, no claim and no priority spent")
+        claims = [(a, d) for a, d in plan.moves if a.on_waivers is not False]
+        if self.engine.priority_waivers and plan.claim_odds and len(claims) > 1:
+            first = claims[0][0]
             odds = [f"{a.name} {plan.claim_odds[a.player_id][0]:.0%} (your priority worth "
-                    f"{plan.priority_worth.get(a.player_id, 0.0) * 100:.2f} on him)" for a, _d in plan.moves]
+                    f"{plan.priority_worth.get(a.player_id, 0.0) * 100:.2f} on him)" for a, _d in claims]
             bits.append(f"claim {first.name} first: your first successful claim spends your #{rank} priority and "
                         "the rest are processed from the back of the order, so it goes on the player you would "
                         "otherwise lose; chance another manager claims each this week: " + ", ".join(odds))

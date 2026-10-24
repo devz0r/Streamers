@@ -988,6 +988,17 @@ def projected_stat_label(soup) -> str:
     return ""
 
 
+def waiver_status(owner: str) -> bool | None:
+    """The player list's Owner cell for an unowned player: "FA" a free agent
+    (added at once), "W (Oct 27)" on waivers until then; None otherwise."""
+    owner = owner.strip().upper()
+    if owner == "FA":
+        return False
+    if owner.startswith("W"):
+        return True
+    return None
+
+
 def parse_free_agents(html: str, week: int) -> list:
     """One page of the player list.
 
@@ -1013,6 +1024,7 @@ def parse_free_agents(html: str, week: int) -> list:
         c_proj = column(headers, "Proj Pts", "Proj", "Projected Pts")
         c_fan = column(headers, "Fan Pts")
         c_ros = column(headers, "% Ros", "% Rost")
+        c_own = column(headers, "Owner")
         # A column labelled as a projection is one; "Fan Pts" only counts when
         # the stat selector confirms it is showing this week's projection.
         c_pts = c_proj if c_proj is not None else (c_fan if selector_says_projection else None)
@@ -1024,7 +1036,10 @@ def parse_free_agents(html: str, week: int) -> list:
             bye = _is_bye(cells)
             pts = None if bye else _stat(cells, c_pts, bye)
             ros = _stat(cells, c_ros, bye)
-            out.append(_player_row(info, "FA", pts, ros))
+            row = _player_row(info, "FA", pts, ros)
+            row.on_waivers = waiver_status(cells[c_own].get_text(" ", strip=True)
+                                           if c_own is not None and c_own < len(cells) else "")
+            out.append(row)
         break
     if not out:
         # Say what the page looked like -- structure only -- so a layout
@@ -1136,6 +1151,9 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
                 if not rows:
                     break                    # the end of the list: later pages have nobody new
             free_agents.extend(rows)
+    log.info("Yahoo unowned players: %d on waivers, %d free agents, %d unknown",
+             sum(p.on_waivers is True for p in free_agents), sum(p.on_waivers is False for p in free_agents),
+             sum(p.on_waivers is None for p in free_agents))
 
     teams = []
     for row in standings or [{"team_id": my_id, "name": "My team", "wins": 0,

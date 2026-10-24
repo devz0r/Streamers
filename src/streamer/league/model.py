@@ -205,6 +205,10 @@ class PlayerRow:
     sleeper_weight: float = 0.0
     #: This week's kickoff, UTC ISO (set with the locks; None when unknown).
     kickoff: str | None = None
+    #: An unowned player: True on waivers (a claim, processed in priority
+    #: order), False a free agent (added at once, no claim, no priority
+    #: spent), None when the platform did not say.
+    on_waivers: bool | None = None
 
     @property
     def week_value(self) -> float:

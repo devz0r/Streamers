@@ -400,7 +400,10 @@ class TitleEngine:
         """(chance another manager claims him this week, chance one ahead of
         you in the waiver order does). Each rival claims him with a chance
         that depends on whether he would start for them and whether he is in
-        the news, scaled by how active that manager has been."""
+        the news, scaled by how active that manager has been. A free agent
+        not on waivers is no claim at all: he is yours the moment you add him."""
+        if x.on_waivers is False:
+            return 0.0, 0.0
         weeks = max(int(self.snapshot.week) - 1, 1)
         news = any(s.startswith("next man up") for s in x.signals)
         slots = self.snapshot.starting_slots
@@ -705,7 +708,8 @@ class TitleEngine:
         ref = wait if wait.mean() >= pat.mean() else pat
         best.p_wait = float(wait.mean())
         best.noise = float((now - ref).std() / np.sqrt(len(now)))
-        best.priority_cost = self.priority_cost(x.player_id)
+        # Adding a free agent spends no waiver priority.
+        best.priority_cost = 0.0 if x.on_waivers is False else self.priority_cost(x.player_id)
         if best.net >= max(MIN_GAIN, 2.0 * best.noise):
             best.verdict = "claim"
         elif best.net > 0:
@@ -825,9 +829,12 @@ class TitleEngine:
         if m.verdict == "lean":
             bits.append(f"edge {m.net * 100:+.2f} is inside the simulation's noise (+-{2 * m.noise * 100:.2f}): "
                         "it cannot tell this from standing pat, so claim only if you like him anyway")
-        anyone, _ahead = self.claim_odds(m.add)
-        bits.append(f"about a {anyone:.0%} chance another manager claims him this week"
-                    + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))
+        if m.add.on_waivers is False:
+            bits.append("a free agent, not on waivers: add him now and he is yours (no claim, no priority spent)")
+        else:
+            anyone, _ahead = self.claim_odds(m.add)
+            bits.append(f"about a {anyone:.0%} chance another manager claims him this week"
+                        + (" -- he should still be there after waivers clear" if anyone < 0.2 else ""))
         if m.drop_options:
             bits.append(toss_up_text(m.drop_options, self.market_value))
         if m.add.player_id in {u.player_id for u in self.playoff_units}:
