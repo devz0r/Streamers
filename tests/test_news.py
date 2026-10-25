@@ -240,3 +240,16 @@ def test_stage_odds_move_to_what_the_sightings_did_once_there_are_enough(tmp_pat
     got = news.fitted_stage_odds(path, {"talks": 0.5, "close": 0.8}, k=10, need=5)
     assert got["talks"] == (pytest.approx((8 + 10 * 0.5) / 20), 10)
     assert got["close"] == (0.8, 0)                                     # nothing logged: the judgment stands
+
+
+@pytest.mark.parametrize("head,last,tag", [
+    # The good news about him, a teammate's out tag: not his.
+    ("Marks is lined up to start at running back against the Giants on Sunday with David Montgomery (groin) "
+     "ruled out.", "Marks", "role up"),
+    ("Wilson will be the lead back for Sunday's game against the Chiefs after Zach Charbonnet (knee) was "
+     "ruled out ahead of that contest.", "Wilson", "role up"),
+    ("Montgomery (groin) was ruled out for Sunday's game against the Texans.", "Montgomery", "out"),
+    ("Jefferson (hamstring) has been ruled out for Sunday's game.", "Jefferson", "out"),
+])
+def test_a_teammates_out_tag_is_not_his(head, last, tag):
+    assert news.tag_of(head, last) == tag

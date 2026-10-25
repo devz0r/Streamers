@@ -47,7 +47,7 @@ def main() -> int:
             t = got[0] if got else None
             hit = got[1] if got else ""
             age = f"{(now - when).days}d" if when else "?"
-            print(f"   [{age} {it.get('type')}] tag={news.tag_of(head)!r} timeline={t} :: {head[:140]}")
+            print(f"   [{age} {it.get('type')}] tag={news.tag_of(head, p.name.split()[-1])!r} timeline={t} :: {head[:140]}")
             if hit:
                 print(f"        read: {hit}")
     return 0

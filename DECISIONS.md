@@ -3657,6 +3657,18 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### A teammate's "ruled out" is not his
+
+The breaking-news step sets a player out when this week's RotoWire headline
+starts with his name and says he is ruled out. "Marks is lined up to start
+... with David Montgomery (groin) ruled out" set Woody Marks out -- the
+Yahoo opponent's starting back, zeroed, and the matchup read 80% instead of
+about 68% -- and "Wilson will be the lead back ... after Zach Charbonnet
+(knee) was ruled out" did the same to Emanuel Wilson. An out tag that
+follows another player's "Name (injury)" is now that player's (the rule the
+timeline reader already used), and "lined up / set / in line to start"
+reads as a bigger role.
+
 ### "Is back" only when he plays this week
 
 Darius Cooper's card said "DeVonta Smith is back" with Smith ruled out. The

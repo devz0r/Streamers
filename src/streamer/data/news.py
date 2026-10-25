@@ -694,7 +694,7 @@ def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bo
                 continue
             if kind not in PLAYER_TYPES and not (kind == "Story" and now - when <= timedelta(days=ARTICLE_DAYS)):
                 continue
-            if kind in PLAYER_TYPES and tag_of(head) == "healthy" and found is None:
+            if kind in PLAYER_TYPES and tag_of(head, last) == "healthy" and found is None:
                 break                                  # the newest word is that he is back
             got = player_timeline(it, last)
             if got is not None:
@@ -770,7 +770,7 @@ TAGS = (
     ("legal", LEGAL),
     ("move", re.compile(r"\b(traded|signs|signed|re-signs|released|waived|claimed|cut by|agree\w* to terms)\b", re.I)),
     ("role up", re.compile(r"\b(will start|named (?:the )?starter|starting (?:role|job|nod)|first-team|promoted|"
-                           r"lead back|takes? over|top option)\b", re.I)),
+                           r"lead back|takes? over|top option|(?:lined|set|slated|in line) (?:up )?to start)\b", re.I)),
     ("role down", re.compile(r"\b(benched|demoted|loses? (?:the |his )?(?:starting|job)|backup role|healthy scratch|"
                              r"reduced role)\b", re.I)),
     ("injury", re.compile(r"\b(doubtful|questionable|game-time decision|limited|did not practice|didn't practice|"
@@ -796,10 +796,19 @@ class NewsItem:
     acted: str = ""           # what the model did with it
 
 
-def tag_of(headline: str) -> str:
+def tag_of(headline: str, last: str | None = None) -> str:
+    """What a headline says about the player whose last name is ``last``
+    (when given). An "out" that follows another player's "Name (injury)" is
+    that player's news, not his: "Marks is lined up to start ... with David
+    Montgomery (groin) ruled out" set Woody Marks out."""
+    text = headline or ""
     for tag, pattern in TAGS:
-        if pattern.search(headline or ""):
-            return tag
+        m = pattern.search(text)
+        if m is None:
+            continue
+        if tag == "out" and _someone_else(text, m.start(), last):
+            continue
+        return tag
     return ""
 
 
@@ -900,7 +909,7 @@ def breaking(snapshot, cfg: Config, espn_ids: dict[str, str], fp_names: dict[str
                 continue
             link = ((it.get("links") or {}).get("web") or {}).get("href", "") if isinstance(it.get("links"), dict) else ""
             item = NewsItem(p.name, p.position, p.team or "FA", when, _short(head, 220), link,
-                            "RotoWire via ESPN" if it.get("type") == "Rotowire" else "ESPN", tag_of(head), whose)
+                            "RotoWire via ESPN" if it.get("type") == "Rotowire" else "ESPN", tag_of(head, last), whose)
             if (item.tag == "out" and it.get("type") == "Rotowire" and head.startswith(last) and when >= start
                     and not IN_GAME.search(head) and not p.locked and p.actual_points is None
                     and p.status not in ("OUT", "O") and not p.is_long_term_out):
