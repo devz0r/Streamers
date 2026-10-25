@@ -207,11 +207,13 @@ def team_sections(
         f"{_e(gain)}</p>",
         _pickup_pointer(report, uid),
         _live_card(snapshot, opt, cfg, report.opponent_name),
+        _head_to_head(report),
         "<h3>Recommended lineup</h3>"
         '<div class="scroll"><table class="lineup-table"><thead><tr><th>Slot</th><th class="unit">Player</th>'
         f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>",
     ]
+    lineup.append(_flex_note(opt))
     if opt.changes:
         items = []
         for slot, benched, started in opt.changes:
@@ -1198,6 +1200,81 @@ def _lottery(snapshot: LeagueSnapshot, cfg: Config) -> str:
         "or the lead back ahead of him going down (they miss the next game 8.5% of the time). "
         "A big game without more opportunity behind it often fades, so treat it as a look, not a lock.</p>"
         + "".join(blocks) + drops)
+
+
+def pair_slots(mine: dict, theirs: dict) -> list[tuple[str, object, object]]:
+    """(slot, your starter, theirs) in your lineup's slot order, each slot's
+    players paired best against best (as FantasyPros' matchup page does)."""
+    out = []
+    for slot in list(mine) + [sl for sl in theirs if sl not in mine]:
+        a = sorted(mine.get(slot, []), key=lambda q: -q.week_value)
+        b = sorted(theirs.get(slot, []), key=lambda q: -q.week_value)
+        for i in range(max(len(a), len(b))):
+            out.append((slot, a[i] if i < len(a) else None, b[i] if i < len(b) else None))
+    return out
+
+
+def _kick_et(p) -> str:
+    """Kickoff in US Eastern time, "Sun 8:20 PM"."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        k = datetime.fromisoformat(p.kickoff).astimezone(ZoneInfo("America/New_York"))
+    except (TypeError, ValueError):
+        return ""
+    return k.strftime("%a %-I:%M %p")
+
+
+def _head_to_head(report: MatchupReport) -> str:
+    """Your recommended starters against your opponent's, slot by slot, with
+    a check by the higher projection (or the higher score once played)."""
+    opt = report.optimisation
+    if opt.opponent is None:
+        return ""
+    tick = ' <span class="h2h-win" title="higher">&#10003;</span>'
+
+    def cell(q, win: bool) -> str:
+        if q is None:
+            return "<td class='opp'>--</td><td></td>"
+        tag = " <span class='opp'>final</span>" if q.actual_points is not None else (
+            f" <span class='opp'>{_e(short_status(q.status))}</span>" if q.status else "")
+        pts = f"{q.actual_points:.2f}" if q.actual_points is not None else f"{q.week_value:.1f}"
+        parts = q.name.split()
+        short = f"{parts[0][0]}. {' '.join(parts[1:])}" if len(parts) > 1 and q.position != "DST" else q.name
+        return (f"<td class='unit' title='{_e(q.name)}'>{_e(short)}{tag}</td>"
+                f"<td class='h2h-pts'>{pts}{tick if win else ''}</td>")
+
+    rows = []
+    for slot, a, b in pair_slots(opt.best_win.starters, opt.opponent.starters):
+        va = a.week_value if a is not None else 0.0
+        vb = b.week_value if b is not None else 0.0
+        rows.append(f"<tr><td class='slot-c'>{_e(slot)}</td>{cell(a, va > vb)}{cell(b, vb > va)}</tr>")
+    me, them = opt.best_win.expected, opt.opponent.expected
+    rows.append(f"<tr class='h2h-total'><td></td><td class='unit'><b>You</b></td>"
+                f"<td class='h2h-pts'><b>{me:.1f}</b>{tick if me > them else ''}</td>"
+                f"<td class='unit'><b>{_e(report.opponent_name or 'Them')}</b></td>"
+                f"<td class='h2h-pts'><b>{them:.1f}</b>{tick if them > me else ''}</td></tr>")
+    notes = ""
+    if opt.opp_notes:
+        notes += ('<p class="sub">Their lineup as priced: ' + "; ".join(_e(n) for n in opt.opp_notes)
+                  + ". A questionable starter of theirs who sits is replaced from their bench too.</p>")
+    if opt.opp_bench:
+        bench = ", ".join(f"{_e(q.name)} {_e(q.position)} {q.week_value:.1f}" for q in opt.opp_bench[:8])
+        notes += f'<details><summary>Their bench</summary><p class="sub">{bench}</p></details>'
+    return ("<h3>Head to head</h3>"
+            '<table class="h2h-table"><thead><tr><th></th><th class="unit">You</th>'
+            '<th class="h2h-pts">Proj</th><th class="unit">Them</th><th class="h2h-pts">Proj</th></tr></thead>'
+            f"<tbody>{''.join(rows)}</tbody></table>{notes}")
+
+
+def _flex_note(opt) -> str:
+    if not opt.flex_moves:
+        return ""
+    bits = [f"put {_e(y.name)} in {_e(fs)} and {_e(x.name)} at {_e(sl)}: {_e(y.name)} plays latest "
+            f"({_e(_kick_et(y))} ET), so the flex stays open for a late swap"
+            for fs, y, sl, x in opt.flex_moves]
+    return '<p class="sub"><b>Slot order:</b> ' + "; ".join(bits) + ".</p>"
 
 
 def _proj_cell(p) -> str:

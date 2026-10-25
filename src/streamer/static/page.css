@@ -356,3 +356,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
 
 .tp-table tr.tp-mine td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 @media (max-width: 480px) { .tp-table .tp-x { display: none; } }
+.h2h-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.h2h-table td, .h2h-table th { padding: 7px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h2h-table .slot-c, .h2h-table th:first-child { width: 2.9rem; color: var(--muted); font-size: 11.5px; }
+.h2h-table .h2h-pts, .h2h-table th.h2h-pts { width: 4.1rem; text-align: right; font-variant-numeric: tabular-nums; }
+.h2h-table .h2h-win { color: var(--accent); font-weight: 800; }
+.h2h-table tr.h2h-total td { border-top: 1px solid var(--line); }
+.live-h2h th:nth-child(3), .live-h2h td:nth-child(3), .live-h2h th:nth-child(5), .live-h2h td:nth-child(5) { width: 4.4rem; text-align: right; }
+.live-h2h th:nth-child(4), .live-h2h td:nth-child(4) { text-align: left; color: inherit; font-size: inherit; width: auto; }
+.live-h2h .h2h-win { color: var(--accent); font-weight: 700; }

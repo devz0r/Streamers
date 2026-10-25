@@ -3657,6 +3657,29 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Head to head, the opponent's bench, and the latest game in the flex
+
+The Lineup tab and the live card now pair your starters with your
+opponent's slot by slot (best against best within a slot, as FantasyPros'
+matchup page does), with a check by the higher projection -- live, by
+whoever is on track to finish higher: his points plus the projection's
+share of the time left.
+
+The opponent's bench is now in the simulation where a manager would use it:
+a starter already out or on bye in his set lineup is taken to be replaced
+by his best healthy bench player whose game has not started (nearly every
+manager makes that fix; the page lists it), and a questionable starter who
+sits in a draw is replaced from his bench by the same rule as yours (his
+inactives, a bench player still to play). Small projection edges are not
+assumed chased: there is no record of how often managers reshuffle. P(win)
+had been counting an opponent's ruled-out starter as a zero.
+
+Within the lineup chosen, each flex slot holds the latest kickoff among the
+starters at its occupant's position (games not yet started only): if
+someone is ruled out late, the flex can still take a player from any later
+game, a dedicated slot only its own position. Same starters, same odds; the
+page says which two to swap.
+
 ### A teammate's "ruled out" is not his
 
 The breaking-news step sets a player out when this week's RotoWire headline

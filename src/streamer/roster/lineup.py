@@ -131,6 +131,15 @@ class Optimisation:
     #: For each questionable starter in the recommended lineup: who could
     #: replace him if he is ruled out, best first (:class:`Fallback`).
     fallbacks: list[Fallback] = field(default_factory=list)
+    #: The opponent's bench (not in an IR slot), and what their lineup is
+    #: assumed to change: a starter already out swapped for their best
+    #: healthy bench player, a questionable one replaced if he sits.
+    opp_bench: list[PlayerRow] = field(default_factory=list)
+    opp_notes: list[str] = field(default_factory=list)
+    #: Moves within the recommended lineup that put the latest kickoff in a
+    #: flex slot: (flex slot, player moved in, the slot the other one takes,
+    #: player moved out of the flex).
+    flex_moves: list[tuple[str, PlayerRow, str, PlayerRow]] = field(default_factory=list)
 
     @property
     def win_gain(self) -> float:
@@ -487,6 +496,72 @@ def _with_locks(roster: list[PlayerRow], slots: dict[str, int]) -> list[dict[str
     return out
 
 
+def opponent_fixes(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow]
+                   ) -> tuple[dict[str, list[PlayerRow]], list[str]]:
+    """The opponent's set lineup with every starter already out (ruled out,
+    on bye) swapped for his best healthy bench player whose game has not
+    started -- the fix nearly every manager makes. Questionable starters are
+    left in; :func:`_swap_totals` replaces them in the draws they sit."""
+    started = {q.player_id for ps in lineup.values() for q in ps}
+    bench = sorted((q for q in roster if q.player_id not in started and not q.locked and not q.in_ir_slot
+                    and not q.is_out), key=lambda q: -q.week_value)
+    out = {slot: list(ps) for slot, ps in lineup.items()}
+    notes = []
+    for slot, ps in out.items():
+        for i, x in enumerate(ps):
+            if not x.is_out or x.locked or x.actual_points is not None:
+                continue
+            b = next((c for c in bench if _eligible(c, slot)), None)
+            if b is None:
+                continue
+            bench.remove(b)
+            ps[i] = b
+            why = "on bye" if x.on_bye else "out"
+            notes.append(f"{x.name} is {why}: assumed replaced by {b.name} ({b.week_value:.1f})")
+    return out, notes
+
+
+def _flex_slot(slot: str) -> bool:
+    return len(SLOT_ELIGIBILITY.get(slot, (slot,))) > 1
+
+
+def flex_last(lineup: dict[str, list[PlayerRow]]
+              ) -> tuple[dict[str, list[PlayerRow]], list[tuple[str, PlayerRow, str, PlayerRow]]]:
+    """The same starters, arranged so each flex slot holds the latest kickoff
+    among the starters at its occupant's position: if someone is ruled out
+    late, the flex can still take a player from any later game (a dedicated
+    slot only its own position). Only players whose games have not started
+    move."""
+    out = {slot: list(ps) for slot, ps in lineup.items()}
+    moves = []
+    never = datetime.max.replace(tzinfo=None)
+
+    def when(q: PlayerRow):
+        k = _kick(q)
+        return k.replace(tzinfo=None) if k is not None else None
+
+    for fslot in [sl for sl in out if _flex_slot(sl)]:
+        for i, x in enumerate(out[fslot]):
+            kx = when(x)
+            if x.locked or kx is None:
+                continue
+            best = None
+            for slot, ps in out.items():
+                if _flex_slot(slot) or x.position not in SLOT_ELIGIBILITY.get(slot, (slot,)):
+                    continue
+                for j, y in enumerate(ps):
+                    ky = when(y)
+                    if y.locked or ky is None or y.position != x.position or ky <= kx:
+                        continue
+                    if best is None or ky > (when(best[2]) or never):
+                        best = (slot, j, y)
+            if best is not None:
+                slot, j, y = best
+                out[fslot][i], out[slot][j] = y, x
+                moves.append((fslot, y, slot, x))
+    return out, moves
+
+
 def optimise(
     roster: list[PlayerRow],
     slots: dict[str, int],
@@ -524,6 +599,13 @@ def optimise(
                            else enumerate_lineups(opponent_roster, slots))
             if opp_lineups:
                 opp_lineup = max(opp_lineups, key=_projected)
+    opp_notes: list[str] = []
+    opp_bench: list[PlayerRow] = []
+    if opp_lineup is not None and opponent_roster:
+        opp_lineup, opp_notes = opponent_fixes(opp_lineup, opponent_roster)
+        started = {p.player_id for ps in opp_lineup.values() for p in ps}
+        opp_bench = sorted((p for p in opponent_roster if p.player_id not in started),
+                           key=lambda p: -p.week_value)
 
     everyone = list(roster) + (list(opponent_roster) if opponent_roster else [])
     if wire is not None:
@@ -536,11 +618,13 @@ def optimise(
     # thousands of lineups on the same draws that score them flatters
     # whichever got lucky.
     # Which questionable starters sat in each draw: a starter ruled out in
-    # time is replaced from the bench (swap_pairs), on your side only -- the
-    # opponent's set lineup is taken as is.
+    # time is replaced from the bench (swap_pairs) -- yours, and the
+    # opponent's from his own bench.
     sits_sel = np.zeros((n_sims, len(everyone)), dtype=bool)
     select = sample_points(everyone, n_sims, rng, sits=sits_sel)
-    opp_sel = _totals([opp_lineup], select, index)[0] if opp_lineup is not None else np.zeros(n_sims)
+    opp_sel = (_totals([opp_lineup], select, index)[0]
+               + _swap_totals([opp_lineup], select, sits_sel, index, opponent_roster)[0]
+               if opp_lineup is not None else np.zeros(n_sims))
     wins_sel = _win_rates(mine, select, index, opp_sel, sits=sits_sel, roster=roster, wire=wire)
     projected = np.array([_projected(lu) for lu in mine])
     ev_best = int(np.argmax(projected))
@@ -550,7 +634,9 @@ def optimise(
 
     sits = np.zeros((n_sims, len(everyone)), dtype=bool)
     confirm = sample_points(everyone, n_sims, rng, sits=sits)
-    opp_total = _totals([opp_lineup], confirm, index)[0] if opp_lineup is not None else np.zeros(n_sims)
+    opp_total = (_totals([opp_lineup], confirm, index)[0]
+                 + _swap_totals([opp_lineup], confirm, sits, index, opponent_roster)[0]
+                 if opp_lineup is not None else np.zeros(n_sims))
     cand = [mine[i] for i in top]
     totals = _totals(cand, confirm, index) + _swap_totals(cand, confirm, sits, index, roster, wire)
     win_ind = (totals > opp_total) + 0.5 * (totals == opp_total)
@@ -572,6 +658,10 @@ def optimise(
 
     best_win = result(pick)
     best_ev = result(ev_k)
+    # Same starters, same totals: only which slot each one sits in.
+    arranged, flex_moves = flex_last(best_win.starters)
+    best_win = LineupResult(starters=arranged, expected=best_win.expected, sd=best_win.sd,
+                            win_probability=best_win.win_probability)
 
     current = None
     cur = current_lineup(roster, slots)
@@ -611,6 +701,7 @@ def optimise(
         sample_ids=ids, samples=confirm[:keep, [index[i] for i in ids]],
         opp_samples=opp_total[:keep], fallbacks=fallbacks,
         opp_ids=opp_ids, opp_player_samples=confirm[:keep, [index[i] for i in opp_ids]] if opp_ids else None,
+        opp_bench=opp_bench, opp_notes=opp_notes, flex_moves=flex_moves,
     )
 
 

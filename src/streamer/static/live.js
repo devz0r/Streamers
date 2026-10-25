@@ -305,23 +305,55 @@
     return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
 
+  /* Where a player is headed: his points so far plus the projection's share
+     of what is left (all of it before kickoff, none once final). */
+  function headed(r) {
+    if (!r) return -1;
+    var started = r.state && r.state !== "pre";
+    return (started ? r.now : 0) + (r.left || 0) * (r.p.m || 0);
+  }
+
+  /* Your starters against theirs, slot by slot, best against best; a check
+     by whoever is headed higher. */
+  function headToHead(R, D) {
+    var bySlot = function (rows) {
+      var g = {};
+      rows.forEach(function (r) { (g[r.p.slot] = g[r.p.slot] || []).push(r); });
+      Object.keys(g).forEach(function (k) { g[k].sort(function (a, b) { return headed(b) - headed(a); }); });
+      return g;
+    };
+    var mine = bySlot(R.me), theirs = bySlot(R.opp), order = [];
+    R.me.concat(R.opp).forEach(function (r) { if (order.indexOf(r.p.slot) < 0) order.push(r.p.slot); });
+    var tick = " <span class='h2h-win'>&#10003;</span>";
+    var cell = function (r, win) {
+      if (!r) return "<td class='live-name'>–</td><td class='live-pts'></td>";
+      var started = r.state && r.state !== "pre";
+      var pts = started ? r.now.toFixed(2) : "<span class='opp'>" + (r.p.m || 0).toFixed(1) + "</span>";
+      return "<td class='live-name'>" + esc(r.p.n) + " <span class='opp'>" + esc(r.label || "") +
+        "</span></td><td class='live-pts'><b>" + pts + "</b>" + (win ? tick : "") + "</td>";
+    };
+    var rows = "";
+    order.forEach(function (slot) {
+      var a = mine[slot] || [], b = theirs[slot] || [];
+      for (var i = 0; i < Math.max(a.length, b.length); i++) {
+        var ha = headed(a[i]), hb = headed(b[i]);
+        rows += "<tr><td class='live-slot'>" + esc(slot) + "</td>" + cell(a[i], ha > hb) + cell(b[i], hb > ha) + "</tr>";
+      }
+    });
+    return "<table class='live-table live-h2h'><thead><tr><th></th><th>You</th><th>Pts</th><th>" +
+      esc(D.opp_name || "Them") + "</th><th>Pts</th></tr></thead><tbody>" + rows + "</tbody></table>" +
+      "<p class='sub'>Points so far (grey: projection, not started); the check is whoever is on track to " +
+      "finish higher, his points plus the projection's share of the time left.</p>";
+  }
+
   function render(el, D, R) {
     var pct = function (x) { return Math.round(x * 100) + "%"; };
-    var row = function (r) {
-      var pts = r.state && r.state !== "pre" ? r.now.toFixed(2) : "–";
-      return "<tr><td class='live-slot'>" + esc(r.p.slot) + "</td><td class='live-name'>" + esc(r.p.n) +
-        "</td><td class='live-pts'><b>" + pts + "</b></td><td class='live-st'>" + esc(r.label || "") + "</td></tr>";
-    };
     var t = new Date();
     el.querySelector(".live-out").innerHTML =
       "<h3>Live</h3><p class='sub'>You <b>" + R.nowMe.toFixed(2) + "</b> – <b>" + R.nowOpp.toFixed(2) + "</b> " +
       esc(D.opp_name || "them") + " so far · projected " + R.projMe.toFixed(1) + " – " + R.projOpp.toFixed(1) +
       " · P(win) <b>" + pct(R.p) + "</b> (" + pct(R.p0) + " before kickoff)</p>" +
-      "<table class='live-table'><thead><tr><th></th><th>You</th><th>Pts</th><th></th></tr></thead><tbody>" +
-      R.me.map(row).join("") + "</tbody></table>" +
-      "<table class='live-table'><thead><tr><th></th><th>" + esc(D.opp_name || "Them") +
-      "</th><th>Pts</th><th></th></tr></thead><tbody>" +
-      R.opp.map(row).join("") + "</tbody></table>" +
+      headToHead(R, D) +
       "<p class='sub'>ESPN live box scores, scored with this league's rules; updated " +
       t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
       (R.done ? " (all games final)." : ", every minute while this page is open.") +
