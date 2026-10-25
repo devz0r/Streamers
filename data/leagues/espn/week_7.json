@@ -711,7 +711,7 @@
           "name": "Woody Marks",
           "position": "RB",
           "team": "HOU",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "RB",
           "eligible_slots": [
             "FLEX",
@@ -11738,7 +11738,7 @@
           "name": "Cam Skattebo",
           "position": "RB",
           "team": "NYG",
-          "status": "",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -11822,8 +11822,8 @@
       ],
       "on_bye": false,
       "platform_projection": 19.5,
-      "season_avg": 17.6,
-      "percent_owned": 79.11,
+      "season_avg": 18.38,
+      "percent_owned": 79.1,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -11889,7 +11889,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 16.0,
-      "percent_owned": 42.6,
+      "percent_owned": 42.51,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -11955,7 +11955,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 10.41,
-      "percent_owned": 38.68,
+      "percent_owned": 38.64,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -12218,7 +12218,7 @@
       ],
       "on_bye": false,
       "platform_projection": 16.4,
-      "season_avg": 8.4,
+      "season_avg": 8.9,
       "percent_owned": 21.65,
       "projection": null,
       "projection_sd": null,
@@ -12284,7 +12284,7 @@
       ],
       "on_bye": false,
       "platform_projection": 14.22,
-      "season_avg": 15.2,
+      "season_avg": 13.25,
       "percent_owned": 19.71,
       "projection": null,
       "projection_sd": null,
@@ -12335,7 +12335,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3122840",
@@ -12350,7 +12350,7 @@
       ],
       "on_bye": false,
       "platform_projection": 14.16,
-      "season_avg": 13.87,
+      "season_avg": 15.25,
       "percent_owned": 14.82,
       "projection": null,
       "projection_sd": null,
@@ -12416,7 +12416,7 @@
       ],
       "on_bye": false,
       "platform_projection": 16.02,
-      "season_avg": 13.79,
+      "season_avg": 15.02,
       "percent_owned": 13.12,
       "projection": null,
       "projection_sd": null,
@@ -12482,7 +12482,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 10.86,
+      "season_avg": 10.88,
       "percent_owned": 8.71,
       "projection": null,
       "projection_sd": null,
@@ -12548,7 +12548,7 @@
       ],
       "on_bye": false,
       "platform_projection": 12.79,
-      "season_avg": 13.34,
+      "season_avg": 14.43,
       "percent_owned": 6.34,
       "projection": null,
       "projection_sd": null,
@@ -12615,7 +12615,7 @@
       "on_bye": false,
       "platform_projection": 14.73,
       "season_avg": 12.6,
-      "percent_owned": 5.43,
+      "percent_owned": 5.48,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -12680,7 +12680,7 @@
       ],
       "on_bye": false,
       "platform_projection": 15.92,
-      "season_avg": 11.57,
+      "season_avg": 11.34,
       "percent_owned": 4.31,
       "projection": null,
       "projection_sd": null,
@@ -12746,7 +12746,7 @@
       ],
       "on_bye": false,
       "platform_projection": 11.5,
-      "season_avg": 10.23,
+      "season_avg": 10.61,
       "percent_owned": 4.22,
       "projection": null,
       "projection_sd": null,
@@ -12863,7 +12863,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2576980",
@@ -12879,7 +12879,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 11.5,
-      "percent_owned": 1.7,
+      "percent_owned": 1.69,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -12944,7 +12944,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 8.84,
+      "season_avg": 7.01,
       "percent_owned": 1.07,
       "projection": null,
       "projection_sd": null,
@@ -13274,7 +13274,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": -0.64,
+      "season_avg": -0.32,
       "percent_owned": 0.47,
       "projection": null,
       "projection_sd": null,
@@ -13407,7 +13407,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 0.0,
-      "percent_owned": 0.39,
+      "percent_owned": 0.4,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -13523,7 +13523,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4362887",
@@ -13655,7 +13655,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "11252",
@@ -14249,7 +14249,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "14163",
@@ -14315,7 +14315,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3044720",
@@ -14381,7 +14381,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4685413",
@@ -14462,7 +14462,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 1.29,
+      "season_avg": 1.34,
       "percent_owned": 0.06,
       "projection": null,
       "projection_sd": null,
@@ -14843,7 +14843,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4429955",
@@ -15173,7 +15173,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "14012",
@@ -16097,7 +16097,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4573398",
@@ -16427,7 +16427,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4428993",
@@ -16493,7 +16493,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4429582",
@@ -16559,7 +16559,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "3059989",
@@ -16691,7 +16691,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "16760",
@@ -16823,7 +16823,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4361418",
@@ -16889,7 +16889,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4360799",
@@ -17087,7 +17087,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4426335",
@@ -17153,7 +17153,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4430431",
@@ -17219,7 +17219,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "2574511",
@@ -17747,7 +17747,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "3045169",
@@ -18473,7 +18473,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4367178",
@@ -19153,7 +19153,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 3.5,
-      "percent_owned": 65.52,
+      "percent_owned": 65.5,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19357,7 +19357,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 8.98,
-      "percent_owned": 47.69,
+      "percent_owned": 47.66,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19424,8 +19424,8 @@
       ],
       "on_bye": false,
       "platform_projection": 3.18,
-      "season_avg": 7.28,
-      "percent_owned": 44.69,
+      "season_avg": 6.76,
+      "percent_owned": 44.63,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19475,7 +19475,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4599739",
@@ -19493,7 +19493,7 @@
       "on_bye": false,
       "platform_projection": 9.35,
       "season_avg": 6.43,
-      "percent_owned": 42.59,
+      "percent_owned": 42.58,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19561,7 +19561,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 4.65,
-      "percent_owned": 35.78,
+      "percent_owned": 35.79,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19764,8 +19764,8 @@
       ],
       "on_bye": false,
       "platform_projection": 5.88,
-      "season_avg": 4.48,
-      "percent_owned": 17.71,
+      "season_avg": 4.14,
+      "percent_owned": 17.72,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19815,7 +19815,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4427728",
@@ -19832,8 +19832,8 @@
       ],
       "on_bye": false,
       "platform_projection": 8.06,
-      "season_avg": 2.5,
-      "percent_owned": 16.87,
+      "season_avg": 2.79,
+      "percent_owned": 16.96,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -19883,7 +19883,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4596334",
@@ -19901,7 +19901,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 6.18,
-      "percent_owned": 14.22,
+      "percent_owned": 14.21,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20105,7 +20105,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 5.07,
-      "percent_owned": 11.49,
+      "percent_owned": 11.48,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20240,7 +20240,7 @@
       ],
       "on_bye": false,
       "platform_projection": 6.07,
-      "season_avg": 3.5,
+      "season_avg": 5.35,
       "percent_owned": 8.69,
       "projection": null,
       "projection_sd": null,
@@ -20308,7 +20308,7 @@
       ],
       "on_bye": false,
       "platform_projection": 5.86,
-      "season_avg": 4.7,
+      "season_avg": 5.06,
       "percent_owned": 8.15,
       "projection": null,
       "projection_sd": null,
@@ -20377,7 +20377,7 @@
       "on_bye": false,
       "platform_projection": 7.01,
       "season_avg": 5.38,
-      "percent_owned": 6.7,
+      "percent_owned": 6.74,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20445,7 +20445,7 @@
       "on_bye": false,
       "platform_projection": 3.87,
       "season_avg": 8.25,
-      "percent_owned": 6.32,
+      "percent_owned": 6.31,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20495,7 +20495,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4429013",
@@ -20581,7 +20581,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 5.7,
-      "percent_owned": 5.7,
+      "percent_owned": 5.69,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20649,7 +20649,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 3.96,
-      "percent_owned": 5.35,
+      "percent_owned": 5.34,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20706,7 +20706,7 @@
       "name": "Jaylen Wright",
       "position": "RB",
       "team": "MIA",
-      "status": "",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -20853,7 +20853,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 2.28,
-      "percent_owned": 3.38,
+      "percent_owned": 3.37,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -20971,7 +20971,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4722893",
@@ -21175,7 +21175,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4695404",
@@ -21192,7 +21192,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.49,
-      "season_avg": 0.97,
+      "season_avg": 2.1,
       "percent_owned": 2.66,
       "projection": null,
       "projection_sd": null,
@@ -21396,7 +21396,7 @@
       ],
       "on_bye": false,
       "platform_projection": 3.63,
-      "season_avg": 5.5,
+      "season_avg": 8.38,
       "percent_owned": 1.74,
       "projection": null,
       "projection_sd": null,
@@ -21515,7 +21515,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3116385",
@@ -21787,7 +21787,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4383429",
@@ -21855,7 +21855,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4240603",
@@ -22076,7 +22076,7 @@
       ],
       "on_bye": false,
       "platform_projection": 3.7,
-      "season_avg": 3.42,
+      "season_avg": 4.6,
       "percent_owned": 0.43,
       "projection": null,
       "projection_sd": null,
@@ -22212,7 +22212,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 1.03,
+      "season_avg": 0.82,
       "percent_owned": 0.4,
       "projection": null,
       "projection_sd": null,
@@ -22416,7 +22416,7 @@
       ],
       "on_bye": false,
       "platform_projection": 2.39,
-      "season_avg": 3.86,
+      "season_avg": 4.0,
       "percent_owned": 0.37,
       "projection": null,
       "projection_sd": null,
@@ -22688,7 +22688,7 @@
       ],
       "on_bye": false,
       "platform_projection": 3.13,
-      "season_avg": 2.25,
+      "season_avg": 2.2,
       "percent_owned": 0.31,
       "projection": null,
       "projection_sd": null,
@@ -22960,7 +22960,7 @@
       ],
       "on_bye": false,
       "platform_projection": 2.14,
-      "season_avg": 1.73,
+      "season_avg": 1.49,
       "percent_owned": 0.26,
       "projection": null,
       "projection_sd": null,
@@ -23011,7 +23011,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4429939",
@@ -23232,7 +23232,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 0.0,
+      "season_avg": 0.1,
       "percent_owned": 0.17,
       "projection": null,
       "projection_sd": null,
@@ -23351,7 +23351,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4569682",
@@ -23436,7 +23436,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.02,
-      "season_avg": 0.0,
+      "season_avg": 0.27,
       "percent_owned": 0.14,
       "projection": null,
       "projection_sd": null,
@@ -23827,7 +23827,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3128720",
@@ -23913,7 +23913,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 0.7,
-      "percent_owned": 0.1,
+      "percent_owned": 0.09,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -24048,7 +24048,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.46,
-      "season_avg": 0.18,
+      "season_avg": 0.16,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -24643,7 +24643,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2515270",
@@ -24865,6 +24865,74 @@
       "on_bye": false,
       "platform_projection": null,
       "season_avg": 1.7,
+      "percent_owned": 0.04,
+      "projection": null,
+      "projection_sd": null,
+      "projection_source": "",
+      "ros_value": null,
+      "backfield_share": null,
+      "takeover_share": null,
+      "depth_order": null,
+      "games_missed": 0,
+      "photo": "",
+      "fp_play": null,
+      "schedule": {},
+      "season_loss": null,
+      "hazard_mult": null,
+      "return_week": null,
+      "reported_back": null,
+      "reported_share": null,
+      "reported_note": "",
+      "signing_team": null,
+      "signing_odds": null,
+      "signing_wait": 0,
+      "signing_share": null,
+      "news": "",
+      "inherited_ros": 0.0,
+      "model_projection": null,
+      "vegas_points": null,
+      "vegas_stats": {},
+      "vegas_filled": [],
+      "vegas_books": 0,
+      "nfl_opponent": null,
+      "role": "",
+      "play_probability": 1.0,
+      "practice": "",
+      "outcome_sd": null,
+      "ros_sd": null,
+      "experience": null,
+      "signals": [],
+      "usage": "",
+      "locked": false,
+      "actual_points": null,
+      "nfl_id": null,
+      "pre_market_projection": null,
+      "market_weight": 0.0,
+      "consensus_weight": 0.0,
+      "ecr_ros_pos_rank": null,
+      "ecr_week_pos_rank": null,
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0,
+      "kickoff": null,
+      "on_waivers": true
+    },
+    {
+      "player_id": "4243176",
+      "name": "Brady Russell",
+      "position": "RB",
+      "team": "SEA",
+      "status": "",
+      "slot": "FA",
+      "eligible_slots": [
+        "FLEX",
+        "RB",
+        "SUPERFLEX",
+        "WR/RB"
+      ],
+      "on_bye": false,
+      "platform_projection": 0.45,
+      "season_avg": 1.17,
       "percent_owned": 0.04,
       "projection": null,
       "projection_sd": null,
@@ -25340,7 +25408,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 0.25,
+      "season_avg": 0.21,
       "percent_owned": 0.03,
       "projection": null,
       "projection_sd": null,
@@ -25391,7 +25459,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3125107",
@@ -25664,74 +25732,6 @@
       "sleeper_weight": 0.0,
       "kickoff": null,
       "on_waivers": true
-    },
-    {
-      "player_id": "4243176",
-      "name": "Brady Russell",
-      "position": "RB",
-      "team": "SEA",
-      "status": "",
-      "slot": "FA",
-      "eligible_slots": [
-        "FLEX",
-        "RB",
-        "SUPERFLEX",
-        "WR/RB"
-      ],
-      "on_bye": false,
-      "platform_projection": 0.45,
-      "season_avg": 1.17,
-      "percent_owned": 0.03,
-      "projection": null,
-      "projection_sd": null,
-      "projection_source": "",
-      "ros_value": null,
-      "backfield_share": null,
-      "takeover_share": null,
-      "depth_order": null,
-      "games_missed": 0,
-      "photo": "",
-      "fp_play": null,
-      "schedule": {},
-      "season_loss": null,
-      "hazard_mult": null,
-      "return_week": null,
-      "reported_back": null,
-      "reported_share": null,
-      "reported_note": "",
-      "signing_team": null,
-      "signing_odds": null,
-      "signing_wait": 0,
-      "signing_share": null,
-      "news": "",
-      "inherited_ros": 0.0,
-      "model_projection": null,
-      "vegas_points": null,
-      "vegas_stats": {},
-      "vegas_filled": [],
-      "vegas_books": 0,
-      "nfl_opponent": null,
-      "role": "",
-      "play_probability": 1.0,
-      "practice": "",
-      "outcome_sd": null,
-      "ros_sd": null,
-      "experience": null,
-      "signals": [],
-      "usage": "",
-      "locked": false,
-      "actual_points": null,
-      "nfl_id": null,
-      "pre_market_projection": null,
-      "market_weight": 0.0,
-      "consensus_weight": 0.0,
-      "ecr_ros_pos_rank": null,
-      "ecr_week_pos_rank": null,
-      "fp_projection": null,
-      "sleeper_projection": null,
-      "sleeper_weight": 0.0,
-      "kickoff": null,
-      "on_waivers": false
     },
     {
       "player_id": "3116593",
@@ -26139,7 +26139,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4242431",
@@ -26207,7 +26207,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4373684",
@@ -26343,7 +26343,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "2980453",
@@ -26479,7 +26479,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4372019",
@@ -26751,7 +26751,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4257364",
@@ -26819,7 +26819,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4428943",
@@ -29607,7 +29607,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4427391",
@@ -31171,7 +31171,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4361100",
@@ -31392,7 +31392,7 @@
       ],
       "on_bye": false,
       "platform_projection": null,
-      "season_avg": 0.3,
+      "season_avg": 0.15,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -31443,7 +31443,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4808830",
@@ -31664,7 +31664,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 1.85,
+      "season_avg": 2.08,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -31800,7 +31800,7 @@
       ],
       "on_bye": false,
       "platform_projection": null,
-      "season_avg": 0.56,
+      "season_avg": 0.47,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -32482,7 +32482,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 10.12,
-      "percent_owned": 66.9,
+      "percent_owned": 66.87,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -32551,7 +32551,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 9.17,
-      "percent_owned": 58.06,
+      "percent_owned": 58.03,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -32620,7 +32620,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 9.2,
-      "percent_owned": 52.11,
+      "percent_owned": 52.04,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -32758,7 +32758,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 4.25,
-      "percent_owned": 43.69,
+      "percent_owned": 43.66,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -32826,7 +32826,7 @@
       ],
       "on_bye": false,
       "platform_projection": 8.88,
-      "season_avg": 8.73,
+      "season_avg": 8.99,
       "percent_owned": 42.95,
       "projection": null,
       "projection_sd": null,
@@ -32896,7 +32896,7 @@
       "on_bye": false,
       "platform_projection": 8.6,
       "season_avg": 5.03,
-      "percent_owned": 37.17,
+      "percent_owned": 37.21,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -33103,7 +33103,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 8.9,
-      "percent_owned": 28.51,
+      "percent_owned": 28.43,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -33172,7 +33172,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 3.32,
-      "percent_owned": 28.38,
+      "percent_owned": 28.37,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -33241,7 +33241,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 4.96,
-      "percent_owned": 28.19,
+      "percent_owned": 28.17,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -33298,7 +33298,7 @@
       "name": "Jaylin Noel",
       "position": "WR",
       "team": "HOU",
-      "status": "",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -33379,7 +33379,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 3.2,
-      "percent_owned": 21.39,
+      "percent_owned": 21.37,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -33429,7 +33429,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4710714",
@@ -33586,7 +33586,7 @@
       "on_bye": false,
       "platform_projection": 8.89,
       "season_avg": 8.73,
-      "percent_owned": 15.48,
+      "percent_owned": 15.54,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -33999,8 +33999,8 @@
       ],
       "on_bye": false,
       "platform_projection": 7.45,
-      "season_avg": 4.45,
-      "percent_owned": 10.01,
+      "season_avg": 4.17,
+      "percent_owned": 9.95,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -34050,7 +34050,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4869645",
@@ -34068,7 +34068,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.07,
-      "season_avg": 8.67,
+      "season_avg": 13.1,
       "percent_owned": 9.67,
       "projection": null,
       "projection_sd": null,
@@ -34344,7 +34344,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.73,
-      "season_avg": 7.42,
+      "season_avg": 6.36,
       "percent_owned": 7.07,
       "projection": null,
       "projection_sd": null,
@@ -34395,7 +34395,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3925357",
@@ -34482,7 +34482,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.98,
-      "season_avg": 6.34,
+      "season_avg": 6.69,
       "percent_owned": 4.83,
       "projection": null,
       "projection_sd": null,
@@ -34620,7 +34620,7 @@
       ],
       "on_bye": false,
       "platform_projection": 5.74,
-      "season_avg": 2.42,
+      "season_avg": 2.3,
       "percent_owned": 3.57,
       "projection": null,
       "projection_sd": null,
@@ -34671,7 +34671,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2991662",
@@ -34965,7 +34965,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.98,
-      "season_avg": 1.06,
+      "season_avg": 1.66,
       "percent_owned": 2.71,
       "projection": null,
       "projection_sd": null,
@@ -35104,7 +35104,7 @@
       "on_bye": false,
       "platform_projection": 7.31,
       "season_avg": 5.54,
-      "percent_owned": 2.15,
+      "percent_owned": 2.16,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -35154,7 +35154,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4686422",
@@ -35172,7 +35172,7 @@
       ],
       "on_bye": false,
       "platform_projection": 4.13,
-      "season_avg": 6.07,
+      "season_avg": 7.77,
       "percent_owned": 2.12,
       "projection": null,
       "projection_sd": null,
@@ -35379,7 +35379,7 @@
       ],
       "on_bye": false,
       "platform_projection": 6.31,
-      "season_avg": 2.5,
+      "season_avg": 3.08,
       "percent_owned": 1.8,
       "projection": null,
       "projection_sd": null,
@@ -35586,8 +35586,8 @@
       ],
       "on_bye": false,
       "platform_projection": 7.86,
-      "season_avg": 8.1,
-      "percent_owned": 1.36,
+      "season_avg": 6.05,
+      "percent_owned": 1.37,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -35637,7 +35637,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3676833",
@@ -35844,7 +35844,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4912218",
@@ -36276,7 +36276,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.37,
-      "season_avg": 3.64,
+      "season_avg": 3.96,
       "percent_owned": 0.81,
       "projection": null,
       "projection_sd": null,
@@ -36552,7 +36552,7 @@
       ],
       "on_bye": false,
       "platform_projection": 5.52,
-      "season_avg": 1.55,
+      "season_avg": 1.56,
       "percent_owned": 0.62,
       "projection": null,
       "projection_sd": null,
@@ -36603,7 +36603,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4360797",
@@ -36672,7 +36672,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4608810",
@@ -36966,7 +36966,7 @@
       ],
       "on_bye": false,
       "platform_projection": 4.8,
-      "season_avg": 0.46,
+      "season_avg": 1.13,
       "percent_owned": 0.49,
       "projection": null,
       "projection_sd": null,
@@ -37104,7 +37104,7 @@
       ],
       "on_bye": false,
       "platform_projection": 4.08,
-      "season_avg": 2.02,
+      "season_avg": 1.73,
       "percent_owned": 0.41,
       "projection": null,
       "projection_sd": null,
@@ -37155,7 +37155,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3051889",
@@ -37293,7 +37293,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4249417",
@@ -37569,7 +37569,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4360438",
@@ -37914,7 +37914,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3916945",
@@ -38259,7 +38259,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4257188",
@@ -38415,7 +38415,7 @@
       ],
       "on_bye": false,
       "platform_projection": 6.07,
-      "season_avg": 4.3,
+      "season_avg": 4.81,
       "percent_owned": 0.13,
       "projection": null,
       "projection_sd": null,
@@ -38604,7 +38604,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "5088338",
@@ -38760,7 +38760,7 @@
       ],
       "on_bye": false,
       "platform_projection": 4.64,
-      "season_avg": 1.43,
+      "season_avg": 1.23,
       "percent_owned": 0.11,
       "projection": null,
       "projection_sd": null,
@@ -38811,7 +38811,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4037235",
@@ -38898,7 +38898,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.94,
-      "season_avg": 3.5,
+      "season_avg": 2.92,
       "percent_owned": 0.1,
       "projection": null,
       "projection_sd": null,
@@ -38967,7 +38967,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.43,
-      "season_avg": 2.27,
+      "season_avg": 1.94,
       "percent_owned": 0.1,
       "projection": null,
       "projection_sd": null,
@@ -39105,7 +39105,7 @@
       ],
       "on_bye": false,
       "platform_projection": 2.35,
-      "season_avg": 1.17,
+      "season_avg": 1.2,
       "percent_owned": 0.09,
       "projection": null,
       "projection_sd": null,
@@ -39156,7 +39156,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4039057",
@@ -39225,7 +39225,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4567096",
@@ -39657,7 +39657,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.25,
-      "season_avg": 0.4,
+      "season_avg": 0.34,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -39708,7 +39708,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3917914",
@@ -39795,7 +39795,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.0,
-      "season_avg": 0.97,
+      "season_avg": 0.72,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -39864,7 +39864,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.97,
-      "season_avg": 1.42,
+      "season_avg": 1.18,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -39984,7 +39984,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3134353",
@@ -40002,7 +40002,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.53,
-      "season_avg": 3.55,
+      "season_avg": 2.37,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -40677,6 +40677,75 @@
       "on_waivers": true
     },
     {
+      "player_id": "4372414",
+      "name": "Elijah Moore",
+      "position": "WR",
+      "team": "PHI",
+      "status": "",
+      "slot": "FA",
+      "eligible_slots": [
+        "FLEX",
+        "SUPERFLEX",
+        "WR",
+        "WR/RB",
+        "WR/TE"
+      ],
+      "on_bye": false,
+      "platform_projection": 4.99,
+      "season_avg": 0.35,
+      "percent_owned": 0.05,
+      "projection": null,
+      "projection_sd": null,
+      "projection_source": "",
+      "ros_value": null,
+      "backfield_share": null,
+      "takeover_share": null,
+      "depth_order": null,
+      "games_missed": 0,
+      "photo": "",
+      "fp_play": null,
+      "schedule": {},
+      "season_loss": null,
+      "hazard_mult": null,
+      "return_week": null,
+      "reported_back": null,
+      "reported_share": null,
+      "reported_note": "",
+      "signing_team": null,
+      "signing_odds": null,
+      "signing_wait": 0,
+      "signing_share": null,
+      "news": "",
+      "inherited_ros": 0.0,
+      "model_projection": null,
+      "vegas_points": null,
+      "vegas_stats": {},
+      "vegas_filled": [],
+      "vegas_books": 0,
+      "nfl_opponent": null,
+      "role": "",
+      "play_probability": 1.0,
+      "practice": "",
+      "outcome_sd": null,
+      "ros_sd": null,
+      "experience": null,
+      "signals": [],
+      "usage": "",
+      "locked": false,
+      "actual_points": null,
+      "nfl_id": null,
+      "pre_market_projection": null,
+      "market_weight": 0.0,
+      "consensus_weight": 0.0,
+      "ecr_ros_pos_rank": null,
+      "ecr_week_pos_rank": null,
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0,
+      "kickoff": null,
+      "on_waivers": false
+    },
+    {
       "player_id": "4243389",
       "name": "Calvin Austin III",
       "position": "WR",
@@ -40881,7 +40950,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4635009",
@@ -40899,7 +40968,76 @@
       ],
       "on_bye": false,
       "platform_projection": 0.69,
-      "season_avg": 1.04,
+      "season_avg": 0.87,
+      "percent_owned": 0.05,
+      "projection": null,
+      "projection_sd": null,
+      "projection_source": "",
+      "ros_value": null,
+      "backfield_share": null,
+      "takeover_share": null,
+      "depth_order": null,
+      "games_missed": 0,
+      "photo": "",
+      "fp_play": null,
+      "schedule": {},
+      "season_loss": null,
+      "hazard_mult": null,
+      "return_week": null,
+      "reported_back": null,
+      "reported_share": null,
+      "reported_note": "",
+      "signing_team": null,
+      "signing_odds": null,
+      "signing_wait": 0,
+      "signing_share": null,
+      "news": "",
+      "inherited_ros": 0.0,
+      "model_projection": null,
+      "vegas_points": null,
+      "vegas_stats": {},
+      "vegas_filled": [],
+      "vegas_books": 0,
+      "nfl_opponent": null,
+      "role": "",
+      "play_probability": 1.0,
+      "practice": "",
+      "outcome_sd": null,
+      "ros_sd": null,
+      "experience": null,
+      "signals": [],
+      "usage": "",
+      "locked": false,
+      "actual_points": null,
+      "nfl_id": null,
+      "pre_market_projection": null,
+      "market_weight": 0.0,
+      "consensus_weight": 0.0,
+      "ecr_ros_pos_rank": null,
+      "ecr_week_pos_rank": null,
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0,
+      "kickoff": null,
+      "on_waivers": true
+    },
+    {
+      "player_id": "3120348",
+      "name": "JuJu Smith-Schuster",
+      "position": "WR",
+      "team": null,
+      "status": "",
+      "slot": "FA",
+      "eligible_slots": [
+        "FLEX",
+        "SUPERFLEX",
+        "WR",
+        "WR/RB",
+        "WR/TE"
+      ],
+      "on_bye": true,
+      "platform_projection": 0.0,
+      "season_avg": 0.0,
       "percent_owned": 0.05,
       "projection": null,
       "projection_sd": null,
@@ -41019,7 +41157,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3926231",
@@ -41226,7 +41364,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4386544",
@@ -41365,75 +41503,6 @@
       "sleeper_weight": 0.0,
       "kickoff": null,
       "on_waivers": true
-    },
-    {
-      "player_id": "4372414",
-      "name": "Elijah Moore",
-      "position": "WR",
-      "team": "PHI",
-      "status": "",
-      "slot": "FA",
-      "eligible_slots": [
-        "FLEX",
-        "SUPERFLEX",
-        "WR",
-        "WR/RB",
-        "WR/TE"
-      ],
-      "on_bye": false,
-      "platform_projection": 4.99,
-      "season_avg": 0.35,
-      "percent_owned": 0.04,
-      "projection": null,
-      "projection_sd": null,
-      "projection_source": "",
-      "ros_value": null,
-      "backfield_share": null,
-      "takeover_share": null,
-      "depth_order": null,
-      "games_missed": 0,
-      "photo": "",
-      "fp_play": null,
-      "schedule": {},
-      "season_loss": null,
-      "hazard_mult": null,
-      "return_week": null,
-      "reported_back": null,
-      "reported_share": null,
-      "reported_note": "",
-      "signing_team": null,
-      "signing_odds": null,
-      "signing_wait": 0,
-      "signing_share": null,
-      "news": "",
-      "inherited_ros": 0.0,
-      "model_projection": null,
-      "vegas_points": null,
-      "vegas_stats": {},
-      "vegas_filled": [],
-      "vegas_books": 0,
-      "nfl_opponent": null,
-      "role": "",
-      "play_probability": 1.0,
-      "practice": "",
-      "outcome_sd": null,
-      "ros_sd": null,
-      "experience": null,
-      "signals": [],
-      "usage": "",
-      "locked": false,
-      "actual_points": null,
-      "nfl_id": null,
-      "pre_market_projection": null,
-      "market_weight": 0.0,
-      "consensus_weight": 0.0,
-      "ecr_ros_pos_rank": null,
-      "ecr_week_pos_rank": null,
-      "fp_projection": null,
-      "sleeper_projection": null,
-      "sleeper_weight": 0.0,
-      "kickoff": null,
-      "on_waivers": false
     },
     {
       "player_id": "4241476",
@@ -41588,75 +41657,6 @@
         "WR/TE"
       ],
       "on_bye": false,
-      "platform_projection": 0.0,
-      "season_avg": 0.0,
-      "percent_owned": 0.04,
-      "projection": null,
-      "projection_sd": null,
-      "projection_source": "",
-      "ros_value": null,
-      "backfield_share": null,
-      "takeover_share": null,
-      "depth_order": null,
-      "games_missed": 0,
-      "photo": "",
-      "fp_play": null,
-      "schedule": {},
-      "season_loss": null,
-      "hazard_mult": null,
-      "return_week": null,
-      "reported_back": null,
-      "reported_share": null,
-      "reported_note": "",
-      "signing_team": null,
-      "signing_odds": null,
-      "signing_wait": 0,
-      "signing_share": null,
-      "news": "",
-      "inherited_ros": 0.0,
-      "model_projection": null,
-      "vegas_points": null,
-      "vegas_stats": {},
-      "vegas_filled": [],
-      "vegas_books": 0,
-      "nfl_opponent": null,
-      "role": "",
-      "play_probability": 1.0,
-      "practice": "",
-      "outcome_sd": null,
-      "ros_sd": null,
-      "experience": null,
-      "signals": [],
-      "usage": "",
-      "locked": false,
-      "actual_points": null,
-      "nfl_id": null,
-      "pre_market_projection": null,
-      "market_weight": 0.0,
-      "consensus_weight": 0.0,
-      "ecr_ros_pos_rank": null,
-      "ecr_week_pos_rank": null,
-      "fp_projection": null,
-      "sleeper_projection": null,
-      "sleeper_weight": 0.0,
-      "kickoff": null,
-      "on_waivers": false
-    },
-    {
-      "player_id": "3120348",
-      "name": "JuJu Smith-Schuster",
-      "position": "WR",
-      "team": null,
-      "status": "",
-      "slot": "FA",
-      "eligible_slots": [
-        "FLEX",
-        "SUPERFLEX",
-        "WR",
-        "WR/RB",
-        "WR/TE"
-      ],
-      "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 0.0,
       "percent_owned": 0.04,
@@ -42123,7 +42123,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4869132",
@@ -42192,7 +42192,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4570738",
@@ -42279,7 +42279,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.88,
-      "season_avg": 0.55,
+      "season_avg": 0.44,
       "percent_owned": 0.03,
       "projection": null,
       "projection_sd": null,
@@ -42537,7 +42537,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3126997",
@@ -42606,7 +42606,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "5093923",
@@ -42744,7 +42744,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4424106",
@@ -42813,7 +42813,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4360739",
@@ -42951,7 +42951,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4369466",
@@ -43089,7 +43089,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4430681",
@@ -43107,7 +43107,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.7,
-      "season_avg": 2.1,
+      "season_avg": 1.75,
       "percent_owned": 0.02,
       "projection": null,
       "projection_sd": null,
@@ -43158,7 +43158,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4431210",
@@ -43227,7 +43227,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4360637",
@@ -43296,7 +43296,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4431142",
@@ -43848,7 +43848,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "16460",
@@ -43917,7 +43917,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "3930066",
@@ -44055,7 +44055,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4240577",
@@ -44124,7 +44124,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4369863",
@@ -44193,7 +44193,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4431342",
@@ -44331,7 +44331,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4685381",
@@ -44607,7 +44607,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "3871102",
@@ -44676,7 +44676,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4361426",
@@ -45780,7 +45780,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "3047876",
@@ -46349,7 +46349,7 @@
       "on_bye": false,
       "platform_projection": 5.9,
       "season_avg": 7.42,
-      "percent_owned": 53.71,
+      "percent_owned": 53.69,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -46485,7 +46485,7 @@
       "on_bye": false,
       "platform_projection": 5.24,
       "season_avg": 6.1,
-      "percent_owned": 27.18,
+      "percent_owned": 27.17,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -46621,7 +46621,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 6.43,
-      "percent_owned": 12.57,
+      "percent_owned": 12.56,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -46671,7 +46671,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2576925",
@@ -46756,8 +46756,8 @@
       ],
       "on_bye": false,
       "platform_projection": 8.16,
-      "season_avg": 4.1,
-      "percent_owned": 6.6,
+      "season_avg": 4.02,
+      "percent_owned": 6.61,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -46807,7 +46807,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4430802",
@@ -47028,7 +47028,7 @@
       ],
       "on_bye": false,
       "platform_projection": 5.74,
-      "season_avg": 5.23,
+      "season_avg": 4.66,
       "percent_owned": 2.3,
       "projection": null,
       "projection_sd": null,
@@ -47079,7 +47079,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4595342",
@@ -47164,7 +47164,7 @@
       ],
       "on_bye": false,
       "platform_projection": 4.11,
-      "season_avg": 2.86,
+      "season_avg": 3.2,
       "percent_owned": 1.93,
       "projection": null,
       "projection_sd": null,
@@ -47912,7 +47912,7 @@
       ],
       "on_bye": false,
       "platform_projection": 5.6,
-      "season_avg": 5.9,
+      "season_avg": 7.94,
       "percent_owned": 0.25,
       "projection": null,
       "projection_sd": null,
@@ -48371,7 +48371,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4431588",
@@ -48524,7 +48524,7 @@
       ],
       "on_bye": false,
       "platform_projection": 3.86,
-      "season_avg": 6.03,
+      "season_avg": 5.17,
       "percent_owned": 0.11,
       "projection": null,
       "projection_sd": null,
@@ -48660,7 +48660,7 @@
       ],
       "on_bye": false,
       "platform_projection": 4.02,
-      "season_avg": 4.9,
+      "season_avg": 4.66,
       "percent_owned": 0.1,
       "projection": null,
       "projection_sd": null,
@@ -48711,7 +48711,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4242392",
@@ -48779,7 +48779,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3043275",
@@ -48983,7 +48983,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3127310",
@@ -49000,7 +49000,7 @@
       ],
       "on_bye": false,
       "platform_projection": 2.45,
-      "season_avg": 1.48,
+      "season_avg": 2.97,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -49119,7 +49119,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2998565",
@@ -49340,7 +49340,7 @@
       ],
       "on_bye": false,
       "platform_projection": 3.07,
-      "season_avg": 3.6,
+      "season_avg": 3.0,
       "percent_owned": 0.07,
       "projection": null,
       "projection_sd": null,
@@ -49680,7 +49680,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.93,
-      "season_avg": 1.08,
+      "season_avg": 0.9,
       "percent_owned": 0.05,
       "projection": null,
       "projection_sd": null,
@@ -50003,7 +50003,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4374045",
@@ -50071,7 +50071,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4426496",
@@ -50411,7 +50411,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4362018",
@@ -50428,7 +50428,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.33,
-      "season_avg": 2.15,
+      "season_avg": 1.84,
       "percent_owned": 0.04,
       "projection": null,
       "projection_sd": null,
@@ -50547,7 +50547,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2975863",
@@ -50836,7 +50836,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.92,
-      "season_avg": 2.05,
+      "season_avg": 3.03,
       "percent_owned": 0.03,
       "projection": null,
       "projection_sd": null,
@@ -50887,7 +50887,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4360086",
@@ -50955,7 +50955,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "4695705",
@@ -51091,7 +51091,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "2531358",
@@ -51244,7 +51244,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.72,
-      "season_avg": 2.83,
+      "season_avg": 3.1,
       "percent_owned": 0.03,
       "projection": null,
       "projection_sd": null,
@@ -51448,7 +51448,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.01,
-      "season_avg": 0.25,
+      "season_avg": 0.21,
       "percent_owned": 0.02,
       "projection": null,
       "projection_sd": null,
@@ -51499,7 +51499,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4714379",
@@ -51567,7 +51567,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4917427",
@@ -51703,7 +51703,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4722908",
@@ -51771,7 +51771,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4239944",
@@ -51907,7 +51907,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4685540",
@@ -51975,7 +51975,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "2975674",
@@ -52043,7 +52043,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4241374",
@@ -52179,7 +52179,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4430723",
@@ -52383,7 +52383,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4432338",
@@ -52658,6 +52658,74 @@
       "on_waivers": false
     },
     {
+      "player_id": "4431346",
+      "name": "Mark Redman",
+      "position": "TE",
+      "team": "GB",
+      "status": "",
+      "slot": "FA",
+      "eligible_slots": [
+        "FLEX",
+        "SUPERFLEX",
+        "TE",
+        "WR/TE"
+      ],
+      "on_bye": false,
+      "platform_projection": 0.63,
+      "season_avg": 0.82,
+      "percent_owned": 0.02,
+      "projection": null,
+      "projection_sd": null,
+      "projection_source": "",
+      "ros_value": null,
+      "backfield_share": null,
+      "takeover_share": null,
+      "depth_order": null,
+      "games_missed": 0,
+      "photo": "",
+      "fp_play": null,
+      "schedule": {},
+      "season_loss": null,
+      "hazard_mult": null,
+      "return_week": null,
+      "reported_back": null,
+      "reported_share": null,
+      "reported_note": "",
+      "signing_team": null,
+      "signing_odds": null,
+      "signing_wait": 0,
+      "signing_share": null,
+      "news": "",
+      "inherited_ros": 0.0,
+      "model_projection": null,
+      "vegas_points": null,
+      "vegas_stats": {},
+      "vegas_filled": [],
+      "vegas_books": 0,
+      "nfl_opponent": null,
+      "role": "",
+      "play_probability": 1.0,
+      "practice": "",
+      "outcome_sd": null,
+      "ros_sd": null,
+      "experience": null,
+      "signals": [],
+      "usage": "",
+      "locked": false,
+      "actual_points": null,
+      "nfl_id": null,
+      "pre_market_projection": null,
+      "market_weight": 0.0,
+      "consensus_weight": 0.0,
+      "ecr_ros_pos_rank": null,
+      "ecr_week_pos_rank": null,
+      "fp_projection": null,
+      "sleeper_projection": null,
+      "sleeper_weight": 0.0,
+      "kickoff": null,
+      "on_waivers": false
+    },
+    {
       "player_id": "4431196",
       "name": "Jake Briningstool",
       "position": "TE",
@@ -52740,7 +52808,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.55,
-      "season_avg": 1.07,
+      "season_avg": 0.8,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -52791,7 +52859,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4039160",
@@ -52859,7 +52927,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4034948",
@@ -52927,7 +52995,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4241410",
@@ -52995,7 +53063,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4361438",
@@ -53063,7 +53131,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4244049",
@@ -53199,7 +53267,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4365395",
@@ -53267,7 +53335,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4373030",
@@ -53539,7 +53607,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4248557",
@@ -53675,7 +53743,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4432208",
@@ -53811,7 +53879,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4688552",
@@ -53964,7 +54032,7 @@
       ],
       "on_bye": false,
       "platform_projection": 0.5,
-      "season_avg": 2.0,
+      "season_avg": 1.0,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -54015,7 +54083,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4890373",
@@ -54083,7 +54151,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4877034",
@@ -54151,7 +54219,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "5159802",
@@ -54287,7 +54355,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "2576399",
@@ -54355,7 +54423,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "2511973",
@@ -54559,7 +54627,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "2971281",
@@ -54576,7 +54644,7 @@
       ],
       "on_bye": false,
       "platform_projection": 1.32,
-      "season_avg": 1.7,
+      "season_avg": 0.85,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -54627,7 +54695,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4035115",
@@ -54831,7 +54899,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4360231",
@@ -55103,7 +55171,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4429262",
@@ -55579,7 +55647,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4876006",
@@ -55597,74 +55665,6 @@
       "on_bye": true,
       "platform_projection": null,
       "season_avg": 0.0,
-      "percent_owned": 0.01,
-      "projection": null,
-      "projection_sd": null,
-      "projection_source": "",
-      "ros_value": null,
-      "backfield_share": null,
-      "takeover_share": null,
-      "depth_order": null,
-      "games_missed": 0,
-      "photo": "",
-      "fp_play": null,
-      "schedule": {},
-      "season_loss": null,
-      "hazard_mult": null,
-      "return_week": null,
-      "reported_back": null,
-      "reported_share": null,
-      "reported_note": "",
-      "signing_team": null,
-      "signing_odds": null,
-      "signing_wait": 0,
-      "signing_share": null,
-      "news": "",
-      "inherited_ros": 0.0,
-      "model_projection": null,
-      "vegas_points": null,
-      "vegas_stats": {},
-      "vegas_filled": [],
-      "vegas_books": 0,
-      "nfl_opponent": null,
-      "role": "",
-      "play_probability": 1.0,
-      "practice": "",
-      "outcome_sd": null,
-      "ros_sd": null,
-      "experience": null,
-      "signals": [],
-      "usage": "",
-      "locked": false,
-      "actual_points": null,
-      "nfl_id": null,
-      "pre_market_projection": null,
-      "market_weight": 0.0,
-      "consensus_weight": 0.0,
-      "ecr_ros_pos_rank": null,
-      "ecr_week_pos_rank": null,
-      "fp_projection": null,
-      "sleeper_projection": null,
-      "sleeper_weight": 0.0,
-      "kickoff": null,
-      "on_waivers": false
-    },
-    {
-      "player_id": "4431346",
-      "name": "Mark Redman",
-      "position": "TE",
-      "team": "GB",
-      "status": "",
-      "slot": "FA",
-      "eligible_slots": [
-        "FLEX",
-        "SUPERFLEX",
-        "TE",
-        "WR/TE"
-      ],
-      "on_bye": false,
-      "platform_projection": 0.63,
-      "season_avg": 0.82,
       "percent_owned": 0.01,
       "projection": null,
       "projection_sd": null,
@@ -55783,7 +55783,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": true
+      "on_waivers": false
     },
     {
       "player_id": "4429811",
@@ -58858,7 +58858,7 @@
       "on_bye": false,
       "platform_projection": 10.26,
       "season_avg": 9.1,
-      "percent_owned": 69.73,
+      "percent_owned": 69.84,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -58922,7 +58922,7 @@
       ],
       "on_bye": false,
       "platform_projection": 8.13,
-      "season_avg": 5.64,
+      "season_avg": 5.57,
       "percent_owned": 61.8,
       "projection": null,
       "projection_sd": null,
@@ -59053,7 +59053,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 9.25,
-      "percent_owned": 59.86,
+      "percent_owned": 59.77,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59118,7 +59118,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 6.0,
-      "percent_owned": 46.59,
+      "percent_owned": 46.48,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59182,8 +59182,8 @@
       ],
       "on_bye": false,
       "platform_projection": 9.04,
-      "season_avg": 9.8,
-      "percent_owned": 41.34,
+      "season_avg": 9.0,
+      "percent_owned": 41.37,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59233,7 +59233,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "17427",
@@ -59313,7 +59313,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 5.6,
-      "percent_owned": 21.68,
+      "percent_owned": 21.64,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59377,7 +59377,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.4,
-      "season_avg": 9.5,
+      "season_avg": 9.83,
       "percent_owned": 21.19,
       "projection": null,
       "projection_sd": null,
@@ -59507,8 +59507,8 @@
       ],
       "on_bye": false,
       "platform_projection": 9.21,
-      "season_avg": 7.17,
-      "percent_owned": 14.36,
+      "season_avg": 6.14,
+      "percent_owned": 14.4,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59558,7 +59558,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3917232",
@@ -59573,7 +59573,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 10.17,
-      "percent_owned": 9.72,
+      "percent_owned": 9.7,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59637,8 +59637,8 @@
       ],
       "on_bye": false,
       "platform_projection": 9.42,
-      "season_avg": 10.0,
-      "percent_owned": 9.41,
+      "season_avg": 9.0,
+      "percent_owned": 9.45,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59688,7 +59688,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "10621",
@@ -59702,7 +59702,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.18,
-      "season_avg": 7.21,
+      "season_avg": 7.64,
       "percent_owned": 5.81,
       "projection": null,
       "projection_sd": null,
@@ -59768,7 +59768,7 @@
       "on_bye": false,
       "platform_projection": 6.66,
       "season_avg": 5.5,
-      "percent_owned": 5.49,
+      "percent_owned": 5.5,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59833,7 +59833,7 @@
       "on_bye": false,
       "platform_projection": 0.0,
       "season_avg": 4.0,
-      "percent_owned": 1.87,
+      "percent_owned": 1.85,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -59883,7 +59883,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "3051909",
@@ -60027,7 +60027,7 @@
       ],
       "on_bye": false,
       "platform_projection": 8.51,
-      "season_avg": 7.93,
+      "season_avg": 8.5,
       "percent_owned": 1.4,
       "projection": null,
       "projection_sd": null,
@@ -60222,7 +60222,7 @@
       ],
       "on_bye": false,
       "platform_projection": 7.18,
-      "season_avg": 5.71,
+      "season_avg": 6.29,
       "percent_owned": 0.42,
       "projection": null,
       "projection_sd": null,
@@ -60287,8 +60287,8 @@
       ],
       "on_bye": false,
       "platform_projection": 7.98,
-      "season_avg": 0.0,
-      "percent_owned": 0.38,
+      "season_avg": 1.0,
+      "percent_owned": 0.39,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -60338,7 +60338,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "15683",
@@ -60677,7 +60677,7 @@
       ],
       "on_bye": false,
       "platform_projection": 5.61,
-      "season_avg": 3.0,
+      "season_avg": 4.0,
       "percent_owned": 0.06,
       "projection": null,
       "projection_sd": null,
@@ -61977,8 +61977,8 @@
       ],
       "on_bye": false,
       "platform_projection": 7.49,
-      "season_avg": 6.25,
-      "percent_owned": 71.92,
+      "season_avg": 6.64,
+      "percent_owned": 71.9,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62028,7 +62028,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "-16017",
@@ -62108,7 +62108,7 @@
       "on_bye": false,
       "platform_projection": 7.23,
       "season_avg": 3.92,
-      "percent_owned": 40.99,
+      "percent_owned": 40.97,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62173,7 +62173,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 8.58,
-      "percent_owned": 28.11,
+      "percent_owned": 28.06,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62237,8 +62237,8 @@
       ],
       "on_bye": false,
       "platform_projection": 8.1,
-      "season_avg": 8.3,
-      "percent_owned": 22.49,
+      "season_avg": 8.25,
+      "percent_owned": 22.5,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62288,7 +62288,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "-16003",
@@ -62432,7 +62432,7 @@
       ],
       "on_bye": false,
       "platform_projection": 9.27,
-      "season_avg": 11.92,
+      "season_avg": 12.33,
       "percent_owned": 16.03,
       "projection": null,
       "projection_sd": null,
@@ -62497,8 +62497,8 @@
       ],
       "on_bye": false,
       "platform_projection": 6.2,
-      "season_avg": 10.75,
-      "percent_owned": 11.53,
+      "season_avg": 10.07,
+      "percent_owned": 11.54,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62548,7 +62548,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "-16024",
@@ -62563,7 +62563,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 7.42,
-      "percent_owned": 10.51,
+      "percent_owned": 10.49,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62628,7 +62628,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 4.42,
-      "percent_owned": 7.41,
+      "percent_owned": 7.4,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -62692,7 +62692,7 @@
       ],
       "on_bye": false,
       "platform_projection": 6.79,
-      "season_avg": 7.57,
+      "season_avg": 7.29,
       "percent_owned": 6.14,
       "projection": null,
       "projection_sd": null,
@@ -62822,7 +62822,7 @@
       ],
       "on_bye": false,
       "platform_projection": 6.91,
-      "season_avg": 8.83,
+      "season_avg": 8.71,
       "percent_owned": 5.01,
       "projection": null,
       "projection_sd": null,
@@ -62873,7 +62873,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "-16018",
@@ -62953,7 +62953,7 @@
       "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 6.58,
-      "percent_owned": 2.58,
+      "percent_owned": 2.57,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -63017,8 +63017,8 @@
       ],
       "on_bye": false,
       "platform_projection": 6.67,
-      "season_avg": 6.58,
-      "percent_owned": 0.86,
+      "season_avg": 7.21,
+      "percent_owned": 0.87,
       "projection": null,
       "projection_sd": null,
       "projection_source": "",
@@ -63068,7 +63068,7 @@
       "sleeper_projection": null,
       "sleeper_weight": 0.0,
       "kickoff": null,
-      "on_waivers": false
+      "on_waivers": true
     },
     {
       "player_id": "-16015",
@@ -63082,7 +63082,7 @@
       ],
       "on_bye": false,
       "platform_projection": 8.0,
-      "season_avg": 4.5,
+      "season_avg": 4.0,
       "percent_owned": 0.86,
       "projection": null,
       "projection_sd": null,
@@ -63140,12 +63140,12 @@
     "week": 7,
     "my_team_id": "3",
     "opponent_team_id": "5",
-    "my_platform_projection": 130.49,
-    "opp_platform_projection": 130.75,
-    "my_points": 88.94,
-    "opp_points": 68.0
+    "my_platform_projection": 124.03,
+    "opp_platform_projection": 118.26,
+    "my_points": 99.94,
+    "opp_points": 83.02
   },
-  "synced_at": "2026-10-25T19:35:11.709761+00:00",
+  "synced_at": "2026-10-25T21:13:09.382194+00:00",
   "extra": {
     "nfl_week": 7,
     "current_week": 7
