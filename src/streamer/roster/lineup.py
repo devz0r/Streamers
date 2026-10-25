@@ -834,8 +834,8 @@ class PickupOption:
         or, for cover, what he is held for."""
         if not self.changes and self.cover is not None:
             return f"hold him on the bench to replace {self.cover.name} if he is ruled out"
-        return "; ".join(f"start {s.name}" + (f" over {b.name}" if b is not None else "")
-                         for _slot, b, s in self.changes)
+        return "; ".join(f"start {s.name} at {slot}" + (f" over {b.name}" if b is not None else " (an open slot)")
+                         for slot, b, s in self.changes)
 
     @property
     def clear(self) -> bool:

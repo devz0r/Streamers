@@ -1091,7 +1091,7 @@ def _pickups(report: MatchupReport) -> str:
         if near:
             closest = " Closest: " + "; ".join(
                 f"{_e(o.player.name)} ({_e(o.player.position)}, {(o.player.projection or 0):.1f} this week"
-                + (f", {_e(o.moves_text)}" if o.changes else "") + f"): {o.gain * 100:+.1f}"
+                + (f", {_e(o.moves_text)}" if o.changes or getattr(o, "cover", None) is not None else "") + f"): {o.gain * 100:+.1f}"
                 for o in near) + " points of P(win)."
         locked = sum(1 for p in report.snapshot.free_agents if p.locked and p.position in ("QB", "RB", "WR", "TE"))
         played = (f" Free agents whose games have kicked off ({locked}) can no longer help this week."
@@ -1104,7 +1104,7 @@ def _pickups(report: MatchupReport) -> str:
         season = (f"{o.title_gain * 100:+.1f}" if o.title_gain is not None else "--")
         vs = f"{o.gain * 100:+.1f}" + ("" if o.clear else "*")
         why = []
-        if o.changes:
+        if o.changes or getattr(o, "cover", None) is not None:
             why.append(o.moves_text)
         if o.drop is not None:
             why.append(f"drop {o.drop.name}")

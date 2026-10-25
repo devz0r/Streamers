@@ -86,3 +86,19 @@ def test_when_no_pickup_helps_the_closest_are_still_shown(cfg):
     assert "Closest:" in parts["waivers"] and "WR Player 306" in parts["waivers"]
     assert "No free agent clearly raises P(win) this week (closest: WR Player 306" in parts["lineup"]
     assert 'for="sec-espn-waivers"' in parts["lineup"]
+
+
+def test_a_pickup_held_as_cover_says_whom_he_covers():
+    """Darius Cooper's row showed only the drop: a pickup held on the bench
+    for a questionable starter has no lineup change, and the line naming
+    the starter he would replace was skipped."""
+    from streamer.league.model import PlayerRow
+    from streamer.roster.lineup import PickupOption
+
+    q = PlayerRow(player_id="q", name="Q Starter", position="WR", team="KC")
+    o = PickupOption(player=PlayerRow(player_id="c", name="Darius Cooper", position="WR", team="PHI"),
+                     win_probability=0.6, base=0.56, noise=0.005, lineup=None, cover=q)
+    assert "replace Q Starter" in o.moves_text
+    o2 = PickupOption(player=o.player, win_probability=0.6, base=0.56, noise=0.005, lineup=None,
+                      changes=[("FLEX", q, o.player)])
+    assert o2.moves_text == "start Darius Cooper at FLEX over Q Starter"
