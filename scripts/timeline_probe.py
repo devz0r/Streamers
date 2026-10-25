@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-DEFAULT = ["Davante Adams", "Jalen Hurts", "Austin Ekeler", "Terry McLaurin", "Baker Mayfield", "Josh Jacobs",
+DEFAULT = ["Woody Marks", "Emanuel Wilson", "Davante Adams", "Jalen Hurts", "Austin Ekeler", "Terry McLaurin", "Baker Mayfield", "Josh Jacobs",
            "Romeo Doubs", "Jordan Mason", "Tank Bigsby", "Jadarian Price", "Alec Pierce"]
 
 
