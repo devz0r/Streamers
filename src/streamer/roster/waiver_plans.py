@@ -198,8 +198,13 @@ class PlanFinder:
         return self._worth.get(p.player_id, 0.0), _ros(p) + float(p.ros_sd or 0.0)
 
     # -- pricing -----------------------------------------------------------
-    def find(self, n: int = 3) -> list[Plan]:
-        screened = self.screen()[:PRICE_PLANS]
+    def find(self, n: int = 3, only: list[Plan] | None = None) -> list[Plan]:
+        """The best plans, priced in title odds. ``only``: price just these
+        (the shortlist, again on the engine's independent simulation: the
+        best of many plans on one set of seasons is the luckiest, as for
+        single moves -- a third quarterback rode into a plan on noise)."""
+        self.confirmed = only is not None
+        screened = only if only is not None else self.screen()[:PRICE_PLANS]
         if not screened:
             return []
         roster = self.me.roster
@@ -254,6 +259,9 @@ class PlanFinder:
             kept.append(plan)
             if len(kept) >= n:
                 break
+        if only is None and kept and getattr(self.engine, "confirm", False):
+            check = PlanFinder(self.engine.confirmation(), self.singles, self.seen)
+            return check.find(n, only=[Plan(moves=list(p.moves), proxy=p.proxy) for p in kept])
         _adds, pool, _best = self.pools()
         for plan in kept:
             self._drop_options(plan, pool)
@@ -345,6 +353,8 @@ class PlanFinder:
     def _reasons(self, plan: Plan) -> list[str]:
         pts = lambda v: f"{v * 100:+.1f}"            # noqa: E731
         bits = [f"{pts(plan.over_single)} over the best single move"]
+        if getattr(self, "confirmed", False):
+            bits.append("checked on a second, independent simulation")
         if plan.verdict == "lean":
             bits.append(f"that edge is inside the simulation's noise (+-{2 * plan.noise * 100:.2f}): "
                         "the single move gets most of it")

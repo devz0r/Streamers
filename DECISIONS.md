@@ -3734,8 +3734,12 @@ The card says so, with what the first pass read. Cost: about 40 seconds per
 league per full build. On the same snapshot Willis reads "wait" either way;
 Pierre Strong Jr. (the one clear edge) stays a claim.
 
-Waiver plans are left as they were: they must beat the best single move,
-which is itself the luckiest of its pool, so they lean conservative already.
+Waiver plans were at first left as they were (they must beat the best
+single move, itself the luckiest of its pool), but a plan of three adds
+carried Malik Willis as a third quarterback on Yahoo: the best of many
+plans on one set of seasons is as lucky as the best single move. Plans
+shown are now priced again on the same independent simulation, against the
+confirmed single moves, and kept only if they still beat them there.
 
 ### The market's view, refit at week 7
 

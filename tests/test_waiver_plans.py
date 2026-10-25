@@ -103,3 +103,12 @@ def test_a_backup_quarterback_would_not_start_for_a_team_with_a_starter():
     backs = [p("r1", "RB", 18.0), p("r2", "RB", 12.0), p("r3", "RB", 6.0)]
     assert would_start(p("rb", "RB", 11.0), backs, slots)          # beats their flex back
     assert not would_start(p("rb", "RB", 5.0), backs, slots)
+
+
+def test_plans_shown_are_judged_on_the_independent_simulation(engine):
+    plans = PlanFinder(engine, engine.moves(5)).find(3)
+    check = engine.confirmation()
+    for plan in plans:
+        roster = [p for p in engine.me.roster if p not in plan.drops] + plan.adds
+        assert plan.p_plan == pytest.approx(float(check._won([p.player_id for p in roster]).mean()))
+        assert any("second, independent simulation" in r for r in plan.reasons)
