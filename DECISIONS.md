@@ -3657,6 +3657,20 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### "Is back" only when he plays this week
+
+Darius Cooper's card said "DeVonta Smith is back" with Smith ruled out. The
+teammate-return correction reads an out tag as 0% to play this week and
+70% of the rest of the season, so it rightly left Cooper's week alone and
+trimmed only his season value, but the card said "back" either way. Now,
+under 50% to play this week, it reads "out this week but expected back
+later ... this week unchanged". And where the news reports a timeline
+(reported_share), that, not the flat 70% (or 0% for IR), is the share of
+the season the absent player is taken to play, for both the next man up and
+the teammate-return correction: a season-ending injury hands his backup the
+whole season, a 2-week one most of nothing. The flat shares were judgment
+too; no history of news exists to grade either against.
+
 ### Who actually gets picked up
 
 The chance another manager takes a player this week was a guess: each

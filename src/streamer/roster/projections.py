@@ -231,7 +231,8 @@ def _blend(frame: pd.DataFrame, pos_mean: pd.Series, pos_eff: pd.Series, conf: d
 
 TABLE_COLUMNS = ["player_id", "player_display_name", "position", "team", "blend", "vol", "eff",
                  "n", "last_season", "last_week", "recent_exp", "prior_exp", "first_season",
-                 "team_games", "old_team", "vol_all_teams", "vol_ros", "vol_before_back", "back_from"]
+                 "team_games", "old_team", "vol_all_teams", "vol_ros", "vol_before_back", "back_from",
+                 "back_week"]
 
 
 def _window_volume(last: pd.DataFrame, weight, exp, conf: dict, pos_mean: pd.Series) -> pd.Series:
@@ -376,7 +377,7 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     IR (Zach Charbonnet, out weeks 1-6, back as Emanuel Wilson's 21 carries a
     game were priced as his to keep).
 
-    Adds ``vol_ros``, ``vol_before_back`` and ``back_from`` (the teammate
+    Adds ``vol_ros``, ``vol_before_back``, ``back_week`` and ``back_from`` (the teammate
     whose return moves him most).
     """
     from ..teams import normalize_team
@@ -385,6 +386,7 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     out["vol_before_back"] = out["vol"]
     out["vol_ros"] = out["vol"]
     out["back_from"] = None
+    out["back_week"] = np.nan
     rule = conf.get("teammate_back") or {}
     bigger, smaller = rule.get("bigger") or {}, rule.get("smaller") or {}
     # ``cross``: a returning regular pass-catcher at the *other* receiving
@@ -466,7 +468,7 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
     # His volume in the games they shared: what the gap is measured from.
     with_them = (vol_now.reindex(full.index) * shared / full).where(has_shared.reindex(full.index), vol_now)
     cut_week, cut_ros = np.zeros(len(sub)), np.zeros(len(sub))
-    lead: dict[str, tuple[float, str]] = {}
+    lead: dict[str, tuple[float, str, float]] = {}
     pos_of = out.set_index("player_id")["position"]
     for x, (pid, ms) in enumerate(zip(sub["player_id"].to_numpy(), miss_s)):
         mine = float(with_them.get(pid, np.nan))
@@ -483,14 +485,16 @@ def _returning(prior: pd.DataFrame, target: pd.DataFrame, back: dict[str, tuple[
             cut_week[x] += pw * took
             cut_ros[x] += pr * took
             if took * pr > lead.get(pid, (0.0, ""))[0]:
-                lead[pid] = (took * pr, str(r.player_display_name))
+                lead[pid] = (took * pr, str(r.player_display_name), pw)
     f_week = (_window_volume(sub, base_s, np.maximum(exp - cut_week, 0.0), conf, pos_mean) / full)
     f_ros = (_window_volume(sub, base_s, np.maximum(exp - cut_ros, 0.0), conf, pos_mean) / full)
     f_week = f_week.replace([np.inf, -np.inf], np.nan).clip(0.0, 1.0)
     f_ros = f_ros.replace([np.inf, -np.inf], np.nan).clip(0.0, 1.0)
     out["vol"] = out["vol"] * out["player_id"].map(f_week).fillna(1.0)
     out["vol_ros"] = out["vol_before_back"] * out["player_id"].map(f_ros).fillna(1.0)
-    out["back_from"] = out["player_id"].map({pid: name for pid, (_c, name) in lead.items()})
+    out["back_from"] = out["player_id"].map({pid: name for pid, (_c, name, _w) in lead.items()})
+    # His chance of playing this week: "back" is only true when it is high.
+    out["back_week"] = out["player_id"].map({pid: w for pid, (_c, _n, w) in lead.items()})
     return out
 
 
@@ -949,11 +953,15 @@ def _absence(player: PlayerRow, sits: bool, cfg: Config) -> tuple[float, float, 
             label = "is on the NFI list"
         else:
             label = "is on IR"
-        return 1.0, 1.0, label
+        return 1.0, (1.0 if player.reported_share is None else 1.0 - float(player.reported_share)), label
+    # A reported timeline ("out 6-10 weeks", season-ending) says how much of
+    # the rest of the season he misses; without one, an out tag is read as
+    # a short absence.
+    missed = 1.0 - float(player.reported_share) if player.reported_share is not None else 0.3
     if status in OUT_STATUSES:
-        return 1.0, 0.3, "is out"
+        return 1.0, missed, "is out"
     if sits:
-        return 1.0, 0.3, "is not expected to play"
+        return 1.0, missed, "is not expected to play"
     p = _play_probability(player, cfg)
     if p < 1.0:
         label = "is doubtful" if status in ("DOUBTFUL", "D") else "is questionable"
@@ -1187,7 +1195,14 @@ def _back_signal(row, ros: float) -> str:
     if not np.isfinite(cut) or cut < 0.3:
         return ""
     words = [w for w in who.split() if w.rstrip(".").upper() not in ("JR", "SR", "II", "III", "IV", "V")]
-    return (f"{who} is back: the games {(words or [who])[-1]} missed count for less "
+    last = (words or [who])[-1]
+    week = row.get("back_week")
+    if week is not None and np.isfinite(float(week)) and float(week) < 0.5:
+        # Out (or likely out) this week: this week's projection keeps the
+        # work he left; the season value expects him back for part of it.
+        return (f"{who} is out this week but expected back later: for the rest of the season the games "
+                f"{last} missed count for less ({ros + cut:.1f} -> {ros:.1f} a game; this week unchanged)")
+    return (f"{who} is back: the games {last} missed count for less "
             f"({ros + cut:.1f} -> {ros:.1f} a game)")
 
 

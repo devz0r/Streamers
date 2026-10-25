@@ -760,3 +760,24 @@ def test_a_player_with_no_games_this_season_is_not_a_first_game_back(cfg, monkey
     snap, p = _returner_snapshot(hist, "Player 1")
     projections.project_snapshot(snap, cfg, rankings=None, allow_network=False, history=hist)
     assert not any("first game back" in s for s in p.signals)
+
+
+def test_a_teammate_out_this_week_is_not_called_back():
+    """DeVonta Smith, out this week, read "is back" on Darius Cooper's card."""
+    from streamer.roster.projections import _back_signal
+
+    row = {"back_from": "DeVonta Smith", "vol_before_back": 6.0, "vol_ros": 5.0, "eff": 0.8, "back_week": 0.0}
+    text = _back_signal(row, 4.4)
+    assert text.startswith("DeVonta Smith is out this week but expected back later") and "this week unchanged" in text
+    assert _back_signal({**row, "back_week": 1.0}, 4.4).startswith("DeVonta Smith is back:")
+
+
+def test_a_reported_timeline_sets_how_much_of_the_season_an_absence_takes(cfg):
+    from streamer.roster.projections import _absence
+
+    p = PlayerRow(player_id="1", name="A", position="WR", team="PHI", status="OUT")
+    assert _absence(p, False, cfg)[1] == pytest.approx(0.3)                 # an out tag alone: a short absence
+    p.reported_share = 0.25                                                  # reported out most of the season
+    assert _absence(p, False, cfg)[1] == pytest.approx(0.75)
+    ir = PlayerRow(player_id="2", name="B", position="WR", team="PHI", status="INJURY_RESERVE", reported_share=0.5)
+    assert _absence(ir, False, cfg)[1] == pytest.approx(0.5)
