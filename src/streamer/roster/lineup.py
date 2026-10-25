@@ -681,7 +681,8 @@ def optimise(
                             float(np.percentile(confirm[:, index[p.player_id]], 85)))
               for p in everyone}
     bench_reasons: dict[str, str] = {}
-    reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges, bench_reasons)
+    reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges, bench_reasons,
+                      sits=sits, roster=roster, wire=wire)
     for x, b, how in swap_plan(best_win.starters, roster, wire):
         add = ("" if how == HOW_BENCH else
                " (a free agent: add him to your open roster spot)" if how == HOW_OPEN else
@@ -752,10 +753,16 @@ def explain(
     opp_total: np.ndarray,
     ranges: dict[str, tuple[float, float]],
     bench_reasons: dict[str, str] | None = None,
+    sits: np.ndarray | None = None,
+    roster: list[PlayerRow] | None = None,
+    wire: Wire | None = None,
 ) -> list[str]:
     """One sentence per player started below a benched one's projection.
     ``bench_reasons`` is filled with the same sentence keyed by the benched
-    player."""
+    player. Each swap is priced as the lineups were chosen: with the late
+    swap a questionable starter allows (``sits``, ``roster``, ``wire``) --
+    without it, a starter ruled out read as a zero and the sentence said the
+    chosen lineup was the worse one."""
     if chosen.player_ids == by_points.player_ids:
         return []
     started = [p for _s, p in chosen.flat() if p.player_id not in by_points.player_ids]
@@ -763,14 +770,18 @@ def explain(
     mates = [p for _s, p in chosen.flat()]
     theirs = [p for ps in (opp_lineup or {}).values() for p in ps]
     underdog = by_points.win_probability < 0.5
-    base = _totals([by_points.starters], samples, index)[0]
     out = []
     for s in started:
         if not benched:
             break
         b = min(benched, key=lambda x: (x.position != s.position, abs((x.projection or 0) - (s.projection or 0))))
         benched.remove(b)
-        swapped = base - samples[:, index[b.player_id]] + samples[:, index[s.player_id]]
+        lu = {slot: [s if q.player_id == b.player_id else q for q in ps] for slot, ps in by_points.starters.items()}
+        swapped = _totals([lu], samples, index)[0]
+        cover = None
+        if roster is not None:
+            swapped = swapped + _swap_totals([lu], samples, sits, index, roster, wire)[0]
+            cover = next((c for x, c in swap_pairs(lu, roster, wire) if x.player_id == s.player_id), None)
         p_swap = float((swapped > opp_total).mean() + 0.5 * (swapped == opp_total).mean())
 
         skip = (s.player_id, b.player_id)
@@ -794,7 +805,10 @@ def explain(
         if not why:
             lo_s, hi_s = ranges.get(s.player_id, (0, 0))
             lo_b, hi_b = ranges.get(b.player_id, (0, 0))
-            if s.play_probability < 1.0 and underdog:
+            if s.play_probability < 1.0 and cover is not None:
+                why = (f"he is {s.play_probability:.0%} to play, but his game is late enough that if he is ruled "
+                       f"out you can still start {cover.name} in his place, so the downside is covered")
+            elif s.play_probability < 1.0 and underdog:
                 why = f"his {s.status.lower() or 'injury'} tag makes him boom-or-bust, and you need a boom"
             elif underdog:
                 why = f"more upside: {lo_s:.0f}-{hi_s:.0f} against {lo_b:.0f}-{hi_b:.0f}"

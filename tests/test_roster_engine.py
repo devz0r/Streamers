@@ -602,3 +602,26 @@ def test_the_fallback_card_names_the_steps():
     html = _fallback_card(opt)
     assert "If a questionable starter is ruled out" in html and "Q Starter" in html
     assert "move Q Starter to IR" in html and "counted in your P(win)" in html
+
+
+def test_the_reason_for_a_covered_questionable_starter_prices_the_swap():
+    """Josh Jacobs (day-to-day, a late game) started over Chris Godwin, and
+    the bench line read "P(win) 41.4% with Godwin, 35.2% with Jacobs": the
+    sentence scored a sit as a zero, not the late swap the choice counted."""
+    late, early, latest = "2026-10-25T20:25:00+00:00", "2026-10-25T17:00:00+00:00", "2026-10-26T00:20:00+00:00"
+    q = PlayerRow(player_id="q", name="Josh Jacobs", position="WR", status="DAY_TO_DAY", slot="WR",
+                  projection=6.5, projection_sd=6.0, outcome_sd=6.0, play_probability=0.5, kickoff=late)
+    e = PlayerRow(player_id="e", name="Chris Godwin", position="WR", slot="BN", projection=7.0,
+                  projection_sd=5.0, outcome_sd=5.0, kickoff=early)
+    c = PlayerRow(player_id="c", name="Late Cover", position="WR", slot="BN", projection=6.0,
+                  projection_sd=4.0, outcome_sd=4.0, kickoff=latest)
+    opp = [PlayerRow(player_id="o", name="Their WR", position="WR", slot="WR", projection=8.0,
+                     projection_sd=5.0, outcome_sd=5.0, kickoff=early)]
+    opt = lineup.optimise([q, e, c], {"WR": 1}, opp, n_sims=20000)
+    import re
+
+    assert opt.best_win.player_ids == {"q"}
+    line = opt.bench_reasons["e"]
+    a, b = (float(x) for x in re.findall(r"(\d+\.\d)%", line)[:2])
+    assert b > a, line                                # the chosen one is not shown as the worse one
+    assert "you can still start Late Cover" in line
