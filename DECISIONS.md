@@ -3659,6 +3659,18 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### An odds check for model changes
+
+`scripts/grade_league_odds.py --leagues 6 --check odds_baseline.json` plays
+24 replayed leagues and fails if weekly P(win), P(playoffs) or P(title) Brier
+scores are worse than the baseline by more than 0.003, 0.006 and 0.004 (set
+above the spread between a few leagues and 25). The `odds-check` workflow
+runs it by hand (it reads the weekly run's nflverse cache and rebuilds the
+replay's weekly projections, about 20 minutes); it is not wired to every push.
+`--write-baseline` refreshes the file when a change is meant to move the
+scores. Baseline (6 leagues a season): P(win) 0.2268, P(playoffs) 0.1589,
+P(title) 0.0859.
+
 ### Early-season strength: no preseason pull, and production now logs its own
 
 On the replayed leagues, team strength at week 1 was the weakest point. With

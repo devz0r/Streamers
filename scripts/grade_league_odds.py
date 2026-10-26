@@ -8,7 +8,9 @@ each week only, scaled by that week's closing implied totals as production
 scales by the market's, real scores, the production lineup draws and season
 model. ``--retentions`` also grades other ``strength_fade`` values, held out
 by season.
-Prints, per season and pooled:
+With ``--write-baseline`` / ``--check`` it saves or tests the pooled Brier scores
+(``odds_baseline.json``; run with ``--leagues 6``), failing when a score is
+worse by more than ``TOLERANCE``. Prints, per season and pooled:
 
 * this week's P(win) against the results: Brier score and log loss beside a
   coin flip, a calibration table with 95% Wilson intervals, and the spread
@@ -24,6 +26,7 @@ With ``--out``, the games and odds are written there for further cuts. DECISIONS
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import pickle
@@ -170,6 +173,23 @@ def fade_report(odds: pd.DataFrame) -> None:
               f"  log loss {logloss(odds[f'p_title_r{r:g}'], odds.won_title):.4f}")
 
 
+#: How much worse than the baseline each Brier score may get before the check
+#: fails: a few leagues are noisy, so this is set above run-to-run spread.
+TOLERANCE = {"p_win": 0.003, "p_playoffs": 0.006, "p_title": 0.004}
+
+
+def metrics(games: pd.DataFrame, odds: pd.DataFrame) -> dict[str, float]:
+    return {"p_win": brier(games.p_win, games.won),
+            "p_playoffs": brier(odds.p_playoffs, odds.made),
+            "p_title": brier(odds.p_title, odds.won_title)}
+
+
+def check(got: dict[str, float], baseline: dict[str, float]) -> list[str]:
+    """The scores that got worse than the baseline by more than the tolerance."""
+    return [f"{k}: Brier {got[k]:.4f} against a baseline of {baseline[k]:.4f} (allowed +{TOLERANCE[k]})"
+            for k in TOLERANCE if got[k] > baseline[k] + TOLERANCE[k]]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--leagues", type=int, default=8, help="leagues per season")
@@ -177,6 +197,8 @@ def main() -> int:
     ap.add_argument("--out", help="a directory for the graded games and odds (parquet)")
     ap.add_argument("--sims", type=int, default=2000)
     ap.add_argument("--no-upgrades", action="store_true", help="managers only fill holes (no upgrade claims)")
+    ap.add_argument("--write-baseline", help="save this run's Brier scores as the baseline (json)")
+    ap.add_argument("--check", help="fail (exit 1) if the Brier scores are worse than this baseline (json)")
     ap.add_argument("--retentions", default="", help="comma-separated strength_fade values to grade beside the model's")
     args = ap.parse_args()
     os.environ.setdefault("STREAMER_CREDIT_FREE", "1")
@@ -210,6 +232,17 @@ def main() -> int:
         odds.to_parquet(out / "odds.parquet")
     report(games, odds)
     fade_report(odds)
+    got = metrics(games, odds)
+    if args.write_baseline:
+        Path(args.write_baseline).write_text(json.dumps({**got, "leagues": args.leagues}, indent=1) + "\n")
+        print(f"\nbaseline written to {args.write_baseline}: {got}")
+    if args.check:
+        base = json.loads(Path(args.check).read_text())
+        worse = check(got, base)
+        print("\nOdds check against " + args.check + ": " + ("FAILED" if worse else "passed"), got)
+        for w in worse:
+            print("  " + w)
+        return 1 if worse else 0
     return 0
 
 

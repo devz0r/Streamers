@@ -105,3 +105,16 @@ def test_a_replayed_league_plays_through_and_grades_every_game(cfg, _quiet_sched
     assert all(o["exp_points"] > 0 and o["rest_points"] > 0 for o in r.odds)
     frozen = lr.play(2024, 7, weekly, points, {}, cfg, n_sims=200, win_sims=500, checkpoints=(), upgrade=None)
     assert len(frozen.games) == len(r.games)
+
+
+def test_the_odds_check_fails_only_on_a_clearly_worse_score():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import grade_league_odds as g
+
+    base = {"p_win": 0.2312, "p_playoffs": 0.1665, "p_title": 0.0854}
+    assert g.check(dict(base), base) == []
+    assert g.check({**base, "p_title": 0.0854 + 0.003}, base) == []
+    assert len(g.check({**base, "p_playoffs": 0.1665 + 0.01}, base)) == 1
