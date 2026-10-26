@@ -227,6 +227,33 @@
     });
   });
 
+  // -- sortable tables: click a heading (table.sortable). Cells carry their raw
+  // value in data-v where the text is not it (a rank, a record, a percentage);
+  // numbers sort high first, text A-Z, a second click reverses. Delegated, so it
+  // survives a "viewing as" swap.
+  function cellValue(td) {
+    var v = td.getAttribute("data-v"), t = v !== null ? v : td.textContent.trim(), n = parseFloat(t);
+    return v !== null || /^[-+]?[0-9.]/.test(t) ? (isFinite(n) ? n : null) : t.toLowerCase();
+  }
+  document.addEventListener("click", function (e) {
+    var th = e.target.closest && e.target.closest("table.sortable thead th");
+    if (!th) return;
+    var table = th.closest("table"), col = th.cellIndex, body = table.tBodies[0];
+    var rows = $$("tr", body).map(function (tr, i) { return { tr: tr, i: i, v: cellValue(tr.cells[col]) }; });
+    var text = rows.some(function (r) { return typeof r.v === "string"; });
+    // First click: numbers high first, text A-Z; the same heading again reverses.
+    var cur = th.getAttribute("aria-sort");
+    var desc = cur === "descending" || cur === "ascending" ? cur === "ascending" : !text;
+    rows.sort(function (a, b) {
+      if ((a.v === null) !== (b.v === null)) return a.v === null ? 1 : -1;      // blanks always last
+      var c = text ? String(a.v).localeCompare(String(b.v)) * (desc ? -1 : 1) : (desc ? b.v - a.v : a.v - b.v);
+      return c || a.i - b.i;                                              // ties, and NaN: as listed
+    });
+    $$("thead th", table).forEach(function (x) { x.setAttribute("aria-sort", "none"); });
+    th.setAttribute("aria-sort", desc ? "descending" : "ascending");
+    rows.forEach(function (r) { body.appendChild(r.tr); });
+  });
+
   restore();
   tools();
   fold();

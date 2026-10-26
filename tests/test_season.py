@@ -7,7 +7,7 @@ import pytest
 
 from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
 from streamer.roster import season as season_mod
-from streamer.roster.season import SeasonModel, bracket_order
+from streamer.roster.season import SeasonModel, SeasonOdds, bracket_order
 
 
 def test_bracket_order_is_the_standard_fixed_bracket():
@@ -431,3 +431,21 @@ def test_points_a_week_ahead_and_so_far_are_reported(cfg):
     assert list(odds.pts_so_far) == [100.0, 105.0, 110.0, 115.0, 120.0, 125.0]
     assert odds.pts_ahead is not None and odds.pts_ahead.argmax() == 1             # the strongest roster
     assert odds.pts_ahead.sum() == pytest.approx((odds.exp_points / (snap.rules["regular_season_weeks"] - 2)).sum())
+
+
+def test_the_season_table_is_sortable_and_carries_raw_values():
+    from streamer.roster.page import _season
+
+    class R:
+        pass
+
+    o = SeasonOdds(team_ids=list("ab"), names=["Alpha", "Bravo"], records=["5-1", "3-2-1"],
+                   p_playoffs=np.array([0.9, 0.4]), p_bye=np.zeros(2), p_title=np.array([0.3, 0.1]),
+                   exp_wins=np.array([9.0, 7.0]), n_sims=100, mine=0, power=np.array([0.6, 0.4]),
+                   pts_ahead=np.array([120.0, 110.0]), pts_so_far=np.array([125.0, np.nan]))
+    r = R()
+    r.season = o
+    html = _season(r)
+    assert '<table class="sortable">' in html and html.count('class="fa-sort"') + html.count('fa-sort"') >= 8
+    assert "data-v='0.8333'" in html and "data-v='-1'" in html              # record as a win share, power as -rank
+    assert "data-v=''>" in html                                             # an unknown value sorts last

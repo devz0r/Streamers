@@ -10,6 +10,7 @@ import base64
 import html
 import json
 import os
+import re
 
 import numpy as np
 
@@ -1071,13 +1072,25 @@ def _season(report: MatchupReport) -> str:
         lo, hi = wilson(float(p), o.n_sims)
         return f"<span class='opp'> {lo * 100:.{places}f}&ndash;{hi * 100:.{places}f}</span>"
 
+    def win_share(record: str) -> float:
+        parts = [float(x) for x in re.findall(r"\d+", record or "")]
+        games = sum(parts)
+        return (parts[0] + 0.5 * (parts[2] if len(parts) > 2 else 0)) / games if games and parts else 0.0
+
+    def num(values, i: int) -> str:
+        return f"{values[i]:.4f}" if values is not None and np.isfinite(values[i]) else ""
+
     for i in sorted(range(len(o.names)), key=lambda i: -o.p_title[i]):
         me = " style='font-weight:700'" if i == m else ""
-        rows.append(f"<tr{me}><td class='unit'>{_e(o.names[i])}</td><td>{_e(o.records[i])}</td>"
-                    f"<td>{o.p_title[i]:.1%}{band(o.p_title[i], 1)}</td>"
-                    f"<td>{o.p_playoffs[i]:.0%}{band(o.p_playoffs[i], 0)}</td><td>{o.exp_wins[i]:.1f}</td>"
-                    f"<td>{_power_cell(o, i)}</td><td>{_pts_cell(o.pts_ahead, i)}</td>"
-                    f"<td>{_pts_cell(o.pts_so_far, i)}</td></tr>")
+        rank = 1 + int((o.power > o.power[i]).sum()) if o.power is not None else ""
+        rows.append(f"<tr{me}><td class='unit'>{_e(o.names[i])}</td>"
+                    f"<td data-v='{win_share(o.records[i]):.4f}'>{_e(o.records[i])}</td>"
+                    f"<td data-v='{o.p_title[i]:.5f}'>{o.p_title[i]:.1%}{band(o.p_title[i], 1)}</td>"
+                    f"<td data-v='{o.p_playoffs[i]:.5f}'>{o.p_playoffs[i]:.0%}{band(o.p_playoffs[i], 0)}</td>"
+                    f"<td data-v='{o.exp_wins[i]:.3f}'>{o.exp_wins[i]:.1f}</td>"
+                    f"<td data-v='{-rank if rank != '' else ''}'>{_power_cell(o, i)}</td>"
+                    f"<td data-v='{num(o.pts_ahead, i)}'>{_pts_cell(o.pts_ahead, i)}</td>"
+                    f"<td data-v='{num(o.pts_so_far, i)}'>{_pts_cell(o.pts_so_far, i)}</td></tr>")
     t_lo, t_hi = wilson(float(o.p_title[m]), o.n_sims)
     return (
         '<div class="card"><div class="row"><div class="rank">&#127942;</div>'
@@ -1089,8 +1102,12 @@ def _season(report: MatchupReport) -> str:
         f"<span>{o.n_sims:,} simulated seasons</span></div>"
         + "".join(f'<div class="why">{_e(n)}</div>' for n in (o.notes or []))
         + "</div>"
-        '<details><summary>Every team\'s odds</summary><div class="scroll"><table><thead><tr>'
-        '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th><th>Power</th><th>Pts/wk ahead</th><th>Pts/wk so far</th></tr></thead>'
+        '<details><summary>Every team\'s odds</summary><div class="scroll"><table class="sortable"><thead><tr>'
+        '<th class="unit fa-sort" aria-sort="none">Team</th><th class="fa-sort" aria-sort="none">Rec</th>'
+        '<th class="fa-sort" aria-sort="descending">Title</th><th class="fa-sort" aria-sort="none">Playoffs</th>'
+        '<th class="fa-sort" aria-sort="none">Exp W</th><th class="fa-sort" aria-sort="none">Power</th>'
+        '<th class="fa-sort" aria-sort="none">Pts/wk ahead</th><th class="fa-sort" aria-sort="none">Pts/wk so far</th>'
+        '</tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
         '<p class="sub">Each player\'s future is simulated (role drift, injuries, byes, the next man up '
         "taking over -- graded on 2022-2025 seasons it was not fitted to: points per game land in its "
@@ -1105,7 +1122,8 @@ def _season(report: MatchupReport) -> str:
         "roster ranks high here while its title odds stay low. <b>Pts/wk ahead</b> is the expected points a "
         "week for the rest of the regular season (a little closer together than raw projections: "
         "managers' waiver moves level rosters), <b>so far</b> what the team has scored a week in the weeks "
-        "counted; a big gap between the two means the roster has changed or the points came on luck.</p></details>"
+        "counted; a big gap between the two means the roster has changed or the points came on luck. "
+        "Tap a column heading to sort.</p></details>"
     )
 
 
