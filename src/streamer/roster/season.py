@@ -53,6 +53,10 @@ class SeasonOdds:
     champion: np.ndarray | None = None
     #: Expected points for the rest of the regular season, this week on.
     exp_points: np.ndarray | None = None
+    #: Power: the share of the other teams' scores a team beats in an average
+    #: remaining regular-season week (all-play), whatever the schedule, the
+    #: standings and the seeding say. Record-blind.
+    power: np.ndarray | None = None
     notes: list[str] = field(default_factory=list)
 
     def of(self, team_id: str) -> dict:
@@ -190,6 +194,21 @@ def _eligible(p: PlayerRow, slot: str) -> bool:
     if p.eligible_slots and slot in p.eligible_slots:
         return True
     return p.position in SLOT_ELIGIBILITY.get(slot, ())
+
+
+def all_play(scores: np.ndarray) -> np.ndarray:
+    """Each team's share of the other teams' scores it beats (ties half), over
+    every simulated week: ``scores`` is ``(teams, sims, weeks)``. A team that
+    outscores everyone every week is 1.0, an average team 0.5."""
+    n_t = scores.shape[0]
+    if n_t < 2 or scores.shape[2] == 0:
+        return np.full(n_t, 0.5)
+    out = np.zeros(n_t)
+    for k in range(scores.shape[2]):
+        wk = scores[:, :, k]
+        beat = (wk[:, None, :] > wk[None, :, :]).sum(axis=1) + 0.5 * ((wk[:, None, :] == wk[None, :, :]).sum(axis=1) - 1)
+        out += (beat / (n_t - 1)).mean(axis=1)
+    return out / scores.shape[2]
 
 
 def division_seeds(key: np.ndarray, divisions: list[str], p_teams: int) -> np.ndarray:
@@ -516,7 +535,8 @@ class SeasonModel:
             exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
             champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes),
             exp_points=scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]
-            .sum(axis=2).mean(axis=1))
+            .sum(axis=2).mean(axis=1),
+            power=all_play(scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]))
 
     def _scores(self, override: dict[str, np.ndarray] | None, retention: float | None = None) -> np.ndarray:
         scores = self.base_scores.copy()

@@ -1042,6 +1042,14 @@ def _stakes(report: MatchupReport) -> str:
     )
 
 
+def _power_cell(o, i: int) -> str:
+    """The team's power rank and all-play win rate (blank without them)."""
+    if o.power is None:
+        return ""
+    rank = 1 + int((o.power > o.power[i]).sum())
+    return f"#{rank} <span class='opp'>{o.power[i]:.0%}</span>"
+
+
 def _season(report: MatchupReport) -> str:
     """Playoff and title odds for every team, yours first."""
     o = report.season
@@ -1060,7 +1068,8 @@ def _season(report: MatchupReport) -> str:
         me = " style='font-weight:700'" if i == m else ""
         rows.append(f"<tr{me}><td class='unit'>{_e(o.names[i])}</td><td>{_e(o.records[i])}</td>"
                     f"<td>{o.p_title[i]:.1%}{band(o.p_title[i], 1)}</td>"
-                    f"<td>{o.p_playoffs[i]:.0%}{band(o.p_playoffs[i], 0)}</td><td>{o.exp_wins[i]:.1f}</td></tr>")
+                    f"<td>{o.p_playoffs[i]:.0%}{band(o.p_playoffs[i], 0)}</td><td>{o.exp_wins[i]:.1f}</td>"
+                    f"<td>{_power_cell(o, i)}</td></tr>")
     t_lo, t_hi = wilson(float(o.p_title[m]), o.n_sims)
     return (
         '<div class="card"><div class="row"><div class="rank">&#127942;</div>'
@@ -1073,7 +1082,7 @@ def _season(report: MatchupReport) -> str:
         + "".join(f'<div class="why">{_e(n)}</div>' for n in (o.notes or []))
         + "</div>"
         '<details><summary>Every team\'s odds</summary><div class="scroll"><table><thead><tr>'
-        '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th></tr></thead>'
+        '<th class="unit">Team</th><th>Rec</th><th>Title</th><th>Playoffs</th><th>Exp W</th><th>Power</th></tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
         '<p class="sub">Each player\'s future is simulated (role drift, injuries, byes, the next man up '
         "taking over -- graded on 2022-2025 seasons it was not fitted to: points per game land in its "
@@ -1082,7 +1091,10 @@ def _season(report: MatchupReport) -> str:
         "starts its best lineup each week on what it could see then; the season is played on the real "
         "schedule and the playoffs on the real bracket. Rosters are held as they stand. The small ranges "
         "are 95% intervals for the simulation's own noise (Wilson): what a rerun could move the number "
-        "by -- not whether the model's view of the season is right.</p></details>"
+        "by -- not whether the model's view of the season is right. <b>Power</b> is record-blind: the "
+        "share of the other teams' scores a team beats in an average remaining week (all-play), from the "
+        "same simulation and the same fading of team strength, so a team with a bad record and a strong "
+        "roster ranks high here while its title odds stay low.</p></details>"
     )
 
 

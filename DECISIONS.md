@@ -3659,6 +3659,22 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### A power ranking beside the title odds
+
+Title odds are not "the best teams": they mix roster strength with the
+record already banked, the schedule left, byes and seeding. A team at 6-1
+with an average roster can out-rate a 3-4 team with the league's best.
+`SeasonOdds.power` is the record-blind answer: each team's all-play win rate
+over the rest of the regular season (the share of the other teams' scores it
+beats in an average simulated week, ties half), from the same simulation and
+the same `strength_fade` as the odds, so early in the season it does not
+exaggerate gaps that waivers will close. The season table gains a Power
+column, rank and percentage. It orders teams the way the weekly score
+distribution does, so a steady team and a boom-or-bust one with the same
+mean differ only a little; expected points a week would not separate them at
+all. Graded loosely: real all-play results each week are available to check
+it against as the season goes (not done yet).
+
 ### Logging the lottery tickets, to test prop prices and FantasyPros ranges later
 
 The ticket's big-week chance already rests on the blended projection (our

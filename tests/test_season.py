@@ -404,3 +404,20 @@ def test_a_fading_edge_pulls_the_favourite_back_but_keeps_what_a_move_adds(cfg):
     better = model.base_scores[i] + 5.0
     gained = (model._scores({"0": better}, 0.9) - model._scores(None, 0.9))[i]
     assert np.allclose(gained, 5.0)
+
+
+def test_power_is_record_blind_and_orders_teams_by_how_often_they_outscore_the_rest(cfg):
+    from streamer.roster.season import all_play
+
+    scores = np.zeros((3, 4, 2))
+    scores[0] = 100.0
+    scores[1] = 90.0
+    scores[2] = 80.0
+    assert list(all_play(scores)) == [1.0, 0.5, 0.0]
+    assert list(all_play(np.full((3, 4, 2), 70.0))) == [0.5, 0.5, 0.5]            # ties are half
+    snap = _league([1.0, 1.3, 0.9, 0.8, 1.0, 0.95])
+    snap.teams[3].wins, snap.teams[3].losses = 7, 0                                # a hot record, a weak roster
+    odds = SeasonModel(snap, cfg, n_sims=800).odds()
+    assert odds.power is not None and odds.power.argmax() == 1                     # the strongest roster
+    assert odds.power[3] < odds.power[0]
+    assert odds.power.mean() == pytest.approx(0.5, abs=1e-6)
