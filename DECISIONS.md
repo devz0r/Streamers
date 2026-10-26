@@ -3659,6 +3659,28 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Rivals competing for the same waiver players: need still does not predict
+
+Re-tested "Who actually gets picked up" with the weeks collected since. Every
+unowned QB/RB/WR/TE in week w, and whether another team held him in
+week w+1 (ESPN 2,735 player-weeks, 2.2% added; Yahoo 316, 10.1%). The claim
+chance by % rostered, against the same plus the share of rivals he would
+start for (`would_start`), leave-one-week-out log loss:
+
+| | % rostered | + rival need | + season value |
+|---|---|---|---|
+| ESPN | 0.08912 | 0.08909 | 0.08909 |
+| Yahoo | 0.33595 | 0.33491 | 0.33491 |
+
+Need adds nothing in ESPN (0.00003) and the coefficient is negative in both
+(ESPN -0.9, Yahoo -4.0), the wrong way for competition for the same players.
+Yahoo's 0.001 comes from a negative sign on 316 player-weeks, not demand.
+Managers follow the platform's % rostered, not their own holes. So no
+rival-need term is added to `claim_odds`; each target's chance stays the
+fitted rate by % rostered, the ones ahead of you in the waiver order taking
+him in proportion. Worth rerunning at the end of the season (the Yahoo
+sample is small).
+
 ### Late scratches and in-game injuries: nothing to add
 
 Does the model need to treat an active player as possibly missing the game
