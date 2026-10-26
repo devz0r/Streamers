@@ -3657,6 +3657,71 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Grading the odds on replayed leagues
+
+Every part of the season engine had been validated on its own; the numbers
+a manager reads -- this week's P(win), P(playoffs), P(title), expected wins --
+had not been graded as a whole. `roster/league_replay.py` drafts and plays
+ten-team leagues on 2022-2025 with real players and real scores, as our
+leagues run: QB/RB/RB/WR/WR/TE/FLEX, six bench spots, full PPR, weeks 1-14
+regular season, six playoff teams over weeks 15-17 with byes for the top
+two. Each week's projections come from the games before it only
+(`ros_backtest.project`). Managers draft on their own noisy read of season
+values, fill the starting spots they cannot field from the wire, make at most
+one upgrade claim a week (worst record first), and start their best projected
+lineup. P(win) comes from the lineup tab's correlated draws; the
+`SeasonModel` odds come at weeks 1, 4, 7, 10 and 13. The baseline knows only
+the standings (every remaining game a coin flip). `scripts/grade_league_odds.py`
+runs 25 leagues a season: 7,000 games and 5,000 team-checkpoints.
+
+**This week's P(win)** -- informative and close to calibrated: Brier 0.2316
+(coin flip 0.25), log loss 0.655, the same in every season. Favourites won
+61.4% against 62.0% predicted. The 70-80% bin is a little overconfident
+(74.2% predicted, 70.9% won, 95% interval 68.0-73.6%); the margin's spread
+is right (9.4/24.9/50.1/75.5/90.3% of results under the predicted
+10/25/50/75/90th percentiles). At the checkpoints the season model's own
+P(win) for the week (Brier 0.2338) was worse than the lineup draws' (0.2278)
+on the same games.
+
+**P(playoffs)** -- informative and calibrated: Brier 0.1658 against 0.1731 for
+the standings alone, better at every checkpoint and in three of four seasons
+(2024 even). Calibration bins all within or near their intervals.
+
+**P(title)** -- calibrated but carrying almost nothing beyond the standings:
+Brier 0.0861 against 0.0859, log loss 0.3030 against 0.3009 (frozen rosters:
+0.0864 against 0.0873). What the model adds over the standings is worth
+about half its weight (a logistic fit puts 0.5 +- 0.2 on it at every
+checkpoint; 0.6-0.9 for P(playoffs)).
+
+**Why: the optimizer's curse, not miscalibrated players.** Graded alone, the
+replay's weekly projections are if anything a little cautious (slope of
+actual on projection 1.07 +- 0.02 over 13,140 player-weeks). But a lineup
+starts whoever projects highest, and a draft or claim takes whoever's season
+value is highest, and the players picked that way are the ones whose numbers
+ran high. So rosters built on our numbers are weaker than our numbers say:
+
+| | Slope (1 = calibrated) |
+|---|---|
+| Weekly projected margin, real on projected | 0.87 +- 0.03 (0.75 in weeks 1-4) |
+| Rest-of-season team points, real on expected | 0.58-0.84 by checkpoint (frozen rosters 0.52-1.01) |
+
+Churn adds a little: the standings-only baseline does better when managers
+make upgrade claims, which pull weak teams back toward the pack. A blanket
+recalibration fitted on three seasons and scored on the fourth barely helps
+(title Brier 0.0861 -> 0.0855; playoffs unchanged), so nothing is applied
+on top of the odds. The fix belongs where the bias starts: discounting a
+selected player's edge over the ones passed over.
+
+**Limits.**
+- Replay projections are our model alone. Production blends in the betting
+  market, FantasyPros and Sleeper: on 2026 weeks 1-6 the blend's slope was
+  0.95 +- 0.06 against 0.90 +- 0.06 for our model alone.
+- Rival managers in real leagues pick by the platform's numbers, not ours,
+  so the curse hits our own team harder than our rivals'.
+- The replay has no D/ST, K or trades.
+- Parts of the model (outcome shapes, correlations, hazards) were fitted on
+  these same seasons.
+
 ### Teammates and opponents in the season simulation
 
 Until now the season simulator (`futures.simulate`) drew every player's week
