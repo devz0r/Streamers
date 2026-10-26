@@ -421,3 +421,13 @@ def test_power_is_record_blind_and_orders_teams_by_how_often_they_outscore_the_r
     assert odds.power is not None and odds.power.argmax() == 1                     # the strongest roster
     assert odds.power[3] < odds.power[0]
     assert odds.power.mean() == pytest.approx(0.5, abs=1e-6)
+
+
+def test_points_a_week_ahead_and_so_far_are_reported(cfg):
+    snap = _league([1.0, 1.3, 0.9, 0.8, 1.0, 0.95])
+    for i, t in enumerate(snap.teams):
+        t.wins, t.losses, t.points_for = 1, 1, 200.0 + 10 * i
+    odds = SeasonModel(snap, cfg, n_sims=300).odds()
+    assert list(odds.pts_so_far) == [100.0, 105.0, 110.0, 115.0, 120.0, 125.0]
+    assert odds.pts_ahead is not None and odds.pts_ahead.argmax() == 1             # the strongest roster
+    assert odds.pts_ahead.sum() == pytest.approx((odds.exp_points / (snap.rules["regular_season_weeks"] - 2)).sum())

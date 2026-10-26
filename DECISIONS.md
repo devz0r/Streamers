@@ -3675,6 +3675,12 @@ mean differ only a little; expected points a week would not separate them at
 all. Graded loosely: real all-play results each week are available to check
 it against as the season goes (not done yet).
 
+The table also shows the expected points a week for the rest of the regular season
+(`pts_ahead`, after the fade) and the points a week scored so far (`pts_so_far`): a big gap
+between them means the roster has changed (injuries, a trade) or the points came on luck.
+CMoney (Yahoo) on 2026-10-26: 134.5 so far, 110.0 ahead, from a roster that lost no one but
+has Samuel, Croskey-Merritt and Montgomery out.
+
 ### Logging the lottery tickets, to test prop prices and FantasyPros ranges later
 
 The ticket's big-week chance already rests on the blended projection (our

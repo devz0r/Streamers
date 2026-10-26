@@ -57,6 +57,10 @@ class SeasonOdds:
     #: remaining regular-season week (all-play), whatever the schedule, the
     #: standings and the seeding say. Record-blind.
     power: np.ndarray | None = None
+    #: Expected points a week for the rest of the regular season, and the
+    #: points a week scored so far (None where no week has been counted).
+    pts_ahead: np.ndarray | None = None
+    pts_so_far: np.ndarray | None = None
     notes: list[str] = field(default_factory=list)
 
     def of(self, team_id: str) -> dict:
@@ -536,7 +540,17 @@ class SeasonModel:
             champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes),
             exp_points=scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]
             .sum(axis=2).mean(axis=1),
-            power=all_play(scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]))
+            power=all_play(scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]),
+            pts_ahead=scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]
+            .mean(axis=(1, 2)), pts_so_far=self._pts_so_far())
+
+    def _pts_so_far(self) -> np.ndarray:
+        """Points a week each team has scored in the weeks the standings
+        count (NaN for a team with none)."""
+        per_week = 2 if self.median else 1
+        games = np.array([(t.wins + t.losses + t.ties) / per_week for t in self.teams], float)
+        pts = np.array([t.points_for for t in self.teams], float)
+        return np.where(games > 0, pts / np.maximum(games, 1), np.nan)
 
     def _scores(self, override: dict[str, np.ndarray] | None, retention: float | None = None) -> np.ndarray:
         scores = self.base_scores.copy()
