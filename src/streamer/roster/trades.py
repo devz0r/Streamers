@@ -45,7 +45,7 @@ from itertools import combinations
 
 import numpy as np
 
-from ..league.model import LeagueSnapshot, PlayerRow, TeamRow
+from ..league.model import IR_ELIGIBLE_STATUSES, IR_SLOTS, LeagueSnapshot, PlayerRow, TeamRow
 from . import perception
 from .season import SeasonModel, replacement_levels
 from .waivers import MIN_KEEP, _eligible, _ros, lineup_slots, roster_value
@@ -221,8 +221,26 @@ def deadline_text(snapshot: LeagueSnapshot, today=None) -> str:
 
 
 def _tradeable(team: TeamRow) -> list[PlayerRow]:
-    return [p for p in team.roster
-            if p.position in SKILL and not p.in_ir_slot and (p.ros_value is not None or p.projection)]
+    """Skill players with a value, those in an IR slot included: an injured
+    player can be traded, and the team taking him puts him in an open IR
+    slot (or on the bench if it has none)."""
+    return [p for p in team.roster if p.position in SKILL and (p.ros_value is not None or p.projection)]
+
+
+def ir_capacity(snapshot: LeagueSnapshot) -> int:
+    """IR slots a team has: the league setting when the platform gives it,
+    else the most any team is using (a lower bound)."""
+    n = sum(int(snapshot.slots.get(s, 0) or 0) for s in IR_SLOTS)
+    return n or max((sum(p.in_ir_slot for p in t.roster) for t in snapshot.teams), default=0)
+
+
+def _active_change(roster: list[PlayerRow], give: list[PlayerRow], get: list[PlayerRow], cap: int) -> int:
+    """Active (non-IR) roster spots the trade adds to this side: what comes in
+    less what goes out, an incoming player who can sit on IR taking a free
+    IR slot instead of a bench spot, an outgoing one from IR freeing none."""
+    free_ir = cap - sum(p.in_ir_slot for p in roster) + sum(p.in_ir_slot for p in give)
+    to_ir = min(sum(1 for p in get if p.status in IR_ELIGIBLE_STATUSES), max(free_ir, 0))
+    return (len(get) - to_ir) - sum(1 for p in give if not p.in_ir_slot)
 
 
 def _counts(roster: list[PlayerRow]) -> dict[str, int]:
@@ -288,6 +306,7 @@ class TradeFinder:
         self.own = {t.team_id: own_view(t, self.theirs) for t in snapshot.teams if not t.is_mine}
         self.me = snapshot.my_team
         self.mine = model.team_index[self.me.team_id]
+        self.ir_cap = ir_capacity(snapshot)
         weeks = max(int(snapshot.week) - 1, 1)
         self.engaged = {t.team_id: perception.engagement(t.acquisitions, weeks) for t in snapshot.teams}
         # Free agents the simulation can play: what a freed roster spot is filled from.
@@ -381,15 +400,18 @@ class TradeFinder:
         my_new = [p for p in self.me.roster if p.player_id not in give_ids] + get
         their_new = [p for p in team.roster if p.player_id not in get_ids] + give
         my_drop = their_drop = None
-        if len(get) > len(give):
-            my_new, my_drop = _make_room(my_new, len(get) - len(give), get_ids,
+        # Room is counted in active spots: an IR player lands in an open IR slot.
+        mine_more = _active_change(self.me.roster, give, get, self.ir_cap)
+        theirs_more = _active_change(team.roster, get, give, self.ir_cap)
+        if mine_more > 0:
+            my_new, my_drop = _make_room(my_new, mine_more, get_ids,
                                          lambda p: self.ours(p) + float(p.ros_sd or 0.0))
-        if len(give) > len(get):
-            their_new, their_drop = _make_room(their_new, len(give) - len(get), give_ids, his)
+        if theirs_more > 0:
+            their_new, their_drop = _make_room(their_new, theirs_more, give_ids, his)
         if not (_keeps_minimums(my_new, self.me.roster, self._was_mine)
                 and _keeps_minimums(their_new, team.roster, self._was_theirs)):
             return None
-        my_add = self._fill(my_new) if len(give) > len(get) else None
+        my_add = self._fill(my_new) if mine_more < 0 else None
         if my_add is not None:
             my_new = my_new + [my_add]
         dv_me = self.my_roster_value(my_new) - my0

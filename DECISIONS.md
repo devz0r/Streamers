@@ -3659,6 +3659,20 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Players on IR can be traded
+
+The trade finder and the page's trade evaluator left out every player in an
+IR slot, on both sides, though both platforms let an injured player be
+traded. Now they are offered and asked for like anyone else, and roster
+room is counted in active spots (`trades._active_change`, mirrored in
+`trade_eval.active_change` and its script): an incoming player who can sit
+on IR takes a free IR slot instead of forcing a drop, and an outgoing one
+from IR frees no bench spot. The leagues' IR-slot count is not in the
+synced settings, so it is the most any team is using (`ir_capacity`: 2 in
+both leagues today), a lower bound. Season values and the simulation already
+carry an injured player's return (his reported timeline or the measured
+absence), so what he is worth in a trade is priced as before.
+
 ### A power ranking beside the title odds
 
 Title odds are not "the best teams": they mix roster strength with the

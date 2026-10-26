@@ -110,6 +110,14 @@
       return (now[pos] || 0) >= Math.min(D.min_keep[pos], was[pos] || 0);
     });
   }
+  function activeChange(D, roster, give, get) {
+    var P = D.players, freeIr = (D.ir_cap || 0), toIr = 0, out = 0, inc = 0;
+    roster.forEach(function (pid) { if (P[pid].ir) freeIr -= 1; });
+    give.forEach(function (pid) { if (P[pid].ir) freeIr += 1; else out += 1; });
+    get.forEach(function (pid) { if (P[pid].ire) inc += 1; });
+    toIr = Math.min(inc, Math.max(freeIr, 0));
+    return (get.length - toIr) - out;
+  }
   function makeRoom(D, ids, extra, keep, key) {
     var dropped = [], before = ids;
     for (var r = 0; r < extra; r++) {
@@ -176,14 +184,16 @@
     var giveS = set(give), getS = set(get);
     var myNew = me.r.filter(function (pid) { return !giveS[pid]; }).concat(get);
     var theirNew = th.r.filter(function (pid) { return !getS[pid]; }).concat(give);
-    var myDropsOut = [], theirDrops = [], extra = get.length - give.length, r;
+    var myDropsOut = [], theirDrops = [], r;
+    var extra = activeChange(D, me.r, give, get), theirExtra = activeChange(D, th.r, get, give);
     if (extra > 0) {
       var chosen = (myDrops || []).filter(function (pid) { return myNew.indexOf(pid) >= 0 && !getS[pid]; }).slice(0, extra);
       myNew = myNew.filter(function (pid) { return chosen.indexOf(pid) < 0; });
       r = makeRoom(D, myNew, extra - chosen.length, getS, function (pid) { return P[pid].o + P[pid].sd; });
       myNew = r[0]; myDropsOut = chosen.concat(r[1]);
-    } else if (extra < 0) {
-      r = makeRoom(D, theirNew, -extra, giveS, his);
+    }
+    if (theirExtra > 0) {
+      r = makeRoom(D, theirNew, theirExtra, giveS, his);
       theirNew = r[0]; theirDrops = r[1];
     }
     r = windowsFor(D, me.r, myNew);
@@ -205,7 +215,7 @@
     var out = {
       shift_me: dMe, shift_them: dTh, lineup_me: lineupTotal(myNew, ours) - lineupTotal(me.r, ours),
       seen: seen, consolidation: cons, p_accept: pAccept(D, seen, cons, th.eng),
-      my_drops: myDropsOut, their_drops: theirDrops,
+      my_drops: myDropsOut, their_drops: theirDrops, my_more: extra,
       title_me: odds('title', me_i), title_them: odds('title', th_i),
       playoffs_me: odds('playoffs', me_i), playoffs_them: odds('playoffs', th_i),
       legal: keepsMinimums(D, myNew, me.r) && keepsMinimums(D, theirNew, th.r)
@@ -292,7 +302,7 @@
     var partnerSel = root.querySelector('.te-partner'), giveBox = root.querySelector('.te-give'),
         getBox = root.querySelector('.te-get'), dropLine = root.querySelector('.te-dropline'),
         out = root.querySelector('.te-out'), sum = root.querySelector('.te-sum');
-    var tradeable = function (pid) { return SKILL[P[pid].pos] && !P[pid].ir; };
+    var tradeable = function (pid) { return SKILL[P[pid].pos]; };
     D.teams.forEach(function (t) {
       if (t.me) return;
       var o = el('option', null, t.n); o.value = t.id; partnerSel.appendChild(o);
@@ -324,9 +334,9 @@
         sum.textContent = 'Tick players on both sides to see the trade for both teams.';
         return;
       }
-      var extra = get.length - give.length, myDrop = dropSel && dropSel.value ? [dropSel.value] : null;
-      if (extra <= 0) { dropLine.textContent = ''; dropSel = null; myDrop = null; }
-      var t0 = Date.now(), r = evaluate(D, partnerSel.value, give, get, myDrop, sim);
+      var myDrop = dropSel && dropSel.value ? [dropSel.value] : null;
+      var t0 = Date.now(), r = evaluate(D, partnerSel.value, give, get, myDrop, sim), extra = r.my_more;
+      if (extra <= 0) { dropLine.textContent = ''; dropSel = null; }
       if (extra > 0 && !dropSel) {
         dropLine.textContent = 'You would have to drop: ';
         dropSel = el('select');

@@ -35,7 +35,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..league.model import SLOT_ELIGIBILITY, LeagueSnapshot, PlayerRow
+from ..league.model import IR_ELIGIBLE_STATUSES, SLOT_ELIGIBILITY, LeagueSnapshot, PlayerRow
 from . import perception
 from .season import SeasonModel
 from .waivers import BENCH_WEIGHTS, MIN_KEEP, _eligible, _ros
@@ -123,7 +123,7 @@ def export(snapshot: LeagueSnapshot, model: SeasonModel, finder, priced=()) -> d
             row = {
                 "n": p.name, "pos": p.position, "tm": p.team or "", "slot": p.slot,
                 "el": [slot for slot in slot_names if _eligible(p, slot)],
-                "ir": p.in_ir_slot, "out": p.is_out, "q": p.is_questionable, "un": p.unsigned,
+                "ir": p.in_ir_slot, "ire": p.status in IR_ELIGIBLE_STATUSES, "out": p.is_out, "q": p.is_questionable, "un": p.unsigned,
                 "st": p.status or "", "o": round(_ros(p), 2), "sd": round(float(p.ros_sd or 0.0), 2),
                 "v": round(finder.theirs(p), 2), "sig": p.signals[0] if p.signals else "",
                 "pl": bool(p.locked or p.actual_points is not None),
@@ -162,7 +162,7 @@ def export(snapshot: LeagueSnapshot, model: SeasonModel, finder, priced=()) -> d
         "sim_slots": [[s, c, round(model.slot_replacement(s), 2)] for s, c in skill_slots],
         "seen_repl": {k: round(v, 2) for k, v in finder.seen_replacement.items()},
         "bench_w": {k: list(v) for k, v in BENCH_WEIGHTS.items()},
-        "min_keep": dict(MIN_KEEP),
+        "min_keep": dict(MIN_KEEP), "ir_cap": tr.ir_capacity(snapshot),
         "params": {"center": perception.ACCEPT_CENTER, "scale": perception.ACCEPT_SCALE,
                    "cons": perception.CONSOLIDATION, "gap": tr.CONSOLIDATION_GAP,
                    "ceiling": perception.ACCEPT_CEILING, "gap_note": tr.GAP_NOTE},
@@ -233,6 +233,16 @@ def keeps_minimums(data: dict, ids: list[str], before: list[str]) -> bool:
     """No position below its minimum, or below what the roster had."""
     now, was = _counts(data, ids), _counts(data, before)
     return all(now.get(pos, 0) >= min(n, was.get(pos, 0)) for pos, n in data["min_keep"].items())
+
+
+def active_change(data: dict, roster: list[str], give: list[str], get: list[str]) -> int:
+    """Active roster spots a trade adds to one side (as
+    :func:`trades._active_change`): an incoming player who can sit on IR takes
+    a free IR slot, an outgoing one from IR frees no bench spot."""
+    P = data["players"]
+    free_ir = int(data.get("ir_cap", 0)) - sum(P[pid]["ir"] for pid in roster) + sum(P[pid]["ir"] for pid in give)
+    to_ir = min(sum(1 for pid in get if P[pid].get("ire")), max(free_ir, 0))
+    return (len(get) - to_ir) - sum(1 for pid in give if not P[pid]["ir"])
 
 
 def make_room(data: dict, ids: list[str], extra: int, keep: set[str], key) -> tuple[list[str], list[str]]:
@@ -362,14 +372,15 @@ def evaluate(data: dict, partner: str, give: list[str], get: list[str],
     their_new = [pid for pid in th["r"] if pid not in get_s] + list(give)
     my_drops_out: list[str] = []
     their_drops: list[str] = []
-    extra = len(get) - len(give)
+    extra = active_change(data, me["r"], give, get)
+    their_extra = active_change(data, th["r"], get, give)
     if extra > 0:
         chosen = [pid for pid in (my_drops or []) if pid in my_new and pid not in get_s][:extra]
         my_new = [pid for pid in my_new if pid not in chosen]
         my_new, auto = make_room(data, my_new, extra - len(chosen), get_s, lambda pid: P[pid]["o"] + P[pid]["sd"])
         my_drops_out = chosen + auto
-    elif extra < 0:
-        their_new, their_drops = make_room(data, their_new, -extra, give_s, his)
+    if their_extra > 0:
+        their_new, their_drops = make_room(data, their_new, their_extra, give_s, his)
 
     # Weekly points and the odds they buy, for both teams.
     ids, win = _windows(data, me["r"], my_new)
@@ -392,7 +403,7 @@ def evaluate(data: dict, partner: str, give: list[str], get: list[str],
     yes = p_accept(data, seen, cons, th["eng"])
     out = {
         "shift_me": d_me, "shift_them": d_th, "lineup_me": my_lineup, "seen": seen,
-        "consolidation": cons, "p_accept": yes, "my_drops": my_drops_out, "their_drops": their_drops,
+        "consolidation": cons, "p_accept": yes, "my_drops": my_drops_out, "their_drops": their_drops, "my_more": extra,
         "title_me": odds("title", me_i), "title_them": odds("title", th_i),
         "playoffs_me": odds("playoffs", me_i), "playoffs_them": odds("playoffs", th_i),
         "legal": keeps_minimums(data, my_new, me["r"]) and keeps_minimums(data, their_new, th["r"]),

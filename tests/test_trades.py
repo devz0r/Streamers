@@ -209,3 +209,21 @@ def test_the_trades_shown_are_priced_again_on_independent_seasons(cfg):
         again = f.price(replace(t), check)
         assert t.p_new == pytest.approx(again.p_new) and t.first_gain is not None
         assert any("second, independent simulation" in r for r in t.why_you)
+
+
+def test_ir_players_are_tradeable_and_take_an_open_ir_slot():
+    from streamer.league.model import PlayerRow, TeamRow
+    from streamer.roster.trades import _active_change, _tradeable
+
+    hurt = PlayerRow(player_id="h", name="Hurt", position="RB", team="KC", status="INJURY_RESERVE", slot="IR",
+                     ros_value=12.0)
+    fine = PlayerRow(player_id="f", name="Fine", position="WR", team="KC", slot="WR", ros_value=10.0)
+    team = TeamRow(team_id="t", name="T", roster=[hurt, fine])
+    assert {p.player_id for p in _tradeable(team)} == {"h", "f"}
+    mine = PlayerRow(player_id="m", name="Mine", position="WR", team="BUF", slot="BN", ros_value=9.0)
+    # Receiving Hurt into an empty IR slot for nothing active: no spot used.
+    assert _active_change([mine], [], [hurt], cap=1) == 0
+    # No IR slot: he takes a bench spot.
+    assert _active_change([mine], [], [hurt], cap=0) == 1
+    # Giving away a player from IR frees no bench spot.
+    assert _active_change([hurt, fine], [hurt], [mine], cap=1) == 1

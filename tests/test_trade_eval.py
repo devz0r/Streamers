@@ -139,3 +139,57 @@ def test_the_page_carries_the_evaluator(league):
     payload = html.split('class="te-data">', 1)[1].split("</script>", 1)[0]
     assert json.loads(payload.replace("<\\/", "</"))["ns"] == trade_eval.NS
     assert _trade_evaluator(SimpleNamespace(trade_eval=None, snapshot=snap)) == ""
+
+
+def _with_ir(data):
+    """A copy of the league where one of team 2's players sits in an IR slot
+    and every team has one IR slot (mine empty)."""
+    import copy
+
+    d = copy.deepcopy(data)
+    other = next(t for t in d["teams"] if t["id"] == "2")
+    hurt = next(pid for pid in other["r"] if d["players"][pid]["pos"] == "RB")
+    d["players"][hurt].update(ir=True, ire=True, st="INJURY_RESERVE")
+    d["ir_cap"] = 1
+    return d, hurt
+
+
+def test_an_ir_player_can_be_traded_into_an_open_ir_slot(league):
+    _snap, _finder, data = league
+    d, hurt = _with_ir(data)
+    me = next(t for t in d["teams"] if t["me"])
+    other = next(t for t in d["teams"] if t["id"] == "2")
+    mine = next(pid for pid in me["r"] if d["players"][pid]["pos"] == "WR")
+    healthy = next(pid for pid in other["r"] if pid != hurt and d["players"][pid]["pos"] == "WR")
+    # Two for one, the extra man going to my empty IR slot: nobody is dropped.
+    r = trade_eval.evaluate(d, "2", [mine], [hurt, healthy])
+    assert r["my_more"] == 0 and r["my_drops"] == []
+    # With my IR slot full, the same deal costs me a bench spot.
+    d["players"][me["r"][0]]["ir"] = True
+    r = trade_eval.evaluate(d, "2", [mine], [hurt, healthy])
+    assert r["my_more"] == 1 and len(r["my_drops"]) == 1
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_page_script_agrees_on_ir_trades(league, tmp_path):
+    _snap, _finder, data = league
+    d, hurt = _with_ir(data)
+    me = next(t for t in d["teams"] if t["me"])
+    other = next(t for t in d["teams"] if t["id"] == "2")
+    skill = [pid for pid in me["r"] if d["players"][pid]["pos"] in ("RB", "WR")]
+    healthy = [pid for pid in other["r"] if pid != hurt and d["players"][pid]["pos"] in ("RB", "WR")]
+    cases = [{"partner": "2", "give": skill[:1], "get": [hurt], "drops": None},
+             {"partner": "2", "give": skill[:1], "get": [hurt, healthy[0]], "drops": None},
+             {"partner": "2", "give": skill[:2], "get": [hurt], "drops": None}]
+    (tmp_path / "data.json").write_text(json.dumps(d))
+    (tmp_path / "cases.json").write_text(json.dumps(cases))
+    (tmp_path / "parity.js").write_text(_PARITY)
+    run = subprocess.run(["node", str(tmp_path / "parity.js"), str(trade_eval.SCRIPT),
+                          str(tmp_path / "data.json"), str(tmp_path / "cases.json")],
+                         capture_output=True, text=True, timeout=120, check=True)
+    sim = trade_eval.Sim(d)
+    for c, js in zip(cases, json.loads(run.stdout)):
+        py = trade_eval.evaluate(d, c["partner"], c["give"], c["get"], c["drops"], sim=sim)
+        assert js["my_more"] == py["my_more"]
+        assert js["my_drops"] == py["my_drops"] and js["their_drops"] == py["their_drops"]
+        assert js["title_me"] == pytest.approx(list(py["title_me"]), abs=1e-9)
