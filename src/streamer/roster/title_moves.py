@@ -43,7 +43,7 @@ import numpy as np
 
 from ..config import Config
 from ..league.model import IR_ELIGIBLE_STATUSES, LONG_TERM_OUT_STATUSES, LeagueSnapshot, PlayerRow
-from .season import SeasonModel
+from .season import SeasonModel, replacement_levels
 from .waivers import MIN_KEEP, handcuffs
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -64,13 +64,13 @@ BLOCK_NOTE = 0.003
 #: inside this many paired standard errors of the simulation: it cannot tell
 #: them apart, so both are shown with their odds and the manager picks.
 TOSS_UP_SE = 2.0
-#: The shortlisted moves (the ones shown, and this many more) are priced
-#: again on a second, independent simulation, and shown and judged on that.
-#: Picking the best of twenty-odd noisy estimates picks the luckiest: with
-#: every move truly worth nothing, the top one reads about two standard
-#: errors up. A fresh draw of seasons has no such lean. DECISIONS.md, "The
-#: best of many is the luckiest".
-CONFIRM_EXTRA = 3
+#: The moves shown are chosen on one simulation and priced again on a
+#: second, independent one, and shown and judged on that. Picking the best
+#: of twenty-odd noisy estimates picks the luckiest: with every move truly
+#: worth nothing, the top one reads about two standard errors up. The second
+#: run only prices the choice the first made -- it does not re-rank or drop
+#: (that would pick its favourable noise in turn). DECISIONS.md, "The best
+#: of many is the luckiest".
 #: Offset to the confirming simulation's seed.
 CONFIRM_SEED = 7919
 #: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
@@ -406,6 +406,7 @@ class TitleEngine:
         self._claimant_cache: dict[str, np.ndarray] = {}
         self._worth: dict[str, np.ndarray] | None = None
         self._stand_pat_cache: dict[tuple[str, str], np.ndarray] = {}
+        self._repl: dict[str, float] | None = None
         #: Player id -> what the market sees him worth (perception); set by
         #: the caller. Used to keep tradeable players when drops tie.
         self.market: dict[str, float] = {}
@@ -575,8 +576,17 @@ class TitleEngine:
             team = self.snapshot.teams[int(t_idx)]
             joins = np.where(gets & (claimant == t_idx), joins_at, 10_000)
             ids = [p.player_id for p in team.roster] + [add.player_id]
-            worst = sorted((p for p in team.roster if not p.in_ir_slot and p.position in SKILL),
-                           key=lambda p: float(p.ros_value or 0.0))
+            # He makes room with a bench body -- or, with no bench, his weakest
+            # player at the new man's position -- never by cutting the only
+            # player who fills a slot (his only tight end left his TE slot
+            # empty, and a rival landing a player read as a gain for you).
+            from .waivers import lineup_slots
+
+            skill = [p for p in team.roster if not p.in_ir_slot and p.position in SKILL]
+            starts = lineup_slots([p for p in team.roster if not p.in_ir_slot], self.snapshot.starting_slots,
+                                  lambda p: float(p.ros_value or 0.0))
+            bench = [p for p in skill if p.player_id not in starts] or [p for p in skill if p.position == add.position]
+            worst = sorted(bench, key=lambda p: float(p.ros_value or 0.0))
             gone = {worst[0].player_id: joins} if worst else {}
             out[team.team_id] = self.model.team_scores(ids, available_from={add.player_id: joins},
                                                        gone_from=gone, owner=team.team_id)
@@ -677,8 +687,30 @@ class TitleEngine:
 
     def value_now(self, add: PlayerRow, drop: PlayerRow, per_sim: bool = False):
         roster = [p.player_id for p in self.me.roster if p.player_id != drop.player_id] + [add.player_id]
-        won = self._won(roster)
+        rivals = self._dropped_to_rival(drop)
+        won = self._won(roster, rivals=rivals) if rivals else self._won(roster)
         return won if per_sim else float(won.mean())
+
+    def _dropped_to_rival(self, drop: PlayerRow) -> dict[str, np.ndarray]:
+        """A player you drop goes back on the wire. One worth more than the
+        free agents already there (above his position's replacement level)
+        is claimed by a rival the next week, in the seasons one claims him --
+        the same claim draw as a breakout; anyone below it changes nothing
+        (the wire already holds better)."""
+        cache = self.__dict__.setdefault("_dropped_cache", {})
+        if drop.player_id in cache:
+            return cache[drop.player_id]
+        out: dict[str, np.ndarray] = {}
+        if self._repl is None:
+            self._repl = replacement_levels(self.snapshot)
+        level = self._repl.get(drop.position)
+        if (drop.position in SKILL and level is not None and drop.player_id in self.model.pid
+                and float(drop.ros_value or 0.0) > level):
+            claimant = self._claimant(drop)
+            joins = np.full(self.model.n, self.model.lag + 1)
+            out = self._rival_scores(drop, joins, claimant >= 0, claimant)
+        cache[drop.player_id] = out
+        return out
 
     def priority_cost(self, exclude: str) -> float:
         """Title odds lost on the best future contested claim if you drop to
@@ -722,8 +754,6 @@ class TitleEngine:
         x = best.add
         pat = self.stand_pat(x, best.drop)
         best.p_free, best.p_base = self.base, float(pat.mean())
-        if best.gain_now < MIN_GAIN:
-            return False
         claimant = self._claimant(x)
         breaks = self._breakout_week(x, best.drop) <= len(self.model.weeks)
         lands = breaks & (claimant >= 0)
@@ -744,12 +774,14 @@ class TitleEngine:
         else:
             best.verdict = "wait"
         best.reasons = self._reasons(best)
-        return True
+        return best.gain_now >= MIN_GAIN
 
     def _confirmed(self, moves: list[TitleMove]) -> list[TitleMove]:
-        """``moves`` priced again on :meth:`confirmation`: the numbers, the
-        verdict and the order come from the fresh seasons; a move that falls
-        short there is passed, not shown."""
+        """``moves`` (chosen on this simulation) priced again on
+        :meth:`confirmation`: the numbers and the verdict come from the fresh
+        seasons, the choice and the order from this one -- a move the second
+        run reads as no gain is still shown, as "wait", not swapped for one
+        the second run happens to like."""
         check = self.confirmation()
         out = []
         for m in moves:
@@ -765,10 +797,7 @@ class TitleEngine:
                 c.drop_options = options if len(options) > 1 else []
             now = check._won_move(c)
             c.p_now = float(now.mean())
-            if not check._settle(c, now):
-                if m.add.player_id in self.upside:
-                    self.passed.append((m.add, c.gain_now, self.upside[m.add.player_id]))
-                continue
+            check._settle(c, now)
             c.reasons.insert(1, f"checked on a second, independent simulation (the first, which picked "
                                 f"him out of {len(self.candidates)}, read {m.gain_now * 100:+.1f})")
             out.append(c)
@@ -820,8 +849,13 @@ class TitleEngine:
 
         order(out)
         if self.confirm and out:
-            out = self._confirmed(out[:n + CONFIRM_EXTRA])
-            order(out)
+            self.passed += [(m.add, m.gain_now, self.upside[m.add.player_id]) for m in out[n:]
+                            if m.add.player_id in self.upside]
+            out = self._confirmed(out[:n])
+            return self._finish(out, n)
+        return self._finish(out, n)
+
+    def _finish(self, out: list[TitleMove], n: int) -> list[TitleMove]:
         # Upside plays that cleared the bar but not the top n are passed too.
         self.passed += [(m.add, m.gain_now, self.upside[m.add.player_id]) for m in out[n:]
                         if m.add.player_id in self.upside]

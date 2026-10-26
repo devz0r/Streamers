@@ -513,8 +513,14 @@ def kpi_tiles(snapshot: LeagueSnapshot, report: MatchupReport) -> str:
         tiles.append(tile(_pct(report.win_probability), "Win this week", "lineup", report.win_probability,
                           f"vs {report.opponent_name}" if report.opponent_name else ""))
     if m is not None:
-        tiles.append(tile(f"{o.p_title[m]:.1%}", "Win the title", "season", o.p_title[m]))
-        tiles.append(tile(f"{o.p_playoffs[m]:.0%}", "Make the playoffs", "season", o.p_playoffs[m]))
+        from .season import wilson
+
+        lo, hi = wilson(float(o.p_title[m]), o.n_sims)
+        tiles.append(tile(f"{o.p_title[m]:.1%}", "Win the title", "season", o.p_title[m],
+                          f"95%: {lo:.1%}\u2013{hi:.1%}"))
+        lo, hi = wilson(float(o.p_playoffs[m]), o.n_sims)
+        tiles.append(tile(f"{o.p_playoffs[m]:.0%}", "Make the playoffs", "season", o.p_playoffs[m],
+                          f"95%: {lo:.0%}\u2013{hi:.0%}"))
     record = f"{me.wins}&ndash;{me.losses}" + (f"&ndash;{me.ties}" if getattr(me, "ties", 0) else "")
     pace = (f"on pace for {st.exp_wins:.1f} wins" if st is not None
             else f"{o.exp_wins[m]:.1f} expected wins" if m is not None else "")
@@ -641,7 +647,8 @@ def _plans(report: MatchupReport) -> str:
     cards = []
     for plan in plans:
         label = ('<span class="hold-tag">make the plan</span>' if plan.verdict == "plan"
-                 else '<span class="opp">close call</span>')
+                 else '<span class="opp">close call</span>' if plan.verdict == "lean"
+                 else '<span class="opp">no clear edge on a second run</span>')
         claims = "".join(
             f"<li><b>{_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')})"
             + (" &middot; free agent: add now, no claim" if a.on_waivers is False
@@ -1038,18 +1045,28 @@ def _season(report: MatchupReport) -> str:
     o = report.season
     if o is None or o.mine is None:
         return ""
+    from .season import wilson
+
     m = o.mine
     rows = []
+
+    def band(p: float, places: int) -> str:
+        lo, hi = wilson(float(p), o.n_sims)
+        return f"<span class='opp'> {lo * 100:.{places}f}&ndash;{hi * 100:.{places}f}</span>"
+
     for i in sorted(range(len(o.names)), key=lambda i: -o.p_title[i]):
         me = " style='font-weight:700'" if i == m else ""
         rows.append(f"<tr{me}><td class='unit'>{_e(o.names[i])}</td><td>{_e(o.records[i])}</td>"
-                    f"<td>{o.p_title[i]:.1%}</td><td>{o.p_playoffs[i]:.0%}</td><td>{o.exp_wins[i]:.1f}</td></tr>")
+                    f"<td>{o.p_title[i]:.1%}{band(o.p_title[i], 1)}</td>"
+                    f"<td>{o.p_playoffs[i]:.0%}{band(o.p_playoffs[i], 0)}</td><td>{o.exp_wins[i]:.1f}</td></tr>")
+    t_lo, t_hi = wilson(float(o.p_title[m]), o.n_sims)
     return (
         '<div class="card"><div class="row"><div class="rank">&#127942;</div>'
         f'<div><span class="name">Season outlook</span> '
         f'<span class="opp">{o.p_playoffs[m]:.0%} to make the playoffs, {o.p_bye[m]:.0%} for a bye</span></div>'
         f'<div class="pts">{o.p_title[m]:.1%}</div></div>'
-        f'<div class="meta"><span>P(title)</span><span>{o.exp_wins[m]:.1f} expected wins</span>'
+        f'<div class="meta"><span>P(title), 95%: {t_lo:.1%}&ndash;{t_hi:.1%}</span>'
+        f"<span>{o.exp_wins[m]:.1f} expected wins</span>"
         f"<span>{o.n_sims:,} simulated seasons</span></div>"
         + "".join(f'<div class="why">{_e(n)}</div>' for n in (o.notes or []))
         + "</div>"
@@ -1061,7 +1078,9 @@ def _season(report: MatchupReport) -> str:
         "middle half half the time, early form carries on as far as it really did, and what a manager can "
         "see of a player moves as much, and means as little, as a real projection did); every team "
         "starts its best lineup each week on what it could see then; the season is played on the real "
-        "schedule and the playoffs on the real bracket. Rosters are held as they stand.</p></details>"
+        "schedule and the playoffs on the real bracket. Rosters are held as they stand. The small ranges "
+        "are 95% intervals for the simulation's own noise (Wilson): what a rerun could move the number "
+        "by -- not whether the model's view of the season is right.</p></details>"
     )
 
 

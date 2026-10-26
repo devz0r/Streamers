@@ -171,12 +171,17 @@ def league_rules(league: Any) -> dict[str, Any]:
                 a, b = sorted((tid, oid))
                 pairs.add((i + 1, a, b))
     tiebreak = str(_attr(settings, "playoff_seed_tie_rule", "") or "").upper()
+    game_tie = str(_attr(settings, "playoff_tie_rule", "") or "").upper()
     return {
         "regular_season_weeks": reg,
         "playoff_teams": int(_attr(settings, "playoff_team_count", 0) or 0),
         "playoff_round_weeks": int(_attr(settings, "playoff_matchup_period_length", 1) or 1),
         # Seeds go by record; this is how ties in record are broken.
         "tiebreak": "points" if tiebreak in _POINTS_TIEBREAK else "h2h",
+        # A tied playoff game: season points scored where the league says so,
+        # else the higher seed (ESPN's playoffMatchupTieRule, kept as read).
+        "playoff_tiebreak": "points" if game_tie in _POINTS_TIEBREAK else "higher seed",
+        "playoff_tie_rule": game_tie,
         "median_game": bool(_attr(settings, "median_scoring", False)),
         "waiver": "faab" if _attr(settings, "faab", False) else "priority",
         "faab_budget": float(_attr(settings, "acquisition_budget", 0) or 0),

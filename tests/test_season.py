@@ -290,3 +290,81 @@ def test_a_weak_division_winner_gets_the_bye(cfg):
     weak = [4, 5, 6, 7]
     assert divided.p_bye[weak].sum() == pytest.approx(1.0)        # exactly one weak-division team each season
     assert plain.p_bye[weak].sum() < 0.5
+
+
+# ---------------------------------------------------------------------------
+# The bracket, exactly: hand-set scores, one known answer each
+# ---------------------------------------------------------------------------
+def _bracket_model(cfg, teams: int, playoff_teams: int, round_weeks: int = 1, reseed: bool = False,
+                   playoff_tiebreak: str = "higher seed"):
+    import numpy as np
+
+    snap = _league([1.0] * teams)
+    snap.rules.update(playoff_teams=playoff_teams, playoff_round_weeks=round_weeks, reseed=reseed,
+                      playoff_tiebreak=playoff_tiebreak)
+    m = SeasonModel(snap, cfg, n_sims=2)
+    # Seed k (1-based) is team k-1: wins fall with the index.
+    wins = np.array([[float(teams - i)] * 2 for i in range(teams)])
+    points = np.zeros((teams, 2))
+    scores = np.zeros((teams, 2, len(m.weeks)))
+    first = m.weeks.index(m.reg_weeks + 1)
+    return m, wins, points, scores, first
+
+
+def _champ(m, wins, points, scores) -> list[int]:
+    made, byes, champ = m._playoffs(scores, wins, points)
+    assert made.sum(axis=0).tolist() == [m.playoff_teams] * m.n          # exactly the field, every season
+    return [int(c) for c in champ]                                     # exactly one champion each
+
+
+def test_a_fixed_bracket_and_a_reseeded_one_differ_as_they_should(cfg):
+    for reseed, expected in ((False, 7), (True, 2)):
+        m, wins, points, scores, k = _bracket_model(cfg, 8, 8, reseed=reseed)
+        r1 = [150, 140, 130, 120, 110, 100, 90, 200]        # seed 8 upsets seed 1; elsewhere the higher seed
+        r2 = [0, 120, 110, 90, 0, 0, 0, 100]
+        r3 = [0, 50, 250, 0, 0, 0, 0, 300]
+        for t in range(8):
+            scores[t, :, k], scores[t, :, k + 1], scores[t, :, k + 2] = r1[t], r2[t], r3[t]
+        # Fixed: 8 meets the 4/5 winner (beats 4), 2 beats 3; 8 beats 2 in the final.
+        # Reseeded: the best left (2) meets the worst (8) and wins; 3 beats 4; 3 beats 2.
+        assert _champ(m, wins, points, scores) == [expected] * 2
+
+
+def test_a_tied_playoff_game_goes_to_the_higher_seed_or_season_points(cfg):
+    m, wins, points, scores, k = _bracket_model(cfg, 4, 2)
+    scores[0, :, k] = scores[1, :, k] = 100.0
+    assert _champ(m, wins, points, scores) == [0, 0]                      # seed 1 on the tie
+    m, wins, points, scores, k = _bracket_model(cfg, 4, 2, playoff_tiebreak="points")
+    scores[0, :, k] = scores[1, :, k] = 100.0
+    points[1] = 900.0                                                   # seed 2 scored more all season
+    assert _champ(m, wins, points, scores) == [1, 1]
+
+
+def test_a_two_week_round_is_decided_on_both_weeks(cfg):
+    m, wins, points, scores, k = _bracket_model(cfg, 4, 2, round_weeks=2)
+    scores[0, :, k], scores[1, :, k] = 130.0, 100.0                     # seed 1 wins week one ...
+    scores[0, :, k + 1], scores[1, :, k + 1] = 80.0, 120.0              # ... seed 2 the round, 220 to 210
+    assert _champ(m, wins, points, scores) == [1, 1]
+
+
+def test_a_move_that_changes_nothing_moves_the_title_odds_by_exactly_zero(cfg):
+    import numpy as np
+
+    from streamer.roster.title_moves import TitleEngine
+
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    engine = TitleEngine(snap, cfg, n_sims=500, candidates=4)
+    same = engine._won([p.player_id for p in engine.me.roster])
+    assert np.array_equal(same, engine.base_won)
+    odds = engine.model.odds()
+    assert odds.p_title.sum() == pytest.approx(1.0) and np.all(odds.champion >= 0)
+
+
+def test_the_simulation_noise_interval_is_wilsons():
+    from streamer.roster.season import wilson
+
+    lo, hi = wilson(0.10, 6000)
+    assert lo == pytest.approx(0.0927, abs=2e-4) and hi == pytest.approx(0.1078, abs=2e-4)   # about +-0.76 points
+    lo, hi = wilson(0.10, 1500)
+    assert hi - lo == pytest.approx(0.0305, abs=0.001)            # about +-1.5 at 1,500
+    assert wilson(0.0, 6000)[0] == pytest.approx(0.0, abs=1e-12) and wilson(1.0, 6000)[1] == pytest.approx(1.0)

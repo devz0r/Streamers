@@ -143,6 +143,18 @@ def heirs_for(players: list[PlayerRow]) -> list[tuple[str, str]]:
 REPLACEMENT_SD = 6.0
 
 
+def wilson(p: float, n: int, z: float = 1.96) -> tuple[float, float]:
+    """The 95% Wilson interval for a share ``p`` of ``n`` simulated seasons:
+    how far the simulation's own noise could move it (not whether the model
+    is right). Well behaved near 0% and 100%, unlike p +- 2 SE."""
+    if n <= 0:
+        return 0.0, 1.0
+    d = 1.0 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return max(c - h, 0.0), min(c + h, 1.0)
+
+
 def replacement_levels(snapshot: LeagueSnapshot) -> dict[str, float]:
     """Per position: the second-best free agent's per-game value (D/ST and
     K: the best, since they are streamed weekly)."""
@@ -194,6 +206,9 @@ class SeasonModel:
         self.round_weeks = max(int(rules.get("playoff_round_weeks") or 1), 1)
         self.median = bool(rules.get("median_game"))
         self.reseed = bool(rules.get("reseed"))
+        # A tied playoff game goes to the higher seed unless the league breaks
+        # it on season points.
+        self.playoff_points_tiebreak = rules.get("playoff_tiebreak") == "points"
         # Division winners seeded first (and so given the byes), where the
         # league says so and every team has a division.
         league_conf = ((cfg.profiles.get(cfg.profile) or {}).get("league") or {}) if cfg.profile else {}
@@ -526,7 +541,11 @@ class SeasonModel:
                     continue
                 ra = sum(scores[a, np.arange(self.n), k] for k in ks)
                 rb = sum(scores[b, np.arange(self.n), k] for k in ks)
-                a_wins = (ra > rb) | ((ra == rb) & (sa < sb))
+                if self.playoff_points_tiebreak:
+                    pa, pb = points[a, np.arange(self.n)], points[b, np.arange(self.n)]
+                    a_wins = (ra > rb) | ((ra == rb) & ((pa > pb) | ((pa == pb) & (sa < sb))))
+                else:
+                    a_wins = (ra > rb) | ((ra == rb) & (sa < sb))
                 nxt.append(np.where(a_wins, a, b))
                 nxt_seed.append(np.where(a_wins, sa, sb))
             alive, seed_of = nxt, nxt_seed

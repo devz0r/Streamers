@@ -3657,6 +3657,43 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### A review of the title odds: intervals, the second run, dropped players
+
+An outside review of how P(title) is computed; the first fixes:
+
+* **Intervals.** Each title and playoff percentage now carries a 95%
+  Wilson interval for the simulation's own noise (a 10% title chance is
+  +-0.8 points at 6,000 seasons, +-1.5 at the 1,500 of a quick refresh; "+-0.4"
+  had been one standard error, not a margin). It says what a rerun could
+  move, not whether the model is right.
+* **The second run only prices the choice.** Moves, plans and trades are
+  chosen and ordered on one simulation and priced on an independent one --
+  but the shortlist had been re-ranked and filtered on the second run too,
+  which picks its favourable noise in turn. Now the first run chooses and
+  orders; the second only supplies the numbers and the verdict (a move it
+  reads as no gain shows as "wait", a plan as "no clear edge on a second
+  run", a trade as a toss-up).
+* **A dropped player goes back to the wire.** One worth more than the free
+  agents there is claimed by a rival the next week (the claim draw used for
+  breakouts). Doing that exposed a bug: a rival landing a player made room
+  by cutting his lowest season value, which could be his only tight end --
+  an empty slot, so a rival landing a breakout read as a gain for you. He
+  now cuts a bench body (not in his best lineup), or failing that his
+  weakest at the new man's position.
+* **ESPN's playoff-game tiebreak** is read from the league
+  (playoffMatchupTieRule): season points where it says so, else the higher
+  seed. Standings tiebreaks and playoff-game tiebreaks are separate rules.
+* **Deterministic tests**: a fixed bracket against a reseeded one on
+  hand-set scores, tied playoff games both ways, a two-week round, exactly
+  one champion and a full field every season, title odds summing to 100%,
+  and a move that changes nothing moving the title odds by exactly zero.
+
+Still to do, in order: link teammates' and opponents' outcomes in the
+season simulation (shared game effects, a QB's absence for his receivers);
+late scratches and in-game injuries that bench depth cannot always cover,
+and shared ownership of the wire; then grade weekly P(win) and title odds
+on replayed leagues.
+
 ### ESPN: division winners get the byes
 
 In the ESPN league each division's winner is seeded first (1 and 2 by

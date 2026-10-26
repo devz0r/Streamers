@@ -238,9 +238,21 @@ class PlanFinder:
                 plan.verdict = "plan"
             elif plan.over_single > 0 and plan.gain >= max(MIN_GAIN, 2.0 * plan.noise):
                 plan.verdict = "lean"
+            elif only is not None:
+                plan.verdict = "none"           # chosen on the first run; no clear edge on this one
             else:
                 continue
             out.append(plan)
+        if only is not None:
+            # The first run chose these and their order; this one only prices
+            # them (re-ranking or dropping here would pick its noise in turn).
+            kept = out[:n]
+            _adds, pool, _best = self.pools()
+            for plan in kept:
+                self._drop_options(plan, pool)
+                self._claim_order(plan)
+                plan.reasons = self._reasons(plan)
+            return kept
         out.sort(key=lambda p: (p.verdict != "plan", -p.p_plan))
         # Distinct plans: one sharing all but one pickup with a better plan is
         # listed on it as an alternative, not as a plan of its own.
@@ -354,7 +366,9 @@ class PlanFinder:
         pts = lambda v: f"{v * 100:+.1f}"            # noqa: E731
         bits = [f"{pts(plan.over_single)} over the best single move"]
         if getattr(self, "confirmed", False):
-            bits.append("checked on a second, independent simulation")
+            bits.append("checked on a second, independent simulation"
+                        + ("; there it does not clearly beat the best single move, so make that one instead"
+                           if plan.verdict == "none" else ""))
         if plan.verdict == "lean":
             bits.append(f"that edge is inside the simulation's noise (+-{2 * plan.noise * 100:.2f}): "
                         "the single move gets most of it")

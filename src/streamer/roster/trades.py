@@ -140,6 +140,8 @@ class Trade:
     #: The title-odds gain on the first simulation, when the shown numbers
     #: come from the independent check (``TradeFinder(check=...)``).
     first_gain: float | None = None
+    #: On the independent simulation, the gain is inside its noise.
+    weak: bool = False
 
     @property
     def gain(self) -> float:
@@ -276,7 +278,7 @@ class TradeFinder:
         """``check``: the same league on an independent simulation: the
         trades shown are priced again on it and judged on that, since the
         best of many priced on one set of seasons is the luckiest
-        (:data:`streamer.roster.title_moves.CONFIRM_EXTRA`)."""
+        (DECISIONS.md, "The best of many is the luckiest")."""
         self.snapshot, self.model = snapshot, model
         self.check = check
         self.slots = snapshot.starting_slots
@@ -455,21 +457,21 @@ class TradeFinder:
         t.noise = float((won_new - won_base).std() / np.sqrt(len(won_new)))
         return t
 
-    def _confirm(self, boards: list[list[Trade]]) -> list[Trade]:
-        """The trades on ``boards``, priced again on the check simulation;
-        only those still worth more than its noise are kept."""
+    def _confirm(self, boards: list[list[Trade]]) -> dict[tuple, Trade]:
+        """The trades on ``boards`` (chosen on this simulation), priced again
+        on the check simulation: key -> the re-priced trade. None is dropped
+        or re-ranked on it -- that would pick its favourable noise in turn;
+        one whose gain there is inside the noise is marked ``weak``."""
         from dataclasses import replace
 
-        seen: dict[tuple, Trade] = {}
+        out: dict[tuple, Trade] = {}
         for board in boards:
             for t in board:
-                seen.setdefault(t.key, t)
-        out = []
-        for t in seen.values():
-            c = self.price(replace(t), self.check)
-            if c.gain >= max(MIN_GAIN, 2.0 * c.noise):
-                c.first_gain = t.gain
-                out.append(c)
+                if t.key not in out:
+                    c = self.price(replace(t, why_you=[], why_them=[]), self.check)
+                    c.first_gain = t.gain
+                    c.weak = c.gain < max(MIN_GAIN, 2.0 * c.noise)
+                    out[t.key] = c
         return out
 
     @staticmethod
@@ -525,21 +527,7 @@ class TradeFinder:
         priced = [self.price(t) for t in chosen.values()]
         self.priced = priced
         good = [t for t in priced if t.gain >= max(MIN_GAIN, 2.0 * t.noise)]
-        if self.check is not None and good:
-            # Everything a board could show (its top n and a few more), on
-            # fresh seasons; the boards are then built from those numbers.
-            extra = n + 3
-            good = self._confirm([
-                self._distinct(good, lambda t: t.expected, extra),
-                self._distinct([t for t in good if t.p_accept >= BEST_MIN_ACCEPT], lambda t: t.gain, extra),
-                self._distinct(good, lambda t: t.p_accept, extra),
-                self._distinct([t for t in good if t.win_win], lambda t: t.expected, extra),
-                *[self._distinct([t for t in good if t.partner.team_id == team.team_id],
-                                 lambda t: t.expected, TEAM_SHOWN + 1, TEAM_SHOWN + 1)
-                  for team in self.snapshot.teams if not team.is_mine]])
-        for t in good:
-            self._explain(t)
-        return TradeBoard(
+        board = TradeBoard(
             top=self._distinct(good, lambda t: t.expected, n),
             best=self._distinct([t for t in good if t.p_accept >= BEST_MIN_ACCEPT], lambda t: t.gain, n),
             likely=self._distinct(good, lambda t: t.p_accept, n),
@@ -548,6 +536,19 @@ class TradeFinder:
             by_team={team.team_id: self._distinct([t for t in good if t.partner.team_id == team.team_id],
                                                   lambda t: t.expected, TEAM_SHOWN, TEAM_SHOWN)
                      for team in self.snapshot.teams if not team.is_mine})
+        if self.check is not None:
+            # Chosen and ordered on this simulation; the numbers shown come
+            # from the independent one (see _confirm).
+            again = self._confirm([board.top, board.best, board.likely, board.win_win,
+                                   *board.by_team.values()])
+            board.top, board.best, board.likely, board.win_win = (
+                [again[t.key] for t in lst] for lst in (board.top, board.best, board.likely, board.win_win))
+            board.by_team = {k: [again[t.key] for t in v] for k, v in board.by_team.items()}
+        for lst in (board.top, board.best, board.likely, board.win_win, *board.by_team.values()):
+            for t in lst:
+                if not t.why_you:
+                    self._explain(t)
+        return board
 
     # -- reasons ----------------------------------------------------------
     def _explain(self, t: Trade) -> None:
@@ -571,7 +572,8 @@ class TradeFinder:
             you.append("opens a roster spot for a pickup")
         if t.first_gain is not None:
             you.append(f"checked on a second, independent simulation (the first, which picked it out of "
-                       f"{len(self.priced)} priced, read {t.first_gain * 100:+.1f})")
+                       f"{len(self.priced)} priced, read {t.first_gain * 100:+.1f})"
+                       + ("; there the gain is inside the noise, so treat it as a toss-up" if t.weak else ""))
         t.why_you = you
 
         them = [f"as he would see it, his roster {t.their_seen:+.1f} a game"]
