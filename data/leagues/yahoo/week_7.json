@@ -2635,7 +2635,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 12.33,
+          "platform_projection": null,
           "season_avg": null,
           "percent_owned": 96.0,
           "projection": null,
@@ -2898,7 +2898,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 0.0,
+          "platform_projection": null,
           "season_avg": null,
           "percent_owned": 69.0,
           "projection": null,
@@ -3096,7 +3096,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 0.0,
+          "platform_projection": null,
           "season_avg": null,
           "percent_owned": 95.0,
           "projection": null,
@@ -3505,7 +3505,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 19.23,
+          "platform_projection": null,
           "season_avg": null,
           "percent_owned": 100.0,
           "projection": null,
@@ -27736,7 +27736,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-26T00:21:57.406843+00:00",
+  "synced_at": "2026-10-26T00:43:29.873646+00:00",
   "extra": {
     "source": "yahoo-web"
   },
