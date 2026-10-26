@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
@@ -384,3 +385,22 @@ def test_the_season_simulation_draws_each_nfl_game_together(cfg, monkeypatch):
     monkeypatch.setattr(season_mod.fut, "simulate", spy)
     SeasonModel(_league([1.0, 1.0, 1.0, 1.0]), cfg, n_sims=200)
     assert seen["opponents"] == {"KC": {3: "BUF"}, "BUF": {3: "KC"}}
+
+
+def test_a_fading_edge_pulls_the_favourite_back_but_keeps_what_a_move_adds(cfg):
+    """strength_fade: a team's edge over the league shrinks week by week ahead
+    (claims and trades level rosters); this week's games are untouched, and a
+    roster change's own points pass through whole."""
+    snap = _league([1.0, 1.3, 0.9, 0.8, 1.0, 0.95])
+    model = SeasonModel(snap, cfg, n_sims=1500)
+    full, faded = model.odds(retention=1.0), model.odds(retention=0.9)
+    assert faded.p_title[1] < full.p_title[1]                      # the favourite
+    assert faded.p_title.sum() == pytest.approx(1.0) and faded.p_playoffs.sum() == pytest.approx(4.0)
+    fade = model._fade(0.9)
+    assert np.allclose(fade[:, 0, model.lag], 0.0)                 # this week as projected
+    assert np.allclose(fade.sum(axis=0), 0.0)                      # the league as a whole keeps its points
+    # A move's own points are not faded: the same shift applies to any override.
+    i = model.team_index["0"]
+    better = model.base_scores[i] + 5.0
+    gained = (model._scores({"0": better}, 0.9) - model._scores(None, 0.9))[i]
+    assert np.allclose(gained, 5.0)

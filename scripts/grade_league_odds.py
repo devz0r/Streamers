@@ -4,7 +4,10 @@
 
 Drafts and plays ``--leagues`` ten-team leagues on each of 2022-2025
 (:mod:`streamer.roster.league_replay`): projections from the games before
-each week only, real scores, the production lineup draws and season model.
+each week only, scaled by that week's closing implied totals as production
+scales by the market's, real scores, the production lineup draws and season
+model. ``--retentions`` also grades other ``strength_fade`` values, held out
+by season.
 Prints, per season and pooled:
 
 * this week's P(win) against the results: Brier score and log loss beside a
@@ -47,7 +50,7 @@ def weekly_projections(cfg, path: str | None) -> dict:
     for season in rb.SEASONS:
         rost, inj = rb.rosters(cfg, season), rb.injuries(cfg, season)
         for week in range(1, 18):
-            out[(season, week)] = rb.project(history, cfg, season, week, rb.statuses(rost, inj, week))
+            out[(season, week)] = rb.project(history, cfg, season, week, rb.statuses(rost, inj, week), lines=True)
         print(f"projected {season}", flush=True)
     if path:
         Path(path).write_bytes(pickle.dumps(out))
@@ -139,6 +142,34 @@ def report(games: pd.DataFrame, odds: pd.DataFrame) -> None:
               f"{slope:.2f}  (sd of expected {x.std():.1f}, of real {y.std():.1f})")
 
 
+def fade_report(odds: pd.DataFrame) -> None:
+    """Held out by season: the ``strength_fade`` (share of a team's edge kept
+    per week ahead) picked on three seasons by P(playoffs) + P(title) Brier,
+    scored on the fourth against the model as run."""
+    rs = sorted({float(c.split("_r")[1]) for c in odds.columns if c.startswith("p_playoffs_r")})
+    if not rs:
+        return
+    def score(d, r):
+        return brier(d[f"p_playoffs_r{r:g}"], d.made) + brier(d[f"p_title_r{r:g}"], d.won_title)
+    print(f"\n=== Fading team strength (strength_fade), held out by season; grid {rs} ===")
+    t0 = t1 = 0.0
+    wins = 0
+    for s in sorted(odds.season.unique()):
+        tr, te = odds[odds.season != s], odds[odds.season == s]
+        r = min(rs, key=lambda r: score(tr, r))
+        po0, po1 = brier(te.p_playoffs, te.made), brier(te[f"p_playoffs_r{r:g}"], te.made)
+        ti0, ti1 = brier(te.p_title, te.won_title), brier(te[f"p_title_r{r:g}"], te.won_title)
+        wins += (po1 + ti1) < (po0 + ti0)
+        t0 += (po0 + ti0) * len(te)
+        t1 += (po1 + ti1) * len(te)
+        print(f"  {s}: picked {r:g}; P(playoffs) Brier {po0:.4f} -> {po1:.4f}, P(title) {ti0:.4f} -> {ti1:.4f}")
+    print(f"  overall (sum of the two) {t0 / len(odds):.4f} -> {t1 / len(odds):.4f}, better in {wins} of 4")
+    for r in rs:
+        print(f"    all seasons at {r:g}: P(playoffs) {brier(odds[f'p_playoffs_r{r:g}'], odds.made):.4f}"
+              f"  P(title) {brier(odds[f'p_title_r{r:g}'], odds.won_title):.4f}"
+              f"  log loss {logloss(odds[f'p_title_r{r:g}'], odds.won_title):.4f}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--leagues", type=int, default=8, help="leagues per season")
@@ -146,6 +177,7 @@ def main() -> int:
     ap.add_argument("--out", help="a directory for the graded games and odds (parquet)")
     ap.add_argument("--sims", type=int, default=2000)
     ap.add_argument("--no-upgrades", action="store_true", help="managers only fill holes (no upgrade claims)")
+    ap.add_argument("--retentions", default="", help="comma-separated strength_fade values to grade beside the model's")
     args = ap.parse_args()
     os.environ.setdefault("STREAMER_CREDIT_FREE", "1")
     logging.disable(logging.WARNING)
@@ -165,7 +197,8 @@ def main() -> int:
         per_week = {w: weekly[(season, w)] for w in range(1, 18)}
         for i in range(args.leagues):
             r = lr.play(season, 1000 * season + i, per_week, points, byes, cfg, n_sims=args.sims,
-                        upgrade=None if args.no_upgrades else lr.UPGRADE)
+                        upgrade=None if args.no_upgrades else lr.UPGRADE,
+                        retentions=tuple(float(x) for x in args.retentions.split(",") if x))
             games += r.games
             odds += r.odds
             print(f"{season} league {i}: champion T{r.finals['champion']}", flush=True)
@@ -176,6 +209,7 @@ def main() -> int:
         games.to_parquet(out / "games.parquet")
         odds.to_parquet(out / "odds.parquet")
     report(games, odds)
+    fade_report(odds)
     return 0
 
 

@@ -28,7 +28,11 @@ def _hist():
                          for t, pid in (("BAL", "bal-wr"), ("KC", "kc-wr"))])
 
 
-def test_receivers_lose_part_of_their_week_to_a_clearly_worse_backup(tmp_cfg):
+def test_receivers_lose_part_of_their_week_to_a_clearly_worse_backup(tmp_cfg, monkeypatch):
+    """The mechanism, switched on (the shipped config has it off: inside the
+    full pipeline the cut did not hold up)."""
+    monkeypatch.setattr(qb_change, "conf", lambda _c: {"positions": ["WR"], "worse_sd": 0.5, "cut": 0.15,
+                                                     "shrink": 200, "recent": 6})
     _stats(tmp_cfg)
     star = PlayerRow(player_id="s", name="Star", position="QB", team="BAL", status="OUT", depth_order=1)
     backup = PlayerRow(player_id="b", name="Backup", position="QB", team="BAL", depth_order=2)
@@ -43,3 +47,12 @@ def test_receivers_lose_part_of_their_week_to_a_clearly_worse_backup(tmp_cfg):
     # The starter healthy: nothing changes.
     star.status = ""
     assert qb_change.factors([star, backup, kc, bal_wr, kc_wr], ids, _hist(), tmp_cfg, 2026, 5) == {}
+
+
+def test_the_shipped_config_leaves_receivers_alone(tmp_cfg):
+    _stats(tmp_cfg)
+    star = PlayerRow(player_id="s", name="Star", position="QB", team="BAL", status="OUT", depth_order=1)
+    backup = PlayerRow(player_id="b", name="Backup", position="QB", team="BAL", depth_order=2)
+    bal_wr = PlayerRow(player_id="w", name="Bal WR", position="WR", team="BAL")
+    ids = {"s": "star-qb", "b": "backup-qb", "w": "bal-wr"}
+    assert qb_change.factors([star, backup, bal_wr], ids, _hist(), tmp_cfg, 2026, 5) == {}

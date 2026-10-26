@@ -108,10 +108,34 @@ def byes(schedules: pd.DataFrame, season: int, weeks: list[int]) -> dict[str, se
     return {t: {w for w in weeks if w not in ws} for t, ws in played.items()}
 
 
+def historical_implied(season: int, week: int, cfg: Config) -> dict[str, float]:
+    """Team -> this week's implied total / its trailing six-game implied total,
+    from the closing lines in the nflverse schedule -- what production reads
+    from the live market (``projections._implied_scale``), for a past week.
+    Also fills the module's SPREADS and IMPLIED, as production does."""
+    from ..data.nflverse import games_frame
+    from . import projections
+
+    projections.SPREADS.clear()
+    projections.IMPLIED.clear()
+    games = games_frame(cfg).dropna(subset=["team_implied_total"])
+    games = games.assign(team=games["team"].map(normalize_team))
+    past = games[(games["season"] < season) | ((games["season"] == season) & (games["week"] < week))]
+    trailing = past.sort_values(["season", "week"]).groupby("team")["team_implied_total"].apply(
+        lambda s: float(s.tail(6).mean()))
+    now = games[(games["season"] == season) & (games["week"] == week)]
+    projections.IMPLIED.update({t: float(v) for t, v in zip(now["team"], now["team_implied_total"])})
+    projections.SPREADS.update({t: float(v) for t, v in zip(now["team"], now["team_spread"])})
+    return {t: float(np.clip(v / trailing[t], 0.7, 1.3)) for t, v in zip(now["team"], now["team_implied_total"])
+            if trailing.get(t, 0) > 0}
+
+
 def project(history: pd.DataFrame, cfg: Config, season: int, week: int,
-            status: dict[str, tuple[str, str]]) -> list[PlayerRow]:
+            status: dict[str, tuple[str, str]], lines: bool = False) -> list[PlayerRow]:
     """Every rostered skill player, projected by the production code on the
-    games before ``week`` only."""
+    games before ``week`` only. ``lines``: scale this week by the closing
+    implied totals (:func:`historical_implied`), as production scales by the
+    market's; off by default, as the season-value fits were made."""
     from . import locked, projections
 
     prior = history[(history["season"] < season) | ((history["season"] == season) & (history["week"] < week))]
@@ -138,7 +162,8 @@ def project(history: pd.DataFrame, cfg: Config, season: int, week: int,
     from ..data import sleeper
 
     saved = (projections._implied_scale, projections.match_players, locked.lock_played, sleeper.depth_orders)
-    projections._implied_scale = lambda *a, **k: ({}, "backtest")
+    projections._implied_scale = (lambda *a, **k: (historical_implied(season, week, cfg), "closing lines")) \
+        if lines else (lambda *a, **k: ({}, "backtest"))
     projections.match_players = lambda players, index: _Identity(players)
     locked.lock_played = lambda *a, **k: []
     sleeper.depth_orders = lambda *a, **k: {}      # today's depth charts say nothing about past seasons

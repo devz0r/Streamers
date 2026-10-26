@@ -552,9 +552,13 @@ roster:
     ridge: 4.0
     previous_season_weight: 0.5
     allowed_k: 6
+  # RB power 0.5 -> 0.33: graded inside the full pipeline (closing lines in,
+  # a missed game scoring 0), about two thirds of a back's share swing held
+  # up (k 0.6-0.7 held out, better in 4 of 4; DECISIONS.md, "Edges that did
+  # not hold up in the full pipeline").
   team_share:
     positions: [WR, RB]
-    power: {WR: 0.3, RB: 0.5}
+    power: {WR: 0.3, RB: 0.33}
     cap: 0.3
     games: 8
   # Snap share as an early sign: this week x exp(trend x (snap share last 2
@@ -581,7 +585,11 @@ roster:
   # those games someone else threw. Held out 2022-2025: better in 4 of 4
   # seasons (5.37 -> 5.24 RMSE on those weeks); TE and RB showed nothing
   # (scripts/fit_qb_change.py; DECISIONS.md, "A new quarterback for the receivers").
-  qb_change: {positions: [WR], worse_sd: 0.5, cut: 0.15, shrink: 200, recent: 6}
+  # Off: graded inside the full pipeline (snaps, shares, closing lines), the
+  # cut held up not at all (slope -0.08 +- 0.14; held out k = 0 in all four
+  # seasons, RMSE 7.27 -> 7.11 on those weeks, 4 of 4). The rest of the projection already
+  # carries it (DECISIONS.md, "Edges that did not hold up in the full pipeline").
+  qb_change: {positions: [], worse_sd: 0.5, cut: 0.15, shrink: 200, recent: 6}
   # The season simulation draws each NFL game's players together each week
   # (the fitted residual correlations by role: QB and WR1 +0.34, QB and the
   # defence facing him -0.44). Held out 2022-2025 on the replay: weekly team
@@ -589,6 +597,14 @@ roster:
   # 71.8% -> 78.3%, better in all four seasons; single players unchanged
   # (DECISIONS.md, "Teammates and opponents in the season simulation").
   season_correlation: true
+  # A team's edge over the league fades the further ahead the week: managers
+  # claim, stream and trade, the weakest first (SeasonModel._fade). The share
+  # kept per week ahead; held out by season on the replayed leagues
+  # (scripts/grade_league_odds.py --retentions), 0.95 picked in three of four
+  # seasons, P(playoffs)+P(title) Brier better in 3 of 4 -- a small gain, and
+  # our real leagues churn more than the replay (DECISIONS.md, "Edges that did
+  # not hold up in the full pipeline"). What a move adds is not faded.
+  strength_fade: 0.95
   teammate_back:
     positions: [RB, WR, TE]
     regular: 5.0

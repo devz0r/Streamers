@@ -3016,6 +3016,8 @@ about -3% for a receiver on a 7-point favourite. A card says so when the
 defence moves a back 3%+ or the spread a receiver 2%+.
 
 ### A new quarterback for the receivers
+
+*Superseded: switched off once graded inside the full pipeline ("Edges that did not hold up in the full pipeline").*
 When a backup starts, this week's implied team total falls and every
 projection on the team scales with it (`vegas_damping`). Replayed on
 2022-2025 (`scripts/fit_qb_change.py`, 17,947 back/receiver/tight-end weeks
@@ -3656,6 +3658,82 @@ now reads up to six pages (`yahoo_web.OFFENSE_PAGES`, offsets 0 to 125) and
 stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
+
+### Edges that did not hold up in the full pipeline
+
+The league replay ("Grading the odds on replayed leagues") showed rosters
+built on our numbers came out weaker than those numbers said. Graded alone,
+players' weekly projections looked right, so the question was which part of
+a projection a lineup or a claim leans on that does not hold up.
+
+**The replay now reads the closing lines.** `ros_backtest.project(...,
+lines=True)` scales each past week by its closing implied totals from the
+nflverse schedule (`historical_implied`), as production scales by the
+market's. Without them, the matchup adjustment stood in for the line and
+looked twice as strong as it is (2.0 -> 0.98 once the lines were in), so
+fits on the old replay would have misled production. The season-value fits
+keep the old default (`lines=False`).
+
+**Each part of the weekly number, graded.** One rebuild of 2022-2025 with
+every part of our model's weekly number recorded. Actual points were
+regressed on the season value plus each part's points, within position and
+week; 1 means the part holds up as built. A game he missed scores 0, as the
+weekly number prices it. (Dropping missed games first made the first-game-back
+cut look wrong: it is right about backups who do not play.)
+
+| Part of the weekly number | Slope |
+|---|---|
+| Season value | 0.97 +- 0.02 |
+| The betting line | 1.04 +- 0.09 |
+| Matchup and game script | 0.98 +- 0.27 |
+| Snap-share trend | 0.93 +- 0.22 |
+| Next man up | 1.01 +- 0.16 |
+| Teammates' share (a receiver or back out) | 0.65 +- 0.13; RB 0.50 |
+| A clearly worse quarterback (`qb_change`, WR) | -0.08 +- 0.14 |
+
+**Two changes, held out by season** (each fitted on three seasons, scored on
+the fourth):
+- `qb_change` off. k = 0 in all four seasons, RMSE on the receivers it
+  moved 7.27 -> 7.11, better in 4 of 4. Inside the full projection
+  (snaps, shares, the line) the cut double counted. Its own fit graded
+  against the volume model alone. The mechanism stays, tested; the season
+  simulator's version was dropped earlier for the same reason.
+- RB `team_share` power 0.5 -> 0.33. About two thirds of a back's share swing
+  held up (k 0.60-0.70); better in 4 of 4, small.
+
+Rebuilt with both, this week's projection over every player-week projected
+at 3+: RMSE 6.833 -> 6.817, better in all four seasons (6.871 -> 6.824 on the
+5,806 that moved; receivers 7.055 -> 6.913).
+
+**Fading team strength.** On the same leagues with each roster frozen at the
+checkpoint, the model's strength estimate holds up better (slope about 0.87
+against 0.68 with claims). So about half of the gap is churn: managers level
+rosters through the wire, the weakest claiming first. `SeasonModel` now
+fades each team's expected edge over the league by `strength_fade` per week
+ahead (`_fade`, computed from today's rosters and the same for any override,
+so what a move adds passes through whole; this week untouched). Held out by
+season, 0.95 was picked in three of four, P(playoffs) + P(title) Brier better
+in 3 of 4 (0.2519 -> 0.2516: small). Real leagues churn more than the replay:
+ESPN kept 70.5% of its week-1 skill players by week 7, the replay 85.2%.
+
+**Re-graded**, the same 100 replayed leagues with lines in, before and after:
+
+| | Before | After | Seasons better |
+|---|---|---|---|
+| This week's P(win), Brier | 0.2323 | 0.2312 | 3 of 4 |
+| P(playoffs), Brier | 0.1704 | 0.1665 | 3 of 4 |
+| P(title), Brier | 0.0881 | 0.0854 | 3 of 4 |
+| P(title), standings-only on the same leagues | 0.0888 | 0.0871 | |
+
+P(title) now beats the standings-only baseline: by 0.0017 against 0.0007
+before.
+
+**Still open.**
+- Heavy favourites are a little overconfident (70-80%: 74.3% predicted,
+  70.9% won).
+- Season strength still regresses (slope 0.55-0.83).
+- Week-1 values in the replay lack the consensus blend that production
+  has.
 
 ### Grading the odds on replayed leagues
 

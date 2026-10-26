@@ -319,6 +319,23 @@ class SeasonModel:
                                          np.zeros((n_sims, len(self.weeks)), np.int16))
         self.base_scores = np.stack([self.team_scores([p.player_id for p in t.roster], owner=None,
                                                       _team=i) for i, t in enumerate(self.teams)])
+        # Rosters do not stay put: every manager claims, streams and trades,
+        # and the weakest claim first, so a team's edge over the league fades
+        # the further ahead the week (``roster.strength_fade``: the share kept
+        # per week ahead). Taken from today's rosters, the same for any
+        # override, so what a move adds passes through whole.
+        self.retention = float(roster_conf.get("strength_fade", 1.0))
+        self._fades: dict[float, np.ndarray] = {}
+
+    def _fade(self, retention: float) -> np.ndarray:
+        """``(teams, 1, weeks)`` points taken off each team's weekly score:
+        ``1 - retention ** weeks_ahead`` of its expected edge over the league
+        that week (nothing this week)."""
+        if retention not in self._fades:
+            m = self.base_scores.mean(axis=1)                                   # (teams, weeks)
+            ahead = np.maximum(np.arange(len(self.weeks)) - self.lag, 0)
+            self._fades[retention] = ((1.0 - retention ** ahead)[None, :] * (m - m.mean(axis=0)[None, :]))[:, None, :]
+        return self._fades[retention]
 
     #: Free agents per slot kept for the week-by-week wire: deeper than any
     #: week's competition reaches.
@@ -478,10 +495,11 @@ class SeasonModel:
         return max((self.replacement.get(pos, 0.0) for pos in positions), default=0.0)
 
     # -- the season ------------------------------------------------------
-    def odds(self, override: dict[str, np.ndarray] | None = None) -> SeasonOdds:
+    def odds(self, override: dict[str, np.ndarray] | None = None, retention: float | None = None) -> SeasonOdds:
         """Play out every simulated season. ``override`` swaps in a team's
-        weekly scores (from :meth:`team_scores` on a changed roster)."""
-        scores = self._scores(override)
+        weekly scores (from :meth:`team_scores` on a changed roster);
+        ``retention`` replaces ``roster.strength_fade`` (for grading)."""
+        scores = self._scores(override, retention)
         n_t = len(self.teams)
         wins, points, _results = self._regular_season(scores)
         made, byes, champ = self._playoffs(scores, wins, points)
@@ -496,10 +514,13 @@ class SeasonModel:
             exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
             champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes))
 
-    def _scores(self, override: dict[str, np.ndarray] | None) -> np.ndarray:
+    def _scores(self, override: dict[str, np.ndarray] | None, retention: float | None = None) -> np.ndarray:
         scores = self.base_scores.copy()
         for tid, arr in (override or {}).items():
             scores[self.team_index[tid]] = arr
+        r = self.retention if retention is None else float(retention)
+        if r < 1.0:
+            scores = scores - self._fade(r)
         return scores
 
     def _regular_season(self, scores: np.ndarray):

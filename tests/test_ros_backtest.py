@@ -64,3 +64,20 @@ def test_the_share_of_a_move_that_held_up_is_pooled_over_simulated_seasons():
     m = rb.moves(d)
     assert abs(m["real_slope"] - 0.5) < 0.1 and abs(m["sim_slope"] - 1.0) < 0.02
     assert abs(m["sim_sd"] - np.sqrt(4.0 + 1.0)) < 0.2
+
+
+def test_a_past_week_reads_its_closing_lines_against_the_trailing_ones(monkeypatch, cfg):
+    """historical_implied: this week's implied total over the team's last six,
+    from the nflverse schedule's closing lines, as production scales by the
+    market's."""
+    import streamer.data.nflverse as nflverse
+    from streamer.roster import projections
+
+    rows = [{"season": 2024, "week": w, "team": "KC", "team_implied_total": 24.0, "team_spread": -3.0}
+            for w in range(1, 7)]
+    rows.append({"season": 2024, "week": 7, "team": "KC", "team_implied_total": 30.0, "team_spread": -7.0})
+    rows.append({"season": 2024, "week": 7, "team": "LV", "team_implied_total": 20.0, "team_spread": 7.0})
+    monkeypatch.setattr(nflverse, "games_frame", lambda _c: pd.DataFrame(rows))
+    scale = rb.historical_implied(2024, 7, cfg)
+    assert scale == {"KC": 1.25}                                   # LV has no earlier lines
+    assert projections.IMPLIED["KC"] == 30.0 and projections.SPREADS["LV"] == 7.0

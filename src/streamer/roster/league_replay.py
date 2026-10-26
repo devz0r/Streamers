@@ -224,10 +224,12 @@ def coin_flip_odds(model: SeasonModel, rng: np.random.Generator) -> tuple[np.nda
 
 def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dict[tuple[int, str], float],
          byes: dict[str, set[int]], cfg: Config, n_sims: int = 2000, win_sims: int = 4000,
-         checkpoints=CHECKPOINTS, log=None, upgrade: float | None = UPGRADE) -> Replay:
+         checkpoints=CHECKPOINTS, log=None, upgrade: float | None = UPGRADE,
+         retentions: tuple[float, ...] = ()) -> Replay:
     """Draft and play one league through week 17, grading as it goes.
     ``weekly``: week -> projected players (games before it only);
-    ``points``: (week, player id) -> real PPR points."""
+    ``points``: (week, player id) -> real PPR points; ``retentions``: other
+    ``strength_fade`` values whose odds are recorded beside the model's."""
     rng = np.random.default_rng(seed)
     out = Replay(season, seed)
     rows = {w: {p.player_id: p for p in ps} for w, ps in weekly.items()}
@@ -284,6 +286,7 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
             snap = snapshot(season, week, rosters, free, wins, losses, pts, waiver, schedule)
             model = SeasonModel(snap, cfg, n_sims=n_sims, seed=seed * 100 + week)
             odds = model.odds()
+            faded = {r: model.odds(retention=r) for r in retentions}
             base_po, base_title = coin_flip_odds(model, rng)
             # P(win) this week as the season model has it (its own draws).
             k0 = 0
@@ -296,11 +299,13 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
             rest = model.base_scores[:, :, reg].mean(axis=1).sum(axis=1)
             for i in range(N_TEAMS):
                 out.odds.append({"season": season, "seed": seed, "week": week, "team": i,
-                                 "exp_points": float(rest[i]),
+                                 "exp_points": float(rest[i]), "roster": list(held[i]),
                                  "wins": float(wins[i]), "p_playoffs": float(odds.p_playoffs[i]),
                                  "p_title": float(odds.p_title[i]), "p_bye": float(odds.p_bye[i]),
                                  "exp_wins": float(odds.exp_wins[i]), "base_playoffs": float(base_po[i]),
-                                 "base_title": float(base_title[i])})
+                                 "base_title": float(base_title[i]),
+                                 **{f"p_playoffs_r{r:g}": float(o.p_playoffs[i]) for r, o in faded.items()},
+                                 **{f"p_title_r{r:g}": float(o.p_title[i]) for r, o in faded.items()}})
         else:
             sm_win = {}
         # The week's games.
