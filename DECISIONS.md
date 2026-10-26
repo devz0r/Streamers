@@ -3659,6 +3659,44 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Defences and kickers in the replay, and a calibrated P(win)
+
+The replayed leagues now have a D/ST and a K slot. Each team streams both
+every week, worst record first, best projected first, from the shipped
+streaming models' walk-forward projections. Every 2022-2025 unit-week is
+projected from earlier games only (`backtest.walk_forward`, the selected
+estimator and penalty; `league_replay.unit_rows`). Free units are the
+wire's replacement level in the season model, and a unit's link to the QB
+facing it is drawn as in production.
+
+**The units themselves hold up.** Points on projection within a week: D/ST
+1.07 +- 0.06, K 1.03 +- 0.15. The ten best projected each week scored
+above their projection (D/ST 13.6 against 13.2, K 8.8 against 8.6), so
+streaming the top of the list carries no selection bias.
+
+**This week's P(win) was too sure of the favourite.** With full lineups,
+favourites won 59.1% against 61.4% predicted; the 60-70% bin won 59.6%
+(95% interval 57.6-61.6%) against 64.3%. The margin's spread is right
+(9.8 / 24.5 / 50.3 / 75.1 / 89.9% of results under the predicted 10 / 25 /
+50 / 75 / 90th percentiles), but the projected gap between two lineups holds
+up only 0.83 of the way. That gap was already there on the skill side (0.84);
+the units add variance, not bias. Skill-only, a pull toward 50% did not pass;
+with the units in, it does.
+
+`lineup.calibrated` maps p to Phi(k Phi^-1(p)), `WIN_SHRINK` k = 0.78. Held
+out by season, each fold picked 0.76-0.82, Brier 0.2373 -> 0.2366 and log
+loss 0.6673 -> 0.6657, better in all four. It applies to every P(win) the
+lineup code reports: the optimiser, swap explanations, stream and pickup
+options, and the in-page lineup editor (the same mapping in its script).
+It is monotone, so the chosen lineup never changes, though gains near 50%
+read about a fifth smaller. The live in-game P(win) is not mapped: it was not
+graded.
+
+The odds check now streams units too (`--units`; `--no-units` for the old
+setup), and its baseline was rewritten: P(win) 0.2366, P(playoffs) 0.1653,
+P(title) 0.0878 over 6 leagues a season. The first run on GitHub took 6
+minutes, not 20.
+
 ### Rivals competing for the same waiver players: need still does not predict
 
 Re-tested "Who actually gets picked up" with the weeks collected since. Every
@@ -3714,7 +3752,7 @@ field for).
 scores are worse than the baseline by more than 0.003, 0.006 and 0.004 (set
 above the spread between a few leagues and 25). The `odds-check` workflow
 runs it by hand (it reads the weekly run's nflverse cache and rebuilds the
-replay's weekly projections, about 6 minutes on the first run); it is not wired to every push.
+replay's weekly projections and the D/ST and K backtest); it is not wired to every push.
 `--write-baseline` refreshes the file when a change is meant to move the
 scores. Baseline (6 leagues a season): P(win) 0.2268, P(playoffs) 0.1589,
 P(title) 0.0859.

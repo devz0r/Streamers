@@ -6,7 +6,9 @@ Drafts and plays ``--leagues`` ten-team leagues on each of 2022-2025
 (:mod:`streamer.roster.league_replay`): projections from the games before
 each week only, scaled by that week's closing implied totals as production
 scales by the market's, real scores, the production lineup draws and season
-model. ``--retentions`` also grades other ``strength_fade`` values, held out
+model. Each team streams a defence and a kicker every week, worst record
+first, from the shipped streaming models' walk-forward projections
+(``--no-units`` leaves them out). ``--retentions`` also grades other ``strength_fade`` values, held out
 by season.
 With ``--write-baseline`` / ``--check`` it saves or tests the pooled Brier scores
 (``odds_baseline.json``; run with ``--leagues 6``), failing when a score is
@@ -57,6 +59,30 @@ def weekly_projections(cfg, path: str | None) -> dict:
         print(f"projected {season}", flush=True)
     if path:
         Path(path).write_bytes(pickle.dumps(out))
+    return out
+
+
+def unit_projections(cfg, path: str | None) -> pd.DataFrame:
+    """Every 2022-2025 defence and kicker week, projected by the shipped
+    streaming models from earlier games only (``backtest.walk_forward``)."""
+    if path and Path(path).exists():
+        return pd.read_parquet(path)
+    from streamer.backtest import walk_forward
+    from streamer.data.nflverse import games_frame, load_pbp
+    from streamer.features.build import build_dst_features, build_kicker_features
+    from streamer.pipeline import training_seasons
+    from streamer.roster import ros_backtest as rb
+
+    pbp, games = load_pbp(training_seasons(cfg), cfg), games_frame(cfg)
+    sel = json.loads((cfg.results_dir / "model_selection.json").read_text())
+    frames = []
+    for pos, build in (("K", build_kicker_features), ("DST", build_dst_features)):
+        frames.append(walk_forward(build(pbp, games, cfg), pos, list(rb.SEASONS), cfg,
+                                   kind=sel[pos]["estimator"], alpha=sel[pos].get("ridge_alpha")))
+        print(f"projected {pos}", flush=True)
+    out = pd.concat(frames, ignore_index=True)
+    if path:
+        out.to_parquet(path)
     return out
 
 
@@ -194,6 +220,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--leagues", type=int, default=8, help="leagues per season")
     ap.add_argument("--weekly", help="cache of the weekly projections (built if missing)")
+    ap.add_argument("--units", help="cache of the defence and kicker projections (built if missing)")
+    ap.add_argument("--no-units", action="store_true", help="skill positions only (no D/ST or K)")
     ap.add_argument("--out", help="a directory for the graded games and odds (parquet)")
     ap.add_argument("--sims", type=int, default=2000)
     ap.add_argument("--no-upgrades", action="store_true", help="managers only fill holes (no upgrade claims)")
@@ -210,15 +238,20 @@ def main() -> int:
 
     cfg = get_config().for_profile("espn")
     weekly = weekly_projections(cfg, args.weekly)
+    unit_frame = None if args.no_units else unit_projections(cfg, args.units)
     history = load_history(cfg)
     schedules = pd.read_parquet(cfg.raw_dir / "schedules.parquet")
     games, odds = [], []
     for season in rb.SEASONS:
         points = lr.points_by_week(history, season)
+        units = None
+        if unit_frame is not None:
+            units, unit_points = lr.unit_rows(unit_frame, season)
+            points.update(unit_points)
         byes = rb.byes(schedules, season, list(range(1, 18)))
         per_week = {w: weekly[(season, w)] for w in range(1, 18)}
         for i in range(args.leagues):
-            r = lr.play(season, 1000 * season + i, per_week, points, byes, cfg, n_sims=args.sims,
+            r = lr.play(season, 1000 * season + i, per_week, points, byes, cfg, n_sims=args.sims, units=units,
                         upgrade=None if args.no_upgrades else lr.UPGRADE,
                         retentions=tuple(float(x) for x in args.retentions.split(",") if x))
             games += r.games

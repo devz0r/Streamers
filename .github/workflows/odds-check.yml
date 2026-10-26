@@ -34,4 +34,4 @@ jobs:
           key: nflverse-none
           restore-keys: nflverse-
       - name: Replay leagues and check the odds
-        run: python scripts/grade_league_odds.py --leagues 6 --weekly /tmp/weekly.pkl --check odds_baseline.json
+        run: python scripts/grade_league_odds.py --leagues 6 --weekly /tmp/weekly.pkl --units /tmp/units.parquet --check odds_baseline.json

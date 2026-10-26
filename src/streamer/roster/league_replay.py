@@ -43,6 +43,9 @@ from . import lineup
 from .season import SeasonModel, bracket_order
 
 SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1}
+#: Streamed every week from the free units, in waiver order, when the replay
+#: is given defence and kicker projections (:func:`unit_rows`).
+UNIT_SLOTS = ("DST", "K")
 FILL_ORDER = ("QB", "TE", "RB", "WR", "FLEX")
 ELIGIBLE = {"QB": ("QB",), "RB": ("RB",), "WR": ("WR",), "TE": ("TE",), "FLEX": ("RB", "WR", "TE")}
 BENCH = 6
@@ -120,7 +123,8 @@ def draft(players: list[PlayerRow], n_teams: int, rng: np.random.Generator,
 
 
 def best_lineup(rows: list[PlayerRow]) -> list[PlayerRow]:
-    """The best projected lineup from the players who play this week."""
+    """The best projected lineup from the players who play this week (and
+    the team's streamed defence and kicker, when it has them)."""
     left = sorted((p for p in rows if _plays(p)), key=lambda p: -float(p.projection or 0.0))
     out = []
     for slot in FILL_ORDER:
@@ -129,7 +133,31 @@ def best_lineup(rows: list[PlayerRow]) -> list[PlayerRow]:
             if pick is not None:
                 out.append(pick)
                 left.remove(pick)
+    for pos in UNIT_SLOTS:
+        pick = next((p for p in left if p.position == pos), None)
+        if pick is not None:
+            out.append(pick)
     return out
+
+
+def unit_rows(frame: pd.DataFrame, season: int) -> tuple[dict[int, list[PlayerRow]], dict[tuple[int, str], float]]:
+    """Defences and kickers from the walk-forward backtest
+    (:func:`streamer.backtest.walk_forward`: each week projected from earlier
+    games only) as streamable rows, week -> units, and their real points."""
+    from ..teams import normalize_team
+
+    out: dict[int, list[PlayerRow]] = {}
+    pts: dict[tuple[int, str], float] = {}
+    for r in frame[frame["season"] == season].itertuples():
+        team = normalize_team(r.team)
+        pid = f"{r.position}:{team}"
+        sd = max((float(r.ceiling) - float(r.floor)) / 2.07, 1.0)
+        out.setdefault(int(r.week), []).append(PlayerRow(
+            player_id=pid, name=pid, position=r.position, team=team, status="", slot="BE",
+            eligible_slots=[r.position], projection=float(r.expected_points), projection_sd=sd, outcome_sd=sd,
+            ros_value=float(r.baseline_points), nfl_opponent=normalize_team(r.opponent), role=r.position))
+        pts[(int(r.week), pid)] = float(r.fantasy_points)
+    return out, pts
 
 
 def _holes(rows: list[PlayerRow]) -> list[str]:
@@ -199,13 +227,13 @@ def realized_bracket(wins: np.ndarray, points: np.ndarray, playoff_scores: np.nd
 
 def snapshot(season: int, week: int, rosters: list[list[PlayerRow]], free: list[PlayerRow],
              wins: np.ndarray, losses: np.ndarray, points: np.ndarray, waiver: list[int],
-             schedule: list[tuple[int, int, int]]) -> LeagueSnapshot:
+             schedule: list[tuple[int, int, int]], slots: dict[str, int] | None = None) -> LeagueSnapshot:
     teams = [TeamRow(team_id=str(i), name=f"T{i}", wins=int(wins[i]), losses=int(losses[i]),
                      points_for=float(points[i]), roster=list(r), is_mine=(i == 0),
                      waiver_rank=waiver.index(i) + 1) for i, r in enumerate(rosters)]
     return LeagueSnapshot(
         platform="espn", profile="replay", league_id="replay", league_name="replay", season=season, week=week,
-        slots={**SLOTS, "BE": BENCH}, bench_size=BENCH, teams=teams, free_agents=list(free), matchup=None,
+        slots={**(slots or SLOTS), "BE": BENCH}, bench_size=BENCH, teams=teams, free_agents=list(free), matchup=None,
         synced_at="", rules={"regular_season_weeks": REG_WEEKS, "playoff_teams": PLAYOFF_TEAMS,
                              "playoff_round_weeks": 1, "median_game": False,
                              "schedule": [[w, str(a), str(b)] for w, a, b in schedule]})
@@ -225,11 +253,14 @@ def coin_flip_odds(model: SeasonModel, rng: np.random.Generator) -> tuple[np.nda
 def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dict[tuple[int, str], float],
          byes: dict[str, set[int]], cfg: Config, n_sims: int = 2000, win_sims: int = 4000,
          checkpoints=CHECKPOINTS, log=None, upgrade: float | None = UPGRADE,
-         retentions: tuple[float, ...] = ()) -> Replay:
+         retentions: tuple[float, ...] = (), units: dict[int, list[PlayerRow]] | None = None) -> Replay:
     """Draft and play one league through week 17, grading as it goes.
     ``weekly``: week -> projected players (games before it only);
     ``points``: (week, player id) -> real PPR points; ``retentions``: other
-    ``strength_fade`` values whose odds are recorded beside the model's."""
+    ``strength_fade`` values whose odds are recorded beside the model's;
+    ``units``: week -> defences and kickers (:func:`unit_rows`), streamed
+    each week in waiver order, best projected first (their points in
+    ``points``)."""
     rng = np.random.default_rng(seed)
     out = Replay(season, seed)
     rows = {w: {p.player_id: p for p in ps} for w, ps in weekly.items()}
@@ -281,9 +312,20 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
         rosters = [[row(pid) for pid in r] for r in held]
         owned = {pid for r in held for pid in r}
         free = [p for pid, p in here.items() if pid not in owned and p.position in NEEDS]
+        if units:
+            # Stream a defence and a kicker, worst record first.
+            pool = sorted(units.get(week, []), key=lambda p: -float(p.projection or 0.0))
+            for t in waiver:
+                for pos in UNIT_SLOTS:
+                    pick = next((p for p in pool if p.position == pos), None)
+                    if pick is not None:
+                        rosters[t].append(pick)
+                        pool.remove(pick)
+            free = free + pool
         # The season odds, before this week's games.
         if week in checkpoints and week <= REG_WEEKS:
-            snap = snapshot(season, week, rosters, free, wins, losses, pts, waiver, schedule)
+            snap = snapshot(season, week, rosters, free, wins, losses, pts, waiver, schedule,
+                            slots={**SLOTS, **{u: 1 for u in UNIT_SLOTS}} if units else SLOTS)
             model = SeasonModel(snap, cfg, n_sims=n_sims, seed=seed * 100 + week)
             odds = model.odds()
             faded = {r: model.odds(retention=r) for r in retentions}
@@ -319,7 +361,7 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
                 both = lineups[a] + lineups[b]
                 draws = lineup.sample_points(both, win_sims, np.random.default_rng(seed * 1000 + week * 10 + a))
                 ta, tb = draws[:, :len(lineups[a])].sum(axis=1), draws[:, len(lineups[a]):].sum(axis=1)
-                p_win = float((ta > tb).mean() + 0.5 * (ta == tb).mean())
+                p_win = lineup.calibrated((ta > tb).mean() + 0.5 * (ta == tb).mean())
                 margin = ta - tb
                 real = scored[a] - scored[b]
                 out.games.append({"season": season, "seed": seed, "week": week, "a": a, "b": b,

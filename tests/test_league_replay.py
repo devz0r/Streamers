@@ -118,3 +118,25 @@ def test_the_odds_check_fails_only_on_a_clearly_worse_score():
     assert g.check(dict(base), base) == []
     assert g.check({**base, "p_title": 0.0854 + 0.003}, base) == []
     assert len(g.check({**base, "p_playoffs": 0.1665 + 0.01}, base)) == 1
+
+
+def test_defences_and_kickers_are_streamed_best_first_and_scored(cfg, _quiet_schedule):
+    import pandas as pd
+
+    teams = ["KC", "BUF", "MIA", "NYJ", "DAL", "PHI", "SF", "LA", "DEN", "LV", "SEA", "ARI"]
+    frame = pd.DataFrame([{"season": 2024, "week": w, "team": t, "opponent": teams[(i + 1) % len(teams)],
+                           "position": pos, "expected_points": 5.0 + i, "floor": 1.0, "ceiling": 12.0,
+                           "baseline_points": 7.0, "fantasy_points": 10.0}
+                          for w in range(1, 18) for i, t in enumerate(teams) for pos in ("DST", "K")])
+    units, unit_points = lr.unit_rows(frame, 2024)
+    assert len(units[1]) == 24 and unit_points[(1, "DST:KC")] == 10.0
+    pool = _pool(220)
+    weekly = {w: pool for w in range(1, 18)}
+    points = {(w, p.player_id): 8.0 for w in weekly for p in pool} | unit_points
+    plain = lr.play(2024, 7, weekly, points, {}, cfg, n_sims=200, win_sims=300, checkpoints=(4,))
+    r = lr.play(2024, 7, weekly, points, {}, cfg, n_sims=200, win_sims=300, checkpoints=(4,), units=units)
+    # Every lineup gains a defence and a kicker at 10 each.
+    first = [g for g in r.games if g["week"] == 1][0]
+    base = [g for g in plain.games if g["week"] == 1][0]
+    assert first["score_a"] == pytest.approx(base["score_a"] + 20.0)
+    assert sum(o["p_title"] for o in r.odds) == pytest.approx(1.0)

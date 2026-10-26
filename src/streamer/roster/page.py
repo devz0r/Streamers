@@ -1405,7 +1405,7 @@ def _editor(snapshot: LeagueSnapshot, opt) -> str:
     scored here is scored exactly as the optimiser scored it, just with
     fewer draws. Players whose game has kicked off cannot be moved.
     """
-    from .lineup import _eligible
+    from .lineup import WIN_SHRINK, _eligible
 
     if opt.samples is None or not opt.sample_ids or opt.opp_samples is None:
         return ""
@@ -1431,7 +1431,7 @@ def _editor(snapshot: LeagueSnapshot, opt) -> str:
             "st": p.slot if p.starting else "",
         } for p in players],
         "presets": {"set": preset(opt.current), "win": preset(opt.best_win), "pts": preset(opt.best_ev)},
-        "m": len(players), "n": int(opt.samples.shape[0]),
+        "m": len(players), "n": int(opt.samples.shape[0]), "k": WIN_SHRINK,
         "s": _b64(np.asarray(opt.samples, dtype=float)), "o": _b64(np.asarray(opt.opp_samples, dtype=float)),
     }
     uid = f"ed-{_e(snapshot.profile)}"
@@ -1471,7 +1471,14 @@ D.slots.forEach(function(slot,k){
     op.textContent=p.n+' '+p.pos+' '+p.tm+' ('+p.p.toFixed(1)+(p.f?' final':'')+')';s.appendChild(op);});
   if(fixed>=0){s.value=fixed;s.disabled=true;}
   s.addEventListener('change',calc);sel.push(s);td2.appendChild(s);tr.appendChild(td);tr.appendChild(td2);body.appendChild(tr);});
-function score(ch){var w=0;for(var r=0;r<n;r++){var t=0,o=r*m;for(var j=0;j<ch.length;j++)t+=S[o+ch[j]];w+=t>O[r]?1:(t===O[r]?0.5:0);}return w/n;}
+// P(win) as drawn, calibrated as the optimiser's is (lineup.calibrated).
+function ncdf(x){var t=1/(1+0.2316419*Math.abs(x)),d=0.3989423*Math.exp(-x*x/2),p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p;}
+function nppf(p){var a=[-39.69683,220.9461,-275.9285,138.3578,-30.66480,2.506628],b=[-54.47610,161.5858,-155.6990,66.80131,-13.28068],c=[-0.007784894,-0.3223964,-2.400758,-2.549733,4.374664,2.938164],e=[0.007784696,0.3224671,2.445134,3.754409],q,r;
+ if(p<0.02425){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((e[0]*q+e[1])*q+e[2])*q+e[3])*q+1);}
+ if(p>1-0.02425){q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((e[0]*q+e[1])*q+e[2])*q+e[3])*q+1);}
+ q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+function cal(p){p=Math.min(Math.max(p,1e-6),1-1e-6);return D.k?ncdf(D.k*nppf(p)):p;}
+function score(ch){var w=0;for(var r=0;r<n;r++){var t=0,o=r*m;for(var j=0;j<ch.length;j++)t+=S[o+ch[j]];w+=t>O[r]?1:(t===O[r]?0.5:0);}return cal(w/n);}
 function calc(){
   var ch=[],seen={},dup=false,pts=0;
   sel.forEach(function(s){var v=+s.value;if(v<0)return;if(seen[v])dup=true;seen[v]=1;ch.push(v);pts+=D.players[v].p;});

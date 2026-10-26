@@ -56,6 +56,24 @@ CONFIRM_TOP = 30
 #: the higher-projected lineup is recommended.
 MIN_WIN_EDGE = 0.005
 
+#: P(win) as drawn is a little too sure of the favourite: on 100 replayed
+#: leagues of 2022-2025 with defences and kickers (scripts/grade_league_odds.py),
+#: favourites won 59.1% against 61.4% predicted, because the projected gap
+#: between two lineups holds up only about 0.83 of the way (who starts is
+#: picked on the projections). ``calibrated`` maps p to Phi(k Phi^-1(p)):
+#: k picked on three seasons and scored on the fourth was 0.76-0.82, better
+#: in all four (Brier 0.2373 -> 0.2366). Monotone, so it never changes which
+#: lineup is best. DECISIONS.md, "Defences and kickers in the replay".
+WIN_SHRINK = 0.78
+
+
+def calibrated(p):
+    """P(win) as it happens, from P(win) as drawn (:data:`WIN_SHRINK`)."""
+    q = np.clip(np.asarray(p, dtype=float), 1e-6, 1 - 1e-6)
+    out = norm.cdf(WIN_SHRINK * norm.ppf(q))
+    return float(out) if np.ndim(out) == 0 else out
+
+
 #: Draws shipped to the page for the lineup editor (5,000 keeps P(win) to
 #: about +-0.7 points while the page stays small).
 EDITOR_SIMS = 5000
@@ -470,7 +488,7 @@ def _win_rates(lineups, samples, index, opp_total, chunk: int = 256, sits=None, 
         if sits is not None and roster is not None:
             t = t + _swap_totals(lineups[lo:lo + chunk], samples, sits, index, roster, wire)
         out[lo:lo + chunk] = (t > opp_total).mean(axis=1) + 0.5 * (t == opp_total).mean(axis=1)
-    return out
+    return calibrated(out)
 
 
 def _projected(lineup: dict[str, list[PlayerRow]]) -> float:
@@ -669,7 +687,7 @@ def optimise(
         t = _totals([cur], confirm, index)[0] + _swap_totals([cur], confirm, sits, index, roster, wire)[0]
         current = LineupResult(
             starters=cur, expected=_projected(cur), sd=float(t.std()),
-            win_probability=float((t > opp_total).mean() + 0.5 * (t == opp_total).mean()),
+            win_probability=calibrated((t > opp_total).mean() + 0.5 * (t == opp_total).mean()),
         )
 
     opponent = None
@@ -782,7 +800,7 @@ def explain(
         if roster is not None:
             swapped = swapped + _swap_totals([lu], samples, sits, index, roster, wire)[0]
             cover = next((c for x, c in swap_pairs(lu, roster, wire) if x.player_id == s.player_id), None)
-        p_swap = float((swapped > opp_total).mean() + 0.5 * (swapped == opp_total).mean())
+        p_swap = calibrated((swapped > opp_total).mean() + 0.5 * (swapped == opp_total).mean())
 
         skip = (s.player_id, b.player_id)
         why = ""
@@ -899,7 +917,7 @@ def stream_options(
     out = []
     for c in pool:
         t = base + samples[:, index[c.player_id]]
-        pw = float((t > opp).mean() + 0.5 * (t == opp).mean())
+        pw = calibrated((t > opp).mean() + 0.5 * (t == opp).mean())
         others = [m for m in mine if m.player_id != current.player_id]
         col = samples[:, index[c.player_id]]
         out.append(StreamOption(player=c, win_probability=pw, current=c.player_id == current.player_id,
@@ -1013,10 +1031,10 @@ def pickup_options(
         diff = ind - base_ind
         held = best is opt.best_win.starters
         out.append(PickupOption(
-            player=c, win_probability=float(ind.mean()), base=float(base_ind.mean()),
+            player=c, win_probability=calibrated(ind.mean()), base=calibrated(base_ind.mean()),
             noise=float(diff.std() / np.sqrt(n_sims)),
             lineup=LineupResult(starters=best, expected=_projected(best), sd=float(tot.std()),
-                                win_probability=float(ind.mean())),
+                                win_probability=calibrated(ind.mean())),
             changes=[] if held else diff_lineups(opt.best_win.starters, best),
             cover=cover if held else None))
     out.sort(key=lambda o: -o.gain)
