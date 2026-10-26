@@ -47844,7 +47844,7 @@
       "name": "Eli Stowers",
       "position": "TE",
       "team": "PHI",
-      "status": "INJURY_RESERVE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -51992,7 +51992,7 @@
       "name": "Grant Calcaterra",
       "position": "TE",
       "team": "PHI",
-      "status": "INJURY_RESERVE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -63155,7 +63155,7 @@
     "my_points": 129.14,
     "opp_points": 115.4
   },
-  "synced_at": "2026-10-26T19:35:09.022390+00:00",
+  "synced_at": "2026-10-26T20:14:13.475842+00:00",
   "extra": {
     "nfl_week": 7,
     "current_week": 7
