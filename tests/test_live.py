@@ -178,3 +178,38 @@ def test_blocked_kicks_and_the_units_muffed_punts_come_from_the_play_by_play():
     pts = _node(f"console.log(JSON.stringify(L.pointsFor({{'n':'Broncos D/ST','pos':'DST','tm':'DEN'}}, "
                 f"{json.dumps(GAME)}, {json.dumps(summary)}, {json.dumps(dict(SC, dst=dict(ESPN_DST, blocked_kick=2.0, fumble_lost=-2.0)))}, {{}})))")
     assert pts == pytest.approx(10.5 + 2.0 - 2.0)
+
+
+def test_the_season_odds_move_along_the_win_loss_line_with_the_live_p_win():
+    s = {"po": 0.5, "ti": 0.08, "po_w": 0.7, "po_l": 0.3, "ti_w": 0.14, "ti_l": 0.02}
+    at_kickoff = _node(f"console.log(JSON.stringify(L.seasonOdds({json.dumps(s)}, 0)))")
+    assert at_kickoff["po"] == 0.5 and at_kickoff["ti"] == 0.08           # nothing moves before kickoff
+    up = _node(f"console.log(JSON.stringify(L.seasonOdds({json.dumps(s)}, 0.25)))")
+    assert up["po"] == pytest.approx(0.6) and up["ti"] == pytest.approx(0.11)
+    # Certain win or loss lands on the end of the line, and never past it.
+    win = _node(f"console.log(JSON.stringify(L.seasonOdds({json.dumps(s)}, 0.5)))")
+    assert win["po"] == pytest.approx(0.7) and win["ti"] == pytest.approx(0.14)
+    huge = _node(f"console.log(JSON.stringify(L.seasonOdds({json.dumps(s)}, 9)))")
+    assert huge["po"] == 1.0
+    assert _node("console.log(JSON.stringify(L.seasonOdds(null, 0.1)))") is None
+
+
+def test_the_live_card_carries_this_weeks_game_stakes_when_there_are_some():
+    import numpy as np
+
+    from streamer.roster.live import season_stakes
+    from streamer.roster.season import GameStakes, SeasonOdds, Stakes
+
+    class Snap:
+        week = 7
+
+    odds = SeasonOdds(team_ids=["a", "b"], names=["A", "B"], records=["", ""], p_playoffs=np.array([0.5, 0.4]),
+                      p_bye=np.zeros(2), p_title=np.array([0.08, 0.05]), exp_wins=np.zeros(2), n_sims=10, mine=0)
+    game = GameStakes(week=7, opponent="B", opponent_id="b", p_win=0.55, playoffs_win=0.7, playoffs_loss=0.3,
+                      title_win=0.14, title_loss=0.02)
+    stakes = Stakes(games=[game], by_wins={}, p_playoffs=0.5, exp_wins=7.0, n_sims=10)
+    got = season_stakes(Snap(), odds, stakes)
+    assert got == {"po": 0.5, "ti": 0.08, "po_w": 0.7, "po_l": 0.3, "ti_w": 0.14, "ti_l": 0.02}
+    Snap.week = 9                                                       # no such game left
+    assert season_stakes(Snap(), odds, stakes) is None
+    assert season_stakes(Snap(), None, stakes) is None

@@ -3659,6 +3659,26 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Playoff and title odds during your game
+
+The live card (static/live.js) already rescored your matchup as games went
+on. It now also shows your playoff and title odds with this game going the
+way the live P(win) says. The season model prices each remaining game both
+ways (`Stakes`: P(playoffs) and P(title) if you win it and if you lose it,
+everything else held as it fell). The card carries this week's pair
+(`live.season_stakes`) and moves the odds along the line between them by how
+far the live P(win) has come from its kickoff value. Nothing moves before
+kickoff, a certain win or loss lands on the "if you win/lose" figure, and
+it never goes outside 0-100%.
+
+It is this game only. Other matchups and the rest of the season are held as
+modelled until the next refresh counts finished games (`locked.py`: a game
+final and published locks its players' scores into the season simulation).
+Not shown in a playoff week, for a team the season model does not cover, or
+when the stakes are missing. Not graded: the live P(win) is the raw draw,
+without the 0.78 calibration of `lineup.calibrated`, so it reads a little
+surer than the lineup tab's.
+
 ### Defences and kickers in the replay, and a calibrated P(win)
 
 The replayed leagues now have a D/ST and a K slot. Each team streams both

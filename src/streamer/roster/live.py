@@ -107,12 +107,32 @@ def payload(snapshot: LeagueSnapshot, opt, cfg: Config) -> dict | None:
     }
 
 
-def block(snapshot: LeagueSnapshot, opt, cfg: Config, opponent_name: str = "") -> str:
+def season_stakes(snapshot: LeagueSnapshot, odds, stakes) -> dict | None:
+    """What this week's game is worth to the season, for the live card: your
+    P(playoffs) and P(title) now, and if you win and if you lose it (the
+    season model's :class:`GameStakes`, everything else held as it fell).
+    The script moves the odds by the live P(win)'s change from kickoff,
+    along the line between the two. None without them (no schedule, a
+    playoff week, a team the season model does not cover)."""
+    if odds is None or stakes is None or getattr(odds, "mine", None) is None:
+        return None
+    game = next((g for g in stakes.games if g.week == int(snapshot.week)), None)
+    if game is None:
+        return None
+    m = odds.mine
+    return {"po": float(odds.p_playoffs[m]), "ti": float(odds.p_title[m]),
+            "po_w": float(game.playoffs_win), "po_l": float(game.playoffs_loss),
+            "ti_w": float(game.title_win), "ti_l": float(game.title_loss)}
+
+
+def block(snapshot: LeagueSnapshot, opt, cfg: Config, opponent_name: str = "", season: dict | None = None) -> str:
     """The live card: empty until the script has scores to show."""
     data = payload(snapshot, opt, cfg)
     if data is None:
         return ""
     data["opp_name"] = opponent_name
+    if season:
+        data["season"] = season
     uid = f"live-{snapshot.profile}"
     body = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return (f'<div class="card live-card" id="{uid}" hidden>'

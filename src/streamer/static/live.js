@@ -346,6 +346,26 @@
       "finish higher, his points plus the projection's share of the time left.</p>";
   }
 
+  /* Your playoff and title odds with this game going the way the live P(win)
+     says: the season model's odds, moved along the line between "if you win"
+     and "if you lose" by how far P(win) has come from kickoff. Only this
+     game: other matchups, and the games still to play, are held as modelled.
+     Nothing moves before kickoff. */
+  function seasonOdds(S, dp) {
+    if (!S) return null;
+    var clip = function (x) { return Math.min(Math.max(x, 0), 1); };
+    return { po: clip(S.po + dp * (S.po_w - S.po_l)), ti: clip(S.ti + dp * (S.ti_w - S.ti_l)),
+             po0: S.po, ti0: S.ti };
+  }
+
+  function seasonLine(D, R) {
+    var o = seasonOdds(D.season, R.p - R.p0);
+    if (!o) return "";
+    var pct1 = function (x) { return (x * 100).toFixed(x < 0.1 ? 1 : 0) + "%"; };
+    return "<p class='sub'>Season: playoffs <b>" + pct1(o.po) + "</b> (" + pct1(o.po0) + " before kickoff) · title <b>" +
+      pct1(o.ti) + "</b> (" + pct1(o.ti0) + "). This game only, moved by the live P(win); other games count when they end.</p>";
+  }
+
   function render(el, D, R) {
     var pct = function (x) { return Math.round(x * 100) + "%"; };
     var t = new Date();
@@ -353,6 +373,7 @@
       "<h3>Live</h3><p class='sub'>You <b>" + R.nowMe.toFixed(2) + "</b> – <b>" + R.nowOpp.toFixed(2) + "</b> " +
       esc(D.opp_name || "them") + " so far · projected " + R.projMe.toFixed(1) + " – " + R.projOpp.toFixed(1) +
       " · P(win) <b>" + pct(R.p) + "</b> (" + pct(R.p0) + " before kickoff)</p>" +
+      seasonLine(D, R) +
       headToHead(R, D) +
       "<p class='sub'>ESPN live box scores, scored with this league's rules; updated " +
       t.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
@@ -398,7 +419,7 @@
 
   var api = { mount: mount, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
               kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games, shortLabel: shortLabel,
-              evaluate: evaluate, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
+              evaluate: evaluate, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.StreamerLive = api;
   if (typeof document !== "undefined") {
