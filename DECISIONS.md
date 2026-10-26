@@ -3659,6 +3659,32 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Lottery tickets: where the percentages come from, and two fixes
+
+"Chance of a top-14 week" is read off the player's projection and the same
+outcome distribution the lineup simulator uses, against a bar: the 14th-best
+score at his position in an average week, 2021-2025 (RB 16.0, WR 18.4, TE
+9.8, QB 16.7), injury tag included. "Next in line" is the league-wide chance
+a lead back misses the next game (8.5%, 2021-2025) and "Keep?" combines the two.
+
+**Graded** on 2022-2025 replay projections of 0.5-12 points (n = 17,229),
+predicted against hit, by position and projection band: receivers, tight
+ends and backs within about a point, QBs about half too high (QB projected
+4-10: 7-16% predicted, 5-9% hit).
+
+**Two changes.**
+- `boom_scale: {QB: 0.65}` (config). Scale picked on three seasons and scored
+  on the fourth: 0.60-0.70, log loss 0.2391 -> 0.2306, better in 4 of 4.
+  Backs (best scale 0.95, better 1 of 4), tight ends (1.1, 3 of 4) and
+  receivers (1.15, 3 of 4) gained under 0.2% and are left alone.
+- The handcuff's 8.5% is now the lead back's own: odds-scaled by his
+  `hazard_mult` (the season simulation's per-player absence hazard, from his
+  record of missed games). A lead who has missed games lately says so on the
+  card.
+
+Still a league-wide average per lead back for the job-opens part otherwise,
+and "keep" assumes a spike without more opportunity behind it fades.
+
 ### Playoff and title odds during your game
 
 The live card (static/live.js) already rescored your matchup as games went

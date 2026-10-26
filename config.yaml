@@ -685,6 +685,13 @@ roster:
     per_window: 3
     # Tickets with less chance than this of being worth keeping are not shown.
     min_keep: 0.03
+    # The big-week chance read off the projection ran about half too high for
+    # quarterbacks: 2022-2025 replay, QB projected 4-10 points, 5-16% predicted
+    # against 5-9% hit. Scale picked on three seasons, scored on the fourth:
+    # 0.60-0.70, log loss 0.2391 -> 0.2306, better in 4 of 4. Backs, receivers
+    # and tight ends were within noise (1 of 4, 3 of 4 and 3 of 4 by under
+    # 0.2%), so they are left alone.
+    boom_scale: {QB: 0.65}
   # Waiver moves below this blended gain in roster value (best-lineup points
   # plus replacement-level bench depth) are not shown.
   waiver_min_gain: 0.5

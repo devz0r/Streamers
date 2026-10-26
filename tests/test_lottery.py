@@ -59,3 +59,39 @@ def test_tickets_only_at_positions_where_a_big_week_would_matter(cfg):
     assert enabled(snap, cfg.for_profile("yahoo"))
     snap.platform = "espn"
     assert not enabled(snap, cfg.for_profile("espn"))
+
+
+def test_a_fragile_lead_back_makes_his_handcuff_a_better_ticket():
+    from streamer.roster.lottery import lead_miss_rate
+    from streamer.roster.waivers import LEAD_BACK_MISS_RATE
+
+    lead = PlayerRow(player_id="l", name="Lead", position="RB", team="SEA")
+    assert lead_miss_rate(lead) == LEAD_BACK_MISS_RATE                   # no record: the league rate
+    lead.hazard_mult = 2.0                                               # missed games lately: odds doubled
+    assert 0.15 < lead_miss_rate(lead) < 0.16
+    lead.hazard_mult = 0.5
+    assert 0.04 < lead_miss_rate(lead) < 0.05
+
+
+def test_the_quarterback_big_week_chance_is_scaled_down_by_config(cfg):
+    snap = snapshot(week=3)
+    snap.platform = "yahoo"
+    hist = pd.DataFrame({"player_id": [f"x{i}" for i in range(40)], "season": 2025, "week": 1,
+                         "position": ["QB"] * 40, "fantasy_points_ppr": list(range(10, 50))})
+    qb = PlayerRow(player_id="t2", name="Ticket QB", position="QB", team="SEA", slot="FA",
+                   eligible_slots=["QB"], projection=12.0, projection_sd=7.0, outcome_sd=7.0)
+    snap.free_agents = [qb]
+    snap.my_team.roster = [p for p in snap.my_team.roster if p.position != "QB"]
+    c = cfg.for_profile("yahoo")
+    kw = {"games": _games(), "now": datetime(2026, 9, 25, tzinfo=UTC), "history": hist}
+    conf = c.raw["roster"]["lottery_tickets"]
+    saved = dict(conf)
+    conf.update(boom_scale={"QB": 0.65}, min_keep=0.0)
+    scaled = lottery_tickets(snap, c, **kw)[0].tickets[0].p_boom
+    conf.update(boom_scale={})
+    try:
+        unscaled = lottery_tickets(snap, c, **kw)[0].tickets[0].p_boom
+    finally:
+        conf.clear()
+        conf.update(saved)
+    assert scaled == __import__("pytest").approx(0.65 * unscaled)

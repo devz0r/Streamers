@@ -12,8 +12,9 @@ A ticket earns its keep in one of two ways, and both are measured:
   the same outcome distribution the lineup simulator uses (walk-forward, its
   ranges land where they claim: 71% inside the 70% band).
 * **The job opens up.** A back next in line behind a lead back. Lead backs
-  miss the following game 8.5% of the time (2021-2025), and when they do the
-  next man up averaged 13.9 points.
+  miss the following game 8.5% of the time (2021-2025), higher or lower by
+  the lead's own record of missed games, and when they do the next man up
+  averaged 13.9 points.
 
 Tickets are ranked by the chance either happens. That is a chance of
 *holding* a player worth keeping, not a promise the value lasts: one-game
@@ -85,6 +86,16 @@ def kickoff_windows(games, now: datetime | None = None) -> list[Window]:
     return sorted(slots.values(), key=lambda w: w.kickoff)
 
 
+def lead_miss_rate(lead: PlayerRow) -> float:
+    """Chance the lead back misses the next game: the league-wide
+    :data:`LEAD_BACK_MISS_RATE`, on the odds scaled by his own record of
+    missed games (``hazard_mult``, as the season simulation's absence hazard
+    reads it: 1 without a record)."""
+    base = LEAD_BACK_MISS_RATE
+    m = float(getattr(lead, "hazard_mult", None) or 1.0)
+    return base * m / (1.0 - base + base * m)
+
+
 def p_at_least(p: PlayerRow, points: float) -> float:
     """Chance he scores ``points`` or more this week, injury tag included."""
     if p.is_out or p.projection is None:
@@ -129,6 +140,8 @@ def lottery_tickets(snapshot: LeagueSnapshot, cfg: Config, games=None,
     conf = cfg.raw["roster"].get("lottery_tickets") or {}
     per_window = int(conf.get("per_window", 3))
     min_keep = float(conf.get("min_keep", 0.03))
+    # Per-position scale on the big-week chance, from the replay (see config).
+    scale = conf.get("boom_scale") or {}
     if history is None:
         from .projections import load_history
 
@@ -158,13 +171,14 @@ def lottery_tickets(snapshot: LeagueSnapshot, cfg: Config, games=None,
             rivals = [_ros(by_id[i]) for i, slot in assigned.items() if _eligible(fa, slot)]
             if rivals and bar <= min(rivals):
                 continue
-            pb = p_at_least(fa, bar)
+            pb = min(p_at_least(fa, bar) * float(scale.get(fa.position, 1.0)), 1.0)
             pj = 0.0
             reasons = [f"{pb:.0%} chance of a top-{len(snapshot.teams)} {fa.position} week ({bar:.0f}+)"]
             if fa.player_id in cuffs:
                 lead, gain = cuffs[fa.player_id]
-                pj = LEAD_BACK_MISS_RATE
-                reasons.append(f"next in line behind {lead.name} (about +{gain:.1f} a game if he goes down)")
+                pj = lead_miss_rate(lead)
+                risky = f", who has missed games lately ({pj:.0%} to miss the next)" if pj >= 1.25 * LEAD_BACK_MISS_RATE else ""
+                reasons.append(f"next in line behind {lead.name}{risky} (about +{gain:.1f} a game if he goes down)")
             reasons.extend(s for s in fa.signals if s.startswith(("opportunity up", "next man up")))
             if fa.experience == 0:
                 reasons.append("rookie")
