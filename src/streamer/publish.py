@@ -934,6 +934,12 @@ def team_panels_for(
                              season_w[0], season_w[1], moved)
                 except Exception as exc:  # noqa: BLE001 - the consensus is a bonus input
                     log.warning("FantasyPros season blend for %s skipped: %s", name, exc)
+            try:
+                from .roster.vegas import log_season_values
+
+                log_season_values(snap, bound)
+            except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                log.warning("season value log for %s skipped: %s", name, exc)
             game_day = is_game_day()
             # (Not ``shared``: that is the sportsbook props pulled for every league.)
             view_shared = {"cache": read_me_cache(bound) if game_day else {}}

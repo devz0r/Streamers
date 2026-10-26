@@ -51,6 +51,8 @@ class SeasonOdds:
     mine: int | None = None
     #: Champion's team index in each simulated season (for paired comparisons).
     champion: np.ndarray | None = None
+    #: Expected points for the rest of the regular season, this week on.
+    exp_points: np.ndarray | None = None
     notes: list[str] = field(default_factory=list)
 
     def of(self, team_id: str) -> dict:
@@ -512,7 +514,9 @@ class SeasonModel:
             records=[f"{t.wins}-{t.losses}" + (f"-{t.ties}" if t.ties else "") for t in self.teams],
             p_playoffs=made.mean(axis=1), p_bye=byes.mean(axis=1), p_title=title,
             exp_wins=wins.mean(axis=1), n_sims=self.n, mine=mine,
-            champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes))
+            champion=np.asarray(champ) if champ is not None else None, notes=list(self.notes),
+            exp_points=scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]
+            .sum(axis=2).mean(axis=1))
 
     def _scores(self, override: dict[str, np.ndarray] | None, retention: float | None = None) -> np.ndarray:
         scores = self.base_scores.copy()

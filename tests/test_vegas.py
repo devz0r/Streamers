@@ -24,6 +24,13 @@ def test_the_whole_wire_is_logged_but_not_players_who_cannot_play(tmp_cfg):
     assert log_projections(snap, tmp_cfg) == 3
     got = set(pd.read_parquet(tmp_cfg.results_dir / "skill_log.parquet")["player_id"])
     assert got == {"mine", "wire", "props"}
+    # The final season value (after the consensus blend) joins this week's rows.
+    from streamer.roster.vegas import log_season_values
+
+    snap.teams[0].roster[0].ros_value = 7.5
+    assert log_season_values(snap, tmp_cfg) == 3
+    logged = pd.read_parquet(tmp_cfg.results_dir / "skill_log.parquet").set_index("player_id")["ros_value"]
+    assert logged["mine"] == 7.5 and logged["wire"] == 5.0
 
 
 def _graded(weights_by_pos, weeks=6, per=60, seed=3):

@@ -34,3 +34,19 @@ def test_odds_are_logged_and_graded_against_the_final_field(tmp_cfg):
     assert g["by_week"][0]["week"] == 2
     assert g["by_week"][0]["brier"] == np.mean([(0.9 - 1) ** 2, (0.6 - 1) ** 2, 0.3 ** 2, 0.2 ** 2])
     assert sum(b["n"] for b in g["buckets"]) == 4
+
+
+def test_expected_points_are_logged_and_graded_against_what_teams_scored(tmp_cfg):
+    cfg = tmp_cfg
+    o = _odds([0.9, 0.6, 0.3, 0.2])
+    o.exp_points = np.array([130.0, 120.0, 110.0, 100.0])         # the rest of the regular season
+    odds_log.record(cfg, _snap(2, [1, 1, 1, 1]), o)
+    logged = __import__("pandas").read_parquet(cfg.results_dir / odds_log.LOG)
+    assert list(logged["exp_points"]) == [130.0, 120.0, 110.0, 100.0]
+    assert list(logged["points_for"]) == [100.0, 101.0, 102.0, 103.0]
+    end = _snap(5, [3, 3, 1, 1])
+    # Each team then scored half the model's spread above its average.
+    for t, extra in zip(end.teams, [120.0, 115.0, 110.0, 105.0]):
+        t.points_for += extra
+    g = odds_log.grade(cfg, end)
+    assert g["by_week"][0]["strength_slope"] == __import__("pytest").approx(0.5)

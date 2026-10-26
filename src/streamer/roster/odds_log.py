@@ -4,7 +4,9 @@ Nobody has checked whether "41% to make the playoffs" means 41%. Every run
 appends each team's odds (playoffs, title, expected wins) with the week it was
 made; once the regular season is over the real field is known, so each logged
 playoff chance is scored against who got in -- Brier score per checkpoint
-week, and calibration by bucket -- and expected wins against actual. It is
+week, and calibration by bucket -- expected wins against actual, and the
+expected points for the rest of the regular season against the points each
+team really scored (``strength_slope``). It is
 our own numbers about league mates' teams, kept in ``results/<profile>`` like
 the projection log.
 """
@@ -29,9 +31,12 @@ LOG = "odds_log.parquet"
 def record(cfg: Config, snapshot: LeagueSnapshot, odds: SeasonOdds, now: datetime | None = None) -> int:
     """Append this run's odds; the last run of a (season, week) replaces earlier ones."""
     now = (now or datetime.now(UTC)).isoformat()
+    points = {str(t.team_id): float(t.points_for) for t in snapshot.teams}
     rows = [{"season": int(snapshot.season), "week": int(snapshot.week), "team_id": str(tid), "logged_at": now,
              "p_playoffs": float(odds.p_playoffs[i]), "p_title": float(odds.p_title[i]),
-             "exp_wins": float(odds.exp_wins[i]), "mine": odds.mine == i}
+             "exp_wins": float(odds.exp_wins[i]), "mine": odds.mine == i,
+             "exp_points": float(odds.exp_points[i]) if odds.exp_points is not None else np.nan,
+             "points_for": float(points.get(str(tid), np.nan))}
             for i, tid in enumerate(odds.team_ids)]
     path = cfg.results_dir / LOG
     old = pd.read_parquet(path) if path.exists() else pd.DataFrame()
@@ -56,6 +61,22 @@ def final_field(snapshot: LeagueSnapshot) -> tuple[set[str], dict[str, float]] |
     return {t.team_id for t in ranked[:n]}, {t.team_id: t.wins + 0.5 * t.ties for t in snapshot.teams}
 
 
+def strength_slope(g: pd.DataFrame, final_points: dict[str, float]) -> float | None:
+    """How far the teams' real points for the rest of the regular season
+    followed the expected points logged that week, both against the league
+    average: 1 when the model separated teams as much as the results did
+    (the replayed leagues' measure, DECISIONS.md "Grading the odds on
+    replayed leagues"). None without the columns or the spread."""
+    if "exp_points" not in g or "points_for" not in g:
+        return None
+    g = g.dropna(subset=["exp_points", "points_for"])
+    if len(g) < 4:
+        return None
+    real = g["team_id"].map(final_points) - g["points_for"]
+    x, y = g["exp_points"] - g["exp_points"].mean(), real - real.mean()
+    return float((x * y).sum() / (x * x).sum()) if (x * x).sum() > 0 else None
+
+
 def grade(cfg: Config, snapshot: LeagueSnapshot) -> dict | None:
     """Score the logged playoff chances and expected wins of this season
     against the final standings; None until the regular season is over."""
@@ -68,11 +89,14 @@ def grade(cfg: Config, snapshot: LeagueSnapshot) -> dict | None:
     log_ = log_[log_["season"] == int(snapshot.season)]
     if log_.empty:
         return None
+    final_points = {str(t.team_id): float(t.points_for) for t in snapshot.teams}
     log_ = log_.assign(made=log_["team_id"].isin(made).astype(float), wins=log_["team_id"].map(wins))
     by_week = []
     for wk, g in log_.groupby("week"):
-        by_week.append({"week": int(wk), "brier": float(np.mean((g["p_playoffs"] - g["made"]) ** 2)),
-                        "wins_mae": float((g["exp_wins"] - g["wins"]).abs().mean())})
+        row = {"week": int(wk), "brier": float(np.mean((g["p_playoffs"] - g["made"]) ** 2)),
+               "wins_mae": float((g["exp_wins"] - g["wins"]).abs().mean())}
+        row["strength_slope"] = strength_slope(g, final_points)
+        by_week.append(row)
     base = float(np.mean(log_["made"]) * (1 - np.mean(log_["made"])))      # always say the league rate
     buckets = []
     edges = [0, .1, .25, .5, .75, .9, 1.0001]

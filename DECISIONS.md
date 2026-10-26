@@ -3659,6 +3659,42 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Early-season strength: no preseason pull, and production now logs its own
+
+On the replayed leagues, team strength at week 1 was the weakest point. With
+each roster frozen at week 1, real rest-of-season points rose only 0.71 for
+each point of the model's expected points (0.84-1.03 at weeks 4-13). Before
+adding a preseason pull toward the average, I looked for where the extra
+spread starts:
+
+- **Players' season values at week 1 are not it.** The simulator's
+  per-player expectation (points per team game) against what followed:
+  slope 0.99 at week 1, 0.86-0.97 at weeks 2-5, QBs on the narrow side
+  (1.0-1.2), TEs a little wide (about 0.8). Within tiers of similar players
+  (6, 12 or 24 at a position) it is 0.9-1.1. So the small gaps between
+  players drafted near each other are as real as the large ones.
+- **The team model mostly corrects the plain sum.** A "best lineup by
+  season value" total is far more spread out (slope 0.53-0.74). The season
+  model brings it to 0.84-1.03 from week 4 on with absences, byes and the
+  wire.
+- **What is left is one checkpoint.** Week 1 alone, about +-0.08, on replay
+  values that lack the FantasyPros consensus production blends in at
+  week 1 (weight about 0.5).
+
+That is not enough to fit a pull, so none is applied. What production
+lacked was a way to grade its own numbers:
+
+- The projection log (`skill_log`) gains `ros_value`, the final season value
+  after the consensus blend (`vegas.log_season_values`, after
+  `blend_season`).
+- The odds log gains each team's expected points for the rest of the
+  regular season (`SeasonOdds.exp_points`, after the strength fade) and its
+  points so far. At season's end `odds_log.grade` reports a
+  `strength_slope` for each logged week: real points the rest of the way on
+  expected, both against the league average, the replay's measure. The
+  ESPN and Yahoo leagues then say for themselves whether week-1 and
+  early-season strength needs a pull.
+
 ### Edges that did not hold up in the full pipeline
 
 The league replay ("Grading the odds on replayed leagues") showed rosters

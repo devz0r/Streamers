@@ -581,3 +581,25 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     new.to_parquet(path, index=False)
     return len(rows)
+
+
+def log_season_values(snapshot: LeagueSnapshot, cfg: Config) -> int:
+    """Add each logged player's final season value (``ros_value``, after the
+    consensus blend: the number the season simulation runs on) to this week's
+    rows of the projection log, so production's own season values can be
+    graded against what followed. Returns how many rows were filled."""
+    import pandas as pd
+
+    path = cfg.results_dir / "skill_log.parquet"
+    if not path.exists():
+        return 0
+    log_ = pd.read_parquet(path)
+    ros = {p.player_id: float(p.ros_value) for p in snapshot.all_players() if p.ros_value is not None}
+    here = (log_["season"] == snapshot.season) & (log_["week"] == snapshot.week) & log_["player_id"].isin(ros)
+    if not here.any():
+        return 0
+    if "ros_value" not in log_:
+        log_["ros_value"] = np.nan
+    log_.loc[here, "ros_value"] = log_.loc[here, "player_id"].map(ros)
+    log_.to_parquet(path, index=False)
+    return int(here.sum())
