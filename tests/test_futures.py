@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from streamer.league.model import PlayerRow
 from streamer.roster.futures import simulate
 
@@ -285,3 +287,31 @@ def test_a_bye_this_week_is_not_an_absence():
     # Back the next week, then as anyone a game behind (before the fix he
     # was out the week after the bye in every season and 30% two weeks on).
     assert np.allclose(weekly[0, 1:], weekly[1, :-1], atol=0.04)
+
+
+def _roled(pid, pos, role, team, ros, sd=7.0):
+    p = _p(pid, pos, ros, team, sd=sd)
+    p.role = role
+    return p
+
+
+def test_players_in_the_same_game_are_drawn_together():
+    """A quarterback's big week is his WR1's too; the defence facing him has a
+    bad one. Each player's own distribution is unchanged."""
+    qb, wr = _roled("qb", "QB", "QB", "KC", 20.0), _roled("wr", "WR", "WR1", "KC", 14.0)
+    dst, other = _roled("d", "DST", "DST", "BUF", 7.0, 4.0), _roled("o", "WR", "WR1", "MIA", 14.0)
+    players, weeks = [qb, wr, dst, other], [5, 6]
+    opp = {"KC": {5: "BUF", 6: "BUF"}, "BUF": {5: "KC", 6: "KC"}, "MIA": {5: "NYJ", 6: "NYJ"}}
+    linked = simulate(players, weeks, {}, n_sims=6000, opponents=opp)
+    alone = simulate(players, weeks, {}, n_sims=6000)
+
+    def corr(f, a, b):
+        both = f.played[:, a, 0] & f.played[:, b, 0]
+        x, y = f.scores[both, a, 0] - f.levels[both, a, 0], f.scores[both, b, 0] - f.levels[both, b, 0]
+        return np.corrcoef(x, y)[0, 1]
+
+    assert corr(linked, 0, 1) > 0.2 and abs(corr(alone, 0, 1)) < 0.05
+    assert corr(linked, 0, 2) < -0.25
+    assert abs(corr(linked, 1, 3)) < 0.05                    # a different game
+    on = linked.played[:, 1, 0]
+    assert abs(linked.scores[on, 1, 0].mean() - alone.scores[alone.played[:, 1, 0], 1, 0].mean()) < 0.4

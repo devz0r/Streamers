@@ -81,10 +81,13 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
+from scipy.special import ndtr
 
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, PlayerRow
+from ..teams import normalize_team
 from . import outcome
 
 SKILL = ("QB", "RB", "WR", "TE")
@@ -360,6 +363,48 @@ def _this_week(players: list[PlayerRow], base: np.ndarray, heir_of: dict[int, in
     return out
 
 
+@lru_cache(maxsize=4096)
+def _game_factor(members: tuple[tuple[bool, str], ...]) -> np.ndarray:
+    """Cholesky factor of one NFL game's score correlations: ``members`` are
+    (which side, role) per player, priced from the residual correlations in
+    outcome_model.json -- teammates by role (a quarterback and his WR1), the
+    two sides by role (a quarterback and the defence facing him) -- and
+    repaired to the nearest valid matrix where the pairs do not add up."""
+    n = len(members)
+    corr = np.eye(n)
+    for i in range(n):
+        for j in range(i + 1, n):
+            (si, ri), (sj, rj) = members[i], members[j]
+            corr[i, j] = corr[j, i] = outcome.correlation(si == sj, ri, rj)
+    w, v = np.linalg.eigh(corr)
+    if w.min() < 1e-6:
+        corr = (v * np.clip(w, 1e-6, None)) @ v.T
+        d = np.sqrt(np.diag(corr))
+        corr = corr / np.outer(d, d)
+    return np.linalg.cholesky(corr)
+
+
+def game_groups(players: list[PlayerRow], week: int,
+                opponents: dict[str, dict[int, str]]) -> list[tuple[list[int], np.ndarray]]:
+    """This week's NFL games among ``players``: (indices, Cholesky factor)
+    for each game with two or more players the correlation table knows.
+    ``opponents`` is keyed on normalised team abbreviations."""
+    games: dict[tuple[str, str], list[tuple[int, bool, str]]] = {}
+    for j, p in enumerate(players):
+        role = outcome.canonical_role(p.role or "") if p.team else ""
+        team = normalize_team(p.team) if role else None
+        opp = opponents.get(team, {}).get(week) if team else None
+        if not opp:
+            continue
+        key = tuple(sorted((team, opp)))
+        games.setdefault(key, []).append((j, team == key[0], role))
+    out = []
+    for members in games.values():
+        if len(members) >= 2:
+            out.append(([m[0] for m in members], _game_factor(tuple((m[1], m[2]) for m in members))))
+    return out
+
+
 def simulate(
     players: list[PlayerRow],
     weeks: list[int],
@@ -371,6 +416,7 @@ def simulate(
     takeover: dict[str, float] | None = None,
     takeover_sd: dict[str, float] | None = None,
     kept: float | None = None,
+    opponents: dict[str, dict[int, str]] | None = None,
 ) -> Futures:
     """Simulate every player's next ``weeks``.
 
@@ -380,6 +426,11 @@ def simulate(
     when the lead is back, the heir keeps ``kept`` of what he took and the
     lead loses it. The heir's ``inherited_ros`` -- the absence already priced
     into his season value -- is taken back out, since it is played out here.
+    ``opponents`` (NFL team -> week -> opponent) links the players in each
+    game: their weekly luck is drawn together through the fitted residual
+    correlations by role (:func:`game_groups`), so a quarterback's big week
+    is his receivers' too and the defence facing him has a bad one. Without
+    it each player's week is drawn on its own.
     ``current`` is the index of the week in progress, whose final scores
     are facts (earlier weeks are ones the platform has not counted yet). That
     week plays at each player's projection *for it* -- his matchup, the
@@ -574,10 +625,16 @@ def simulate(
         levels[:, :, k] = np.where(playing, eff_vis, 0.0)
         played[:, :, k] = playing
         finals = [j for j, p in enumerate(players) if k == current and p.actual_points is not None]
+        linked = None
+        if opponents:
+            # One correlated draw per game; everyone else on his own.
+            linked = rng.random((n_sims, n_p))
+            for idx, chol in game_groups(players, week, opponents):
+                linked[:, idx] = ndtr(rng.standard_normal((n_sims, len(idx))) @ chol.T)
         for j, p in enumerate(players):
             probs, zq = outcome.shape(p.position, float(base[j]))
             sd = sd0[j] * np.sqrt(np.maximum(eff[:, j], 1.0) / max(base[j], 1.0))
-            u = rng.random(n_sims)
+            u = linked[:, j] if linked is not None else rng.random(n_sims)
             s = eff[:, j] + sd * np.interp(u, probs, zq)
             if p.position in SKILL:
                 s = np.maximum(s, 0.0)

@@ -23,6 +23,7 @@ re-running only the changed team's lineups on the same simulated futures
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
 
@@ -31,6 +32,8 @@ import numpy as np
 from ..config import Config
 from ..league.model import SLOT_ELIGIBILITY, LeagueSnapshot, PlayerRow
 from . import futures as fut
+
+log = logging.getLogger(__name__)
 
 SKILL = ("QB", "RB", "WR", "TE")
 
@@ -120,6 +123,19 @@ def nfl_byes(snapshot: LeagueSnapshot, weeks: list[int], cfg: Config) -> dict[st
         playing = set(g[g["week"] == w]["team"])
         for t in teams - playing:
             out.setdefault(t, set()).add(w)
+    return out
+
+
+def nfl_opponents(snapshot: LeagueSnapshot, weeks: list[int], cfg: Config) -> dict[str, dict[int, str]]:
+    """NFL team -> week -> the team it plays."""
+    from ..data.nflverse import games_frame
+    from ..teams import normalize_team
+
+    g = games_frame(cfg)
+    g = g[(g["season"] == snapshot.season) & (g["week"].isin(weeks))]
+    out: dict[str, dict[int, str]] = {}
+    for r in g.itertuples():
+        out.setdefault(normalize_team(r.team), {})[int(r.week)] = normalize_team(r.opponent)
     return out
 
 
@@ -244,11 +260,18 @@ class SeasonModel:
         byes = nfl_byes(snapshot, self.weeks, cfg)
         everyone = snapshot.all_players()
         roster_conf = cfg.raw.get("roster", {})
+        # Teammates and opponents drawn together each week (season_correlation).
+        opponents = None
+        if roster_conf.get("season_correlation"):
+            try:
+                opponents = nfl_opponents(snapshot, self.weeks, cfg)
+            except Exception as exc:  # noqa: BLE001 - a refinement; never block the odds
+                log.warning("NFL schedule unavailable, players drawn on their own: %s", exc)
         self.futures = fut.simulate(self.players, self.weeks, byes, n_sims=n_sims, seed=seed,
                                     heirs=heirs_for(everyone), current=self.lag,
                                     takeover=roster_conf.get("next_man_up"),
                                     takeover_sd=roster_conf.get("next_man_up_spread"),
-                                    kept=roster_conf.get("next_man_up_kept"))
+                                    kept=roster_conf.get("next_man_up_kept"), opponents=opponents)
         self._lv_t = np.ascontiguousarray(self.futures.levels.transpose(0, 2, 1), dtype=np.float32)
         self._sc_t = np.ascontiguousarray(self.futures.scores.transpose(0, 2, 1), dtype=np.float32)
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),

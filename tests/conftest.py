@@ -147,3 +147,12 @@ def _before_any_kickoff(monkeypatch):
     import streamer.roster.locked as locked
 
     monkeypatch.setattr(locked, "_now", lambda: datetime(2000, 1, 1, tzinfo=UTC))
+
+
+@pytest.fixture(autouse=True)
+def _no_nfl_schedule(monkeypatch):
+    """The season simulation's NFL games come from the real schedule; tests
+    draw players on their own unless a test hands it games."""
+    import streamer.roster.season as season_mod
+
+    monkeypatch.setattr(season_mod, "nfl_opponents", lambda *a, **k: {})

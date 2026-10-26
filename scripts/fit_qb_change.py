@@ -108,7 +108,7 @@ def build(cfg) -> pd.DataFrame:
                 old_q = float(np.mean([rate.get(x, mu) for x in qbs]))
                 scale = float(np.clip(now[team] / trail[team], 0.7, 1.3)) ** damp
                 rows.append({"season": season, "week": week, "position": r.position, "player_id": r.player_id,
-                             "team": team, "pred": float(r.blend) * scale, "pts": float(got[r.player_id]),
+                             "team": team, "pred": float(r.blend) * scale, "vol": float(r.blend), "pts": float(got[r.player_id]),
                              "q": share, "gap": (rate.get(qb, mu) - old_q) / spread,
                              "new_attempts": float(q[(q["player_id"] == qb) & ((q["season"] < season) | (
                                  (q["season"] == season) & (q["week"] < week)))]["attempts"].sum())})
@@ -119,6 +119,9 @@ def build(cfg) -> pd.DataFrame:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cache")
+    ap.add_argument("--no-line", action="store_true",
+                    help="grade against the volume model alone, without this week's implied total: "
+                         "the whole effect, for the season simulation's weeks to come")
     args = ap.parse_args()
     logging.disable(logging.WARNING)
     from streamer.config import get_config
@@ -130,6 +133,8 @@ def main() -> int:
         d = build(cfg)
         if args.cache:
             d.to_parquet(args.cache)
+    if args.no_line:
+        d["pred"] = d["vol"]
     d["x"] = (1.0 - d["q"]) * d["gap"]
 
     def pred(g, b):

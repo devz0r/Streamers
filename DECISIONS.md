@@ -3657,6 +3657,60 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Teammates and opponents in the season simulation
+
+Until now the season simulator (`futures.simulate`) drew every player's week
+on its own, while the week's lineup optimiser already linked players in the
+same game. A quarterback's big week is usually his receivers' big week too,
+and a bad week for the defence facing him. Independent draws made a stacked
+team's weekly total too narrow. That matters for P(win) each week, and so
+for the standings and the title odds.
+
+Now each simulated week, the players in each NFL game are drawn together
+through the fitted residual correlations by role in `outcome_model.json`,
+the same table the lineup optimiser uses (QB and his WR1 +0.34, QB and TE
++0.26, QB and the defence facing him -0.44, the two QBs +0.18). It is a
+Gaussian copula, so each player's own distribution is unchanged. The games
+come from the NFL schedule (`season.nfl_opponents`). The setting is
+`roster.season_correlation`.
+
+**Held out**, on the 2022-2025 replay (24 checkpoints), with the
+correlations refit leaving out each test season. Graded on weekly totals
+against what happened:
+
+| Weekly total | 80% band, independent -> linked | Dispersion ratio | CRPS |
+|---|---|---|---|
+| Team stack (QB+WR1+WR2+TE), n=8,089 | 75.5% -> 78.8% | 1.30 -> 1.10 | 10.823 -> 10.823 |
+| Whole game (both stacks), n=3,842 | 71.8% -> 78.3% | 1.50 -> 1.16 | 16.523 -> 16.468 |
+| Single player, n=8,089 | 88.4% -> 88.5% | 0.93 -> 0.93 | 4.578 -> 4.577 |
+
+The bands and the dispersion improve in every season, for both stacks. CRPS
+is dominated by misses in the mean, which this change does not touch. It is
+better overall for games (worse in 2023 only) and flat for team stacks
+(worse in 2023 and 2024, each by under 0.3%). Kept on the band and
+dispersion grades, which are what a correlation changes. The remaining
+dispersion above 1 suggests teammates' longer-run errors are linked too (a
+whole offence better than expected). That is not modelled yet.
+
+The replay has no D/ST or kickers, so their links (most strongly QB and the
+defence facing him) rest on the fitted table alone, as in the lineup
+optimiser.
+
+**Tried and dropped: receivers losing part of their level while their lead
+QB is out.** Graded against the volume model alone, with no betting line
+(`fit_qb_change.py --no-line`; the season simulation's future weeks have
+none), receivers with a clearly worse new starter fall short by 22.5% times
+the share of their recent games the old starter threw. That was better in
+all four held-out seasons on those weeks (5.43 -> 5.19 RMSE); tight ends and
+backs showed nothing. In the season simulation, though, it made receivers'
+rest-of-season points per team game worse on the replay:
+- all receivers: bias +0.39 -> +0.48, CRPS 1.587 -> 1.595;
+- receivers whose lead QB is out at the checkpoint: bias +0.30 -> +0.64,
+  CRPS 1.363 -> 1.407, worse in three of four seasons.
+
+Their season values already carry it, and the weekly projection keeps its
+own cut (`qb_change`) for the week a backup starts. Not shipped.
+
 ### A review of the title odds: intervals, the second run, dropped players
 
 An outside review of how P(title) is computed; the first fixes:

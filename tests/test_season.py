@@ -368,3 +368,19 @@ def test_the_simulation_noise_interval_is_wilsons():
     lo, hi = wilson(0.10, 1500)
     assert hi - lo == pytest.approx(0.0305, abs=0.001)            # about +-1.5 at 1,500
     assert wilson(0.0, 6000)[0] == pytest.approx(0.0, abs=1e-12) and wilson(1.0, 6000)[1] == pytest.approx(1.0)
+
+
+def test_the_season_simulation_draws_each_nfl_game_together(cfg, monkeypatch):
+    """With season_correlation on, SeasonModel hands the simulator this
+    season's NFL games."""
+    seen = {}
+    real = season_mod.fut.simulate
+
+    def spy(*a, **k):
+        seen["opponents"] = k.get("opponents")
+        return real(*a, **k)
+
+    monkeypatch.setattr(season_mod, "nfl_opponents", lambda *a, **k: {"KC": {3: "BUF"}, "BUF": {3: "KC"}})
+    monkeypatch.setattr(season_mod.fut, "simulate", spy)
+    SeasonModel(_league([1.0, 1.0, 1.0, 1.0]), cfg, n_sims=200)
+    assert seen["opponents"] == {"KC": {3: "BUF"}, "BUF": {3: "KC"}}

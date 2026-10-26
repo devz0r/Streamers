@@ -582,6 +582,13 @@ roster:
   # seasons (5.37 -> 5.24 RMSE on those weeks); TE and RB showed nothing
   # (scripts/fit_qb_change.py; DECISIONS.md, "A new quarterback for the receivers").
   qb_change: {positions: [WR], worse_sd: 0.5, cut: 0.15, shrink: 200, recent: 6}
+  # The season simulation draws each NFL game's players together each week
+  # (the fitted residual correlations by role: QB and WR1 +0.34, QB and the
+  # defence facing him -0.44). Held out 2022-2025 on the replay: weekly team
+  # stacks (QB+WR1+WR2+TE) inside their 80% band 75.5% -> 78.8%, whole games
+  # 71.8% -> 78.3%, better in all four seasons; single players unchanged
+  # (DECISIONS.md, "Teammates and opponents in the season simulation").
+  season_correlation: true
   teammate_back:
     positions: [RB, WR, TE]
     regular: 5.0
