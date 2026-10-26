@@ -42,6 +42,10 @@ profiles:
       platform: espn
     league:
       teams: 10
+      # Each division's winner is seeded first and takes a first-round bye
+      # (1 and 2 by record, then points); the other playoff spots go by
+      # record, divisions aside. The season simulation seeds that way.
+      division_byes: true
       # A "startable" week: roughly one D/ST and one K per team, so the number
       # of managers who need a usable one each week.
       startable_rank: 12

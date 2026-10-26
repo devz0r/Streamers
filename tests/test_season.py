@@ -258,3 +258,35 @@ def test_thinning_off_is_the_old_flat_level(cfg):
     finally:
         cfg.raw["roster"].clear()
         cfg.raw["roster"].update(saved)
+
+
+def test_division_winners_are_seeded_first_and_the_rest_by_record():
+    import numpy as np
+
+    from streamer.roster.season import division_seeds
+
+    # Six teams, two divisions; one season. Division B's best (team 5) has
+    # the fourth-best record but is seeded second, ahead of teams 1 and 2.
+    key = np.array([[90.0], [80.0], [70.0], [10.0], [20.0], [60.0]])
+    divs = ["A", "A", "A", "B", "B", "B"]
+    seeds = division_seeds(key, divs, 4)[:, 0].tolist()
+    assert seeds == [0, 5, 1, 2]
+
+
+def test_a_weak_division_winner_gets_the_bye(cfg):
+    snap = _league([1.3, 1.25, 1.2, 1.15, 0.8, 0.75, 0.7, 0.65])
+    snap.rules["playoff_teams"] = 6
+    for i, t in enumerate(snap.teams):
+        t.division = "strong" if i < 4 else "weak"
+    league = cfg.profiles[cfg.profile].setdefault("league", {})
+    was = league.get("division_byes")
+    try:
+        league["division_byes"] = False
+        plain = SeasonModel(snap, cfg, n_sims=800).odds()
+        league["division_byes"] = True
+        divided = SeasonModel(snap, cfg, n_sims=800).odds()
+    finally:
+        league["division_byes"] = was
+    weak = [4, 5, 6, 7]
+    assert divided.p_bye[weak].sum() == pytest.approx(1.0)        # exactly one weak-division team each season
+    assert plain.p_bye[weak].sum() < 0.5

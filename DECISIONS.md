@@ -3657,6 +3657,17 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### ESPN: division winners get the byes
+
+In the ESPN league each division's winner is seeded first (1 and 2 by
+record, then points) and takes a first-round bye; the other four spots go
+by record, divisions aside. The simulator seeded everyone by record. Now,
+where the profile says so (``league.division_byes``, ESPN only) and the
+sync has each team's division (ESPN's divisionId), each simulated season
+seeds the division winners first. Yahoo is unchanged. On this week's
+snapshot it moves little -- the two favourites are in different divisions
+-- but it is the league's rule, and a weak division's winner gets the bye.
+
 ### Head to head, the opponent's bench, and the latest game in the flex
 
 The Lineup tab and the live card now pair your starters with your

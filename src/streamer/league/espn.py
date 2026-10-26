@@ -243,6 +243,7 @@ def build_snapshot(
             waiver_rank=int(_attr(team, "waiver_rank", 0) or 0) or None,
             faab_spent=float(_attr(team, "acquisition_budget_spent", 0) or 0),
             acquisitions=int(_attr(team, "acquisitions", 0) or 0),
+            division=str(_attr(team, "division_id")) if _attr(team, "division_id") is not None else None,
         ))
 
     fas = [normalize_player(p, week) for p in (free_agents or [])]

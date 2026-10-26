@@ -162,6 +162,26 @@ def _eligible(p: PlayerRow, slot: str) -> bool:
     return p.position in SLOT_ELIGIBILITY.get(slot, ())
 
 
+def division_seeds(key: np.ndarray, divisions: list[str], p_teams: int) -> np.ndarray:
+    """Seeds per simulated season when division winners come first: each
+    division's best ``key`` (record, then points) is seeded ahead of every
+    other team, in key order; the rest fill in by key, divisions aside.
+    ``key``: (teams, sims). Returns (p_teams, sims) of team indices."""
+    n = key.shape[1]
+    cols = np.arange(n)
+    div = np.asarray(divisions)
+    winners = []
+    for d in dict.fromkeys(divisions):
+        members = np.flatnonzero(div == d)
+        winners.append(members[np.argmax(key[members], axis=0)])
+    w = np.stack(winners)                                                  # (k, sims)
+    w = np.take_along_axis(w, np.argsort(-key[w, cols], axis=0), axis=0)
+    rest_key = key.astype(float).copy()
+    rest_key[w, cols] = -np.inf
+    rest = np.argsort(-rest_key, axis=0)[: max(p_teams - len(winners), 0)]
+    return np.vstack([w, rest])[:p_teams]
+
+
 class SeasonModel:
     """Simulated futures for a league, and the machinery to score rosters."""
 
@@ -174,6 +194,12 @@ class SeasonModel:
         self.round_weeks = max(int(rules.get("playoff_round_weeks") or 1), 1)
         self.median = bool(rules.get("median_game"))
         self.reseed = bool(rules.get("reseed"))
+        # Division winners seeded first (and so given the byes), where the
+        # league says so and every team has a division.
+        league_conf = ((cfg.profiles.get(cfg.profile) or {}).get("league") or {}) if cfg.profile else {}
+        divs = [t.division for t in snapshot.teams]
+        self.divisions = (divs if league_conf.get("division_byes") and all(divs) and len(set(divs)) > 1
+                          else None)
         self.rounds = max(math.ceil(math.log2(max(self.playoff_teams, 2))), 1)
         start = int(snapshot.week)
         # The platform can be a week behind the calendar: Monday night's game
@@ -470,6 +496,8 @@ class SeasonModel:
         order = np.argsort(-key, axis=0)                                       # (teams, n)
         p_teams = min(self.playoff_teams, n_t)
         seeds = order[:p_teams]                                                # seeds[s-1] = team idx
+        if self.divisions is not None:
+            seeds = division_seeds(key, self.divisions, p_teams)
         made = np.zeros((n_t, self.n), bool)
         np.put_along_axis(made, seeds, True, axis=0)
         slots = 2 ** self.rounds

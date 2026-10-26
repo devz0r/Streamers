@@ -267,6 +267,8 @@ class TeamRow:
     waiver_rank: int | None = None
     faab_spent: float | None = None
     acquisitions: int | None = None
+    #: The platform's division id, where the league has divisions.
+    division: str | None = None
 
     def starters(self) -> list[PlayerRow]:
         return [p for p in self.roster if p.starting]
