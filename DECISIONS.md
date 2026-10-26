@@ -3659,6 +3659,32 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Late scratches and in-game injuries: nothing to add
+
+Does the model need to treat an active player as possibly missing the game
+(ruled out late) or leaving it hurt? Checked on the replay's weekly
+projections for untagged players projected at 4+ (a game he missed scoring 0):
+
+- **They play.** Lead players with no injury tag played 99.5% (RB1), 99.6%
+  (WR1), 97.6% (WR2), 97.7% (TE) and 93.6% (QB) of their team's games.
+- **Our numbers are not too high.** The average miss against the
+  projection is +0.4 to +0.5 for RB1, WR and TE (the projection runs a little
+  low), -0.35 +- 0.19 for the lead QB. Tagged (Q) players: played 72.3%,
+  projected 7.65 against 7.63 scored: the chance-to-play mixture already
+  prices them.
+- **Backups look like scratches but are not.** Untagged QBs projected at 4+
+  played 73.6% of the time (bias -2.0); these are quarterbacks behind the
+  starter, and the depth chart already handles them.
+- **The tails are right.** Of played games by players projected 12+, 3.7%
+  scored under 3 points, and the weekly margin's spread calibrates
+  (9.2 / 24.0 / 50.3 / 75.8 / 90.6% under the predicted 10 / 25 / 50 / 75 /
+  90th percentiles).
+
+A late-scratch hazard on top would lower means that are already unbiased or
+low and would double count the tag mixture, so none is added. In-game
+injuries are inside the outcome shapes (fitted on every game he was on the
+field for).
+
 ### An odds check for model changes
 
 `scripts/grade_league_odds.py --leagues 6 --check odds_baseline.json` plays
@@ -3666,7 +3692,7 @@ same pace as before. Nothing else about how free agents are priced changed.
 scores are worse than the baseline by more than 0.003, 0.006 and 0.004 (set
 above the spread between a few leagues and 25). The `odds-check` workflow
 runs it by hand (it reads the weekly run's nflverse cache and rebuilds the
-replay's weekly projections, about 20 minutes); it is not wired to every push.
+replay's weekly projections, about 6 minutes on the first run); it is not wired to every push.
 `--write-baseline` refreshes the file when a change is meant to move the
 scores. Baseline (6 leagues a season): P(win) 0.2268, P(playoffs) 0.1589,
 P(title) 0.0859.
