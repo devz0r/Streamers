@@ -95,3 +95,27 @@ def test_the_quarterback_big_week_chance_is_scaled_down_by_config(cfg):
         conf.clear()
         conf.update(saved)
     assert scaled == __import__("pytest").approx(0.65 * unscaled)
+
+
+def test_tickets_are_logged_with_their_inputs_and_graded_against_the_week(cfg, tmp_cfg):
+    from streamer.roster.lottery import grade_tickets, log_tickets
+
+    snap = snapshot(week=3)
+    snap.platform = "yahoo"
+    hist = pd.DataFrame({"player_id": [f"x{i}" for i in range(40)], "season": 2025, "week": 1,
+                         "position": ["WR"] * 40, "fantasy_points_ppr": list(range(30)) + [0] * 10})
+    wr = PlayerRow(player_id="t1", name="Ticket WR", position="WR", team="SEA", slot="FA", nfl_id="n1",
+                   eligible_slots=["WR", "FLEX"], projection=8.0, projection_sd=6.0, outcome_sd=6.0,
+                   fp_projection=9.5, vegas_points=11.0, vegas_stats={"rec_yards": 55.0})
+    snap.free_agents = [wr]
+    c = cfg.for_profile("yahoo")
+    windows = lottery_tickets(snap, c, games=_games(), now=datetime(2026, 9, 25, tzinfo=UTC), history=hist)
+    assert windows and windows[0].bars["WR"] > 0
+    assert log_tickets(snap, tmp_cfg, windows, windows[0].bars) == 1
+    assert log_tickets(snap, tmp_cfg, windows, windows[0].bars) == 1             # same window: replaced
+    logged = pd.read_parquet(tmp_cfg.results_dir / "ticket_log.parquet")
+    assert len(logged) == 1 and logged.iloc[0]["fp_projection"] == 9.5 and logged.iloc[0]["vegas_points"] == 11.0
+    assert grade_tickets(tmp_cfg, pd.DataFrame(columns=["season", "week", "player_id", "fantasy_points_ppr"])) is None
+    played = pd.DataFrame({"player_id": ["n1"], "season": [2026], "week": [3], "fantasy_points_ppr": [30.0]})
+    g = grade_tickets(tmp_cfg, played)
+    assert g["n"] == 1 and g["bands"][0]["happened"] == 1.0

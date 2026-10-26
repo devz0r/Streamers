@@ -56,6 +56,8 @@ class Window:
     kickoff: datetime
     teams: set[str]
     tickets: list[Ticket] = field(default_factory=list)
+    #: The big-week bar per position the tickets were priced against.
+    bars: dict[str, float] = field(default_factory=dict)
 
 
 def _now() -> datetime:
@@ -188,7 +190,79 @@ def lottery_tickets(snapshot: LeagueSnapshot, cfg: Config, games=None,
         tickets = [t for t in tickets if t.p_keep >= min_keep]
         tickets.sort(key=lambda t: -t.p_keep)
         w.tickets = tickets[:per_window]
-    return [w for w in windows if w.tickets]
+    out = [w for w in windows if w.tickets]
+    for w in out:
+        w.bars = bars
+    return out
+
+
+LOG = "ticket_log.parquet"
+
+
+def log_tickets(snapshot: LeagueSnapshot, cfg: Config, windows: list[Window], bars: dict[str, float],
+                now: datetime | None = None) -> int:
+    """Record every ticket shown, with the numbers behind it, to grade later
+    (``results/<profile>/ticket_log.parquet``). One row per (season, week,
+    window, player); a window's rows are replaced until its kickoff, then
+    stand, since the window drops out of :func:`lottery_tickets`. The
+    betting market's and FantasyPros' numbers are kept beside the model's:
+    whether a prop price or an expert range sharpens the big-week chance can
+    only be tested forward, as there is no history of either."""
+    import json
+
+    import pandas as pd
+
+    stamp = (now or _now()).isoformat()
+    rows = []
+    for w in windows:
+        for t in w.tickets:
+            p = t.player
+            rows.append({
+                "season": int(snapshot.season), "week": int(snapshot.week), "window": w.label,
+                "kickoff": w.kickoff.isoformat(), "player_id": p.player_id, "nfl_id": p.nfl_id,
+                "name": p.name, "position": p.position, "team": p.team,
+                "projection": p.projection, "model_projection": p.model_projection,
+                "fp_projection": p.fp_projection, "vegas_points": p.vegas_points,
+                "vegas_stats": json.dumps(p.vegas_stats or {}, sort_keys=True), "percent_owned": p.percent_owned,
+                "bar": bars.get(p.position), "p_boom": t.p_boom, "p_job": t.p_job, "p_keep": t.p_keep,
+                "logged_at": stamp})
+    if not rows:
+        return 0
+    path = cfg.results_dir / LOG
+    new = pd.DataFrame(rows)
+    if path.exists():
+        old = pd.read_parquet(path)
+        key = ["season", "week", "window", "player_id"]
+        old = old.merge(new[key], on=key, how="left", indicator=True)
+        old = old[old["_merge"] == "left_only"].drop(columns="_merge")
+        new = pd.concat([old, new], ignore_index=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new.to_parquet(path, index=False)
+    return len(rows)
+
+
+def grade_tickets(cfg: Config, history) -> dict | None:
+    """The logged tickets against what happened: for each, did he reach the
+    bar (a top-N week) -- the big-week chance said against the hit rate, in
+    bands -- and the mean points. None until a ticket's game has been played."""
+    import pandas as pd
+
+    path = cfg.results_dir / LOG
+    if not path.exists():
+        return None
+    log_ = pd.read_parquet(path).dropna(subset=["nfl_id", "bar"])
+    actual = history.groupby(["season", "week", "player_id"])["fantasy_points_ppr"].sum().rename("actual")
+    j = log_.merge(actual.reset_index().rename(columns={"player_id": "nfl_id"}), on=["season", "week", "nfl_id"])
+    if j.empty:
+        return None
+    j["hit"] = (j["actual"] >= j["bar"]).astype(float)
+    bands = []
+    for lo, hi in ((0, 0.03), (0.03, 0.07), (0.07, 0.15), (0.15, 1.01)):
+        g = j[(j["p_boom"] >= lo) & (j["p_boom"] < hi)]
+        if len(g):
+            bands.append({"range": f"{lo:.0%}-{min(hi, 1):.0%}", "n": int(len(g)), "said": float(g["p_boom"].mean()),
+                          "happened": float(g["hit"].mean())})
+    return {"n": int(len(j)), "bands": bands, "mean_points": float(j["actual"].mean())}
 
 
 def enabled(snapshot: LeagueSnapshot, cfg: Config) -> bool:

@@ -3659,6 +3659,26 @@ stops at the first page with nobody new, so the list ends where Yahoo's does.
 Players are de-duplicated by id. About four more page loads per sync, at the
 same pace as before. Nothing else about how free agents are priced changed.
 
+### Logging the lottery tickets, to test prop prices and FantasyPros ranges later
+
+The ticket's big-week chance already rests on the blended projection (our
+model, the betting market's props where he has them, FantasyPros, Sleeper).
+What could still sharpen it is the market's touchdown price for a low-
+projected back or tight end, or FantasyPros' high/low range for a backup
+with an uncertain role. Neither has history for past seasons (the props log
+began this season and skips most deep players), so they cannot be validated
+on 2022-2025 and are not used.
+
+Every shown ticket is now logged (`lottery.log_tickets`, from the publish
+run for your team: `results/<profile>/ticket_log.parquet`, one row per
+season, week, window and player, replaced until kickoff) with the model
+projection, FantasyPros' projection, the props mean and stat lines, %
+rostered, the bar and the three chances. `lottery.grade_tickets` joins the
+week's real points and reports the big-week chance said against the hit rate
+by band. After a few hundred ticket-weeks (about 4-6 weeks), test whether
+the prop price or the expert range beat the current shape held-out by
+season, and switch over only if they do.
+
 ### Lottery tickets: where the percentages come from, and two fixes
 
 "Chance of a top-14 week" is read off the player's projection and the same

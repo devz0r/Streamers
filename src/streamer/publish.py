@@ -915,6 +915,15 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)
             try:
+                from .roster import lottery
+
+                if lottery.enabled(snap, bound):
+                    windows = lottery.lottery_tickets(snap, bound)
+                    bars = windows[0].bars if windows else {}
+                    lottery.log_tickets(snap, bound, windows, bars)
+            except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                log.warning("lottery ticket log for %s skipped: %s", name, exc)
+            try:
                 from .roster import unit_props
 
                 log.info("%s: kicker and defence lines: %d logged, %d on cards", name,
