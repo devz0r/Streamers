@@ -15785,7 +15785,7 @@
       "name": "Cole Payton",
       "position": "QB",
       "team": "PHI",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -22487,7 +22487,7 @@
       "name": "Emari Demercado",
       "position": "RB",
       "team": "DAL",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -40487,7 +40487,7 @@
       "name": "Britain Covey",
       "position": "WR",
       "team": "PHI",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -63223,7 +63223,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-27T13:02:20.488239+00:00",
+  "synced_at": "2026-10-27T13:11:26.400642+00:00",
   "extra": {
     "nfl_week": 8,
     "current_week": 8
