@@ -102,3 +102,39 @@ def test_a_pickup_held_as_cover_says_whom_he_covers():
     o2 = PickupOption(player=o.player, win_probability=0.6, base=0.56, noise=0.005, lineup=None,
                       changes=[("FLEX", q, o.player)])
     assert o2.moves_text == "start Darius Cooper at FLEX over Q Starter"
+
+
+def test_a_pickup_splits_its_title_odds_into_this_week_and_the_rest():
+    """Net is the whole move (him in, the drop out, every week), less the
+    waiver priority; this week's part is the P(win) gain times the game's
+    title swing, and the rest is what is left."""
+    from streamer.league.model import PlayerRow
+    from streamer.roster.lineup import PickupOption
+    from streamer.roster.page import _pickup_verdict
+
+    p = PlayerRow(player_id="c", name="Caleb Douglas", position="WR", team="MIA", on_waivers=True)
+    o = PickupOption(player=p, win_probability=0.338, base=0.330, noise=0.001, lineup=None,
+                     title_gain=-0.002, title_noise=0.0005, week_title=0.008 * 0.09, claim_cost=0.0005)
+    assert abs(o.rest_title - (-0.002 - 0.00072)) < 1e-12
+    assert abs(o.title_net - (-0.0025)) < 1e-12
+    assert _pickup_verdict(o).startswith("<b>pass</b>") and "helps this week, costs more later" in _pickup_verdict(o)
+    o.title_gain = 0.004
+    assert _pickup_verdict(o).startswith("<b>claim him</b>") and "waiver priority" in _pickup_verdict(o)
+    p.on_waivers = False
+    o.claim_cost = 0.0
+    assert _pickup_verdict(o).startswith("<b>add him</b>")
+
+
+def test_the_lineup_tab_lists_starters_an_available_player_beats(cfg):
+    from streamer.roster.matchup import build_report
+    from streamer.roster.page import _weak_starters
+
+    snap = snapshot(week=3)
+    report = build_report(snap, cfg)
+    flex = [p for s, p in report.optimisation.best_win.flat() if p.position == "WR"]
+    worst = min(flex, key=lambda p: p.week_value)
+    snap.free_agents = [_player(390, "WR", worst.week_value + 2.0, 6.0, "SEA", slot="FA")]
+    html = _weak_starters(report)
+    assert "of your" in html and worst.name in html and "WR Player 390" in html
+    snap.free_agents = []
+    assert "None of your" in _weak_starters(report)

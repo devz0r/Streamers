@@ -970,6 +970,25 @@ class PickupOption:
     #: the drop included), when the season engine priced it.
     title_gain: float | None = None
     title_noise: float = 0.0
+    #: The part of ``title_gain`` that is this week: the P(win) gain times
+    #: what this game swings your title odds (title odds if you win it,
+    #: less if you lose it). The rest is the season after, the drop's lost
+    #: weeks included.
+    week_title: float | None = None
+    #: Title odds lost on later claims by spending waiver priority on him
+    #: (0 for a free agent, who needs no claim).
+    claim_cost: float = 0.0
+
+    @property
+    def rest_title(self) -> float | None:
+        if self.title_gain is None or self.week_title is None:
+            return None
+        return self.title_gain - self.week_title
+
+    @property
+    def title_net(self) -> float | None:
+        """The whole move in title odds, after the waiver priority it spends."""
+        return None if self.title_gain is None else self.title_gain - self.claim_cost
 
     @property
     def gain(self) -> float:

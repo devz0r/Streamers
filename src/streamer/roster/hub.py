@@ -102,7 +102,7 @@ def actions(report, cfg=None) -> list[HubAction]:
     for o in getattr(report, "pickups", None) or []:
         if o.player.player_id in on_list or not o.clear:
             continue
-        gain = o.title_gain if o.title_gain is not None else (o.gain * per_win if per_win is not None else None)
+        gain = getattr(o, "title_net", o.title_gain) if o.title_gain is not None else (o.gain * per_win if per_win is not None else None)
         if gain is None:
             continue
         detail = "; ".join(filter(None, [

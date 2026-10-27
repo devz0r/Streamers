@@ -1206,9 +1206,13 @@ def _pickups(report: MatchupReport) -> str:
             '<p class="sub">Every free agent who could start for you this week, added to your roster with '
             "your best lineup rebuilt around him and scored against your opponent on the same simulated "
             "games as your lineup as it stands -- the chance you win this week with him, against without. "
-            "<b>Season</b> is what the whole move, the drop included, does to your title odds, this week "
-            "and the rest of the season together: a pickup that wins this week can still cost more later "
-            "than it gains now. If he is on waivers, the claim has to clear before his game.</p>")
+            "The title columns are the whole move in points of P(title), on the season simulation: "
+            "<b>Wk</b> is this week's win -- the P(win) gain times what this game swings your title odds; "
+            "<b>Rest</b> is every week after, his value less that of the player you drop; <b>Net</b> is "
+            "the two together, less the waiver priority a claim spends. The verdict goes on Net: a pickup "
+            "that wins this week can still cost more later than it gains now. If he is on waivers, the "
+            "claim has to clear before his game.</p>")
+    head += _weak_starters(report)
     if not report.pickups:
         near = getattr(report, "pickup_near", None) or []
         closest = ""
@@ -1225,26 +1229,81 @@ def _pickups(report: MatchupReport) -> str:
     rows = []
     for o in report.pickups:
         p = o.player
-        season = (f"{o.title_gain * 100:+.1f}" if o.title_gain is not None else "--")
+        cells = "".join(f"<td>{v * 100:+.2f}</td>" if v is not None else "<td class='opp'>--</td>"
+                        for v in (o.week_title, o.rest_title, o.title_net))
         vs = f"{o.gain * 100:+.1f}" + ("" if o.clear else "*")
-        why = []
+        why = [_pickup_verdict(o)] if o.title_net is not None else []
         if o.changes or getattr(o, "cover", None) is not None:
-            why.append(o.moves_text)
+            why.append(_e(o.moves_text))
         if o.drop is not None:
-            why.append(f"drop {o.drop.name}")
+            why.append(f"drop {_e(o.drop.name)}")
         if p.signals:
-            why.append(p.signals[0])
+            why.append(_e(p.signals[0]))
         rows.append(
             f"<tr><td class='unit'>{face(p)}{_e(p.name)}</td><td>{pos_chip(p.position)} {_e(p.team or '')}</td>"
             f"<td>{_e(p.nfl_opponent or '')}</td><td>{(p.projection or 0):.1f}</td>"
-            f"<td>{o.win_probability:.1%}</td><td>{vs}</td><td>{season}</td></tr>"
-            f"<tr><td class='why' colspan='7'>&#8627; {_e('; '.join(why))}</td></tr>")
+            f"<td>{o.win_probability:.1%}</td><td>{vs}</td>{cells}</tr>"
+            f"<tr><td class='why' colspan='9'>&#8627; {'; '.join(why)}</td></tr>")
     base = report.pickups[0].base
     return (head + '<div class="scroll"><table><thead><tr><th class="unit">Player</th><th>Pos</th><th>Opp</th>'
-            "<th>Proj</th><th>P(win)</th><th>vs now</th><th>Season</th></tr></thead>"
+            "<th>Proj</th><th>P(win)</th><th>vs now</th><th>Wk</th><th>Rest</th><th>Net</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table></div>"
             f'<p class="sub">Your best lineup as it stands: {base:.1%} on the same games. '
-            "* within the simulation's noise.</p>")
+            "* within the simulation's noise. Title columns in points of P(title).</p>")
+
+
+def _pickup_verdict(o) -> str:
+    """Claim, toss-up or pass on the net title odds of the whole move."""
+    from .title_moves import MIN_GAIN
+
+    net, bar = o.title_net, max(MIN_GAIN, 2.0 * o.title_noise)
+    claim = "claim him" if o.player.on_waivers is not False else "add him"
+    if net >= bar:
+        word = f"<b>{claim}</b>"
+    elif net <= -bar:
+        word = "<b>pass</b>"
+    else:
+        word = "<b>toss-up</b>"
+    bits = []
+    wk, rest = o.week_title, o.rest_title
+    if wk is not None and rest is not None:
+        if wk > 0 and rest < 0:
+            bits.append("this week's win is worth more than the season you give up" if net > 0
+                        else "helps this week, costs more later")
+        elif wk > 0 and rest > 0:
+            bits.append("helps this week and after")
+    if o.claim_cost > 0:
+        bits.append(f"after {o.claim_cost * 100:.2f} for the waiver priority")
+    return word + (f" ({_e(', '.join(bits))})" if bits else "")
+
+
+def _weak_starters(report: MatchupReport) -> str:
+    """Your starters a free agent out-projects this week, and by whom."""
+    from .lineup import _eligible
+
+    fa = [p for p in report.snapshot.free_agents
+          if p.position in ("QB", "RB", "WR", "TE") and p.team and not p.is_out and not p.locked
+          and not p.unsigned and p.projection is not None]
+    weak = []
+    for slot, p in report.optimisation.best_win.flat():
+        if p.locked or p.actual_points is not None or p.position not in ("QB", "RB", "WR", "TE"):
+            continue
+        better = sorted((f for f in fa if _eligible(f, slot) and f.week_value > p.week_value),
+                        key=lambda f: -f.week_value)
+        if better:
+            weak.append((slot, p, better))
+    starters = sum(1 for _s, p in report.optimisation.best_win.flat() if p.position in ("QB", "RB", "WR", "TE"))
+    if not weak:
+        return (f'<p class="sub"><b>None of your {starters} starters</b> projects below a free agent or waiver player '
+                "who could take his spot this week.</p>")
+    items = "".join(
+        f"<li><b>{_e(p.name)}</b> ({_e(slot)}, {p.week_value:.1f}): "
+        + ", ".join(f"{_e(f.name)} {f.week_value:.1f}" for f in better[:3])
+        + (f" and {len(better) - 3} more" if len(better) > 3 else "") + "</li>"
+        for slot, p, better in weak)
+    n = len(weak)
+    return (f'<p class="sub"><b>{n} of your {starters} starters</b> project{"s" if n == 1 else ""} below a '
+            f'free agent or waiver player who could take {"his" if n == 1 else "their"} spot this week:</p><ul class="sub">{items}</ul>')
 
 
 def _streams(report: MatchupReport) -> str:

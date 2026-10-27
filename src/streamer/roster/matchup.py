@@ -226,6 +226,8 @@ def price_pickups(report: MatchupReport, engine) -> None:
 
     me = report.snapshot.my_team
     worth = engine.worth_mean() if report.pickups else {}
+    stakes = getattr(report, "stakes", None)
+    game = next((g for g in (stakes.games if stakes else []) if int(g.week) == int(report.snapshot.week)), None)
     for o in report.pickups:
         if o.player.player_id not in engine.model.pid:
             continue
@@ -242,3 +244,6 @@ def price_pickups(report: MatchupReport, engine) -> None:
         o.drop = best[0]
         o.title_gain = float(best[1].mean()) - engine.base
         o.title_noise = float(np.std(best[1] - engine.base_won) / np.sqrt(len(best[1])))
+        if game is not None:
+            o.week_title = o.gain * max(game.title_win - game.title_loss, 0.0)
+        o.claim_cost = 0.0 if o.player.on_waivers is False else float(engine.priority_cost(o.player.player_id))

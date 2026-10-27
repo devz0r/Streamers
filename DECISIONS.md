@@ -4854,3 +4854,17 @@ lineups by projected points plus each questionable starter's chance of
 sitting times his bench replacement (`lineup.best_expected`, the same swap
 the simulation makes); the top 200 by projection are re-ranked. The
 "already optimal" note now sits at the top of the Lineup tab, not the bottom.
+
+## Pickups for this matchup: this week's win, the rest, and the net
+
+The single "Season" column is split in three, all in points of P(title):
+**Wk** = the P(win) gain times this game's title swing (title odds if you
+win it less if you lose it, from the stakes); **Rest** = the whole move's
+title odds less that -- the weeks after, his value net of the player you
+drop (who may be claimed by a rival); **Net** = the whole move on the season
+simulation (add him, drop that player, every week this one included), less
+the waiver priority a claim spends (`TitleEngine.priority_cost`, 0 for a
+free agent). The verdict -- claim/add, toss-up, pass -- goes on Net against
+the same bar as the title moves (0.2 points or twice the noise). Above the
+table: which of your starters an available player out-projects this week,
+and by whom.
