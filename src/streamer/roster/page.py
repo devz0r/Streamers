@@ -359,8 +359,8 @@ def _lineup_modes(snapshot: LeagueSnapshot, report: MatchupReport, has_vegas: bo
         return plain
     theirs = opt.opponent.player_ids
     if ideal.opponent.player_ids == theirs:
-        return plain + ('<p class="sub">Their set lineup is already their optimal one '
-                        "(best projected among players whose games have not started).</p>")
+        return ('<p class="sub">Opponent: their set lineup is already their optimal one (most expected '
+                "points among players whose games have not started, counting late swaps).</p>" + plain)
     alt = dataclasses.replace(report, optimisation=ideal)
     swaps = sorted(ideal.opponent.player_ids - theirs)
     by_id = {p.player_id: p for p in (snapshot.opponent.roster if snapshot.opponent else [])}
@@ -849,7 +849,7 @@ def _any_team_lineup(report: MatchupReport) -> str:
         '<option value="current">vs their opponent\'s current lineup</option>'
         '<option value="ideal">vs their opponent\'s ideal lineup</option></select></p>'
         '<p class="sub">Current: the lineup the opponent has set (their best projected one if none is set). '
-        "Ideal: the opponent's best projected lineup. Your team uses the full simulation; other teams use "
+        "Ideal: the opponent's best lineup by expected points, late swaps for questionable starters counted. Your team uses the full simulation; other teams use "
         "fewer draws, so their win odds are good to about a point.</p>"
         '<div class="al-out"></div>'
         f'<script type="application/json" class="al-data">{payload}</script>'

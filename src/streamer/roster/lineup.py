@@ -496,6 +496,29 @@ def _projected(lineup: dict[str, list[PlayerRow]]) -> float:
     return float(sum(p.week_value for ps in lineup.values() for p in ps))
 
 
+def expected_with_swaps(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow]) -> float:
+    """Projected points counting the late swap: a questionable starter's
+    projection already weighs in that he may sit, and when he does his
+    bench replacement (:func:`swap_pairs`) scores instead."""
+    gain = sum((1.0 - float(x.play_probability)) * b.week_value for x, b in swap_pairs(lineup, roster)
+               if x.play_probability is not None)
+    return _projected(lineup) + gain
+
+
+#: Lineups re-ranked with their late swaps counted (the rest cannot catch up:
+#: a swap adds at most a bench player's points times the chance of a sit).
+SWAP_RERANK = 200
+
+
+def best_expected(lineups: list[dict[str, list[PlayerRow]]], roster: list[PlayerRow]
+                  ) -> dict[str, list[PlayerRow]]:
+    """The lineup with the most expected points, late swaps counted: starting
+    a questionable player with a good backup behind him can beat benching
+    him for a slightly higher sure projection."""
+    top = sorted(lineups, key=_projected, reverse=True)[:SWAP_RERANK]
+    return max(top, key=lambda lu: expected_with_swaps(lu, roster))
+
+
 def _with_locks(roster: list[PlayerRow], slots: dict[str, int]) -> list[dict[str, list[PlayerRow]]]:
     """Every valid lineup that respects kickoffs: a starter whose game has
     begun keeps his slot, and a benched one cannot come in."""
@@ -593,9 +616,10 @@ def optimise(
     """Find the lineup that maximises P(win) against the opponent.
 
     ``opponent_mode``: "current" faces the lineup the opponent has set (their
-    best projected one when none is set); "ideal" always faces their best
-    projected lineup. ``wire``: free agents who could replace a starter ruled
-    out at the last minute, and the room to add one (:class:`Wire`)."""
+    best expected one when none is set); "ideal" always faces their best
+    expected lineup, late swaps counted (:func:`best_expected`). ``wire``:
+    free agents who could replace a starter ruled out at the last minute,
+    and the room to add one (:class:`Wire`)."""
     rng = np.random.default_rng(seed)
     # A player parked in an IR slot cannot be started without a roster move
     # (activation needs a free spot), so the lineup is chosen from the rest.
@@ -616,7 +640,7 @@ def optimise(
             opp_lineups = (_with_locks(opponent_roster, slots) if opponent_mode == "ideal"
                            else enumerate_lineups(opponent_roster, slots))
             if opp_lineups:
-                opp_lineup = max(opp_lineups, key=_projected)
+                opp_lineup = best_expected(opp_lineups, opponent_roster)
     opp_notes: list[str] = []
     opp_bench: list[PlayerRow] = []
     if opp_lineup is not None and opponent_roster:

@@ -4844,3 +4844,13 @@ computed in Python and the toggle only switches between them. The toggle
 appears only when the optimal lineup differs from the set one; the choice is
 remembered per league in the browser. The extra optimisation also feeds your
 own "ideal" row in "Any team's best lineup", so nothing is simulated twice.
+
+**Late swaps count in "optimal".** First version picked the opponent's most
+projected lineup. On week 8 ESPN that benched Matthew Golden (questionable,
+10.0 with the sit folded in) for Jameson Williams (11.3) -- worse than their
+set lineup, which starts Golden and swaps Williams in if he sits, so your
+P(win) went *up* against the "optimal" one (65% -> 67%). Optimal now ranks
+lineups by projected points plus each questionable starter's chance of
+sitting times his bench replacement (`lineup.best_expected`, the same swap
+the simulation makes); the top 200 by projection are re-ranked. The
+"already optimal" note now sits at the top of the Lineup tab, not the bottom.

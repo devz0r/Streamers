@@ -645,3 +645,17 @@ def test_the_lineup_tab_toggles_to_the_opponents_optimal_lineup(cfg):
     assert "optimal lineup" in html and star.name in html
     # One lineup lab per view, each with its own id and its own opponent draws.
     assert html.count('class="ed-data"') == 2 and f'id="ed-{snap.profile}-ideal"' in html
+
+
+def test_the_opponents_best_lineup_counts_the_late_swap():
+    # Golden-style: a questionable starter (10.0 with the sit folded in) and
+    # a backup projected higher (11.3) who plays later. Starting the
+    # questionable one and swapping if he sits is worth 10.0 + 0.4 x 11.3.
+    q = PlayerRow(player_id="q", name="Q", position="WR", team="GB", status="QUESTIONABLE",
+                  projection=10.0, projection_sd=6.0, outcome_sd=6.0, play_probability=0.6,
+                  kickoff="2026-10-25T17:00:00+00:00")
+    b = PlayerRow(player_id="b", name="B", position="WR", team="DET", projection=11.3, projection_sd=5.0,
+                  outcome_sd=5.0, kickoff="2026-10-25T20:25:00+00:00")
+    pick = lineup.best_expected([{"WR": [q]}, {"WR": [b]}], [q, b])
+    assert pick == {"WR": [q]}
+    assert abs(lineup.expected_with_swaps({"WR": [q]}, [q, b]) - (10.0 + 0.4 * 11.3)) < 1e-9
