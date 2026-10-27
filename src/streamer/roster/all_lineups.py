@@ -54,7 +54,7 @@ def _view(opt: lu.Optimisation, slots: dict[str, int]) -> dict:
 
 
 def build(snapshot: LeagueSnapshot, my_opt: lu.Optimisation | None, sims: int = 20000,
-          other_sims: int = OTHER_SIMS) -> dict | None:
+          other_sims: int = OTHER_SIMS, my_ideal: lu.Optimisation | None = None) -> dict | None:
     """``{"mine": id, "teams": [{id, name, opp, views: {current, ideal}}]}``."""
     opp_of = pairings(snapshot)
     slots = snapshot.starting_slots
@@ -69,6 +69,8 @@ def build(snapshot: LeagueSnapshot, my_opt: lu.Optimisation | None, sims: int = 
             try:
                 if t.team_id == me and mode == "current" and my_opt is not None:
                     opt = my_opt
+                elif t.team_id == me and mode == "ideal" and my_ideal is not None:
+                    opt = my_ideal
                 else:
                     opt = lu.optimise(t.roster, slots, opp.roster, opponent_mode=mode,
                                       n_sims=sims if t.team_id == me else other_sims)

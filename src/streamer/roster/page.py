@@ -176,68 +176,9 @@ def team_sections(
     out["kpis"] = kpi_tiles(snapshot, report)
 
     # -- lineup ------------------------------------------------------------
-    changed = {p.player_id for _s, _b, p in opt.changes}
     has_vegas = any(p.vegas_points is not None for p in snapshot.my_team.roster)
-    rows = []
-    for slot, p in opt.best_win.flat():
-        flag = ""
-        if p.actual_points is not None:
-            flag = ' <span class="opp">final</span>'
-        elif p.locked:
-            flag = ' <span class="opp">locked</span>'
-        elif p.player_id in changed:
-            flag = ' <span class="hold-tag">start</span>'
-        elif p.is_questionable:
-            flag = f' <span class="opp">{_e(short_status(p.status))}</span>'
-        vegas = ""
-        if has_vegas:
-            vegas = (f"<td>{p.vegas_points:.1f}</td>" if p.vegas_points is not None
-                     else '<td class="opp">--</td>')
-        lo, hi = opt.ranges.get(p.player_id, (None, None))
-        spread = (f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}" if lo is not None
-                  else f"&plusmn;{(p.projection_sd or 0):.0f}")
-        if p.actual_points is not None:
-            spread = "scored"
-        rows.append(
-            f"<tr><td>{_e(slot)}</td><td class='unit'><span class='slot'>{_e(slot)}</span>{face(p)}{_e(p.name)}{flag}</td>"
-            f"<td>{pos_chip(p.position)}</td><td>{_e(p.team or '--')}</td>"
-            f"<td>{_proj_cell(p)}</td>{vegas}"
-            f"<td>{spread}</td></tr>"
-        )
-    vegas_head = "<th>Vegas</th>" if has_vegas else ""
-    lineup = [
-        f'<p class="sub">vs {_e(report.opponent_name or "?")}: P(win) <b>{_pct(report.win_probability)}</b>'
-        f"{_e(gain)}</p>",
-        _pickup_pointer(report, uid),
-        _live_card(snapshot, opt, cfg, report.opponent_name, report),
-        _head_to_head(report),
-        "<h3>Recommended lineup</h3>"
-        '<div class="scroll"><table class="lineup-table"><thead><tr><th>Slot</th><th class="unit">Player</th>'
-        f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>",
-    ]
-    lineup.append(_flex_note(opt))
-    if opt.changes:
-        items = []
-        for slot, benched, started in opt.changes:
-            if benched is not None:
-                items.append(f"<li><strong>{_e(slot)}</strong>: start {_e(started.name)} over {_e(benched.name)}</li>")
-            else:
-                items.append(f"<li><strong>{_e(slot)}</strong>: start {_e(started.name)}</li>")
-        lineup.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
-    else:
-        lineup.append('<p class="sub">Your set lineup is already the recommended one.</p>')
-    lineup.append(_bench(snapshot, opt, has_vegas))
-    lineup.append(_fallback_card(opt))
-    lineup.append(
-        '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
-        "percentile), with teammates and opponents correlated as they are on the field.</p>")
-    lineup.append(_compare_lineups(opt))
-    if not getattr(report, "light", False):          # another team's lighter view: no lineup lab
-        lineup.append(_editor(snapshot, opt))
-    if opt.reasons:
-        items = "".join(f"<li>{_e(r)}</li>" for r in opt.reasons)
-        lineup.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
+    lineup = [_pickup_pointer(report, uid), _live_card(snapshot, opt, cfg, report.opponent_name, report),
+              _lineup_modes(snapshot, report, has_vegas)]
     if has_vegas:
         lineup.append(_vegas_section(snapshot, opt, cfg, getattr(snapshot, "_vegas_report", None)))
     lineup.append(_any_team_lineup(report))
@@ -319,6 +260,123 @@ def team_sections(
     if card:
         out["model"] = "<h2>Player projections, graded</h2>" + card
     return out
+
+
+def _lineup_core(snapshot: LeagueSnapshot, report: MatchupReport, has_vegas: bool, key: str = "") -> str:
+    """P(win), head to head, the recommended lineup and why, for one
+    optimisation (against the opponent as set, or at their best)."""
+    opt = report.optimisation
+    cur = report.current_win_probability
+    gain = "" if cur is None else f" (from {_pct(cur)} as set)"
+    changed = {p.player_id for _s, _b, p in opt.changes}
+    rows = []
+    for slot, p in opt.best_win.flat():
+        flag = ""
+        if p.actual_points is not None:
+            flag = ' <span class="opp">final</span>'
+        elif p.locked:
+            flag = ' <span class="opp">locked</span>'
+        elif p.player_id in changed:
+            flag = ' <span class="hold-tag">start</span>'
+        elif p.is_questionable:
+            flag = f' <span class="opp">{_e(short_status(p.status))}</span>'
+        vegas = ""
+        if has_vegas:
+            vegas = (f"<td>{p.vegas_points:.1f}</td>" if p.vegas_points is not None
+                     else '<td class="opp">--</td>')
+        lo, hi = opt.ranges.get(p.player_id, (None, None))
+        spread = (f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}" if lo is not None
+                  else f"&plusmn;{(p.projection_sd or 0):.0f}")
+        if p.actual_points is not None:
+            spread = "scored"
+        rows.append(
+            f"<tr><td>{_e(slot)}</td><td class='unit'><span class='slot'>{_e(slot)}</span>{face(p)}{_e(p.name)}{flag}</td>"
+            f"<td>{pos_chip(p.position)}</td><td>{_e(p.team or '--')}</td>"
+            f"<td>{_proj_cell(p)}</td>{vegas}"
+            f"<td>{spread}</td></tr>"
+        )
+    vegas_head = "<th>Vegas</th>" if has_vegas else ""
+    lineup = [
+        f'<p class="sub">vs {_e(report.opponent_name or "?")}: P(win) <b>{_pct(report.win_probability)}</b>'
+        f"{_e(gain)}</p>",
+        _head_to_head(report),
+        "<h3>Recommended lineup</h3>"
+        '<div class="scroll"><table class="lineup-table"><thead><tr><th>Slot</th><th class="unit">Player</th>'
+        f"<th>Pos</th><th>Tm</th><th>Proj</th>{vegas_head}<th>Range</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>",
+    ]
+    lineup.append(_flex_note(opt))
+    if opt.changes:
+        items = []
+        for slot, benched, started in opt.changes:
+            if benched is not None:
+                items.append(f"<li><strong>{_e(slot)}</strong>: start {_e(started.name)} over {_e(benched.name)}</li>")
+            else:
+                items.append(f"<li><strong>{_e(slot)}</strong>: start {_e(started.name)}</li>")
+        lineup.append(f'<p class="sub">Changes from your set lineup:</p><ul class="sub">{"".join(items)}</ul>')
+    else:
+        lineup.append('<p class="sub">Your set lineup is already the recommended one.</p>')
+    lineup.append(_bench(snapshot, opt, has_vegas))
+    lineup.append(_fallback_card(opt))
+    lineup.append(
+        '<p class="sub">Range is the middle 70% of simulated outcomes (15th to 85th '
+        "percentile), with teammates and opponents correlated as they are on the field.</p>")
+    lineup.append(_compare_lineups(opt))
+    if not getattr(report, "light", False):          # another team's lighter view: no lineup lab
+        lineup.append(_editor(snapshot, opt, key))
+    if opt.reasons:
+        items = "".join(f"<li>{_e(r)}</li>" for r in opt.reasons)
+        lineup.append(f'<p class="sub">Not simply the highest projections, because:</p><ul class="sub">{items}</ul>')
+    return "".join(lineup)
+
+
+_MODE_JS = """
+(function(id){
+  var root=document.getElementById(id); if(!root) return;
+  var bs=root.querySelectorAll('.lu-toggle button'), ps=root.querySelectorAll('.lu-mode');
+  function show(m){
+    bs.forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-m')===m?'true':'false');});
+    ps.forEach(function(p){p.hidden=p.getAttribute('data-m')!==m;});
+    try{localStorage.setItem(id,m);}catch(e){}
+  }
+  bs.forEach(function(b){b.addEventListener('click',function(){show(b.getAttribute('data-m'));});});
+  var m=null; try{m=localStorage.getItem(id);}catch(e){}
+  if(m==='ideal'||m==='set') show(m);
+})
+"""
+
+
+def _lineup_modes(snapshot: LeagueSnapshot, report: MatchupReport, has_vegas: bool) -> str:
+    """The lineup against the opponent as set, and -- behind a toggle --
+    against the opponent's optimal lineup, each re-optimised in the refresh
+    (P(win) depends on their whole distribution, so a page cannot redo it)."""
+    import dataclasses
+
+    plain = _lineup_core(snapshot, report, has_vegas)
+    ideal = getattr(report, "optimisation_ideal", None)
+    opt = report.optimisation
+    if ideal is None or ideal.opponent is None or opt.opponent is None:
+        return plain
+    theirs = opt.opponent.player_ids
+    if ideal.opponent.player_ids == theirs:
+        return plain + ('<p class="sub">Their set lineup is already their optimal one '
+                        "(best projected among players whose games have not started).</p>")
+    alt = dataclasses.replace(report, optimisation=ideal)
+    swaps = sorted(ideal.opponent.player_ids - theirs)
+    by_id = {p.player_id: p for p in (snapshot.opponent.roster if snapshot.opponent else [])}
+    ins = ", ".join(_e(by_id[i].name) for i in swaps if i in by_id)
+    note = (f'<p class="sub">Against {_e(report.opponent_name or "their")}\'s optimal lineup: '
+            f"{ideal.opponent.expected:.1f} projected, against {opt.opponent.expected:.1f} as set"
+            + (f" (starting {ins})" if ins else "") + ". Your lineup is re-optimised for it.</p>")
+    uid = f"lm-{_e(snapshot.profile)}"
+    return (
+        f'<div id="{uid}"><div class="lu-toggle ed-buttons"><span class="opp">Opponent:</span> '
+        '<button type="button" data-m="set" aria-pressed="true">As set</button>'
+        '<button type="button" data-m="ideal" aria-pressed="false">Optimal</button></div>'
+        f'<div class="lu-mode" data-m="set">{plain}</div>'
+        f'<div class="lu-mode" data-m="ideal" hidden>{note}{_lineup_core(snapshot, alt, has_vegas, "-ideal")}</div>'
+        f"<script>{_MODE_JS}('{uid}');</script></div>"
+    )
 
 
 def _pickup_pointer(report: MatchupReport, uid: str) -> str:
@@ -1440,7 +1498,7 @@ def _b64(values: np.ndarray) -> str:
     return base64.b64encode(np.round(values * 10).clip(-32000, 32000).astype("<i2").tobytes()).decode()
 
 
-def _editor(snapshot: LeagueSnapshot, opt) -> str:
+def _editor(snapshot: LeagueSnapshot, opt, key: str = "") -> str:
     """Try any lineup by hand and see P(win) and the projection move.
 
     The page carries a slice of the same simulation that chose the lineup
@@ -1477,7 +1535,7 @@ def _editor(snapshot: LeagueSnapshot, opt) -> str:
         "m": len(players), "n": int(opt.samples.shape[0]), "k": WIN_SHRINK,
         "s": _b64(np.asarray(opt.samples, dtype=float)), "o": _b64(np.asarray(opt.opp_samples, dtype=float)),
     }
-    uid = f"ed-{_e(snapshot.profile)}"
+    uid = f"ed-{_e(snapshot.profile)}{key}"
     # Inside a script element "</" would end it early.
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return (

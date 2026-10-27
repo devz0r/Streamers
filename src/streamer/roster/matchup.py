@@ -55,6 +55,9 @@ class MatchupReport:
     add_drop: dict | None = None
     #: Every team's best lineup this week (:mod:`streamer.roster.all_lineups`).
     all_lineups: dict | None = None
+    #: Your lineup against the opponent's best projected lineup rather than
+    #: the one they have set (the Lineup tab's "optimal" toggle).
+    optimisation_ideal: Optimisation | None = None
     #: Your players valued for the rest of the season (:mod:`roster_view`).
     roster_values: list | None = None
     #: The league's most valuable players (:mod:`streamer.roster.top_players`).
@@ -132,6 +135,13 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
     )
     if result.current is None:
         notes.append("no lineup is currently set on the platform")
+    ideal = None
+    if opp is not None:
+        try:
+            ideal = optimise(me.roster, snapshot.starting_slots, opp.roster, opponent_mode="ideal",
+                             n_sims=int(cfg.raw["roster"]["sims"]), wire=wire)
+        except Exception:  # noqa: BLE001 - the toggle never blocks the report
+            ideal = None
     from .waivers import ir_notes
 
     notes.extend(ir_notes(snapshot))
@@ -153,7 +163,7 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
     return MatchupReport(
         snapshot=snapshot, optimisation=result,
         opponent_name=opp.name if opp else "", notes=notes, streams=streams, pickups=pickups,
-        pickup_near=near,
+        pickup_near=near, optimisation_ideal=ideal,
     )
 
 

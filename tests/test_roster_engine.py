@@ -625,3 +625,23 @@ def test_the_reason_for_a_covered_questionable_starter_prices_the_swap():
     a, b = (float(x) for x in re.findall(r"(\d+\.\d)%", line)[:2])
     assert b > a, line                                # the chosen one is not shown as the worse one
     assert "you can still start Late Cover" in line
+
+
+def test_the_lineup_tab_toggles_to_the_opponents_optimal_lineup(cfg):
+    from streamer.roster.page import team_sections
+
+    snap = snapshot(week=5)
+    opp = snap.opponent.roster
+    # Bench the opponent's best starter for his weakest backup at the position.
+    star = max((p for p in opp if p.starting and p.position in ("RB", "WR")), key=lambda p: p.week_value)
+    sub = min((p for p in opp if not p.starting and not p.in_ir_slot and p.position == star.position),
+              key=lambda p: p.week_value)
+    star.slot, sub.slot = sub.slot, star.slot
+    report = build_report(snap, cfg)
+    ideal = report.optimisation_ideal
+    assert ideal is not None and ideal.opponent.expected > report.optimisation.opponent.expected
+    html = team_sections(snap, report, waivers.recommend(snap), cfg)["lineup"]
+    assert 'class="lu-toggle' in html and 'data-m="ideal" hidden' in html
+    assert "optimal lineup" in html and star.name in html
+    # One lineup lab per view, each with its own id and its own opponent draws.
+    assert html.count('class="ed-data"') == 2 and f'id="ed-{snap.profile}-ideal"' in html

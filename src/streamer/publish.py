@@ -1028,7 +1028,8 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
         try:
             from .roster import all_lineups
 
-            report.all_lineups = all_lineups.build(snap, report.optimisation, sims=int(bound.raw["roster"]["sims"]))
+            report.all_lineups = all_lineups.build(snap, report.optimisation, sims=int(bound.raw["roster"]["sims"]),
+                                                  my_ideal=report.optimisation_ideal)
         except Exception as exc:  # noqa: BLE001 - a bonus section
             log.warning("every team's best lineup for %s skipped: %s", name, exc)
         try:

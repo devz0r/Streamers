@@ -4830,3 +4830,17 @@ injured after a few snaps also counts as a zero game (Rashee Rice, 6 snaps in
 week 4, 14.6 -> 12.2); injury exits are a small share of the games and the
 net is positive, but the weeks after a long absence read low until he is back
 on the field.
+
+## Lineup tab: against the opponent's optimal lineup
+
+The Lineup tab has an **Opponent: As set / Optimal** toggle. "Optimal" faces
+the opponent's best projected lineup among players whose games have not
+started (`optimise(..., opponent_mode="ideal")`), and your recommended lineup,
+P(win), head to head, bench, fallbacks and lineup lab are all re-optimised
+for it during the refresh. A page cannot redo that per click: P(win) is
+scored against the opponent's whole correlated distribution, and the best
+lineup can change with it (more upside as an underdog), so both versions are
+computed in Python and the toggle only switches between them. The toggle
+appears only when the optimal lineup differs from the set one; the choice is
+remembered per league in the browser. The extra optimisation also feeds your
+own "ideal" row in "Any team's best lineup", so nothing is simulated twice.
