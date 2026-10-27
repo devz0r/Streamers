@@ -333,8 +333,9 @@ def _lineup_core(snapshot: LeagueSnapshot, report: MatchupReport, has_vegas: boo
 _MODE_JS = """
 (function(id){
   var root=document.getElementById(id); if(!root) return;
-  var bs=root.querySelectorAll('.lu-toggle button'), ps=root.querySelectorAll('.lu-mode');
+  var bs=root.querySelectorAll('.lu-toggle button'), ps=root.querySelectorAll('.lu-mode'), seg=root.querySelector('.seg');
   function show(m){
+    seg.setAttribute('data-on',m);
     bs.forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-m')===m?'true':'false');});
     ps.forEach(function(p){p.hidden=p.getAttribute('data-m')!==m;});
     try{localStorage.setItem(id,m);}catch(e){}
@@ -370,9 +371,10 @@ def _lineup_modes(snapshot: LeagueSnapshot, report: MatchupReport, has_vegas: bo
             + (f" (starting {ins})" if ins else "") + ". Your lineup is re-optimised for it.</p>")
     uid = f"lm-{_e(snapshot.profile)}"
     return (
-        f'<div id="{uid}"><div class="lu-toggle ed-buttons"><span class="opp">Opponent:</span> '
+        f'<div id="{uid}"><div class="lu-toggle"><span class="opp">Opponent\'s lineup</span>'
+        '<div class="seg" data-on="set"><span class="seg-thumb" aria-hidden="true"></span>'
         '<button type="button" data-m="set" aria-pressed="true">As set</button>'
-        '<button type="button" data-m="ideal" aria-pressed="false">Optimal</button></div>'
+        '<button type="button" data-m="ideal" aria-pressed="false">Optimal</button></div></div>'
         f'<div class="lu-mode" data-m="set">{plain}</div>'
         f'<div class="lu-mode" data-m="ideal" hidden>{note}{_lineup_core(snapshot, alt, has_vegas, "-ideal")}</div>'
         f"<script>{_MODE_JS}('{uid}');</script></div>"
