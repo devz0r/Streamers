@@ -99,7 +99,7 @@
           "name": "DeVonta Smith",
           "position": "WR",
           "team": "PHI",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -168,7 +168,7 @@
           "name": "Lamar Jackson",
           "position": "QB",
           "team": "BAL",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "QB",
           "eligible_slots": [
             "QB",
@@ -234,7 +234,7 @@
           "name": "Tyler Warren",
           "position": "TE",
           "team": "IND",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "IR",
           "eligible_slots": [
             "FLEX",
@@ -508,7 +508,7 @@
           "name": "Kyle Monangai",
           "position": "RB",
           "team": "CHI",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "RB",
           "eligible_slots": [
             "FLEX",
@@ -1471,7 +1471,7 @@
           "name": "Emeka Egbuka",
           "position": "WR",
           "team": "TB",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "IR",
           "eligible_slots": [
             "FLEX",
@@ -2640,7 +2640,7 @@
           "name": "Breece Hall",
           "position": "RB",
           "team": "NYJ",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "RB",
           "eligible_slots": [
             "FLEX",
@@ -2842,7 +2842,7 @@
           "name": "Mike Evans",
           "position": "WR",
           "team": "SF",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "IR",
           "eligible_slots": [
             "FLEX",
@@ -3115,7 +3115,7 @@
           "name": "Brian Robinson Jr.",
           "position": "RB",
           "team": "ATL",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "IR",
           "eligible_slots": [
             "FLEX",
@@ -4282,7 +4282,7 @@
           "name": "Tyjae Spears",
           "position": "RB",
           "team": "TEN",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "RB",
           "eligible_slots": [
             "FLEX",
@@ -4350,7 +4350,7 @@
           "name": "Deebo Samuel Sr.",
           "position": "WR",
           "team": "SF",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -6478,7 +6478,7 @@
           "name": "Zach Charbonnet",
           "position": "RB",
           "team": "SEA",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -7442,7 +7442,7 @@
           "name": "David Montgomery",
           "position": "RB",
           "team": "HOU",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -9432,7 +9432,7 @@
           "position": "RB",
           "team": "SF",
           "status": "QUESTIONABLE",
-          "slot": "RB",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -9568,7 +9568,7 @@
           "name": "Rashee Rice",
           "position": "WR",
           "team": "KC",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -9775,7 +9775,7 @@
           "position": "RB",
           "team": "TEN",
           "status": "",
-          "slot": "FLEX",
+          "slot": "RB",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -9911,7 +9911,7 @@
           "position": "RB",
           "team": "MIN",
           "status": "QUESTIONABLE",
-          "slot": "BN",
+          "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -10048,7 +10048,7 @@
           "position": "QB",
           "team": "LV",
           "status": "",
-          "slot": "BN",
+          "slot": "QB",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -10252,7 +10252,7 @@
           "position": "DST",
           "team": "BAL",
           "status": "",
-          "slot": "BN",
+          "slot": "DST",
           "eligible_slots": [
             "DST"
           ],
@@ -10451,7 +10451,7 @@
           "position": "QB",
           "team": "PIT",
           "status": "",
-          "slot": "QB",
+          "slot": "BN",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -10517,7 +10517,7 @@
           "position": "DST",
           "team": "TEN",
           "status": "",
-          "slot": "DST",
+          "slot": "BN",
           "eligible_slots": [
             "DST"
           ],
@@ -10803,7 +10803,7 @@
           "name": "Jeremiyah Love",
           "position": "RB",
           "team": "ARI",
-          "status": "OUT",
+          "status": "QUESTIONABLE",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -13079,7 +13079,7 @@
       "name": "Drew Lock",
       "position": "QB",
       "team": "SEA",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -13409,7 +13409,7 @@
       "name": "Carson Beck",
       "position": "QB",
       "team": "ARI",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -23507,7 +23507,7 @@
       "name": "Kene Nwangwu",
       "position": "RB",
       "team": "NYJ",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -33242,7 +33242,7 @@
       "name": "Dontayvion Wicks",
       "position": "WR",
       "team": "PHI",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -34415,7 +34415,7 @@
       "name": "Calvin Ridley",
       "position": "WR",
       "team": "TEN",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -35657,7 +35657,7 @@
       "name": "KaVontae Turpin",
       "position": "WR",
       "team": "DAL",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -39797,7 +39797,7 @@
       "name": "Olamide Zaccheaus",
       "position": "WR",
       "team": "ATL",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -40625,7 +40625,7 @@
       "name": "Ben Skowronek",
       "position": "WR",
       "team": "PIT",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -48119,7 +48119,7 @@
       "name": "Theo Johnson",
       "position": "TE",
       "team": "NYG",
-      "status": "OUT",
+      "status": "QUESTIONABLE",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -63218,12 +63218,12 @@
     "week": 8,
     "my_team_id": "3",
     "opponent_team_id": "12",
-    "my_platform_projection": 126.46,
+    "my_platform_projection": 141.87,
     "opp_platform_projection": 109.65,
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-27T13:11:26.400642+00:00",
+  "synced_at": "2026-10-27T13:26:37.490138+00:00",
   "extra": {
     "nfl_week": 8,
     "current_week": 8
