@@ -123,6 +123,12 @@ class TitleMove:
         return self.p_now - self.p_base
 
     @property
+    def watch(self) -> bool:
+        """Not worth a move: adding him now loses title odds and waiting to
+        claim him on a breakout gains none -- one to keep an eye on."""
+        return self.verdict == "wait" and self.gain_now <= 0 and (self.p_wait - self.p_base) < MIN_GAIN
+
+    @property
     def net(self) -> float:
         return self.p_now - max(self.p_wait, self.p_base) - self.priority_cost
 

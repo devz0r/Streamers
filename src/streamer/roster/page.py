@@ -669,7 +669,7 @@ _VERDICT = {"claim": ("Claim now", "hold-tag"), "lean": ("Toss-up: no clear edge
 
 def _title_moves(report: MatchupReport) -> str:
     """Pickups valued by what they do to your title odds."""
-    moves = report.title_moves or []
+    moves = sorted(report.title_moves or [], key=lambda m: m.watch)      # real moves first, watch-only after
     head = ("<h3>Waiver moves, by title odds</h3>"
             '<p class="sub">Each pickup is priced in P(win the title) on the same simulated seasons: '
             "claiming now, against waiting and claiming only if he breaks out (you win that claim when "
@@ -685,9 +685,14 @@ def _title_moves(report: MatchupReport) -> str:
         label, css = _VERDICT[m.verdict]
         if m.verdict == "claim" and m.add.on_waivers is False:
             label = "Add now"                   # a free agent: no claim to put in
+        if m.watch:
+            label, css = "Watch: not worth a move yet", "opp"
+        if m.watch and not any(not x.watch for x in moves) and not cards:
+            cards.append('<p class="sub"><b>No pickup raises your title odds this week.</b> '
+                         "Worth keeping an eye on:</p>")
         cards.append(
             '<div class="card"><div class="row">'
-            f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
+            f'<div class="rank{" opp" if m.watch else ""}">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
             f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span>{trend(m.add)} '
             f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")} &middot; '
             f'{_e(move_text(m))}</span></div>'

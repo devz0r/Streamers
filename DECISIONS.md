@@ -4915,3 +4915,12 @@ league (about a third of that gzipped), embedded once for both leagues
 (`#gamelog-data`). Players are matched by the id projections already found,
 else by name and team. Defences have no weekly stat line in nflverse and are
 left out.
+
+**Waiver moves: "watch", not "worth adding".** A pickup whose "wait" verdict
+came from losing title odds now (adding him costs more than he gives) and
+gaining none by waiting for a breakout read "Worth adding, but wait" -- as if
+it were a recommendation (Dontayvion Wicks: -0.4 now, +0.0 waiting). It is
+now `TitleMove.watch`: labelled "Watch: not worth a move yet", greyed, shown
+after the real moves, and with a heading saying no pickup raises your title
+odds when nothing else clears. "Worth adding, but wait" stays for a player
+whose breakout claim gains title odds even though adding now does not.

@@ -138,3 +138,27 @@ def test_the_lineup_tab_lists_starters_an_available_player_beats(cfg):
     assert "of your" in html and worst.name in html and "WR Player 390" in html
     snap.free_agents = []
     assert "None of your" in _weak_starters(report)
+
+
+def test_a_pickup_that_loses_title_odds_now_and_gains_none_later_is_a_watch():
+    from streamer.roster.title_moves import TitleMove
+
+    base = dict(add=None, drop=None, p_base=0.105, priority_cost=0.0)
+    wicks = TitleMove(p_now=0.101, p_wait=0.105, verdict="wait", **base)
+    assert wicks.watch                                   # -0.4 now, +0.0 waiting
+    breakout = TitleMove(p_now=0.101, p_wait=0.110, verdict="wait", **base)
+    assert not breakout.watch                            # waiting for a breakout still gains
+    assert not TitleMove(p_now=0.108, p_wait=0.105, verdict="lean", **base).watch
+
+
+def test_the_waivers_tab_puts_real_moves_before_watch_only_ones(cfg):
+    from types import SimpleNamespace as NS
+    from streamer.roster.page import _title_moves
+
+    p = lambda n: NS(name=n, position="WR", team="PHI", on_waivers=False, photo="", signals=[], ros_value=7.0, ros_prev=None)  # noqa: E731
+    mk = lambda n, now, wait, v: NS(add=p(n), drop=p("D"), p_now=now, p_wait=wait, p_base=0.105, priority_cost=0.0, verdict=v,  # noqa: E731
+                                    reasons=[], gain_now=now - 0.105, watch=(v == "wait" and now <= 0.105 and wait - 0.105 < 0.002),
+                                    po_base=0.68, po_now=0.68, how="", later=None, drop_options=[])
+    html = _title_moves(NS(title_moves=[mk("Wicks", 0.101, 0.105, "wait"), mk("Good", 0.12, 0.11, "claim")], passed=None,
+                           snapshot=NS(profile="yahoo", teams=[]), plans=None))
+    assert html.index("Good") < html.index("Wicks") and "Watch: not worth a move yet" in html
