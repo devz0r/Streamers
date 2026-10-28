@@ -32,6 +32,7 @@ STATIC = Path(__file__).parent / "static"
 STYLE = (STATIC / "page.css").read_text(encoding="utf-8")
 SCRIPT = (STATIC / "page.js").read_text(encoding="utf-8")
 LIVE_SCRIPT = (STATIC / "live.js").read_text(encoding="utf-8")
+GAMELOG_SCRIPT = (STATIC / "gamelog.js").read_text(encoding="utf-8")
 #: Files the page links to, copied beside it when it is published.
 ASSETS = ("icon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png")
 
@@ -254,8 +255,23 @@ def render_page(
     parts.append("</div>")
     parts.append(f"<script data-enhance>{SCRIPT}</script>")
     parts.append(f"<script data-enhance>{LIVE_SCRIPT}</script>")
+    parts.append(_game_log_block(team_panels))
     parts.append("</body></html>")
     return "\n".join(p for p in parts if p)
+
+
+def _game_log_block(team_panels) -> str:
+    """Every player's season so far, embedded once for the tap-a-name sheet
+    (static/gamelog.js), with the script that reads it."""
+    from .roster.game_log import merge
+
+    logs = [t.get("_gamelog") for t in (team_panels or {}).values() if isinstance(t, dict)]
+    data = merge(*logs)
+    if not data:
+        return ""
+    payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    return (f'<script type="application/json" id="gamelog-data">{payload}</script>'
+            f"<script data-enhance>{GAMELOG_SCRIPT}</script>")
 
 
 #: Badge styling and wording per line status. Only an unpriced game is amber:
@@ -957,12 +973,20 @@ def team_panels_for(
                 log.info("%s: season values vs last week for %d players (%d recorded)", name, n_prev, n_rec)
             except Exception as exc:  # noqa: BLE001 - a badge must never block the page
                 log.warning("season value trend for %s skipped: %s", name, exc)
+            try:
+                from .roster import game_log
+
+                snap._game_log = game_log.build(snap, bound)
+                log.info("%s: game logs for %d players", name, len(snap._game_log))
+            except Exception as exc:  # noqa: BLE001 - the sheet is a bonus
+                log.warning("game logs for %s skipped: %s", name, exc)
             game_day = is_game_day()
             # (Not ``shared``: that is the sportsbook props pulled for every league.)
             view_shared = {"cache": read_me_cache(bound) if game_day else {}}
             panels[name] = _team_panel(snap, bound, rankings, projected, status, primary=True,
                                        shared=view_shared, game_day=game_day)
             view_shared["odds"] = getattr(snap, "_season_odds", None)
+            panels[name]["_gamelog"] = getattr(snap, "_game_log", None)
             views = _team_views(snap, bound, rankings, projected, shared=view_shared, game_day=game_day)
             if views:
                 panels[name]["_views"] = views

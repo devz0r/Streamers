@@ -4891,3 +4891,27 @@ log's `ros_value` stands in (most rostered players and the logged free
 agents). A model change that moves values across the board should bump
 `value_trend.MODEL_EPOCH`; that week's badges then say part of the move is
 the model.
+
+## Tap a name: the season's game log
+
+Tapping any player's name, in any table or card on any tab (including the
+other teams' views and the tables drawn in the browser), opens a sheet with
+his season so far: a bar per week (points, opponent), his season value and its
+move since last week, and a week-by-week table of points, offensive snap
+share and stat line (carries/yards, receptions of targets, passing line,
+field goals), with byes and games he did not play marked.
+
+**How the name is found.** Names are not marked up one by one: on a tap the
+script reads the text under the finger (`caretRangeFromPoint`), looks for a
+known player name in it (two to four words, suffixes and punctuation ignored,
+the team in the same row to tell two of the same name apart) and opens his
+log. A tap on a link, button, form control, summary or sort header keeps its
+own behaviour; a tap on a name inside a pickup row opens the log instead of
+expanding the row (tap the numbers to expand).
+
+**Data.** `roster/game_log.py` reshapes nflverse's weekly stats (and snap
+counts) into one compact record per skill player and kicker, 150-200 KB for a
+league (about a third of that gzipped), embedded once for both leagues
+(`#gamelog-data`). Players are matched by the id projections already found,
+else by name and team. Defences have no weekly stat line in nflverse and are
+left out.

@@ -486,7 +486,7 @@ def _roster(report: MatchupReport, uid: str) -> str:
         '<div class="scroll"><table class="roster-table"><thead><tr><th class="unit">Player</th><th>RoS/g</th>'
         "<th>Pts/wk</th><th>Title</th><th>Mkt</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>{cut_line}"
-        '<p class="sub"><b>RoS/g</b>: points a game when he plays, with its move since last week '
+        '<p class="sub">Tap a player\'s name for his game log. <b>RoS/g</b>: points a game when he plays, with its move since last week '
         "(green up, red down, yellow flat; deeper is bigger: under 0.3, 0.3&ndash;1, 1&ndash;2, over 2). <b>Pts/wk</b>: simulated points a "
         "remaining week, after injuries, byes, lost jobs and the next man up, with its 10th&ndash;90th "
         "percentile beneath. <b>Title</b>: points of your title odds lost without him, his spot filled "
@@ -953,7 +953,8 @@ def _top_players(report: MatchupReport) -> str:
         + (f" Pickup level a game: {_e(repl)}." if repl else "") + " RoS/g is his season value a game and &Delta;wk its move since last week (green up, red down, "
         "yellow flat; deeper is bigger -- tap &Delta;wk for the risers, again for the fallers), Wk this week's projection, G games "
         "expected, Range his points a week (10th-90th percentile) and Mkt what the rest of the league sees "
-        "him worth a game (those three on wider screens). Tap a column to sort; your players are highlighted.</p>"
+        "him worth a game (those three on wider screens). Tap a column to sort; your players are highlighted. "
+        "<b>Tap a player's name for his game log</b>: points, snap share and stat line, week by week.</p>"
         f'<div class="chips fa-pos tp-pos">{chips}</div>'
         '<p><input type="search" class="tp-search" placeholder="Search by name, team or manager"'
         ' autocomplete="off" aria-label="Search players"></p>'

@@ -394,3 +394,30 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
 .tr-2 { color: var(--bad); background: color-mix(in srgb, var(--bad) 30%, transparent); }
 .tr-3 { color: var(--bg); background: var(--bad); }
 td.tr-c { white-space: nowrap; }
+
+/* Tap a name: the game log sheet (static/gamelog.js). */
+.gl-open { overflow: hidden; }
+.gl-back { position: fixed; inset: 0; z-index: 60; background: rgba(5, 8, 14, .62); display: flex; align-items: flex-end;
+  justify-content: center; }
+.gl-sheet { width: min(100%, 560px); max-height: 86vh; overflow-y: auto; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line-2); border-radius: var(--radius) var(--radius) 0 0; padding: 14px 16px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow); }
+.gl-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 1.1em; }
+.gl-x { border: 0; background: var(--panel-2); color: var(--muted); width: 34px; height: 34px; border-radius: 999px; font-size: 22px;
+  line-height: 1; cursor: pointer; }
+.gl-bars { display: flex; gap: 6px; align-items: flex-end; margin: 10px 0 12px; overflow-x: auto; padding-bottom: 2px; }
+.gl-bar { flex: 1 0 38px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; font-size: .74em;
+  color: var(--muted); gap: 2px; }
+.gl-col { width: 100%; max-width: 30px; border-radius: 5px 5px 2px 2px; background: color-mix(in srgb, var(--accent) 38%, transparent); }
+.gl-col.gl-hi { background: var(--accent); }
+.gl-col.gl-na { height: 3px; background: var(--line-2); }
+.gl-v { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; min-height: 1.2em; }
+.gl-w { font-weight: 600; }
+.gl-t { font-size: .92em; color: var(--faint); }
+.gl-table { width: 100%; border-collapse: collapse; font-size: .92em; }
+.gl-table th, .gl-table td { text-align: left; padding: 6px 5px; border-top: 1px solid var(--line); vertical-align: top; }
+.gl-table th { color: var(--muted); font-weight: 600; font-size: .8em; text-transform: uppercase; letter-spacing: .03em; border-top: 0; }
+.gl-line { color: var(--muted); }
+.gl-off td { color: var(--faint); }
+.gl-table td, .gl-table th { white-space: normal; }
+.gl-table td.gl-line { min-width: 9em; }
