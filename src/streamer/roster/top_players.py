@@ -23,6 +23,7 @@ import numpy as np
 
 from ..league.model import LeagueSnapshot
 from .season import replacement_levels
+from .value_trend import payload
 
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DST")
 
@@ -62,6 +63,7 @@ def build(snapshot: LeagueSnapshot, model, seen: dict | None = None) -> dict | N
             "games": round(float(played.sum(axis=1).mean()), 1),
             "lo": round(float(np.quantile(per_week, 0.1)), 1), "hi": round(float(np.quantile(per_week, 0.9)), 1),
             "mkt": round(float(s.value), 1) if s is not None else None,
+            "tr": payload(p), "chg": payload(p)[0] if payload(p) else None,
         })
     if not rows:
         return None

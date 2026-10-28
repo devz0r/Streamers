@@ -94,6 +94,10 @@ class PlayerRow:
     projection_source: str = ""
     #: A rest-of-season value proxy (per-game), for waiver decisions.
     ros_value: float | None = None
+    #: ``ros_value`` at the end of last week, and whether the model itself
+    #: changed in between (:mod:`streamer.roster.value_trend`).
+    ros_prev: float | None = None
+    ros_prev_model_changed: bool = False
     #: For a next man up: his share of his position's snaps that did not go
     #: to the absent lead (team's last four games), and the share of the
     #: lead's work that predicts for him. None when not a next man up.

@@ -108,6 +108,25 @@ def face(p: object) -> str:
             'decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">')
 
 
+def trend(p: object) -> str:
+    """His season value's move since last week: green up, red down, yellow
+    flat, deeper for a bigger move (:mod:`streamer.roster.value_trend`)."""
+    from .value_trend import change, level
+
+    d = change(p) if getattr(p, "ros_prev", None) is not None else None
+    if d is None:
+        return ""
+    lv = level(d)
+    arrow = "&#9650;" if lv > 0 else "&#9660;" if lv < 0 else "&#9679;"
+    why = f"{p.ros_prev:.1f} &rarr; {p.ros_value:.1f} a game since last week"
+    if p.ros_prev:
+        why += f" ({d / p.ros_prev:+.0%})"
+    if getattr(p, "ros_prev_model_changed", False):
+        why += "; the model changed since, so part of this is the model"
+    return (f' <span class="tr tr{lv:+d}" title="{why}">{arrow}{abs(d):.1f}</span>'
+            if lv else f' <span class="tr tr0" title="{why}">{arrow}0</span>')
+
+
 #: Points a range bar spans, end to end.
 RANGE_SCALE = 35.0
 
@@ -212,7 +231,7 @@ def team_sections(
                 f'<div>{face(p)}<span class="name">{_e(p.name)}</span> '
                 f'<span class="opp">{pos_chip(p.position)} {_e(p.team or "")}</span></div>'
                 f'<div class="pts">{t.ceiling:.1f}</div></div>'
-                f'<div class="why">{(p.ros_value or 0):.1f} a game now; {_e("; ".join(t.reasons))}</div></div>'
+                f'<div class="why">{(p.ros_value or 0):.1f} a game now{trend(p)}; {_e("; ".join(t.reasons))}</div></div>'
             )
         waivers.append(
             "<h3>Upside stashes</h3>"
@@ -410,7 +429,7 @@ def _move_cards(report: MatchupReport, moves: list[Move], title: str) -> str:
         cards.append(
             '<div class="card"><div class="row">'
             f'<div class="rank">{_e(m.tag[:1].upper())}</div>'
-            f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span> '
+            f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span>{trend(m.add)} '
             f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")}{drop}</span></div>'
             f'<div class="pts">+{m.score:.1f}</div></div>'
             f'<div class="why">{_e(m.reason)}</div></div>'
@@ -452,7 +471,7 @@ def _roster(report: MatchupReport, uid: str) -> str:
         rows.append(
             f"<tr{cls}><td class='unit'>{face(p)}<b>{_e(p.name)}</b>"
             f"<div class='tags'>{' &middot; '.join(tags)}</div></td>"
-            f"<td>{(r.ros or 0):.1f}</td><td>{r.per_week:.1f}<div class='tags'>{r.low:.0f}&ndash;{r.high:.0f}{range_bar(r.low, r.high)}</div></td>"
+            f"<td>{(r.ros or 0):.1f}{trend(p)}</td><td>{r.per_week:.1f}<div class='tags'>{r.low:.0f}&ndash;{r.high:.0f}{range_bar(r.low, r.high)}</div></td>"
             f"<td>{title}</td><td>{market}</td></tr>"
             + (f"<tr class='note'><td colspan='5'>{_e('; '.join(why))}</td></tr>" if why else ""))
     roster = report.snapshot.my_team.roster if getattr(report, "snapshot", None) else [r.player for r in vals]
@@ -467,7 +486,8 @@ def _roster(report: MatchupReport, uid: str) -> str:
         '<div class="scroll"><table class="roster-table"><thead><tr><th class="unit">Player</th><th>RoS/g</th>'
         "<th>Pts/wk</th><th>Title</th><th>Mkt</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody></table></div>{cut_line}"
-        '<p class="sub"><b>RoS/g</b>: points a game when he plays. <b>Pts/wk</b>: simulated points a '
+        '<p class="sub"><b>RoS/g</b>: points a game when he plays, with its move since last week '
+        "(green up, red down, yellow flat; deeper is bigger: under 0.3, 0.3&ndash;1, 1&ndash;2, over 2). <b>Pts/wk</b>: simulated points a "
         "remaining week, after injuries, byes, lost jobs and the next man up, with its 10th&ndash;90th "
         "percentile beneath. <b>Title</b>: points of your title odds lost without him, his spot filled "
         "from the wire, on the same seasons the hub prices every move on (grey: inside the noise). "
@@ -668,7 +688,7 @@ def _title_moves(report: MatchupReport) -> str:
         cards.append(
             '<div class="card"><div class="row">'
             f'<div class="rank">{"&#10003;" if m.verdict == "claim" else "&middot;"}</div>'
-            f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span> '
+            f'<div>{face(m.add)}<span class="name">{_e(m.add.name)}</span>{trend(m.add)} '
             f'<span class="opp">{pos_chip(m.add.position)} {_e(m.add.team or "")} &middot; '
             f'{_e(move_text(m))}</span></div>'
             f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
@@ -736,7 +756,7 @@ def _plans(report: MatchupReport) -> str:
 
 
 def _names(players) -> str:
-    return " + ".join(f"{p.name} ({p.position})" for p in players)
+    return " + ".join(f"{_e(p.name)} ({_e(p.position)}){trend(p)}" for p in players)
 
 
 def _trade_card(t) -> str:
@@ -745,8 +765,8 @@ def _trade_card(t) -> str:
     win = '<span class="hold-tag">win-win</span>' if t.win_win else ""
     return (
         '<div class="card"><div class="row"><div class="rank">&#8644;</div>'
-        f'<div><span class="name">Get {_e(_names(t.get))}</span> '
-        f'<span class="opp">from {_e(t.partner.name)} &middot; give {_e(_names(t.give))}'
+        f'<div><span class="name">Get {_names(t.get)}</span> '
+        f'<span class="opp">from {_e(t.partner.name)} &middot; give {_names(t.give)}'
         + (f" &middot; then add {_e(t.my_add.name)}" if getattr(t, "my_add", None) is not None else "")
         + '</span></div>'
         f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
@@ -870,18 +890,23 @@ _TOP_JS = """
   function norm(t){return String(t).normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,'');}
   function chip(p){return '<span class="pc pc-'+esc(p)+'">'+esc(p==='DST'?'D/ST':p)+'</span>';}
   function num(v){return v===null||v===undefined?'--':v.toFixed(1);}
+  // Season value's move since last week (value_trend.payload: [change, level, last week]).
+  function trb(t){if(!t)return '';var lv=t[1],a=lv>0?'&#9650;':lv<0?'&#9660;':'&#9679;';
+    return ' <span class="tr tr'+(lv>0?'+':lv<0?'-':'')+Math.abs(lv)+'" title="'+t[2].toFixed(1)+' a game last week">'+a+(lv?Math.abs(t[0]).toFixed(1):'0')+'</span>';}
+  var dir=-1;
   data.rows.forEach(function(r){r.k=norm(r.name+' '+r.team+' '+r.owner);});
   function render(){
     var words=norm(box.value).trim().split(/ +/).filter(Boolean);
     var list=data.rows.filter(function(r){
       return (pos==='All'||(pos==='FLEX'?flex[r.pos]:r.pos===pos))&&words.every(function(w){return r.k.indexOf(w)>=0;});});
-    list.sort(function(x,y){var a=x[sort],b=y[sort]; a=a===null?-1e9:a; b=b===null?-1e9:b; return (b-a)||(y.vor-x.vor);});
+    list.sort(function(x,y){var a=x[sort],b=y[sort],na=a===null||a===undefined,nb=b===null||b===undefined;
+      if(na||nb)return (na-nb)||(y.vor-x.vor); return (dir<0?b-a:a-b)||(y.vor-x.vor);});
     body.innerHTML=list.slice(0,limit).map(function(r,i){
       return '<tr'+(r.mine?' class="tp-mine"':'')+'><td>'+(i+1)+'</td><td class="fa-name">'+chip(r.pos)+' '+esc(r.name)+
         ' <span class="opp">'+esc(r.team)+(r.status?' '+esc(r.status):'')+' &middot; '+esc(r.owner)+'</span></td>'+
-        '<td><b>'+num(r.vor)+'</b></td><td>'+num(r.up)+'</td><td>'+num(r.ros)+'</td><td>'+num(r.proj)+'</td><td class="tp-x">'+num(r.games)+'</td>'+
+        '<td><b>'+num(r.vor)+'</b></td><td>'+num(r.up)+'</td><td>'+num(r.ros)+'</td><td class="tr-c">'+(trb(r.tr)||'<span class="opp">--</span>')+'</td><td>'+num(r.proj)+'</td><td class="tp-x">'+num(r.games)+'</td>'+
         '<td class="opp tp-x">'+num(r.lo)+'&ndash;'+num(r.hi)+'</td><td class="tp-x">'+num(r.mkt)+'</td></tr>';
-    }).join('')||'<tr><td colspan="8" class="opp">No player matches.</td></tr>';
+    }).join('')||'<tr><td colspan="10" class="opp">No player matches.</td></tr>';
     more.hidden=list.length<=limit;
     more.textContent='Show more ('+(list.length-limit)+' left)';
   }
@@ -890,8 +915,8 @@ _TOP_JS = """
     root.querySelectorAll('.tp-pos button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
     render();});});
   root.querySelectorAll('.tp-sort').forEach(function(th){th.addEventListener('click',function(){
-    sort=th.getAttribute('data-k');
-    root.querySelectorAll('.tp-sort').forEach(function(x){x.setAttribute('aria-sort',x===th?'descending':'none');});
+    var k=th.getAttribute('data-k'); dir=(k===sort)?-dir:-1; sort=k;   // tap again: the other way (fallers first)
+    root.querySelectorAll('.tp-sort').forEach(function(x){x.setAttribute('aria-sort',x===th?(dir<0?'descending':'ascending'):'none');});
     render();});});
   box.addEventListener('input',function(){limit=40;render();});
   more.addEventListener('click',function(){limit+=40;render();});
@@ -914,7 +939,8 @@ def _top_players(report: MatchupReport) -> str:
     chips = "".join(f'<button type="button" data-pos="{p}" aria-pressed="{"true" if p == "All" else "false"}">'
                     f'{"D/ST" if p == "DST" else p}</button>'
                     for p in ("All", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"))
-    cols = (("vor", "Value"), ("up", "Upside"), ("ros", "RoS/g"), ("proj", "Wk"), ("games", "G"), ("hi", "Range"), ("mkt", "Mkt"))
+    cols = (("vor", "Value"), ("up", "Upside"), ("ros", "RoS/g"), ("chg", "&Delta;wk"), ("proj", "Wk"), ("games", "G"),
+            ("hi", "Range"), ("mkt", "Mkt"))
     heads = "".join(f'<th class="fa-sort tp-sort{" tp-x" if k in ("games", "hi", "mkt") else ""}" data-k="{k}" aria-sort="{"descending" if k == "vor" else "none"}">'
                     f"{label}</th>" for k, label in cols)
     return (
@@ -924,7 +950,8 @@ def _top_players(report: MatchupReport) -> str:
         "he misses (byes, injuries, a reported timeline) count nothing, so a hurt star drops down. "
         "<strong>Upside</strong> is that value in his best tenth of simulated seasons: a breakout, a bigger "
         "role, a clean bill of health."
-        + (f" Pickup level a game: {_e(repl)}." if repl else "") + " RoS/g is his season value a game, Wk this week's projection, G games "
+        + (f" Pickup level a game: {_e(repl)}." if repl else "") + " RoS/g is his season value a game and &Delta;wk its move since last week (green up, red down, "
+        "yellow flat; deeper is bigger -- tap &Delta;wk for the risers, again for the fallers), Wk this week's projection, G games "
         "expected, Range his points a week (10th-90th percentile) and Mkt what the rest of the league sees "
         "him worth a game (those three on wider screens). Tap a column to sort; your players are highlighted.</p>"
         f'<div class="chips fa-pos tp-pos">{chips}</div>'
@@ -948,6 +975,9 @@ _PICKUP_JS = """
   function pts(v){return v===null||v===undefined?'--':(v>=0?'+':'')+v.toFixed(1);}
   function cls(v){return v===null||v===undefined?'':(v>0.05?' class="pos"':(v<-0.05?' class="neg"':''));}
   function norm(t){return String(t).normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,'');}
+  // Season value's move since last week (value_trend.payload: [change, level, last week]).
+  function trb(t){if(!t)return '';var lv=t[1],a=lv>0?'&#9650;':lv<0?'&#9660;':'&#9679;';
+    return ' <span class="tr tr'+(lv>0?'+':lv<0?'-':'')+Math.abs(lv)+'" title="'+t[2].toFixed(1)+' a game last week">'+a+(lv?Math.abs(t[0]).toFixed(1):'0')+'</span>';}
   var all=data.adds.map(function(a){return {p:a,priced:true};}).concat((data.others||[]).map(function(a){return {p:a,priced:false};}));
   all.forEach(function(r,i){r.i=i; r.k=norm(r.p.name+' '+r.p.team+' '+r.p.pos);});
   function chip(p){var k=(p==='DST'?'DST':p); return '<span class="pc pc-'+esc(k)+'">'+esc(p==='DST'?'D/ST':p)+'</span>';}
@@ -966,15 +996,16 @@ _PICKUP_JS = """
   function render(){
     var q=norm(box.value).trim(), words=q?q.split(/ +/):[];
     var list=all.filter(function(r){return (pos==='All'||r.p.pos===pos)&&words.every(function(w){return r.k.indexOf(w)>=0;});});
-    list.sort(function(x,y){return (y.p[sort]-x.p[sort])||(y.p.ros-x.p.ros);});
+    list.sort(function(x,y){var a=x.p[sort],b=y.p[sort],na=a===null||a===undefined,nb=b===null||b===undefined;
+      if(na||nb)return (na-nb)||(y.p.ros-x.p.ros); return (b-a)||(y.p.ros-x.p.ros);});
     var shown=list.slice(0,limit);
     body.innerHTML=shown.map(function(r){
       var a=r.p, isOpen=open===r.i;
       return '<tr class="fa-row'+(isOpen?' open':'')+'" data-i="'+r.i+'" tabindex="0"><td class="fa-name">'+chip(a.pos)+' '+
         esc(a.name)+' <span class="opp">'+esc(a.team)+(a.status?' '+esc(a.status):'')+(r.priced?'':' &middot; not priced')+
-        '</span></td><td>'+a.ros.toFixed(1)+'</td><td>'+a.proj.toFixed(1)+'</td></tr>'+
-        (isOpen?'<tr class="fa-detail"><td colspan="3">'+detail(r)+'</td></tr>':'');
-    }).join('')||'<tr><td colspan="3" class="opp">No free agent matches.</td></tr>';
+        '</span></td><td>'+a.ros.toFixed(1)+'</td><td class="tr-c">'+(trb(a.tr)||'<span class="opp">--</span>')+'</td><td>'+a.proj.toFixed(1)+'</td></tr>'+
+        (isOpen?'<tr class="fa-detail"><td colspan="4">'+detail(r)+'</td></tr>':'');
+    }).join('')||'<tr><td colspan="4" class="opp">No free agent matches.</td></tr>';
     more.hidden=list.length<=limit;
     more.textContent='Show more ('+(list.length-limit)+' left)';
   }
@@ -1019,8 +1050,8 @@ def _try_pickup(report: MatchupReport) -> str:
         f'<details class="card" id="{uid}"><summary><strong>Free agents</strong> '
         '<span class="opp">browse by position; tap a player for what adding him does to your team</span>'
         "</summary>"
-        f'<p class="sub">Now: title {base.get("title", 0):.1f}%{win}. RoS/g is his season value a game, Wk this '
-        "week's projection; tap a column to sort. Tap a player for each drop's change in points of "
+        f'<p class="sub">Now: title {base.get("title", 0):.1f}%{win}. RoS/g is his season value a game, &Delta;wk '
+        "its move since last week, Wk this week's projection; tap a column to sort. Tap a player for each drop's change in points of "
         "probability: title on the full season simulation, this week by rebuilding your best lineup with him "
         "in. A title change inside the simulation's noise is marked toss-up. The top 40 skill players and "
         "every D/ST and K priced get six drops, the next 80 the three cheapest; the rest are listed, "
@@ -1030,6 +1061,7 @@ def _try_pickup(report: MatchupReport) -> str:
         ' autocomplete="off" aria-label="Search free agents"></p>'
         '<table class="fa-table"><thead><tr><th class="fa-name">Player</th>'
         '<th class="fa-sort" data-k="ros" aria-sort="descending">RoS/g</th>'
+        '<th class="fa-sort" data-k="chg" aria-sort="none">&Delta;wk</th>'
         '<th class="fa-sort" data-k="proj" aria-sort="none">Wk</th></tr></thead>'
         '<tbody class="fa-rows"></tbody></table>'
         '<p><button type="button" class="fa-more">Show more</button></p>'
@@ -1240,7 +1272,7 @@ def _pickups(report: MatchupReport) -> str:
         if p.signals:
             why.append(_e(p.signals[0]))
         rows.append(
-            f"<tr><td class='unit'>{face(p)}{_e(p.name)}</td><td>{pos_chip(p.position)} {_e(p.team or '')}</td>"
+            f"<tr><td class='unit'>{face(p)}{_e(p.name)}{trend(p)}</td><td>{pos_chip(p.position)} {_e(p.team or '')}</td>"
             f"<td>{_e(p.nfl_opponent or '')}</td><td>{(p.projection or 0):.1f}</td>"
             f"<td>{o.win_probability:.1%}</td><td>{vs}</td>{cells}</tr>"
             f"<tr><td class='why' colspan='9'>&#8627; {'; '.join(why)}</td></tr>")

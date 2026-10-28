@@ -26,6 +26,7 @@ import numpy as np
 from ..league.model import LeagueSnapshot, PlayerRow
 from . import lineup as lu
 from .title_moves import drop_candidates
+from .value_trend import payload
 
 #: Free agents priced, skill positions; and defences and kickers on top.
 N_SKILL = 120
@@ -106,7 +107,7 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
     def row(p: PlayerRow) -> dict:
         return {"id": p.player_id, "name": p.name, "pos": p.position, "team": p.team or "",
                 "ros": round(float(p.ros_value or 0.0), 1), "proj": round(float(p.projection or 0.0), 1),
-                "status": p.status or ""}
+                "status": p.status or "", "tr": payload(p), "chg": payload(p)[0] if payload(p) else None}
 
     # An open roster spot: he can be added with nobody dropped.
     spots = sum(snap.starting_slots.values()) + int(snap.bench_size or 0)
@@ -139,7 +140,7 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
     priced = {a["id"] for a in out}
     others = [{"name": p.name, "pos": p.position, "team": p.team or "", "status": p.status or "",
                "ros": round(float(p.ros_value or 0.0), 1), "proj": round(float(p.projection or 0.0), 1),
-               "why": _why_not(p)}
+               "why": _why_not(p), "tr": payload(p), "chg": payload(p)[0] if payload(p) else None}
               for p in snap.free_agents if p.player_id not in priced and p.position in POSITIONS]
     others.sort(key=lambda r: -r["ros"])
     return {"base": {"title": round(engine.base * 100, 1),

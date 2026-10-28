@@ -380,3 +380,17 @@ button:focus-visible, select:focus-visible, input:focus-visible, label:focus-vis
   background: var(--accent); box-shadow: 0 2px 8px -2px rgba(47,98,240,.55); transition: transform .22s ease; }
 .seg[data-on="ideal"] .seg-thumb { transform: translateX(100%); }
 @media (prefers-reduced-motion: reduce) { .seg-thumb, .seg button { transition: none; } }
+
+/* A season value's move since last week (value_trend): green up, red down,
+   yellow flat; the fill deepens with the size of the move. */
+.tr { display: inline-flex; align-items: center; gap: 1px; padding: 0 .38em; border-radius: 999px;
+  font-size: .74em; font-weight: 700; line-height: 1.55; white-space: nowrap; vertical-align: .08em;
+  font-variant-numeric: tabular-nums; }
+.tr0 { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.tr\+1 { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.tr\+2 { color: var(--good); background: color-mix(in srgb, var(--good) 30%, transparent); }
+.tr\+3 { color: var(--bg); background: var(--good); }
+.tr-1 { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.tr-2 { color: var(--bad); background: color-mix(in srgb, var(--bad) 30%, transparent); }
+.tr-3 { color: var(--bg); background: var(--bad); }
+td.tr-c { white-space: nowrap; }

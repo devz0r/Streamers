@@ -4868,3 +4868,26 @@ free agent). The verdict -- claim/add, toss-up, pass -- goes on Net against
 the same bar as the title moves (0.2 points or twice the noise). Above the
 table: which of your starters an available player out-projects this week,
 and by whom.
+
+## Season value: the move since last week, beside every player
+
+Each player's season value (`ros_value`, points a game when he plays) is
+compared with his value at the end of last week and shown as a badge: green
+up, red down, yellow flat, the fill deeper for a bigger move -- on your
+roster, the waiver cards and pickup tables, Try a pickup (a sortable
+&Delta;wk column), trade cards, and the Players list (&Delta;wk sorts risers
+first, a second tap fallers first), so other teams' players show it too.
+
+**Absolute, not relative.** The change is in points a game: a percentage
+explodes at the bottom of the pool (0.5 -> 1.5 is +200%) and would paint the
+wire with noise, while lineups and titles are won on points a game. Bands:
+under 0.3 is flat (about the week-to-week noise of the season value), then
+0.3-1, 1-2, over 2. The tooltip gives last week's value and the percentage.
+
+**History.** `results/<league>/value_history.parquet`: one row per player
+per week, overwritten through the week, so last week's row is the value at
+the last refresh before the week turned. Until it has a week, the projection
+log's `ros_value` stands in (most rostered players and the logged free
+agents). A model change that moves values across the board should bump
+`value_trend.MODEL_EPOCH`; that week's badges then say part of the move is
+the model.

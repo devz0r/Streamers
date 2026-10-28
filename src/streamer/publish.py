@@ -949,6 +949,14 @@ def team_panels_for(
                 log_season_values(snap, bound)
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("season value log for %s skipped: %s", name, exc)
+            try:
+                from .roster import value_trend
+
+                n_prev = value_trend.attach(snap, bound)
+                n_rec = value_trend.record(snap, bound)
+                log.info("%s: season values vs last week for %d players (%d recorded)", name, n_prev, n_rec)
+            except Exception as exc:  # noqa: BLE001 - a badge must never block the page
+                log.warning("season value trend for %s skipped: %s", name, exc)
             game_day = is_game_day()
             # (Not ``shared``: that is the sportsbook props pulled for every league.)
             view_shared = {"cache": read_me_cache(bound) if game_day else {}}
