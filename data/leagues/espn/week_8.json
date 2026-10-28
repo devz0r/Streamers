@@ -1303,7 +1303,7 @@
           "position": "RB",
           "team": "BUF",
           "status": "",
-          "slot": "BN",
+          "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -1443,7 +1443,7 @@
           "position": "WR",
           "team": "NO",
           "status": "",
-          "slot": "WR",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -1656,7 +1656,7 @@
           "position": "QB",
           "team": "WAS",
           "status": "",
-          "slot": "BN",
+          "slot": "QB",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -1865,7 +1865,7 @@
           "position": "TE",
           "team": "GB",
           "status": "",
-          "slot": "BN",
+          "slot": "TE",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -2002,7 +2002,7 @@
           "position": "TE",
           "team": "NYG",
           "status": "",
-          "slot": "TE",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -2072,7 +2072,7 @@
           "position": "QB",
           "team": "NO",
           "status": "",
-          "slot": "QB",
+          "slot": "BN",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -2277,7 +2277,7 @@
           "position": "WR",
           "team": "CAR",
           "status": "",
-          "slot": "FLEX",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -2418,7 +2418,7 @@
           "position": "WR",
           "team": "WAS",
           "status": "",
-          "slot": "BN",
+          "slot": "WR",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -65085,7 +65085,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-28T00:43:42.391478+00:00",
+  "synced_at": "2026-10-28T01:26:35.258076+00:00",
   "extra": {
     "nfl_week": 8,
     "current_week": 8
