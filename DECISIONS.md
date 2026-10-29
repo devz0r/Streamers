@@ -4924,3 +4924,55 @@ now `TitleMove.watch`: labelled "Watch: not worth a move yet", greyed, shown
 after the real moves, and with a heading saying no pickup raises your title
 odds when nothing else clears. "Worth adding, but wait" stays for a player
 whose breakout claim gains title odds even though adding now does not.
+
+## Steadier title odds: the same dice for the same player, and a bigger check
+
+**The problem.** Trades, waiver moves and roster values jumped between
+refreshes (Puka Nacua + Josh Jacobs for Jahmyr Gibbs + Michael Wilson read
++2.5, then +1.2, then +3.8), and a move just made was sometimes recommended
+undone at the next refresh.
+
+**Measured** (ESPN week 8 snapshot, projected offline, six-season engine
+runs; scratch scripts, not committed):
+
+* Same inputs, five seeds: your title odds 10.2-11.1%; the Nacua trade
+  +3.1 to +4.6 (sd 0.52, matching its reported paired noise of 0.52); the top
+  waiver moves and even the drop changed between runs.
+* Same seed, player lists shuffled -- what any pickup or drop anywhere in
+  the league did, since each player's draws came from his position in one
+  shared stream: the trade went +4.25 / +4.22 / +3.12 and the recommended
+  drop switched from Malik Washington to Concepcion. Two refreshes were two
+  unrelated simulations.
+
+So refresh-to-refresh swings of about +-0.7 on a trade were pure noise (two
+independent +-0.5 numbers), and larger ones partly noise, partly news.
+
+**Changes.**
+
+1. *Common random numbers across refreshes* (`futures._streams`): each
+   player's draws come from his own streams, keyed on his id and the purpose
+   (level, absences, role, weekly luck, drift, projection noise, takeover),
+   and each NFL game's shared draw from a stream keyed on the game and its
+   players, members in id order. After: the same shuffles give identical
+   title odds, trade value and waiver moves (10.00%, +4.57, same drops, three
+   orders). The numbers are not more accurate for it -- each is still one
+   simulation with its own error -- but they now move only when an input
+   does, which is why the error bar is shown with them. The rival-claim
+   draws in the title engine are keyed the same way. Distributions are
+   unchanged (the same draws, assigned differently); every futures test
+   passes as before, and a new one checks a player's seasons are the same
+   whatever else is simulated.
+2. *A bigger independent check* (`roster.confirm_sims: 24000`): every number
+   shown -- trades, waiver moves, this week's pickups' title odds -- comes
+   from the independent check simulation, now 24,000 seasons (the screen
+   that picks the candidates stays at 6,000). Four times the seasons halves
+   the noise: the Nacua trade +-0.51 -> +-0.26. Locally a full engine at 24k
+   took about 5 minutes and 1.8 GB; production runs only the check at that
+   size.
+3. *Shown honestly*: trade cards and waiver moves carry the 95% noise band
+   (+-2 sd), pickups for this matchup say it in the verdict, and a trade
+   whose check gain is inside its band is labelled "toss-up" -- it was
+   already flagged (`Trade.weak`) but never shown.
+
+No higher bar for reversing a move: the aim is the right move the first
+time, and a toss-up says so rather than naming a winner.
