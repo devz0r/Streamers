@@ -641,6 +641,9 @@ def _hub(report: MatchupReport, uid: str, cfg: Config | None = None) -> str:
                 f"<b>{_e(a.headline)}</b><div class='why'>{_e(a.detail)}; {_e(a.note)} &middot; {link}</div></td>"
                 f'<td class="{"pos" if a.firm else ""}"><span class="delta{"" if a.firm else " soft"}">'
                 f"{a.gain * 100:+.1f}</span>"
+                + (f'<div class="po" title="what it adds times the chance he says yes">expected: '
+                   f"{a.if_yes * 100:+.1f} &times; {a.accept:.0%}</div>"
+                   if getattr(a, "if_yes", None) is not None else "")
                 + (f'<div class="po" title="change in your chance to make the playoffs">'
                    f"playoffs {a.playoffs * 100:+.1f}</div>" if a.playoffs is not None else "")
                 + "</td></tr>")

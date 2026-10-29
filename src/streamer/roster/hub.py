@@ -39,6 +39,10 @@ class HubAction:
     #: Change in P(make the playoffs), where the move was priced on the season
     #: simulation (waivers, trades); None for this week's lineup and streams.
     playoffs: float | None = None
+    #: A trade's gain if he says yes (``gain`` is that times the chance he
+    #: does, which is what it is ranked by); None for moves that are yours alone.
+    if_yes: float | None = None
+    accept: float | None = None
 
 
 def week_title_value(report) -> float | None:
@@ -165,6 +169,7 @@ def actions(report, cfg=None) -> list[HubAction]:
                                  t.p_accept * t.gain,
                                  f"{t.gain * 100:+.1f} if he accepts, chance of a yes ~{t.p_accept:.0%}"
                                  + ("; win-win" if t.win_win else "") + soon, "trades", firm=False,
-                                 playoffs=t.p_accept * (t.po_new - t.po_base) if getattr(t, "po_base", 0) else None))
+                                 playoffs=t.p_accept * (t.po_new - t.po_base) if getattr(t, "po_base", 0) else None,
+                                 if_yes=t.gain, accept=t.p_accept))
     out.sort(key=lambda a: -a.gain)
     return [a for a in out if a.gain > 0]
