@@ -315,3 +315,23 @@ def test_players_in_the_same_game_are_drawn_together():
     assert abs(corr(linked, 1, 3)) < 0.05                    # a different game
     on = linked.played[:, 1, 0]
     assert abs(linked.scores[on, 1, 0].mean() - alone.scores[alone.played[:, 1, 0], 1, 0].mean()) < 0.4
+
+
+def test_a_players_draws_are_his_whatever_else_is_simulated():
+    """Common random numbers: the same player gets the same simulated
+    seasons whether the list is reordered or another player joins it, so a
+    roster change elsewhere does not re-roll everyone's numbers."""
+    qb, wr = _roled("qb", "QB", "QB", "KC", 20.0), _roled("wr", "WR", "WR1", "KC", 14.0)
+    rb, other = _p("rb", "RB", 11.0, "SF", status="QUESTIONABLE"), _p("o", "WR", 9.0, "MIA")
+    rb.play_probability = 0.6
+    opp = {"KC": {5: "BUF", 6: "BUF"}, "BUF": {5: "KC", 6: "KC"}, "MIA": {5: "NYJ", 6: "NYJ"},
+           "SF": {5: "LA", 6: "LA"}, "LA": {5: "SF", 6: "SF"}}
+    weeks = [5, 6]
+    a = simulate([qb, wr, rb, other], weeks, {}, n_sims=500, seed=3, opponents=opp)
+    b = simulate([other, rb, wr, qb, _p("new", "TE", 6.0, "DEN")], weeks, {}, n_sims=500, seed=3, opponents=opp)
+    for pid in ("qb", "wr", "rb", "o"):
+        i, j = a.player_ids.index(pid), b.player_ids.index(pid)
+        assert np.array_equal(a.scores[:, i, :], b.scores[:, j, :]), pid
+    # A different seed is a different simulation.
+    c = simulate([qb, wr, rb, other], weeks, {}, n_sims=500, seed=4, opponents=opp)
+    assert not np.array_equal(a.scores[:, 0, :], c.scores[:, 0, :])

@@ -225,6 +225,9 @@ def price_pickups(report: MatchupReport, engine) -> None:
     from .title_moves import _droppable
 
     me = report.snapshot.my_team
+    # Priced on the larger, independent check where there is one: the
+    # numbers shown are its, not the screening run's.
+    engine = engine.confirmation() if getattr(engine, "confirm", False) else engine
     worth = engine.worth_mean() if report.pickups else {}
     stakes = getattr(report, "stakes", None)
     game = next((g for g in (stakes.games if stakes else []) if int(g.week) == int(report.snapshot.week)), None)

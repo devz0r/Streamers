@@ -467,6 +467,10 @@ roster:
   ros_comps: {weight: 0.2, k: 100, since: 2015}
   # Monte-Carlo draws per lineup evaluation. 20k keeps P(win) stable to ~0.5%.
   sims: 20000
+  # Seasons for the independent check every title-odds number shown comes
+  # from (trades, waiver moves, this week's pickups); the screen that picks
+  # them stays at 6,000. Four times the seasons halves the noise.
+  confirm_sims: 24000
   # Skill-position projection = opportunity x efficiency (validated
   # walk-forward, see DECISIONS.md), scaled by the week's team implied total
   # relative to its recent average. `vegas_damping` is the exponent on that

@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import math
+import zlib
 from dataclasses import dataclass, field
 from math import comb
 from pathlib import Path
@@ -327,7 +328,7 @@ class TitleEngine:
     def __init__(self, snapshot: LeagueSnapshot, cfg: Config, n_sims: int = 6000,
                  candidates: int = 20, drops: int = 4, seed: int = 29,
                  extra: list[PlayerRow] | None = None, model: SeasonModel | None = None,
-                 confirm: bool = True):
+                 confirm: bool = True, confirm_sims: int | None = None):
         """``extra``: free agents to simulate as well, so moves involving them
         can be priced (:meth:`value_now`) -- this week's pickups -- without
         joining the waiver candidates. ``model``: a season simulation already
@@ -335,10 +336,13 @@ class TitleEngine:
         from this snapshot's team, and only the free agents it simulated are
         priced. ``confirm``: re-price the shortlisted moves on an independent
         simulation (:meth:`confirmation`) before they are judged; off for a
-        reused simulation, a view of another team."""
+        reused simulation, a view of another team. ``confirm_sims``: seasons
+        for that check (default ``n_sims``): it is what every number shown
+        comes from, so it is worth more seasons than the screen."""
         self.snapshot, self.cfg = snapshot, cfg
         self._args = {"n_sims": n_sims, "candidates": candidates, "drops": drops, "extra": extra}
         self.confirm = confirm and model is None
+        self._confirm_sims = confirm_sims
         self._check: TitleEngine | None = None
         me = snapshot.my_team
         self.me = me
@@ -564,8 +568,8 @@ class TitleEngine:
         rival does not land every breakout in a season."""
         if add.player_id in self._claimant_cache:
             return self._claimant_cache[add.player_id]
-        idx = self.model.pid.get(add.player_id, 0)
-        rng = np.random.default_rng(self._seed * 1000 + 7 + idx)
+        # Keyed on who he is, not where he sits in the player list.
+        rng = np.random.default_rng([self._seed, 7, zlib.crc32(str(add.player_id).encode())])
         claims = rng.random((self.model.n, self.n_teams)) < self.activity
         claims[:, self.mine] = False
         masked = np.where(claims, self.ranks[None, :], np.inf)
@@ -747,8 +751,9 @@ class TitleEngine:
         """The same league on a second, independent simulation (another
         seed): what the shortlisted moves -- and trades -- are judged on."""
         if self._check is None:
+            args = {**self._args, "n_sims": max(int(self._args["n_sims"]), int(self._confirm_sims or 0))}
             self._check = TitleEngine(self.snapshot, self.cfg, seed=self._seed + CONFIRM_SEED,
-                                      confirm=False, **self._args)
+                                      confirm=False, **args)
             self._check.market = self.market
         return self._check
 

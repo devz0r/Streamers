@@ -698,7 +698,8 @@ def _title_moves(report: MatchupReport) -> str:
             f'{_e(move_text(m))}</span></div>'
             f'<div class="pts">{m.gain_now * 100:+.1f}</div></div>'
             f'<div class="meta"><span class="{css}">{label}</span>'
-            f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}</span>"
+            f"<span>title {m.p_base:.1%} &rarr; {m.p_now:.1%}"
+            + (f" &plusmn;{2 * m.noise * 100:.1f}" if getattr(m, "noise", 0) else "") + "</span>"
             + (f"<span>playoffs {m.po_base:.0%} &rarr; {m.po_now:.0%}</span>" if getattr(m, "po_base", 0) else "") + "</div>"
             f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
     return head + "".join(cards) + _passed(report)
@@ -768,6 +769,9 @@ def _trade_card(t) -> str:
     from .trades import acceptance_label
 
     win = '<span class="hold-tag">win-win</span>' if t.win_win else ""
+    if getattr(t, "weak", False):
+        win += '<span class="opp">toss-up: inside the simulation\'s noise</span>'
+    band = f" &plusmn;{2 * t.noise * 100:.1f}" if getattr(t, "noise", 0) else ""
     return (
         '<div class="card"><div class="row"><div class="rank">&#8644;</div>'
         f'<div><span class="name">Get {_names(t.get)}</span> '
@@ -775,7 +779,7 @@ def _trade_card(t) -> str:
         + (f" &middot; then add {_e(t.my_add.name)}" if getattr(t, "my_add", None) is not None else "")
         + '</span></div>'
         f'<div class="pts">{t.gain * 100:+.1f}</div></div>'
-        f'<div class="meta">{win}<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}</span>'
+        f'<div class="meta">{win}<span>title {t.p_base:.1%} &rarr; {t.p_new:.1%}{band}</span>'
         + (f"<span>playoffs {t.po_base:.0%} &rarr; {t.po_new:.0%}</span>" if getattr(t, "po_base", 0) else "")
         + f"<span>yes: {acceptance_label(t.p_accept)} (~{t.p_accept:.0%})</span>"
         f"<span>his title {t.their_base:.1%} &rarr; {t.their_new:.1%}</span></div>"
@@ -812,7 +816,10 @@ def _trades(report: MatchupReport) -> str:
             "platform's projection, a player's name and last season, this season so far, injuries -- "
             "in the proportions measured from Yahoo's rostership, plus whether he gets the best player in "
             "the deal and how active he is. The yes-chance ranks offers; it is a rough estimate, not a "
-            "measured rate. Each trade is priced on its own, as an alternative to the others.</p>")
+            "measured rate. Each trade is priced on its own, as an alternative to the others. The numbers "
+            "are from a second, larger simulation than the one that picked the trades, so the pick does not "
+            "flatter them; &plusmn; is the range that simulation's own noise leaves (95%), and a trade inside "
+            "it is marked toss-up.</p>")
     if not board:
         return head + '<p class="sub">No trade both raises your title odds and has a real chance of a yes.</p>'
     uid = _e(report.snapshot.profile)
@@ -1312,7 +1319,9 @@ def _pickup_verdict(o) -> str:
             bits.append("helps this week and after")
     if o.claim_cost > 0:
         bits.append(f"after {o.claim_cost * 100:.2f} for the waiver priority")
-    return word + (f" ({_e(', '.join(bits))})" if bits else "")
+    if o.title_noise:
+        bits.append(f"&plusmn;{2 * o.title_noise * 100:.2f} simulation noise")
+    return word + (f" ({', '.join(_e(b) if '&' not in b else b for b in bits)})" if bits else "")
 
 
 def _weak_starters(report: MatchupReport) -> str:

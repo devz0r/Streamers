@@ -1099,7 +1099,8 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                 else add_drop.candidates(snap))
             reuse = (shared or {}).get("model") if light else None
             engine = TitleEngine(snap, bound, extra=extra, model=reuse,
-                                 **({"n_sims": LIGHT["title_sims"]} if light else {}))
+                                 **({"n_sims": LIGHT["title_sims"]} if light
+                                    else {"confirm_sims": int(bound.raw["roster"].get("confirm_sims", 24000))}))
             if light and shared is not None and reuse is None:
                 shared["model"] = engine.model
             engine.market = {pid: s.value for pid, s in (seen or {}).items()}
