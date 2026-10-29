@@ -45,7 +45,15 @@ from itertools import combinations
 
 import numpy as np
 
-from ..league.model import IR_ELIGIBLE_STATUSES, IR_SLOTS, LeagueSnapshot, PlayerRow, TeamRow
+from ..league.model import (
+    IR_ELIGIBLE_STATUSES,
+    IR_SLOTS,
+    LeagueSnapshot,
+    PlayerRow,
+    TeamRow,
+    over_limit,
+    position_limits,
+)
 from . import perception
 from .season import SeasonModel, replacement_levels
 from .waivers import MIN_KEEP, _eligible, _ros, lineup_slots, roster_value
@@ -298,6 +306,7 @@ class TradeFinder:
         best of many priced on one set of seasons is the luckiest
         (DECISIONS.md, "The best of many is the luckiest")."""
         self.snapshot, self.model = snapshot, model
+        self.limits = position_limits(snapshot)
         self.check = check
         self.slots = snapshot.starting_slots
         self.replacement = replacement_levels(snapshot)
@@ -410,6 +419,9 @@ class TradeFinder:
             their_new, their_drop = _make_room(their_new, theirs_more, give_ids, his)
         if not (_keeps_minimums(my_new, self.me.roster, self._was_mine)
                 and _keeps_minimums(their_new, team.roster, self._was_theirs)):
+            return None
+        # Neither side may end up over a position limit the league sets.
+        if over_limit(my_new, self.limits) or over_limit(their_new, self.limits):
             return None
         my_add = self._fill(my_new) if mine_more < 0 else None
         if my_add is not None:

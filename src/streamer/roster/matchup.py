@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..config import Config, get_config
-from ..league.model import LeagueSnapshot, PlayerRow
+from ..league.model import LeagueSnapshot, PlayerRow, position_limits
 from .lineup import (
     Optimisation,
     PickupOption,
@@ -208,7 +208,8 @@ def this_week_pickups(snapshot: LeagueSnapshot, opt: Optimisation, n_sims: int =
         if o.gain <= 0:
             continue
         starting = {p.player_id for _s, p in o.lineup.flat()}
-        drops = [p for p in _droppable(me.roster, o.player) if p.player_id not in starting and not p.locked]
+        drops = [p for p in _droppable(me.roster, o.player, limits=position_limits(snapshot))
+                 if p.player_id not in starting and not p.locked]
         o.drop = drops[0] if drops else None
         out.append(o)
     return out[:PICKUPS_SHOWN]
@@ -235,7 +236,7 @@ def price_pickups(report: MatchupReport, engine) -> None:
         if o.player.player_id not in engine.model.pid:
             continue
         starting = {p.player_id for _s, p in o.lineup.flat()}
-        drops = [p for p in _droppable(me.roster, o.player, worth)
+        drops = [p for p in _droppable(me.roster, o.player, worth, position_limits(report.snapshot))
                  if p.player_id not in starting and not p.locked][: engine.n_drops]
         best = None
         for d in drops:

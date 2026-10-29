@@ -69,3 +69,18 @@ def test_an_open_roster_spot_is_priced_first_and_only_when_there_is_one(cfg):
     snap.bench_size = 1                                  # 8 spots, 8 players: full
     data = add_drop.build(engine, report, n_drops=3)
     assert not data["open_spot"] and not any(d.get("none") for a in data["adds"] for d in a["drops"])
+
+
+def test_a_recommended_waiver_move_is_always_priced_here(cfg):
+    """Sione Vaki was a recommended pickup but "not priced" in this table:
+    the table took the top free agents by season value and he was below them."""
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    _wire(snap, [_fa("star", "RB", 22.0), _fa("deep", "RB", 1.5)])
+    engine = TitleEngine(snap, cfg, n_sims=400, extra=add_drop.candidates(snap))
+    deep = next(p for p in snap.free_agents if p.player_id == "deep")
+    if deep.player_id not in engine.model.pid:
+        engine = TitleEngine(snap, cfg, n_sims=400, extra=add_drop.candidates(snap) + [deep])
+    report = SimpleNamespace(snapshot=snap, optimisation=None, title_moves=[SimpleNamespace(add=deep)])
+    data = add_drop.build(engine, report, n_drops=3, n_skill=1, n_units=0)
+    assert "deep" in {a["id"] for a in data["adds"]}
+    assert "deep" not in {o.get("id") for o in data["others"]}

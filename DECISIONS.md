@@ -4976,3 +4976,22 @@ independent +-0.5 numbers), and larger ones partly noise, partly news.
 
 No higher bar for reversing a move: the aim is the right move the first
 time, and a toss-up says so rather than naming a winner.
+
+## Position limits, and every recommended pickup priced
+
+ESPN caps how many players a roster may hold at a position (this league: 6
+backs; IR slots not counted). `espn_api` does not read the cap, so the
+waiver engine recommended a seventh back (Sione Vaki) with a receiver as the
+drop -- a move ESPN refuses. The sync now reads `rosterSettings.
+positionLimits` as ESPN sends them into `rules["position_limits"]`
+(`league.espn.position_limits`; 0 there is no limit), and everything that
+adds a player keeps to it: when an add would put you over his position's
+limit only a player at that position can make room (`_droppable`,
+`drop_candidates`: waiver moves, this week's pickups, Try a pickup), an open
+roster spot is not offered for him, and trades and multi-move waiver plans
+that leave either side over a limit are not priced. Yahoo leagues have no
+such limits here.
+
+Try a pickup also prices every player the waiver moves recommend: it took the
+top free agents by season value, and Vaki (3.3 a game, recommended for his
+upside) fell below the cut and read "not priced".

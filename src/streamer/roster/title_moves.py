@@ -43,7 +43,13 @@ from pathlib import Path
 import numpy as np
 
 from ..config import Config
-from ..league.model import IR_ELIGIBLE_STATUSES, LONG_TERM_OUT_STATUSES, LeagueSnapshot, PlayerRow
+from ..league.model import (
+    IR_ELIGIBLE_STATUSES,
+    LONG_TERM_OUT_STATUSES,
+    LeagueSnapshot,
+    PlayerRow,
+    position_limits,
+)
 from .season import SeasonModel, replacement_levels
 from .waivers import MIN_KEEP, handcuffs
 
@@ -288,16 +294,23 @@ def toss_up_text(options: list[tuple[PlayerRow, float]], market) -> str:
             + "; ".join(one(q, v) for q, v in options))
 
 
-def _droppable(roster: list[PlayerRow], add: PlayerRow, worth: dict[str, float] | None = None) -> list[PlayerRow]:
+def _droppable(roster: list[PlayerRow], add: PlayerRow, worth: dict[str, float] | None = None,
+               limits: dict[str, int] | None = None) -> list[PlayerRow]:
     """Who could go for ``add``, cheapest first: by what each is worth to your
     title (:meth:`TitleEngine.worth`) when known, else by season value plus
-    how far it could move."""
+    how far it could move. ``limits`` (the league's most at a position,
+    :func:`position_limits`): when adding him would put you over his
+    position's, only a player at that position can make room."""
     counts: dict[str, int] = {}
     for p in roster:
         counts[p.position] = counts.get(p.position, 0) + 1
+    active = sum(1 for p in roster if p.position == add.position and not p.in_ir_slot)
+    full = bool(limits) and add.position in limits and active + 1 > int(limits[add.position])
     out = []
     for p in roster:
         if p.in_ir_slot:
+            continue
+        if full and p.position != add.position:
             continue
         if p.position != add.position and counts.get(p.position, 0) - 1 < MIN_KEEP.get(p.position, 0):
             continue
@@ -312,11 +325,11 @@ def _droppable(roster: list[PlayerRow], add: PlayerRow, worth: dict[str, float] 
 
 
 def drop_candidates(roster: list[PlayerRow], add: PlayerRow, n: int,
-                    worth: dict[str, float] | None = None) -> list[PlayerRow]:
+                    worth: dict[str, float] | None = None, limits: dict[str, int] | None = None) -> list[PlayerRow]:
     """The ``n`` drops worth pricing for ``add``: the cheapest to your title,
     and always the cheapest at his own position -- the one he replaces, whose
     loss he covers."""
-    pool = _droppable(roster, add, worth)
+    pool = _droppable(roster, add, worth, limits)
     picks = pool[:n]
     same = next((p for p in pool if p.position == add.position), None)
     if worth and same is not None and same not in picks and n > 1:
@@ -647,7 +660,7 @@ class TitleEngine:
         least valuable player goes when he returns) or a filled one (its
         occupant goes now)."""
         out = [(y, self.value_now(x, y, per_sim=True), "")
-               for y in drop_candidates(self.me.roster, x, self.n_drops, worth)]
+               for y in drop_candidates(self.me.roster, x, self.n_drops, worth, position_limits(self.snapshot))]
         if not self.ir_slots or x.status not in IR_ELIGIBLE_STATUSES:
             return out
         later = self.later_drop(x, worth)
@@ -660,7 +673,7 @@ class TitleEngine:
     def later_drop(self, x: PlayerRow, worth: dict[str, float]) -> PlayerRow | None:
         """Who goes when a stash comes back and needs a bench spot: the
         cheapest drop for him."""
-        pool = _droppable(self.me.roster, x, worth)
+        pool = _droppable(self.me.roster, x, worth, position_limits(self.snapshot))
         return pool[0] if pool else None
 
     def value_stash(self, add: PlayerRow, drop: PlayerRow | None, later: PlayerRow | None,

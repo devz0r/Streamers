@@ -131,6 +131,25 @@ def ir_slot_count(position_slot_counts: dict[str, int]) -> int:
                if canonical_slot(label) == "IR")
 
 
+#: ESPN's position ids (``rosterSettings.positionLimits`` keys).
+_LIMIT_POSITIONS = {"0": "QB", "2": "RB", "4": "WR", "6": "TE", "16": "DST", "17": "K"}
+
+
+def position_limits(league: Any) -> dict[str, int]:
+    """Most players a roster may hold at each position (IR slots not
+    counted), from ``rosterSettings.positionLimits``; 0 there is no limit.
+    ``espn_api`` does not read it, so the settings are fetched as ESPN sends
+    them. Empty when unavailable."""
+    try:
+        raw = league.espn_request.league_get(params={"view": "mSettings"})
+        limits = (((raw or {}).get("settings") or {}).get("rosterSettings") or {}).get("positionLimits") or {}
+    except Exception as exc:  # noqa: BLE001 - a refinement; never block the sync
+        log.warning("ESPN position limits unavailable: %s", exc)
+        return {}
+    return {_LIMIT_POSITIONS[str(k)]: int(v) for k, v in limits.items()
+            if str(k) in _LIMIT_POSITIONS and int(v or 0) > 0}
+
+
 def identify_my_team(teams: list[Any], swid: str | None, team_id: str | None) -> str | None:
     """Work out which team is the user's.
 
@@ -186,6 +205,7 @@ def league_rules(league: Any) -> dict[str, Any]:
         "waiver": "faab" if _attr(settings, "faab", False) else "priority",
         "faab_budget": float(_attr(settings, "acquisition_budget", 0) or 0),
         "ir_slots": ir_slot_count(_attr(settings, "position_slot_counts", {}) or {}),
+        "position_limits": position_limits(league) if hasattr(league, "espn_request") else {},
         "trade_deadline": _deadline(_attr(settings, "trade_deadline", 0)),
         "schedule": sorted([list(p) for p in pairs]),
     }

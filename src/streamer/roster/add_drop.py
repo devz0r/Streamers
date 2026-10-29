@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..league.model import LeagueSnapshot, PlayerRow
+from ..league.model import LeagueSnapshot, PlayerRow, over_limit, position_limits
 from . import lineup as lu
 from .title_moves import drop_candidates
 from .value_trend import payload
@@ -66,6 +66,14 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
     snap = report.snapshot
     me = snap.my_team
     adds = [p for p in candidates(snap, n_skill, n_units) if p.player_id in engine.model.pid]
+    # Everyone the waiver moves recommend is priced here too, whatever his
+    # season value: the table must not call a recommended pickup "not priced".
+    seen_ids = {p.player_id for p in adds}
+    for m in getattr(report, "title_moves", None) or []:
+        if m.add.player_id not in seen_ids and m.add.player_id in engine.model.pid:
+            adds.append(m.add)
+            seen_ids.add(m.add.player_id)
+    limits = position_limits(snap)
     if not adds:
         return None
     worth = engine.worth_mean()
@@ -116,7 +124,7 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
     skill_rank = {p.player_id: i for i, p in enumerate(p for p in adds if p.position not in ("DST", "K"))}
     for a in adds:
         k = n_drops if skill_rank.get(a.player_id, 0) < n_full else min(n_tail, n_drops)
-        drops = [d for d in drop_candidates(roster, a, k + 2, worth) if not d.locked][:k]
+        drops = [d for d in drop_candidates(roster, a, k + 2, worth, limits) if not d.locked][:k]
         priced = []
         for d in drops:
             won = engine.value_now(a, d, per_sim=True)
@@ -124,7 +132,7 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
             noise = float(np.std(won - engine.base_won) / np.sqrt(len(won)))
             priced.append({**row(d), "title": round(title * 100, 2), "noise": round(2 * noise * 100, 2),
                            "win": None if (w := win_change(a, d)) is None else round(w * 100, 2)})
-        if open_spot:
+        if open_spot and not over_limit(list(me.roster) + [a], limits):
             won = engine._won([p.player_id for p in me.roster] + [a.player_id])
             noise = float(np.std(won - engine.base_won) / np.sqrt(len(won)))
             w = win_change(a, None)

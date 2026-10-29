@@ -400,6 +400,23 @@ _SLOT_ALIASES = {
 }
 
 
+def position_limits(snapshot: LeagueSnapshot | None) -> dict[str, int]:
+    """Most players a roster may hold at each position, as the league sets
+    them (players in an IR slot not counted); empty where there are none."""
+    return dict(((snapshot.rules if snapshot is not None else None) or {}).get("position_limits") or {})
+
+
+def over_limit(roster: list[PlayerRow], limits: dict[str, int] | None) -> bool:
+    """True when ``roster`` holds more at some position than the league allows."""
+    if not limits:
+        return False
+    counts: dict[str, int] = {}
+    for p in roster:
+        if not p.in_ir_slot:
+            counts[p.position] = counts.get(p.position, 0) + 1
+    return any(counts.get(pos, 0) > n for pos, n in limits.items())
+
+
 def canonical_position(label: str | None) -> str:
     """Map a platform position label onto :data:`POSITIONS`."""
     if not label:

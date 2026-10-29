@@ -25,7 +25,7 @@ of the move is the model.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..config import Config
 from ..league.model import LeagueSnapshot, PlayerRow
@@ -66,7 +66,7 @@ def record(snapshot: LeagueSnapshot, cfg: Config) -> int:
     if not rows:
         return 0
     path = cfg.results_dir / HISTORY
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    now = datetime.now(UTC).isoformat(timespec="seconds")
     new = pd.DataFrame({"season": int(snapshot.season), "week": int(snapshot.week),
                         "player_id": list(rows), "ros_value": list(rows.values()),
                         "epoch": MODEL_EPOCH, "logged_at": now})

@@ -27,7 +27,7 @@ from itertools import combinations
 
 import numpy as np
 
-from ..league.model import PlayerRow
+from ..league.model import PlayerRow, over_limit, position_limits
 from .season import replacement_levels
 from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, drop_choice, toss_up_text, toss_ups
 from .waivers import MIN_KEEP, _ros, roster_value
@@ -125,6 +125,7 @@ TRADE_VALUE_NOTE = 1.0
 class PlanFinder:
     def __init__(self, engine: TitleEngine, singles: list | None = None, seen: dict | None = None):
         self.engine = engine
+        self.limits = position_limits(engine.snapshot)
         self.seen = seen or {}
         self.snapshot = engine.snapshot
         self.me = engine.me
@@ -133,6 +134,11 @@ class PlanFinder:
         self.singles = singles or []
         self._won_cache: dict[tuple, np.ndarray] = {}
         self._worth: dict[str, float] | None = None
+
+    def _legal(self, new: list[PlayerRow], roster: list[PlayerRow]) -> bool:
+        """The roster after the plan keeps every position's minimum and stays
+        within the league's position limits."""
+        return _keeps_minimums(new, roster) and not over_limit(new, self.limits)
 
     def value(self, roster: list[PlayerRow]) -> float:
         return roster_value(roster, self.slots, _ros, self.replacement, with_upside=True)
@@ -153,7 +159,7 @@ class PlanFinder:
         for x in self.engine.candidates:
             for y in drops:
                 new = [p for p in roster if p is not y] + [x]
-                if not _keeps_minimums(new, roster):
+                if not self._legal(new, roster):
                     continue
                 g = self.value(new) - base
                 if x.player_id not in best_alone or g > best_alone[x.player_id][0]:
@@ -172,7 +178,7 @@ class PlanFinder:
             for add_set in combinations(adds, k):
                 for drop_set in combinations(drops, k):
                     new = [p for p in roster if p not in drop_set] + list(add_set)
-                    if not _keeps_minimums(new, roster):
+                    if not self._legal(new, roster):
                         continue
                     g = self.value(new) - base
                     if g <= best_single:
@@ -330,7 +336,7 @@ class PlanFinder:
                     continue
                 drops = [q for q in plan.drops if q is not d] + [r]
                 new = [q for q in roster if q not in drops] + plan.adds
-                if _keeps_minimums(new, roster):
+                if self._legal(new, roster):
                     out.append((r, self._won(new)))
             return out
 
