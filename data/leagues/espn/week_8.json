@@ -64943,7 +64943,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-10-29T13:05:12.536595+00:00",
+  "synced_at": "2026-10-29T13:17:54.804018+00:00",
   "extra": {
     "nfl_week": 8,
     "current_week": 8
@@ -64959,6 +64959,11 @@
     "waiver": "priority",
     "faab_budget": 100.0,
     "ir_slots": 2,
+    "position_limits": {
+      "RB": 6,
+      "WR": 3,
+      "DST": 3
+    },
     "trade_deadline": "2026-11-11",
     "schedule": [
       [
