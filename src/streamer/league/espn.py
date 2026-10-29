@@ -131,8 +131,11 @@ def ir_slot_count(position_slot_counts: dict[str, int]) -> int:
                if canonical_slot(label) == "IR")
 
 
-#: ESPN's position ids (``rosterSettings.positionLimits`` keys).
-_LIMIT_POSITIONS = {"0": "QB", "2": "RB", "4": "WR", "6": "TE", "16": "DST", "17": "K"}
+#: ESPN's player position ids (``defaultPositionId``), which key
+#: ``rosterSettings.positionLimits`` -- not the lineup-slot ids
+#: (``lineupSlotCounts``, where 4 is WR and 6 TE). Read with the slot ids,
+#: this league's TE limit of 3 came out as "WR 3" and every roster looked over.
+_LIMIT_POSITIONS = {"1": "QB", "2": "RB", "3": "WR", "4": "TE", "5": "K", "16": "DST"}
 
 
 def position_limits(league: Any) -> dict[str, int]:

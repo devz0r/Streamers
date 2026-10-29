@@ -27,7 +27,7 @@ from itertools import combinations
 
 import numpy as np
 
-from ..league.model import PlayerRow, over_limit, position_limits
+from ..league.model import PlayerRow, breaks_limit, position_limits
 from .season import replacement_levels
 from .title_moves import MIN_GAIN, TOSS_UP_SE, TitleEngine, drop_choice, toss_up_text, toss_ups
 from .waivers import MIN_KEEP, _ros, roster_value
@@ -138,7 +138,7 @@ class PlanFinder:
     def _legal(self, new: list[PlayerRow], roster: list[PlayerRow]) -> bool:
         """The roster after the plan keeps every position's minimum and stays
         within the league's position limits."""
-        return _keeps_minimums(new, roster) and not over_limit(new, self.limits)
+        return _keeps_minimums(new, roster) and not breaks_limit(roster, new, self.limits)
 
     def value(self, roster: list[PlayerRow]) -> float:
         return roster_value(roster, self.slots, _ros, self.replacement, with_upside=True)

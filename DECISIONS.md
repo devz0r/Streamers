@@ -4995,3 +4995,12 @@ such limits here.
 Try a pickup also prices every player the waiver moves recommend: it took the
 top free agents by season value, and Vaki (3.3 a game, recommended for his
 upside) fell below the cut and read "not priced".
+
+*Fix, same day:* `positionLimits` is keyed by player position id (1 QB, 2 RB,
+3 WR, 4 TE, 5 K, 16 D/ST), not the lineup-slot ids `espn_api` maps (4 WR, 6
+TE). Read with the slot ids, the TE limit of 3 came out as "WR 3", every
+roster (4-7 receivers) looked over it, and one refresh priced trades and
+receiver drops under it. This league's limits are RB 6, TE 3, D/ST 3. Trades
+and plans are now blocked only by a limit they break (`breaks_limit`: over it
+after, and more there than before), so a roster already over a limit is not
+locked out of deals that leave that position alone.

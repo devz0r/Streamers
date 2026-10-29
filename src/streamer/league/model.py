@@ -417,6 +417,24 @@ def over_limit(roster: list[PlayerRow], limits: dict[str, int] | None) -> bool:
     return any(counts.get(pos, 0) > n for pos, n in limits.items())
 
 
+def breaks_limit(before: list[PlayerRow], after: list[PlayerRow], limits: dict[str, int] | None) -> bool:
+    """True when ``after`` goes over a position limit that ``before`` kept to,
+    or adds players at a position already over it (a roster over a limit
+    before a deal is not blocked by it for positions the deal leaves alone)."""
+    if not limits:
+        return False
+
+    def counts(roster):
+        out: dict[str, int] = {}
+        for p in roster:
+            if not p.in_ir_slot:
+                out[p.position] = out.get(p.position, 0) + 1
+        return out
+
+    was, now = counts(before), counts(after)
+    return any(now.get(pos, 0) > n and now.get(pos, 0) > was.get(pos, 0) for pos, n in limits.items())
+
+
 def canonical_position(label: str | None) -> str:
     """Map a platform position label onto :data:`POSITIONS`."""
     if not label:

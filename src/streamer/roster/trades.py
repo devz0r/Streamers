@@ -51,7 +51,7 @@ from ..league.model import (
     LeagueSnapshot,
     PlayerRow,
     TeamRow,
-    over_limit,
+    breaks_limit,
     position_limits,
 )
 from . import perception
@@ -421,7 +421,7 @@ class TradeFinder:
                 and _keeps_minimums(their_new, team.roster, self._was_theirs)):
             return None
         # Neither side may end up over a position limit the league sets.
-        if over_limit(my_new, self.limits) or over_limit(their_new, self.limits):
+        if breaks_limit(self.me.roster, my_new, self.limits) or breaks_limit(team.roster, their_new, self.limits):
             return None
         my_add = self._fill(my_new) if mine_more < 0 else None
         if my_add is not None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace as NS
 
 from streamer.league.espn import position_limits as espn_limits
-from streamer.league.model import PlayerRow, over_limit, position_limits
+from streamer.league.model import PlayerRow, breaks_limit, over_limit, position_limits
 from streamer.roster.title_moves import _droppable, drop_candidates
 
 
@@ -17,9 +17,12 @@ def _p(pid, pos, ros=5.0, ir=False):
 
 
 def test_espn_limits_are_read_from_its_roster_settings():
-    raw = {"settings": {"rosterSettings": {"positionLimits": {"0": 4, "2": 6, "4": 0, "6": 3, "16": 2, "17": 0}}}}
+    # Keyed by player position id (1 QB, 2 RB, 3 WR, 4 TE, 5 K, 16 D/ST), as
+    # this league sends them: six backs, three tight ends, three defences.
+    raw = {"settings": {"rosterSettings": {"positionLimits": {"0": 0, "1": 0, "2": 6, "3": 0, "4": 3, "5": 0,
+                                                               "16": 3, "17": 0}}}}
     league = NS(espn_request=NS(league_get=lambda params=None: raw))
-    assert espn_limits(league) == {"QB": 4, "RB": 6, "TE": 3, "DST": 2}       # 0 is no limit
+    assert espn_limits(league) == {"RB": 6, "TE": 3, "DST": 3}               # 0 is no limit
     broken = NS(espn_request=NS(league_get=lambda params=None: (_ for _ in ()).throw(RuntimeError("down"))))
     assert espn_limits(broken) == {}
 
@@ -46,3 +49,13 @@ def test_a_full_position_can_only_make_room_at_that_position():
 def test_limits_come_from_the_snapshot_rules():
     assert position_limits(NS(rules={"position_limits": {"RB": 6}})) == {"RB": 6}
     assert position_limits(NS(rules=None)) == {} and position_limits(None) == {}
+
+
+def test_a_deal_is_only_blocked_by_a_limit_it_breaks():
+    """A roster already over a limit (one set mid-season, or read wrong) is
+    not blocked from deals that leave that position alone."""
+    roster = [_p(f"wr{i}", "WR") for i in range(5)] + [_p("rb", "RB")]
+    swap = roster[:4] + [_p("wr9", "WR"), _p("rb", "RB")]                 # a receiver for a receiver
+    assert not breaks_limit(roster, swap, {"WR": 3})
+    assert breaks_limit(roster, roster + [_p("wr8", "WR")], {"WR": 3})   # one more where already over
+    assert breaks_limit(roster, roster + [_p("rb2", "RB")], {"RB": 1})

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..league.model import LeagueSnapshot, PlayerRow, over_limit, position_limits
+from ..league.model import LeagueSnapshot, PlayerRow, breaks_limit, position_limits
 from . import lineup as lu
 from .title_moves import drop_candidates
 from .value_trend import payload
@@ -132,7 +132,7 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
             noise = float(np.std(won - engine.base_won) / np.sqrt(len(won)))
             priced.append({**row(d), "title": round(title * 100, 2), "noise": round(2 * noise * 100, 2),
                            "win": None if (w := win_change(a, d)) is None else round(w * 100, 2)})
-        if open_spot and not over_limit(list(me.roster) + [a], limits):
+        if open_spot and not breaks_limit(me.roster, list(me.roster) + [a], limits):
             won = engine._won([p.player_id for p in me.roster] + [a.player_id])
             noise = float(np.std(won - engine.base_won) / np.sqrt(len(won)))
             w = win_change(a, None)
