@@ -99,6 +99,7 @@ def build(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, dict]:
         return {}
     last = int(stats["week"].max())
     played = stats.groupby("_team")["week"].agg(set).to_dict()          # team -> weeks it played
+    schedule = _schedule(cfg, season)                                     # team -> weeks it has a game
     by_id = {pid: g for pid, g in stats.groupby("player_id")}
     by_name = {k: g for k, g in stats[stats["position"].isin(POSITIONS)].groupby(["_name", "_team"])}
     out: dict[str, dict] = {}
@@ -115,6 +116,7 @@ def build(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, dict]:
         rows = {int(r["week"]): r for _i, r in g.iterrows()} if g is not None else {}
         if not rows and p.position != "K":
             continue                                                    # a rookie who has not played: nothing to show
+        games_by_team = schedule
         games = []
         for w in range(1, last + 1):
             r = rows.get(w)
@@ -123,11 +125,35 @@ def build(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, dict]:
                 games.append([w, r.get("opponent_team") or "", round(float(r["fantasy_points_ppr"]), 1), snap,
                               line(p.position, r)])
             elif team and w not in played.get(team, set()):
-                games.append([w, "bye"])
+                # No stats for his team that week: a bye only if the schedule
+                # has no game; otherwise it has not been played yet (the week
+                # in progress -- Thursday's game is in, Sunday's are not).
+                if games_by_team is None:
+                    if w < last:
+                        games.append([w, "bye"])
+                elif w not in games_by_team.get(team, set()):
+                    games.append([w, "bye"])
             else:
                 games.append([w, "-"])
         out[key] = {"n": p.name, "t": p.team or "", "p": p.position, "g": games,
                     "v": _value(p)}
+    return out
+
+
+def _schedule(cfg: Config, season: int) -> dict[str, set[int]] | None:
+    """Team -> the regular-season weeks it has a game, from nflverse's
+    schedule; None when it is not on disk."""
+    from ..teams import normalize_team
+
+    path = cfg.raw_dir / "schedules.parquet"
+    if not path.exists():
+        return None
+    s = pd.read_parquet(path, columns=["season", "game_type", "week", "home_team", "away_team"])
+    s = s[(s["season"] == season) & (s["game_type"] == "REG")]
+    out: dict[str, set[int]] = {}
+    for r in s.itertuples():
+        for t in (r.home_team, r.away_team):
+            out.setdefault(normalize_team(t), set()).add(int(r.week))
     return out
 
 
