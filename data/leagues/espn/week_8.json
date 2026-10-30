@@ -9560,7 +9560,7 @@
           "name": "Rashee Rice",
           "position": "WR",
           "team": "KC",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
@@ -9912,7 +9912,7 @@
           "name": "Aaron Jones Sr.",
           "position": "RB",
           "team": "MIN",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -52046,7 +52046,7 @@
       "name": "Gavin Bartholomew",
       "position": "TE",
       "team": "MIN",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -64943,7 +64943,7 @@
     "my_points": 23.2,
     "opp_points": 32.7
   },
-  "synced_at": "2026-10-30T18:10:25.820763+00:00",
+  "synced_at": "2026-10-30T18:26:51.345881+00:00",
   "extra": {
     "nfl_week": 8,
     "current_week": 8
