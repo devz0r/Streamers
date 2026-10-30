@@ -112,6 +112,9 @@ class Fallback:
     options: list[tuple[PlayerRow, str]] = field(default_factory=list)
     #: The replacement the win odds count on (None: none in time).
     priced: PlayerRow | None = None
+    #: For an option who cannot play the slot himself: the flex starter who
+    #: moves into it and the flex slot the option takes (player id -> (y, slot)).
+    moves: dict[str, tuple[PlayerRow, str]] = field(default_factory=dict)
 
 
 #: Replacements listed per questionable starter.
@@ -301,6 +304,24 @@ def _in_time(b: PlayerRow, kx: datetime) -> bool:
     return kb is not None and kb >= kx - INACTIVES_LEAD
 
 
+def _reach(c: PlayerRow, slot: str, x: PlayerRow, lineup: dict[str, list[PlayerRow]],
+           kx: datetime) -> tuple[PlayerRow, str] | None | bool:
+    """How ``c`` can take ``x``'s place in ``slot`` when ``x`` is ruled out:
+    True straight in (he is eligible for the slot); or (y, flex slot) -- a
+    flex starter ``y`` who can play ``slot`` moves into it and ``c`` takes
+    his flex spot, which needs ``y``'s own game not begun by then (a player
+    whose game has kicked off is locked in place). None when neither."""
+    if _eligible(c, slot):
+        return True
+    for fs, ps in lineup.items():
+        if fs == slot or len(SLOT_ELIGIBILITY.get(fs, (fs,))) < 2 or not _eligible(c, fs):
+            continue
+        for y in ps:
+            if y is not x and not y.locked and _eligible(y, slot) and _in_time(y, kx):
+                return (y, fs)
+    return None
+
+
 def swap_plan(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow],
               wire: Wire | None = None) -> list[tuple[PlayerRow, PlayerRow, str]]:
     """(questionable starter, who replaces him, how) for each starter who may
@@ -325,8 +346,8 @@ def swap_plan(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow],
             kx = _kick(x)
             if x.locked or q >= 1.0 or q <= 0.0 or kx is None:
                 continue
-            ok = lambda c, kx=kx, slot=slot: (c.player_id not in used and _in_time(c, kx)  # noqa: E731
-                                              and _eligible(c, slot))
+            ok = lambda c, kx=kx, slot=slot, x=x: (c.player_id not in used and _in_time(c, kx)  # noqa: E731
+                                                   and _reach(c, slot, x, lineup, kx) is not None)
             b = next((c for c in bench if ok(c)), None)
             w = next((c for c in free if ok(c)), None) if (open_spots or ir_open) else None
             if w is not None and (b is None or w.week_value > b.week_value):
@@ -765,16 +786,26 @@ def fallback_plans(lineup: dict[str, list[PlayerRow]], roster: list[PlayerRow],
             kx = _kick(x)
             if x.locked or q >= 1.0 or q <= 0.0 or kx is None:
                 continue
-            fits = lambda c, kx=kx, slot=slot: (_in_time(c, kx) and _eligible(c, slot)  # noqa: E731
-                                                and not c.locked)
+            moves: dict[str, tuple[PlayerRow, str]] = {}
+
+            def fits(c, kx=kx, slot=slot, x=x, moves=moves):
+                if not _in_time(c, kx) or c.locked:
+                    return False
+                how = _reach(c, slot, x, lineup, kx)
+                if isinstance(how, tuple):
+                    moves[c.player_id] = how
+                return how is not None
+
             opts = [(c, HOW_BENCH) for c in roster
                     if c.player_id not in started and not c.in_ir_slot and fits(c)]
             if room is not None:
                 opts += [(c, room) for c in wire.players
                          if c.player_id not in have and not c.is_out and not c.in_ir_slot and fits(c)]
             opts.sort(key=lambda o: -o[0].week_value)
+            shown = opts[:FALLBACKS_SHOWN]
             out.append(Fallback(starter=x, slot=slot, deadline=kx - INACTIVES_LEAD,
-                                options=opts[:FALLBACKS_SHOWN], priced=priced.get(x.player_id)))
+                                options=shown, priced=priced.get(x.player_id),
+                                moves={c.player_id: moves[c.player_id] for c, _h in shown if c.player_id in moves}))
     return out
 
 

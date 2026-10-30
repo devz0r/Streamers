@@ -70,6 +70,9 @@ def _fallback_card(opt) -> str:
                     f"free agent: move {f.starter.name} to IR once he is marked out, then add him"
                     if how == HOW_IR else how)
             mark = " <b>&larr; counted in your P(win)</b>" if f.priced is not None and c.player_id == f.priced.player_id else ""
+            move = (getattr(f, "moves", None) or {}).get(c.player_id)
+            if move is not None:
+                step += f"; move {move[0].name} to {f.slot} and start {c.name} at {move[1]}"
             rows.append(f"<li>{_e(c.name)} ({_e(c.position)}, {_e(c.team or '--')}) "
                         f"{c.week_value:.1f} -- {_e(step)}{mark}</li>")
         tail = ("" if any(h != HOW_BENCH for _c, h in f.options) else

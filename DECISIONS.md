@@ -5004,3 +5004,15 @@ receiver drops under it. This league's limits are RB 6, TE 3, D/ST 3. Trades
 and plans are now blocked only by a limit they break (`breaks_limit`: over it
 after, and more there than before), so a roster already over a limit is not
 locked out of deals that leave that position alone.
+
+## Late swaps through the flex
+
+A questionable starter's cover had to be eligible for his own slot, so Emeka
+Egbuka (WR slot) was offered only receivers -- though a receiver starting at
+FLEX could slide into the WR slot and any back, receiver or tight end take
+the FLEX. `lineup._reach` now allows that: a flex starter eligible for the
+slot, whose own game has not begun by the inactives (one already playing is
+locked in place), moves over and the cover takes his flex spot. The late
+swap the win odds count on (`swap_plan`) and the "If a questionable starter
+is ruled out" list both use it, and the list names the extra step ("move X
+to WR and start Y at FLEX").

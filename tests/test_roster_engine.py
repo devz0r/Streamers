@@ -659,3 +659,32 @@ def test_the_opponents_best_lineup_counts_the_late_swap():
     pick = lineup.best_expected([{"WR": [q]}, {"WR": [b]}], [q, b])
     assert pick == {"WR": [q]}
     assert abs(lineup.expected_with_swaps({"WR": [q]}, [q, b]) - (10.0 + 0.4 * 11.3)) < 1e-9
+
+
+def test_a_ruled_out_receiver_can_be_covered_by_a_back_through_the_flex():
+    """Emeka Egbuka (WR slot) questionable: only receivers were offered, but a
+    receiver starting at FLEX can slide into the WR slot and any back,
+    receiver or tight end take the FLEX -- if that receiver's game has not
+    begun by Egbuka's inactives."""
+    late = "2026-11-01T20:25:00+00:00"
+    q = PlayerRow(player_id="q", name="Emeka Egbuka", position="WR", status="QUESTIONABLE", slot="WR",
+                  projection=12.0, projection_sd=6.0, outcome_sd=6.0, play_probability=0.67,
+                  kickoff="2026-11-01T17:00:00+00:00")
+    y = PlayerRow(player_id="y", name="Flex Receiver", position="WR", slot="FLEX", projection=11.0,
+                  projection_sd=5.0, outcome_sd=5.0, kickoff=late)
+    rb = _fa("rb", late, proj=10.0, pos="RB")
+    wr = _fa("wr", late, proj=6.0)
+    lu = {"WR": [q], "FLEX": [y]}
+    wire = lineup.Wire([rb, wr], ir_open=1)
+    assert lineup.swap_plan(lu, [q, y], wire) == [(q, rb, lineup.HOW_IR)]          # the better back, via the flex
+    (f,) = lineup.fallback_plans(lu, [q, y], wire)
+    assert [c.player_id for c, _h in f.options] == ["rb", "wr"]
+    assert f.moves["rb"] == (y, "FLEX") and "wr" not in f.moves
+    from streamer.roster.page import _fallback_card
+
+    html = _fallback_card(type("O", (), {"fallbacks": [f]})())
+    assert "move Flex Receiver to WR and start FA rb at FLEX" in html
+    # The flex receiver playing in London that morning: his game has begun by
+    # Egbuka's inactives, so he cannot move and no back can come in.
+    y.kickoff = "2026-11-01T13:30:00+00:00"
+    assert lineup.swap_plan(lu, [q, y], wire) == [(q, wr, lineup.HOW_IR)]
