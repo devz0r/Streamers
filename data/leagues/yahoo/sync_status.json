@@ -2,7 +2,7 @@
   "profile": "yahoo",
   "platform": "yahoo",
   "week": 8,
-  "ok": false,
-  "error": "could not find your team on the league page; set YAHOO_TEAM_ID",
-  "at": "2026-10-31T08:51:13+00:00"
+  "ok": true,
+  "error": "",
+  "at": "2026-10-31T17:22:26+00:00"
 }
