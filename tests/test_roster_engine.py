@@ -688,3 +688,15 @@ def test_a_ruled_out_receiver_can_be_covered_by_a_back_through_the_flex():
     # Egbuka's inactives, so he cannot move and no back can come in.
     y.kickoff = "2026-11-01T13:30:00+00:00"
     assert lineup.swap_plan(lu, [q, y], wire) == [(q, wr, lineup.HOW_IR)]
+
+
+def test_the_stash_cards_show_the_number_they_are_ranked_by(cfg):
+    from streamer.roster.page import team_sections
+
+    snap = snapshot(week=5)
+    report = build_report(snap, cfg)
+    tickets = waivers.stashes(snap, waivers.recommend(snap), n=3)
+    html = team_sections(snap, report, waivers.recommend(snap), cfg)["waivers"]
+    if tickets:
+        assert f"+{tickets[0].value:.1f}</div>" in html and "could be worth" in html
+        assert [t.value for t in tickets] == sorted((t.value for t in tickets), reverse=True)

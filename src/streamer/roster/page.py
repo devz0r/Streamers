@@ -233,15 +233,20 @@ def team_sections(
                 '<div class="rank">&#8599;</div>'
                 f'<div>{face(p)}<span class="name">{_e(p.name)}</span> '
                 f'<span class="opp">{pos_chip(p.position)} {_e(p.team or "")}</span></div>'
-                f'<div class="pts">{t.ceiling:.1f}</div></div>'
-                f'<div class="why">{(p.ros_value or 0):.1f} a game now{trend(p)}; {_e("; ".join(t.reasons))}</div></div>'
+                f'<div class="pts" title="expected points a game he could add over your weakest starter">'
+                f'+{t.value:.1f}</div></div>'
+                f'<div class="why">{(p.ros_value or 0):.1f} a game now{trend(p)}, could be worth '
+                f'{t.ceiling:.1f}; {_e("; ".join(t.reasons))}</div></div>'
             )
         waivers.append(
             "<h3>Upside stashes</h3>"
             '<p class="sub">Not enough projected value to clear the bar yet, but the most room '
-            "to grow. The number is what he could be worth a game in a month if things break "
-            "his way (85th percentile of how projections move). Worth a bench spot you would "
-            "otherwise waste.</p>" + "".join(cards))
+            "to grow, best first. The number is what he could add to your lineup: the points a "
+            "game by which he could outgrow the weakest starter he would replace, plus, for a "
+            "handcuff, the chance the lead back misses time times what the job is worth. "
+            "<i>Could be worth</i> is his ceiling a game in a month if things break his way (85th "
+            "percentile of how projections move). Worth a bench spot you would otherwise waste.</p>"
+            + "".join(cards))
     waivers.append(_try_pickup(report))
     waivers.append(_lottery(snapshot, cfg))
     if getattr(report, "roster_values", None):
