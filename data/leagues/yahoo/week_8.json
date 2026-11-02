@@ -3246,7 +3246,7 @@
         },
         {
           "player_id": "100030",
-          "name": "Jaguars",
+          "name": "Jacksonville",
           "position": "DST",
           "team": "JAX",
           "status": "",
@@ -12945,7 +12945,7 @@
         },
         {
           "player_id": "100028",
-          "name": "Commanders",
+          "name": "Washington",
           "position": "DST",
           "team": "WAS",
           "status": "",
@@ -28506,7 +28506,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-02T01:48:42.232452+00:00",
+  "synced_at": "2026-11-02T01:57:05.837336+00:00",
   "extra": {
     "source": "yahoo-web"
   },
