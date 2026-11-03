@@ -8745,7 +8745,7 @@
         },
         {
           "player_id": "100008",
-          "name": "Lions",
+          "name": "Detroit",
           "position": "DST",
           "team": "DET",
           "status": "",
@@ -9643,17 +9643,14 @@
         },
         {
           "player_id": "99001",
-          "name": "Travis Hunter",
-          "position": "WR",
-          "team": "JAX",
-          "status": "",
+          "name": "--empty--",
+          "position": "",
+          "team": null,
+          "status": "NA",
           "slot": "BN",
-          "eligible_slots": [
-            "WR",
-            "FLEX"
-          ],
+          "eligible_slots": [],
           "on_bye": false,
-          "platform_projection": 3.48,
+          "platform_projection": null,
           "season_avg": null,
           "percent_owned": 10.0,
           "projection": null,
@@ -9914,7 +9911,7 @@
         },
         {
           "player_id": "100014",
-          "name": "Rams",
+          "name": "Los Angeles",
           "position": "DST",
           "team": "LA",
           "status": "",
@@ -26746,7 +26743,7 @@
     },
     {
       "player_id": "100009",
-      "name": "Packers",
+      "name": "Green Bay",
       "position": "DST",
       "team": "GB",
       "status": "",
@@ -26813,7 +26810,7 @@
     },
     {
       "player_id": "100027",
-      "name": "Buccaneers",
+      "name": "Tampa Bay",
       "position": "DST",
       "team": "TB",
       "status": "",
@@ -26880,7 +26877,7 @@
     },
     {
       "player_id": "100013",
-      "name": "Raiders",
+      "name": "Las Vegas",
       "position": "DST",
       "team": "LV",
       "status": "",
@@ -26947,7 +26944,7 @@
     },
     {
       "player_id": "100001",
-      "name": "Falcons",
+      "name": "Atlanta",
       "position": "DST",
       "team": "ATL",
       "status": "",
@@ -27014,7 +27011,7 @@
     },
     {
       "player_id": "100020",
-      "name": "Jets",
+      "name": "New York",
       "position": "DST",
       "team": "NYJ",
       "status": "",
@@ -27081,7 +27078,7 @@
     },
     {
       "player_id": "100012",
-      "name": "Chiefs",
+      "name": "Kansas City",
       "position": "DST",
       "team": "KC",
       "status": "",
@@ -27148,7 +27145,7 @@
     },
     {
       "player_id": "100002",
-      "name": "Bills",
+      "name": "Buffalo",
       "position": "DST",
       "team": "BUF",
       "status": "",
@@ -27215,7 +27212,7 @@
     },
     {
       "player_id": "100006",
-      "name": "Cowboys",
+      "name": "Dallas",
       "position": "DST",
       "team": "DAL",
       "status": "",
@@ -27282,7 +27279,7 @@
     },
     {
       "player_id": "100021",
-      "name": "Eagles",
+      "name": "Philadelphia",
       "position": "DST",
       "team": "PHI",
       "status": "",
@@ -27349,7 +27346,7 @@
     },
     {
       "player_id": "100029",
-      "name": "Panthers",
+      "name": "Carolina",
       "position": "DST",
       "team": "CAR",
       "status": "",
@@ -27416,7 +27413,7 @@
     },
     {
       "player_id": "100024",
-      "name": "Chargers",
+      "name": "Los Angeles",
       "position": "DST",
       "team": "LAC",
       "status": "",
@@ -27483,7 +27480,7 @@
     },
     {
       "player_id": "100033",
-      "name": "Ravens",
+      "name": "Baltimore",
       "position": "DST",
       "team": "BAL",
       "status": "",
@@ -27550,7 +27547,7 @@
     },
     {
       "player_id": "100015",
-      "name": "Dolphins",
+      "name": "Miami",
       "position": "DST",
       "team": "MIA",
       "status": "",
@@ -27617,7 +27614,7 @@
     },
     {
       "player_id": "100022",
-      "name": "Cardinals",
+      "name": "Arizona",
       "position": "DST",
       "team": "ARI",
       "status": "",
@@ -27684,7 +27681,7 @@
     },
     {
       "player_id": "100025",
-      "name": "49ers",
+      "name": "San Francisco",
       "position": "DST",
       "team": "SF",
       "status": "",
@@ -27751,7 +27748,7 @@
     },
     {
       "player_id": "100019",
-      "name": "Giants",
+      "name": "New York",
       "position": "DST",
       "team": "NYG",
       "status": "",
@@ -27818,7 +27815,7 @@
     },
     {
       "player_id": "100018",
-      "name": "Saints",
+      "name": "New Orleans",
       "position": "DST",
       "team": "NO",
       "status": "",
@@ -28437,7 +28434,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-03T03:42:49.252195+00:00",
+  "synced_at": "2026-11-03T03:56:59.145055+00:00",
   "extra": {
     "source": "yahoo-web"
   },
