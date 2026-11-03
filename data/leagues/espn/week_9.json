@@ -173,7 +173,7 @@
           "position": "QB",
           "team": "BAL",
           "status": "OUT",
-          "slot": "QB",
+          "slot": "BN",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -664,7 +664,7 @@
           "position": "QB",
           "team": "DET",
           "status": "",
-          "slot": "BN",
+          "slot": "QB",
           "eligible_slots": [
             "QB",
             "SUPERFLEX"
@@ -802,7 +802,7 @@
           "position": "RB",
           "team": "PIT",
           "status": "",
-          "slot": "RB",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -1010,7 +1010,7 @@
           "position": "RB",
           "team": "DEN",
           "status": "",
-          "slot": "BN",
+          "slot": "RB",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -65014,7 +65014,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-03T11:42:43.105480+00:00",
+  "synced_at": "2026-11-03T12:19:51.310676+00:00",
   "extra": {
     "nfl_week": 9,
     "current_week": 9
