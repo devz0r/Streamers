@@ -212,3 +212,16 @@ def test_a_kickers_game_log_points_follow_each_leagues_sheet():
     e = _kicker_points(df, get_config().for_profile("espn"))
     y = _kicker_points(df, get_config().for_profile("yahoo"))
     assert list(e) == [16.0, 11.5, 0.0] and list(y) == [17.0, 13.0, 0.0]
+
+
+def test_a_defences_game_log_follows_each_leagues_sheet():
+    """Jacksonville 2026 weeks 1 and 3, by hand. Week 1: 10 allowed, 272 yds, 5 sacks, an INT, a
+    recovery, a fourth-down stop. ESPN: 3 + 2 (yards) + 10 + 2.5 + 2 = 19.5; Yahoo: 4 + 5 + 2 + 2 + 1 = 14.
+    Week 3: 6 allowed, 3 sacks, 2 INT, a recovery, a stop. Yahoo: 7 + 3 + 4 + 2 + 1 = 17."""
+    from streamer.roster.game_log import dst_games
+
+    e = dst_games(get_config().for_profile("espn"), 2026)
+    y = dst_games(get_config().for_profile("yahoo"), 2026)
+    assert (e[("JAX", 1)][1], y[("JAX", 1)][1], y[("JAX", 3)][1]) == (19.5, 14.0, 17.0)
+    assert "4th-down stop" in y[("JAX", 1)][2] and "4th-down stop" not in e[("JAX", 1)][2]
+    assert y[("JAX", 1)][2].startswith("10 pts allowed, 272 yds, 5 sck")

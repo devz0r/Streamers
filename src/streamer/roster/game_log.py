@@ -9,7 +9,8 @@ has no stat line (inactive, or never got on the field).
 
 Players are matched to nflverse by the id projections already found
 (``nfl_id``), falling back to name and team for those without one (kickers).
-Defences have no weekly stat line in nflverse and are left out.
+Defences are built from the play-by-play (:func:`dst_games`), scored on
+the league's D/ST sheet, and keyed by team.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from ..league.model import LeagueSnapshot, PlayerRow
 
 log = logging.getLogger(__name__)
 
-POSITIONS = ("QB", "RB", "WR", "TE", "K")
+POSITIONS = ("QB", "RB", "WR", "TE", "K", "DST")
 
 
 def _n(row, col: str) -> int:
@@ -92,6 +93,43 @@ def _kicker_points(stats: pd.DataFrame, cfg: Config) -> pd.Series:
     return pts.where(~k, total)
 
 
+def dst_line(r, skip: tuple[str, ...] = ()) -> str:
+    """A defence's game in a line: what it allowed and what it took."""
+    parts = [f"{int(r['points_allowed'])} pts allowed"]
+    if r.get("yards_allowed"):
+        parts.append(f"{int(r['yards_allowed'])} yds")
+    for col, label in (("sacks", "sck"), ("interceptions", "INT"), ("fumble_recoveries", "FR"),
+                       ("safeties", "safety"), ("defensive_tds", "def TD"), ("return_tds", "ret TD"),
+                       ("blocked_kicks", "blk"), ("fourth_down_stops", "4th-down stop")):
+        v = 0.0 if col in skip else float(r.get(col) or 0)
+        if v:
+            parts.append(f"{v:g} {label}")
+    return ", ".join(parts)
+
+
+def dst_games(cfg: Config, season: int) -> dict[tuple[str, int], list]:
+    """(team, week) -> [opponent, points, line] for every defence-game played,
+    on this league's D/ST sheet."""
+    from ..actuals import dst_game_lines
+    from ..data.nflverse import cached_games_frame, load_pbp
+    from ..scoring import DstScoring
+    from ..teams import normalize_team
+
+    pbp = load_pbp([season], cfg)
+    pbp = pbp[pbp["season_type"].eq("REG")] if "season_type" in pbp.columns else pbp
+    games = cached_games_frame()
+    games = games[(games["season"] == season) & (games["game_type"].eq("REG"))]
+    lines = dst_game_lines(pbp, games, cfg)
+    skip = ("fourth_down_stops",) if not DstScoring.from_config(cfg).fourth_down_stop else ()   # not on this sheet
+    out = {}
+    for _i, r in lines.iterrows():
+        team = normalize_team(r["team"])
+        if team:
+            out[(team, int(r["week"]))] = [normalize_team(r["opponent"]) or str(r["opponent"]),
+                                           round(float(r["fantasy_points"]), 1), dst_line(r, skip)]
+    return out
+
+
 def _frames(cfg: Config, season: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     from ..teams import normalize_team
     from .players import normalize_name
@@ -138,10 +176,35 @@ def build(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, dict]:
     by_id = {pid: g for pid, g in stats.groupby("player_id")}
     by_name = {k: g for k, g in stats[stats["position"].isin(POSITIONS)].groupby(["_name", "_team"])}
     out: dict[str, dict] = {}
+    try:
+        dst = dst_games(cfg, season)
+    except Exception as exc:  # noqa: BLE001 - defence logs are a bonus
+        log.warning("defence game logs skipped: %s", exc)
+        dst = {}
+    from ..teams import TEAM_NAMES
+
     for p in snapshot.all_players():
         if p.position not in POSITIONS:
             continue
         team = normalize_team(p.team) if p.team else None
+        if p.position == "DST":
+            if not team or not dst or f"dst|{team}" in out:
+                continue
+            games = []
+            for w in range(1, last + 1):
+                r = dst.get((team, w))
+                if r is not None:
+                    games.append([w, r[0], r[1], None, r[2]])
+                elif schedule is not None and w not in schedule.get(team, set()):
+                    games.append([w, "bye"])
+                elif w not in played.get(team, set()):
+                    games.append([w, "-"])
+            rec = {"n": p.name, "t": p.team or "", "p": "DST", "g": games, "v": _value(p)}
+            out[f"dst|{team}"] = rec
+            full = TEAM_NAMES.get(team)           # the rankings call it by its city and name
+            if full and full != p.name:
+                out[f"dst|{team}|full"] = {**rec, "n": full}
+            continue
         g = by_id.get(str(p.nfl_id)) if p.nfl_id else None
         key = str(p.nfl_id) if g is not None else f"{normalize_name(p.name)}|{team}"
         if g is None:

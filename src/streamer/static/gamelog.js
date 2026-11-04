@@ -48,10 +48,11 @@
     while ((m = re.exec(tx))) words.push([m[0], m.index]);
     var best = null;
     for (var i = 0; i < words.length; i++) {
-      for (var len = 2; len <= 4 && i + len <= words.length; len++) {
+      for (var len = 1; len <= 4 && i + len <= words.length; len++) {
         var a = words[i][1], b = words[i + len - 1][1] + words[i + len - 1][0].length;
         if (off < a - 1 || off > b + 1) continue;
         var hit = byName[norm(tx.slice(a, b))];
+        if (hit && len === 1 && !hit.every(function (x) { return x.p === "DST"; })) hit = null;   // a lone word only names a defence ("Bengals")
         if (hit && (!best || len > best.len)) best = { hit: hit, len: len };
       }
     }
