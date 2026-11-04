@@ -918,6 +918,19 @@ _TOP_JS = """
     return ' <span class="tr tr'+(lv>0?'+':lv<0?'-':'')+Math.abs(lv)+'" title="'+t[2].toFixed(1)+' a game last week">'+a+(lv?Math.abs(t[0]).toFixed(1):'0')+'</span>';}
   var dir=-1;
   data.rows.forEach(function(r){r.k=norm(r.name+' '+r.team+' '+r.owner);});
+  // Highlighted owners (teams and free agents), each in its own colour; mine and free agents start on.
+  var PAL=['#2e86de','#e056fd','#10ac84','#ff7f50','#a29bfe','#00cec9','#fd79a8','#6ab04c','#e17055','#74b9ff','#b2bec3','#d63031','#8e44ad','#16a085'];
+  var owners=[], mineName='', hl={}, col={}, key='tp-hl-'+id;
+  data.rows.forEach(function(r){if(owners.indexOf(r.owner)<0&&r.owner!=='FA')owners.push(r.owner); if(r.mine)mineName=r.owner;});
+  owners.sort(); owners.forEach(function(o,i){col[o]=PAL[i%PAL.length];}); col['FA']='#f1c40f'; if(mineName)col[mineName]='#27ae60';
+  try{var sv=JSON.parse(localStorage.getItem(key)); if(sv&&typeof sv==='object')hl=sv; else throw 0;}catch(e){hl={FA:true}; if(mineName)hl[mineName]=true;}
+  var bar=root.querySelector('.tp-owners');
+  if(bar){bar.innerHTML=['FA'].concat(mineName?[mineName]:[]).concat(owners.filter(function(o){return o!==mineName;})).map(function(o){
+    return '<button type="button" class="tp-ob" data-o="'+esc(o)+'" style="--hl:'+col[o]+'"><i></i>'+esc(o==='FA'?'Free agents':o)+(o===mineName?' (you)':'')+'</button>';}).join('');
+    var sync=function(){bar.querySelectorAll('.tp-ob').forEach(function(b){b.setAttribute('aria-pressed',hl[b.getAttribute('data-o')]?'true':'false');});};
+    bar.addEventListener('click',function(ev){var b=ev.target.closest('.tp-ob'); if(!b)return; var o=b.getAttribute('data-o');
+      hl[o]=!hl[o]; try{localStorage.setItem(key,JSON.stringify(hl));}catch(e){} sync(); render();});
+    sync();}
   function render(){
     var words=norm(box.value).trim().split(/ +/).filter(Boolean);
     var list=data.rows.filter(function(r){
@@ -925,7 +938,7 @@ _TOP_JS = """
     list.sort(function(x,y){var a=x[sort],b=y[sort],na=a===null||a===undefined,nb=b===null||b===undefined;
       if(na||nb)return (na-nb)||(y.vor-x.vor); return (dir<0?b-a:a-b)||(y.vor-x.vor);});
     body.innerHTML=list.slice(0,limit).map(function(r,i){
-      return '<tr'+(r.mine?' class="tp-mine"':'')+'><td>'+(i+1)+'</td><td class="fa-name">'+chip(r.pos)+' '+esc(r.name)+
+      return '<tr'+(hl[r.owner]?' class="tp-hl" style="--hl:'+col[r.owner]+'"':'')+'><td>'+(i+1)+'</td><td class="fa-name">'+chip(r.pos)+' '+esc(r.name)+
         ' <span class="opp">'+esc(r.team)+(r.status?' '+esc(r.status):'')+' &middot; '+esc(r.owner)+'</span></td>'+
         '<td><b>'+num(r.vor)+'</b></td><td>'+num(r.up)+'</td><td>'+num(r.ros)+'</td><td class="tr-c">'+(trb(r.tr)||'<span class="opp">--</span>')+'</td><td>'+num(r.proj)+'</td><td class="tp-x">'+num(r.games)+'</td>'+
         '<td class="opp tp-x">'+num(r.lo)+'&ndash;'+num(r.hi)+'</td><td class="tp-x">'+num(r.mkt)+'</td></tr>';
@@ -964,7 +977,17 @@ def _top_players(report: MatchupReport) -> str:
                     for p in ("All", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"))
     cols = (("vor", "Value"), ("up", "Upside"), ("ros", "RoS/g"), ("chg", "&Delta;wk"), ("proj", "Wk"), ("games", "G"),
             ("hi", "Range"), ("mkt", "Mkt"))
-    heads = "".join(f'<th class="fa-sort tp-sort{" tp-x" if k in ("games", "hi", "mkt") else ""}" data-k="{k}" aria-sort="{"descending" if k == "vor" else "none"}">'
+    tips = {
+        "vor": "Points above a waiver pickup at his position, added up over the weeks he is expected to play. Weeks missed count nothing.",
+        "up": "That same value in his best tenth of simulated seasons: a breakout, a bigger role, a clean bill of health.",
+        "ros": "His season value a game: what he is simulated to score each week he plays.",
+        "chg": "How his rest-of-season value a game moved since last week. Green up, red down, yellow flat; deeper colour is a bigger move. Tap for risers, again for fallers.",
+        "proj": "This week's projection.",
+        "games": "Games he is expected to play from here to the end of the season, after byes and injury risk.",
+        "hi": "His points a week, 10th to 90th percentile of the simulation.",
+        "mkt": "What the rest of the league sees him worth a game.",
+    }
+    heads = "".join(f'<th class="fa-sort tp-sort{" tp-x" if k in ("games", "hi", "mkt") else ""}" data-k="{k}" title="{_e(tips[k])}" aria-sort="{"descending" if k == "vor" else "none"}">'
                     f"{label}</th>" for k, label in cols)
     return (
         f'<div id="{uid}"><h2>Most valuable players</h2>'
@@ -979,6 +1002,7 @@ def _top_players(report: MatchupReport) -> str:
         "him worth a game (those three on wider screens). Tap a column to sort; your players are highlighted. "
         "<b>Tap a player's name for his game log</b>: points, snap share and stat line, week by week.</p>"
         f'<div class="chips fa-pos tp-pos">{chips}</div>'
+        '<div class="chips tp-owners" aria-label="Highlight teams and free agents"></div>'
         '<p><input type="search" class="tp-search" placeholder="Search by name, team or manager"'
         ' autocomplete="off" aria-label="Search players"></p>'
         '<div class="scroll"><table class="fa-table tp-table"><thead><tr><th>#</th><th class="fa-name">Player</th>'
