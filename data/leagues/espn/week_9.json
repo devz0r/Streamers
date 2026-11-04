@@ -12097,7 +12097,7 @@
       "name": "Sam Darnold",
       "position": "QB",
       "team": "SEA",
-      "status": "",
+      "status": "OUT",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -64872,7 +64872,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-04T18:52:58.058152+00:00",
+  "synced_at": "2026-11-04T19:19:00.442497+00:00",
   "extra": {
     "nfl_week": 9,
     "current_week": 9
