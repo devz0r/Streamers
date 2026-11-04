@@ -860,6 +860,19 @@ def team_panels_for(
         except Exception as exc:  # noqa: BLE001 - a second source never blocks the page
             log.warning("SportsGameOdds props skipped: %s", exc)
 
+    if shared is not None and loaded:
+        try:
+            from .data import props_log
+            from .roster.players import normalize_name as _nn
+
+            lead = loaded[0][2]
+            begun = {_nn(p.name) for _n, _b, lg, _s, _r in loaded for p in lg.all_players()
+                     if p.team and (p.locked or p.actual_points is not None)}
+            held = props_log.record(shared.frame, loaded[0][1], int(lead.season), int(lead.week), begun)
+            log.info("prop lines log: %d rows held for week %s", held, lead.week)
+        except Exception as exc:  # noqa: BLE001 - a log never blocks the page
+            log.warning("prop lines log skipped: %s", exc)
+
     week_w = None
     if loaded:
         try:
