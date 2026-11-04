@@ -5138,3 +5138,20 @@ was a median 1 hour before kickoff, the first 87 hours; RMSE 6.32 -> 6.29
 good as the closing one for players who play; late inactives are the
 injury model's job, not the price's. No change to when or how much is
 bought; rerun as weeks accumulate.
+
+### Is there a betting edge?
+`scripts/grade_market_edge.py`, weeks 6-8 of 2026: where our model's number
+and the market's (prop lines converted to fantasy points) disagree, which
+side did the player land on? Against the market's *mean*, "under" wins
+59-64% for anyone (fantasy points are skewed), so the test is against its
+median, held out by week:
+
+| | all | we disagree by 1+ | by 2+ |
+|---|---|---|---|
+| ESPN | 55.5% of 849 (+-2.8) | 57.7% of 452 (+-3.9) | 59.6% of 218 (+-5.6) |
+| Yahoo | 53.1% of 742 (+-3.0) | 55.7% of 424 (+-4.0) | 54.7% of 181 (+-6.1) |
+
+Above the 52.4% a -110 bet needs, but three weeks, with week 6 near 50%,
+and the two leagues share most players. And fantasy points are not a
+sportsbook market: a bet is on one stat, and we make no per-stat
+projections. Not a betting tool; a lead, rechecked as weeks accumulate.
