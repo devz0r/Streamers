@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -232,14 +233,18 @@ def render_page(
             team = {"hub": team}
         units = {pos: [str(t) for t in frame["team"]] for pos, frame in (("DST", rankings.dst), ("K", rankings.kicker))
                  if frame is not None and not frame.empty and "team" in frame}
-        avail = unit_availability(bound, rankings.week, units) if team_panels else {}
+        knames = ({str(t): str(n) for t, n in zip(rankings.kicker["team"], rankings.kicker["display_name"])}
+                  if rankings.kicker is not None and not rankings.kicker.empty and "display_name" in rankings.kicker else {})
+        avail = unit_availability(bound, rankings.week, units, knames) if team_panels else {}
+        pwin = team.get("_units") or {}
         sections = {k: v for k, v in team.items() if not k.startswith("_")}
         sections["streams"] = "".join([
             _badges(rankings, bound), _notices(rankings),
             f'<div class="team-streams">{team.get("streams", "")}</div>',
             _two_week_section(rankings, avail),
-            _ranking_section("Defense / Special Teams", rankings.dst, "DST", int(conf["top_n"]), bound, avail),
-            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound, avail),
+            _ranking_section("Defense / Special Teams", rankings.dst, "DST", int(conf["top_n"]), bound, avail,
+                             pwin.get("DST")),
+            _ranking_section("Kickers", rankings.kicker, "K", int(conf["top_n"]), bound, avail, pwin.get("K")),
         ])
         sections["model"] = "".join([team.get("model", ""), _benchmark_section(bound),
                                      _calibration_section(bound, rankings), _ledger_section(bound)])
@@ -386,8 +391,15 @@ def _notices(rankings: Rankings) -> str:
 YAHOO_PAGE = 25
 
 
+def _initial_last(name: object) -> str:
+    """'D.Carlson' and 'Daniel Carlson' alike: 'd carlson'."""
+    t = re.sub(r"[^a-z. ]", "", str(name or "").lower()).replace(".", " ").split()
+    return f"{t[0][0]} {t[-1]}" if len(t) >= 2 else " ".join(t)
+
+
 def unit_availability(cfg: Config, week: int | None = None,
-                      ranked_units: dict[str, list[str]] | None = None) -> dict[tuple[str, str], tuple[str, str]]:
+                      ranked_units: dict[str, list[str]] | None = None,
+                      kicker_names: dict[str, str] | None = None) -> dict[tuple[str, str], tuple[str, str]]:
     """(position, NFL team) -> (status, whose) for every D/ST and kicker in the
     league's snapshot: "yours", "available", or "taken" with the fantasy team
     that has him. Empty when there is no snapshot, so the rankings still
@@ -405,7 +417,7 @@ def unit_availability(cfg: Config, week: int | None = None,
         return {}
     out: dict[tuple[str, str], tuple[str, str]] = {}
     for p in snap.free_agents:
-        if p.position in ("DST", "K") and p.team:
+        if p.position in ("DST", "K") and p.team and not p.unsigned:
             out.setdefault((p.position, p.team), ("available", ""))
     for team in snap.teams:
         for p in team.roster:
@@ -420,11 +432,21 @@ def unit_availability(cfg: Config, week: int | None = None,
         if snap.platform == "yahoo" and 0 < n_free < YAHOO_PAGE:
             for t in teams:
                 out.setdefault((pos, t), ("taken", ""))
+    # A kicker unit named for a kicker the platform lists as off every NFL
+    # roster (released: ESPN shows no team, Yahoo "NA"): Daniel Carlson,
+    # cut by the Saints after week 7, was still ranked for them.
+    every = list(snap.free_agents) + [p for t in snap.teams for p in t.roster]
+    gone = {_initial_last(p.name) for p in every if p.position == "K" and p.unsigned}
+    signed = {_initial_last(p.name) for p in every if p.position == "K" and not p.unsigned}
+    for team, name in (kicker_names or {}).items():
+        key = _initial_last(name)
+        if key in gone and key not in signed:
+            out[("K", team)] = ("released", "")
     return out
 
 
 _AVAIL_CHIP = {"yours": ("avail-yours", "yours"), "available": ("avail-open", "available"),
-               "taken": ("avail-taken", "taken")}
+               "taken": ("avail-taken", "taken"), "released": ("avail-taken", "released")}
 
 
 def _unit_logo(position: str, team: object) -> str:
@@ -439,11 +461,17 @@ def _unit_logo(position: str, team: object) -> str:
 
 def _ranking_section(
     title: str, frame: pd.DataFrame, position: str, top_n: int, cfg: Config,
-    availability: dict | None = None,
+    availability: dict | None = None, pwin: dict | None = None,
 ) -> str:
     if frame is None or frame.empty:
         return f"<h2>{_e(title)}</h2><p class='sub'>No projections available.</p>"
     out = [f"<h2>{_e(title)}</h2>"]
+    if pwin:
+        out.append('<p class="sub"><b>P(win)</b> is your chance of winning this week with that unit in your '
+                   "lineup, on the same simulated games as the rest of your matchup -- so it carries what the "
+                   "projection does not: how his score ties to the players in your game, and how wide his range "
+                   "is (a favourite wants steady, an underdog wants swings). Shown for units you can start: "
+                   "free agents and your own.</p>")
     for row in frame.head(top_n).itertuples():
         hold = bool(getattr(row, "two_week_hold", False))
         venue = "vs" if getattr(row, "is_home", 1) == 1 else "at"
@@ -460,8 +488,18 @@ def _ranking_section(
             css, label = _AVAIL_CHIP[status]
             title_attr = f' title="{_e(whose)}"' if whose else ""
             chips = f'<span class="{css}"{title_attr}>{label}</span>' + chips
-            if status == "taken":
+            if status in ("taken", "released"):
                 card_class = " taken"
+        pw = (pwin or {}).get(str(getattr(row, "team", ""))) if status in ("available", "yours", "") else None
+        why_pw = ""
+        if pw:
+            vs = "" if pw["mine"] else f" ({pw['d']:+.1f} vs yours)"
+            chips += f'<span class="pw-chip">P(win) {pw["pw"]:.1%}{vs}</span>'
+            if pw["why"] and not pw["mine"]:
+                why_pw = f'<div class="why"><b>P(win):</b> {pw["why"]}</div>'
+        if status == "released":
+            why_pw = ('<div class="why"><b>Released:</b> the platform lists him on no NFL roster, so he '
+                      "cannot score for this team; the projection is the team's kicking, whoever kicks.</div>")
         if hold:
             chips += (
                 f'<span class="hold-tag">hold thru wk {int(getattr(row, "week", 0)) + 1}</span>'
@@ -474,7 +512,7 @@ def _ranking_section(
             f'<div class="pts">{_num(row.expected_points)}</div></div>'
             f'<div class="meta">{chips}</div>'
             f'<div class="why">{_e(getattr(row, "rationale", ""))}</div>'
-            "</div>"
+            f"{why_pw}</div>"
         )
     return "".join(out)
 
@@ -1206,6 +1244,13 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
     report.notes.extend(projected.lock_notes)
     moves = recommend(snap, min_gain=float(bound.raw["roster"]["waiver_min_gain"]))
     panel = team_sections(snap, report, moves, cfg)
+    if primary:
+        from .roster.page import unit_pwin
+
+        try:
+            panel["_units"] = unit_pwin(report)
+        except Exception as exc:  # noqa: BLE001 - a bonus column
+            log.warning("unit P(win) for the rankings skipped: %s", exc)
     if primary and status and not status.get("ok") and snap.week != rankings.week:
         panel["hub"] = render_sync_failure(status, bound, stale_week=snap.week) + panel.get("hub", "")
     if primary:

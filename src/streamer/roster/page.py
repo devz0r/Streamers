@@ -1267,6 +1267,51 @@ def _season(report: MatchupReport) -> str:
     )
 
 
+def unit_pwin(report: MatchupReport) -> dict[str, dict[str, dict]]:
+    """Position -> NFL team -> this week's P(win) with that D/ST or kicker in
+    your lineup, against yours, and why it ranks where it does when that is
+    not where his projection puts him -- for the full K and D/ST lists."""
+    out: dict[str, dict[str, dict]] = {}
+    for pos, opts in (report.streams or {}).items():
+        mine = next((o for o in opts if o.current), None)
+        if mine is None or len(opts) < 2:
+            continue
+        by_proj = sorted(opts, key=lambda o: -(o.player.projection or 0.0))
+        by_win = sorted(opts, key=lambda o: -o.win_probability)
+        favoured = mine.win_probability >= 0.5
+        mw = (mine.high - mine.low) if mine.low is not None and mine.high is not None else None
+        rows = {}
+        for o in opts:
+            if not o.player.team:
+                continue
+            d = (o.win_probability - mine.win_probability) * 100
+            nz = 2 * o.noise * 100
+            why = []
+            if o.current:
+                why.append("yours")
+            else:
+                rp, rw = by_proj.index(o), by_win.index(o)
+                if abs(d) <= max(nz, 0.05):
+                    why.append(f"within simulation noise of yours (&plusmn;{max(nz, 0.1):.1f})")
+                if o.links:
+                    why.append(_e(o.links[0]))
+                w = (o.high - o.low) if o.low is not None and o.high is not None else None
+                if rw != rp and w is not None and mw is not None and abs(w - mw) >= 1.0:
+                    wider = w > mw
+                    why.append(f"a {'wider' if wider else 'narrower'} range than yours ({max(o.low, 0):.0f}&ndash;{o.high:.0f}), "
+                               + ("which costs a favourite" if wider == favoured else "which helps you as "
+                                  + ("the underdog" if wider else "the favourite")))
+                if rw > rp and not why:
+                    why.append("projects a little higher, but his extra points come mostly in weeks you win anyway")
+                elif rw < rp and not why:
+                    why.append("projects a little lower, but his points come more often in the weeks that decide "
+                               "your game")
+            rows[str(o.player.team)] = {"pw": o.win_probability, "d": d, "mine": bool(o.current),
+                                        "name": o.player.name, "why": "; ".join(why)}
+        out[pos] = rows
+    return out
+
+
 def _stream_note(report: MatchupReport, player) -> str:
     """This week's P(win) with a D/ST or kicker pickup, against the current one."""
     opts = report.streams.get(player.position) or []

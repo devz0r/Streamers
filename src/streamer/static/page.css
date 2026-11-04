@@ -121,6 +121,7 @@ td .why-toggle { margin: 2px 0 0; }
 .meta > span.avail-yours { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
   font-weight: 650; border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 .meta > span.avail-taken { color: var(--faint); }
+.meta > span.pw-chip { font-weight: 700; }
 .card.taken { opacity: .55; }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: .2rem 0 .6rem; }
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; background: var(--panel);

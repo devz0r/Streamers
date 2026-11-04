@@ -149,7 +149,8 @@ def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Matchup
     for pos in ("DST", "K"):
         pool = [p for p in snapshot.free_agents if p.position == pos and p.projection is not None]
         pool += [p for p in me.roster if p.position == pos and not p.in_ir_slot]
-        pool = sorted(pool, key=lambda p: -(p.projection or 0.0))[:12]
+        # Every unit you could start (the full K and D/ST lists show each one's P(win)).
+        pool = sorted(pool, key=lambda p: -(p.projection or 0.0))[:40]
         try:
             streams[pos] = stream_options(result, pos, pool, n_sims=int(cfg.raw["roster"]["sims"]))
         except Exception:  # noqa: BLE001 - a bonus table never blocks the report

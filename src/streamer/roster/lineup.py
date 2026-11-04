@@ -912,6 +912,9 @@ class StreamOption:
     #: lineup tables show), None when not drawn.
     low: float | None = None
     high: float | None = None
+    #: Standard error of his P(win) less the current unit's, on the shared
+    #: draws: a gap smaller than about twice this is simulation noise.
+    noise: float = 0.0
 
 
 def _links(p: PlayerRow, mine: list[PlayerRow], theirs: list[PlayerRow]) -> list[str]:
@@ -970,14 +973,20 @@ def stream_options(
     base = sum(samples[:, index[p.player_id]] for p in mine) - samples[:, index[current.player_id]]
     opp = sum(samples[:, index[p.player_id]] for p in theirs)
     out = []
+    t0 = base + samples[:, index[current.player_id]]
+    w0 = (t0 > opp) + 0.5 * (t0 == opp)
+    m0 = float(min(max(w0.mean(), 0.01), 0.99))
+    slope = (calibrated(m0 + 0.005) - calibrated(m0 - 0.005)) / 0.01    # noise on the calibrated scale
     for c in pool:
         t = base + samples[:, index[c.player_id]]
-        pw = calibrated((t > opp).mean() + 0.5 * (t == opp).mean())
+        w = (t > opp) + 0.5 * (t == opp)
+        pw = calibrated(w.mean())
         others = [m for m in mine if m.player_id != current.player_id]
         col = samples[:, index[c.player_id]]
         out.append(StreamOption(player=c, win_probability=pw, current=c.player_id == current.player_id,
                                 links=_links(c, others, theirs),
-                                low=float(np.percentile(col, 15)), high=float(np.percentile(col, 85))))
+                                low=float(np.percentile(col, 15)), high=float(np.percentile(col, 85)),
+                                noise=float(slope * (w - w0).std() / np.sqrt(len(w)))))
     out.sort(key=lambda o: -o.win_probability)
     return out
 
