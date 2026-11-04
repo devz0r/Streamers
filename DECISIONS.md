@@ -5126,3 +5126,15 @@ differ over a season; a kicker's team total is a lasting trait of his
 offence. Week 9 of 2026: the spread of D/ST season values falls from 2.5 to
 0.6 a game (ESPN), Jacksonville to 9.6; kickers barely move. The weekly
 schedule factor (`roster.schedule`) still moves each later week.
+
+### When to buy the props
+Would fresher prop prices (a paid plan, more pulls) beat what is bought now?
+`scripts/grade_prop_timing.py` rebuilds every pull from the projection log's
+git history and scores each player's first and last price before his kickoff.
+Week 8 of 2026 (the only week with a full history so far): the last price
+was a median 1 hour before kickoff, the first 87 hours; RMSE 6.32 -> 6.29
+(ESPN, 267 players; gain +0.03, 90% interval -0.08 to +0.15) and 7.07 ->
+7.04 (Yahoo, 234; +0.04). A price three and a half days old is nearly as
+good as the closing one for players who play; late inactives are the
+injury model's job, not the price's. No change to when or how much is
+bought; rerun as weeks accumulate.
