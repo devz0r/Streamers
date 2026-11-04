@@ -1110,6 +1110,12 @@ def parse_free_agents(html: str, week: int) -> list:
                                            if c_own is not None and c_own < len(cells) else "")
             out.append(row)
         break
+    if not out and any(column(leaf_headers(t), "% Ros", "% Rost") is not None and not data_rows(t)
+                       for t in soup.find_all("table")):
+        # The player table is there with no rows: the list ran out (the
+        # waivers hold six players the morning they clear). Not a fault.
+        log.info("Yahoo player list page is empty: the end of the list")
+        return out
     if not out:
         # Say what the page looked like -- structure only -- so a layout
         # change explains itself in the log instead of just emptying the wire.
@@ -1220,6 +1226,11 @@ def fetch_snapshot(season: int, week: int, profile: str, pause: float = 0.6,
                 if not rows:
                     break                    # the end of the list: later pages have nobody new
             free_agents.extend(rows)
+    counts = {pos: sum(p.position == pos for p in free_agents) for pos in ("QB", "RB", "WR", "TE", "K", "DST")}
+    log.info("Yahoo free agents by position: %s", counts)
+    missing = [pos for pos, n in counts.items() if n == 0]
+    if missing:
+        log.warning("Yahoo free agents: none read at %s -- a player-list page failed", ", ".join(missing))
     # The player list has no owner column: the waivers are their own list
     # (status=W); anyone on it is a claim, everyone else a free agent.
     try:

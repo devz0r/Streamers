@@ -402,3 +402,16 @@ def test_the_owner_column_says_free_agent_or_waivers():
     assert waiver_status("FA") is False
     assert waiver_status("W (Oct 27)") is True
     assert waiver_status("") is None
+
+
+def test_an_empty_player_list_is_the_end_of_the_list_not_a_fault(caplog):
+    import logging
+    import re
+
+    page = re.sub(r"<tbody>.*</tbody>", "<tbody></tbody>", free_agent_page(projected=True, week=3), flags=re.S)
+    caplog.set_level(logging.INFO)
+    assert parse_free_agents(page, 3) == []
+    assert "end of the list" in caplog.text and "parsed to no players" not in caplog.text
+    caplog.clear()
+    assert parse_free_agents("<html><table><tr><td>x</td></tr></table></html>", 3) == []
+    assert "parsed to no players" in caplog.text
