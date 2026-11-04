@@ -10339,7 +10339,7 @@
           "name": "Jakobi Meyers",
           "position": "WR",
           "team": "JAX",
-          "status": "QUESTIONABLE",
+          "status": "",
           "slot": "BN",
           "eligible_slots": [
             "FLEX",
@@ -20071,7 +20071,7 @@
       "name": "Chris Rodriguez Jr.",
       "position": "RB",
       "team": "JAX",
-      "status": "QUESTIONABLE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -24060,7 +24060,7 @@
       "player_id": "4569682",
       "name": "Audric Estime",
       "position": "RB",
-      "team": "NO",
+      "team": null,
       "status": "",
       "slot": "FA",
       "eligible_slots": [
@@ -24069,7 +24069,7 @@
         "SUPERFLEX",
         "WR/RB"
       ],
-      "on_bye": false,
+      "on_bye": true,
       "platform_projection": 0.0,
       "season_avg": 7.9,
       "percent_owned": 0.1,
@@ -64872,7 +64872,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-04T20:00:45.716426+00:00",
+  "synced_at": "2026-11-04T20:17:30.986131+00:00",
   "extra": {
     "nfl_week": 9,
     "current_week": 9
