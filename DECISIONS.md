@@ -5064,3 +5064,18 @@ shape; Yahoo is not reachable from the development sandbox, so the first
 refresh's log is the real test: "scoring sheet matches the platform's (N
 stats checked)", or a warning naming the difference / "had no readable
 offensive modifiers" if the payload differs from what was expected.
+
+## Kicker and defence scoring checked against both leagues' sheets
+
+Both sheets supplied line by line. **Yahoo** matched config exactly (kickers
+3/3/3/4/5 by distance, no missed-FG penalty, PAT 1; D/ST sack 1, INT 2, fumble
+recovery 2, TD 6, safety 2, block 2, return TD 6, 4th-down stop 1, extra
+point returned 2, points-allowed 10/7/4/1/0/-1/-4). **ESPN** matched but for
+one line: a **sack is 2**, not ESPN's default 2.5. Every ESPN defence had come
+out above ESPN's own season average (20 of 20, about 0.9 a game); with the
+sack at 2 the gap is 0.0-0.6 (median 0.25 -- about one sack recorded
+differently over eight games) and 40% exact. Kickers match ESPN's averages
+exactly (25 of 25). The stored 2026 ESPN D/ST results (`results/espn/
+history.parquet`, 242 rows) were rescored (mean -1.14 a game); features and
+the D/ST model rebuild from play-by-play on the sheet each run. A test pins
+both leagues' kicker and D/ST sheets to the supplied values.

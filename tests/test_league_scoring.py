@@ -101,3 +101,27 @@ def test_the_refresh_flags_a_config_sheet_that_differs_from_yahoos(caplog):
     assert "differs from offense_scoring" in caplog.text
     assert scoring_check.check_sheet(snap, {"pass_td": 6.0, "interception": -1.0, "reception": 1.0}) == []
     assert scoring_check.check_sheet(NS(profile="espn", extra={}), {"pass_td": 4.0}) == []     # nothing reported
+
+
+def test_kicker_and_defence_sheets_are_the_leagues_own():
+    """Pinned to the scoring sheets of the two leagues, line by line (ESPN's
+    sack is 2 here, not its default 2.5)."""
+    e, y = get_config().for_profile("espn"), get_config().for_profile("yahoo")
+    assert e.kicker_scoring == {"fg_0_39": 3.0, "fg_40_49": 4.0, "fg_50_59": 5.0, "fg_60_plus": 6.0,
+                                "fg_missed_0_39": -1.0, "fg_missed_40_49": -1.0, "fg_missed_50_59": -1.0,
+                                "fg_missed_60_plus": -1.0, "pat_made": 1.0, "pat_missed": -0.5}
+    assert y.kicker_scoring == {"fg_0_39": 3.0, "fg_40_49": 4.0, "fg_50_59": 5.0, "fg_60_plus": 5.0,
+                                "fg_missed_0_39": 0.0, "fg_missed_40_49": 0.0, "fg_missed_50_59": 0.0,
+                                "fg_missed_60_plus": 0.0, "pat_made": 1.0, "pat_missed": 0.0}
+    ed, yd = e.dst_scoring, y.dst_scoring
+    assert (ed["sack"], ed["interception"], ed["fumble_recovery"], ed["safety"], ed["one_point_safety"],
+            ed["blocked_kick"], ed["fumble_lost"]) == (2.0, 2.5, 2.0, 2.0, 1.0, 2.0, -2.0)
+    assert [list(t) for t in ed["points_allowed_tiers"]] == [[0, 0, 6.0], [1, 6, 4.0], [7, 13, 3.0], [14, 17, 1.0],
+                                                           [18, 27, 0.0], [28, 34, -1.0], [35, 45, -3.0],
+                                                           [46, None, -4.0]]
+    assert [t[2] for t in ed["yards_allowed_tiers"]] == [5.0, 3.0, 2.0, 1.0, -1.0, -2.0, -3.0, -4.0, -5.0]
+    assert (yd["sack"], yd["interception"], yd["fumble_recovery"], yd["safety"], yd["blocked_kick"],
+            yd["fourth_down_stop"], yd["extra_point_returned"]) == (1.0, 2.0, 2.0, 2.0, 2.0, 1.0, 2.0)
+    assert [list(t) for t in yd["points_allowed_tiers"]] == [[0, 0, 10.0], [1, 6, 7.0], [7, 13, 4.0], [14, 20, 1.0],
+                                                           [21, 27, 0.0], [28, 34, -1.0], [35, None, -4.0]]
+    assert yd["yards_allowed_tiers"] is None

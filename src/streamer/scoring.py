@@ -5,8 +5,8 @@ so every tier boundary can be tested exactly. All values are read from the
 active profile in ``config.yaml`` (see :mod:`streamer.config`); nothing here is
 hard-coded.
 
-The two shipped profiles differ in more than magnitudes. ESPN scores a sack at
-2.5 and adds a **yards-allowed** ladder on top of points allowed; Yahoo scores
+The two shipped profiles differ in more than magnitudes. ESPN here scores a sack at
+2 and adds a **yards-allowed** ladder on top of points allowed; Yahoo scores
 a sack at 1, has no yards component, awards a point per **fourth-down stop**,
 and applies no penalty for a missed field goal. Both ladders are expressed
 here as generic step functions so a third profile needs only config.

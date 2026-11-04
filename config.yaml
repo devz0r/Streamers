@@ -80,7 +80,10 @@ profiles:
       pat_missed: -0.5
 
     dst_scoring:
-      sack: 2.5
+      # Checked line by line against the league's ESPN scoring sheet: a sack
+      # is 2 here (it read 2.5, ESPN's default, and every defence came out
+      # about 0.9 a game above ESPN's own averages).
+      sack: 2.0
       interception: 2.5
       fumble_recovery: 2.0
       safety: 2.0

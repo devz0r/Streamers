@@ -21,9 +21,9 @@ def test_binding_a_profile_does_not_mutate_the_original(cfg):
     assert espn.profile == "espn"
     assert yahoo.profile == "yahoo"
     # Re-reading after binding the other must be unchanged.
-    assert DstScoring.from_config(espn).sack == 2.5
+    assert DstScoring.from_config(espn).sack == 2.0
     assert DstScoring.from_config(yahoo).sack == 1.0
-    assert DstScoring.from_config(espn).sack == 2.5
+    assert DstScoring.from_config(espn).sack == 2.0
 
 
 def test_for_profile_is_a_no_op_for_the_same_profile(cfg):

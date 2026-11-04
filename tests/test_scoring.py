@@ -81,7 +81,7 @@ def test_the_two_profiles_really_do_differ(espn, yahoo):
     """Guards against both profiles accidentally reading the same block."""
     e, y = DstScoring.from_config(espn), DstScoring.from_config(yahoo)
     assert e.points_allowed_points(0) == 6.0 and y.points_allowed_points(0) == 10.0
-    assert e.sack == 2.5 and y.sack == 1.0
+    assert e.sack == 2.0 and y.sack == 1.0
     assert e.fourth_down_stop == 0.0 and y.fourth_down_stop == 1.0
     assert e.fumble_lost == -2.0 and y.fumble_lost == 0.0
     assert e.scores_yards_allowed and not y.scores_yards_allowed
@@ -194,8 +194,8 @@ def test_espn_scores_a_realistic_line(espn):
     scoring = DstScoring.from_config(espn)
     line = DstStatLine(points_allowed=10, yards_allowed=310, sacks=4,
                        interceptions=2, fumble_recoveries=1, fourth_down_stops=2)
-    # PA 3 + yards 1 + 4 sacks at 2.5 + 2 INT at 2.5 + 1 FR at 2; stops score 0.
-    assert scoring.score(line) == pytest.approx(3 + 1 + 10 + 5 + 2)
+    # PA 3 + yards 1 + 4 sacks at 2 + 2 INT at 2.5 + 1 FR at 2; stops score 0.
+    assert scoring.score(line) == pytest.approx(3 + 1 + 8 + 5 + 2)
 
 
 def test_yahoo_scores_the_same_line_differently(yahoo):
