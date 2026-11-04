@@ -918,6 +918,64 @@ def parse_settings(html: str, season: int | None = None) -> dict[str, Any]:
     return out
 
 
+#: A scoring row's label (lower-case, notes in brackets dropped) -> its key
+#: in :func:`streamer.roster.scoring_check.flatten`'s space: offense keys as in
+#: ``offense_scoring``, ``k.*`` kickers, ``dst.*`` defences.
+_SCORING_ROWS = {
+    "passing yards": "pass_yards", "passing touchdowns": "pass_td", "interceptions": "interception",
+    "rushing yards": "rush_yards", "rushing touchdowns": "rush_td", "receptions": "reception",
+    "receiving yards": "reception_yards", "receiving touchdowns": "reception_td",
+    "2-point conversions": "two_point", "fumbles lost": "fumble_lost",
+    "field goals 0-19 yards": "k.fg_0_19", "field goals 20-29 yards": "k.fg_20_29",
+    "field goals 30-39 yards": "k.fg_30_39", "field goals 40-49 yards": "k.fg_40_49",
+    "field goals 50+ yards": "k.fg_50_plus", "point after attempt made": "k.pat_made",
+    "field goals missed 0-19 yards": "k.fg_missed_0_19", "field goals missed 20-29 yards": "k.fg_missed_20_29",
+    "field goals missed 30-39 yards": "k.fg_missed_30_39", "field goals missed 40-49 yards": "k.fg_missed_40_49",
+    "field goals missed 50+ yards": "k.fg_missed_50_plus", "point after attempt missed": "k.pat_missed",
+    "sack": "dst.sack", "interception": "dst.interception", "fumble recovery": "dst.fumble_recovery",
+    "touchdown": "dst.defensive_td", "safety": "dst.safety", "block kick": "dst.blocked_kick",
+    "kickoff and punt return touchdowns": "dst.return_td", "4th down stops": "dst.fourth_down_stop",
+    "extra point returned": "dst.extra_point_returned",
+}
+
+
+def _scoring_value(text: str, key: str) -> float | None:
+    """A scoring cell's points: "6", "-1", "0.04", or per-yard text ("25
+    yards per point", "1 point per 25 yards") as points a yard."""
+    t = text.strip().lower()
+    per = re.search(r"(\d+(?:\.\d+)?)\s*yards?\s*(?:per|/)\s*(?:1\s*)?point", t) or \
+        re.search(r"point\s*(?:per|/|every)\s*(\d+(?:\.\d+)?)\s*yards?", t)
+    if per and key.endswith("yards"):
+        return 1.0 / float(per.group(1))
+    m = re.fullmatch(r"([-+]?\d+(?:\.\d+)?)", t)
+    return float(m.group(1)) if m else None
+
+
+def parse_scoring(html: str) -> dict[str, float]:
+    """The league's scoring sheet from its settings page: every row whose
+    label is a known stat ("Passing Touchdowns", "Field Goals 50+ Yards",
+    "Points Allowed 1-6 points", "Sack") with a number for its value."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    out: dict[str, float] = {}
+    for tr in soup.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
+        if len(cells) < 2:
+            continue
+        label = re.sub(r"\s*\(.*?\)\s*", " ", cells[0]).strip().rstrip(":").lower()
+        label = re.sub(r"\s+", " ", label)
+        pa = re.fullmatch(r"points allowed (\d+)(?:\s*-\s*(\d+)|(\+))? points?", label)
+        hi = (pa.group(2) or ("plus" if pa.group(3) else pa.group(1))) if pa else None
+        key = f"dst.pa_{pa.group(1)}_{hi}" if pa else _SCORING_ROWS.get(label)
+        if not key:
+            continue
+        val = next((v for v in (_scoring_value(c, key) for c in reversed(cells[1:])) if v is not None), None)
+        if val is not None:
+            out[key] = val
+    return out
+
+
 _MATCHUP_LINK = r"/f1/{league}/matchup\?([^\"'<>\s]+)"
 
 
@@ -1207,7 +1265,12 @@ def _league_rules(get, league: str, week: int, n_teams: int, league_html: str,
     too few wins and skew every team's odds.
     """
     try:
-        rules = parse_settings(get(f"/f1/{league}/settings"), season)
+        page = get(f"/f1/{league}/settings")
+        rules = parse_settings(page, season)
+        scoring = parse_scoring(page)
+        log.info("Yahoo settings: %d scoring rows read", len(scoring))
+        if scoring:
+            rules["platform_scoring"] = scoring
     except RuntimeError:
         raise
     except Exception as exc:  # noqa: BLE001 - the week's lineup does not need the rules

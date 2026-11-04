@@ -125,3 +125,67 @@ def test_kicker_and_defence_sheets_are_the_leagues_own():
     assert [list(t) for t in yd["points_allowed_tiers"]] == [[0, 0, 10.0], [1, 6, 7.0], [7, 13, 4.0], [14, 20, 1.0],
                                                            [21, 27, 0.0], [28, 34, -1.0], [35, None, -4.0]]
     assert yd["yards_allowed_tiers"] is None
+
+
+def test_a_platform_average_of_zero_is_missing_not_a_mismatch(caplog):
+    from types import SimpleNamespace as NS
+
+    from streamer.roster import scoring_check
+
+    hist = pd.DataFrame([{"player_id": f"q{i}", "season": 2026, "week": w, "fantasy_points_ppr": 20.0}
+                         for i in range(8) for w in (1, 2, 3)])
+    players = ([NS(nfl_id=f"q{i}", position="QB", season_avg=20.0) for i in range(5)]
+               + [NS(nfl_id=f"q{i}", position="QB", season_avg=0.0) for i in range(5, 8)])
+    snap = NS(season=2026, profile="espn", all_players=lambda: players)
+    assert scoring_check.check(snap, hist) == {"QB": 0.0}
+    assert "differ" not in caplog.text
+
+
+_YAHOO_SETTINGS = """<html><body>
+<table><tr><th>Stat</th><th>League Value</th></tr>
+<tr><td>Passing Yards</td><td>25 yards per point</td></tr>
+<tr><td>Passing Touchdowns</td><td>6</td></tr>
+<tr><td>Interceptions</td><td>-1</td></tr>
+<tr><td>Receptions</td><td>1</td></tr>
+<tr><td>Field Goals 0-19 Yards</td><td>3</td></tr>
+<tr><td>Field Goals 50+ Yards</td><td>5</td></tr>
+<tr><td>Point After Attempt Made</td><td>1</td></tr>
+<tr><td>Sack</td><td>1</td></tr>
+<tr><td>Points Allowed 0 points</td><td>10</td></tr>
+<tr><td>Points Allowed 1-6 points</td><td>7</td></tr>
+<tr><td>Points Allowed 35+ points</td><td>-4</td></tr>
+<tr><td>4th Down Stops (Yahoo Default: 0)</td><td>1</td></tr>
+<tr><td>Extra Point Returned</td><td>2</td></tr>
+<tr><td>Roster Positions</td><td>QB, WR</td></tr>
+</table></body></html>"""
+
+
+def test_yahoos_settings_page_scoring_is_read_and_matches_the_config(caplog):
+    import logging
+    from types import SimpleNamespace as NS
+
+    from streamer.league.yahoo_web import parse_scoring
+    from streamer.roster import scoring_check
+
+    sheet = parse_scoring(_YAHOO_SETTINGS)
+    assert sheet == {"pass_yards": 0.04, "pass_td": 6.0, "interception": -1.0, "reception": 1.0,
+                     "k.fg_0_19": 3.0, "k.fg_50_plus": 5.0, "k.pat_made": 1.0, "dst.sack": 1.0,
+                     "dst.pa_0_0": 10.0, "dst.pa_1_6": 7.0, "dst.pa_35_plus": -4.0,
+                     "dst.fourth_down_stop": 1.0, "dst.extra_point_returned": 2.0}
+    profile = get_config().for_profile("yahoo")._profile
+    caplog.set_level(logging.INFO)
+    assert scoring_check.check_sheet(NS(profile="yahoo", rules={"platform_scoring": sheet}, extra={}), profile) == []
+    assert "matches" in caplog.text
+    changed = dict(sheet, **{"dst.sack": 2.0, "k.fg_50_plus": 6.0})
+    assert scoring_check.check_sheet(NS(profile="yahoo", rules={"platform_scoring": changed}, extra={}), profile) == [
+        "dst.sack: platform 2, config 1", "k.fg_50_plus: platform 6, config 5"]
+
+
+def test_every_yahoo_sheet_line_is_covered_by_the_config():
+    from streamer.roster.scoring_check import flatten
+
+    flat = flatten(get_config().for_profile("yahoo")._profile)
+    assert {k: flat[k] for k in ("k.fg_0_19", "k.fg_20_29", "k.fg_30_39", "k.fg_40_49", "k.fg_50_plus",
+                                 "dst.pa_14_20", "dst.pa_21_27", "dst.return_td")} == {
+        "k.fg_0_19": 3.0, "k.fg_20_29": 3.0, "k.fg_30_39": 3.0, "k.fg_40_49": 4.0, "k.fg_50_plus": 5.0,
+        "dst.pa_14_20": 1.0, "dst.pa_21_27": 0.0, "dst.return_td": 6.0}
