@@ -73,3 +73,31 @@ def test_the_refresh_flags_points_that_differ_from_the_platforms(caplog):
     for p in players:
         p.season_avg = 20.0
     assert scoring_check.check(snap, hist) == {"QB": 0.0}
+
+
+def test_yahoos_scoring_modifiers_are_read_from_its_settings():
+    from streamer.league.yahoo import scoring_from_settings
+
+    raw = {"fantasy_content": {"league": [{"league_key": "x"}, {"settings": [{
+        "stat_categories": {"stats": [{"stat": {"stat_id": 5, "display_name": "Pass TD", "position_type": "O"}},
+                                      {"stat": {"stat_id": 6, "display_name": "Int", "position_type": "O"}},
+                                      {"stat": {"stat_id": 4, "display_name": "Pass Yds", "position_type": "O"}},
+                                      {"stat": {"stat_id": 11, "display_name": "Rec", "position_type": "O"}}]},
+        "stat_modifiers": {"stats": [{"stat": {"stat_id": 5, "value": "6"}}, {"stat": {"stat_id": 6, "value": "-1"}},
+                                     {"stat": {"stat_id": 4, "value": "0.04"}}, {"stat": {"stat_id": 11, "value": "1"}},
+                                     {"stat": {"stat_id": 99, "value": "3"}}]}}]}]}}
+    assert scoring_from_settings(raw) == {"pass_td": 6.0, "interception": -1.0, "pass_yards": 0.04, "reception": 1.0}
+    assert scoring_from_settings({}) == {} and scoring_from_settings(None) == {}
+
+
+def test_the_refresh_flags_a_config_sheet_that_differs_from_yahoos(caplog):
+    from types import SimpleNamespace as NS
+
+    from streamer.roster import scoring_check
+
+    snap = NS(profile="yahoo", extra={"platform_scoring": {"pass_td": 6.0, "interception": -1.0, "reception": 1.0}})
+    assert scoring_check.check_sheet(snap, {"pass_td": 4.0, "interception": -1.0, "reception": 1.0}) == [
+        "pass_td: platform 6, config 4"]
+    assert "differs from offense_scoring" in caplog.text
+    assert scoring_check.check_sheet(snap, {"pass_td": 6.0, "interception": -1.0, "reception": 1.0}) == []
+    assert scoring_check.check_sheet(NS(profile="espn", extra={}), {"pass_td": 4.0}) == []     # nothing reported

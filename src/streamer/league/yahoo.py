@@ -299,6 +299,68 @@ def build_snapshot(
 
 
 # ---------------------------------------------------------------------------
+# The league's scoring sheet, as Yahoo publishes it
+# ---------------------------------------------------------------------------
+#: A stat's display name (lower-case) -> the scoring key in ``offense_scoring``.
+_SCORING_NAMES = {
+    "pass yds": "pass_yards", "passing yards": "pass_yards", "pass td": "pass_td", "passing touchdowns": "pass_td",
+    "int": "interception", "interceptions": "interception",
+    "rush yds": "rush_yards", "rushing yards": "rush_yards", "rush td": "rush_td", "rushing touchdowns": "rush_td",
+    "rec": "reception", "receptions": "reception", "rec yds": "reception_yards", "receiving yards": "reception_yards",
+    "rec td": "reception_td", "receiving touchdowns": "reception_td",
+    "fum lost": "fumble_lost", "fumbles lost": "fumble_lost", "2-pt": "two_point", "2pt": "two_point",
+    "2-point conversions": "two_point",
+}
+
+
+def scoring_from_settings(raw: Any) -> dict[str, float]:
+    """The league's offensive scoring from Yahoo's settings payload: each
+    ``stat_modifiers`` entry's value, named through ``stat_categories``
+    (stat id -> display name -> a scoring key). Empty when the payload has
+    neither. Per-yard stats are per yard (Yahoo's modifier is the points)."""
+    names: dict[str, str] = {}
+    mods: dict[str, float] = {}
+
+    def walk(node: Any, section: str = "") -> None:
+        if isinstance(node, dict):
+            if "stat_id" in node:
+                sid = str(node["stat_id"])
+                if section == "stat_categories" and node.get("display_name"):
+                    names[sid] = str(node["display_name"]).strip().lower()
+                elif section == "stat_modifiers" and node.get("value") not in (None, ""):
+                    try:
+                        mods[sid] = float(node["value"])
+                    except (TypeError, ValueError):
+                        pass
+            for k, v in node.items():
+                walk(v, k if k in ("stat_categories", "stat_modifiers") else section)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, section)
+
+    walk(raw)
+    out: dict[str, float] = {}
+    for sid, value in mods.items():
+        key = _SCORING_NAMES.get(names.get(sid, ""))
+        if key:
+            out[key] = value
+    return out
+
+
+def platform_scoring(league: Any) -> dict[str, float]:
+    """The scoring sheet Yahoo reports for the league; {} if it cannot be read."""
+    try:
+        raw = league.yhandler.get_settings_raw(league.league_id)
+        found = scoring_from_settings(raw)
+        if not found:
+            log.warning("Yahoo scoring settings had no readable offensive modifiers")
+        return found
+    except Exception as exc:  # noqa: BLE001 - a check; never block the sync
+        log.warning("Yahoo scoring settings unavailable: %s", exc)
+        return {}
+
+
+# ---------------------------------------------------------------------------
 # The one function that talks to Yahoo
 # ---------------------------------------------------------------------------
 def fetch_snapshot(season: int, week: int, profile: str, oauth_path: Path) -> LeagueSnapshot:
@@ -339,6 +401,8 @@ def fetch_snapshot(season: int, week: int, profile: str, oauth_path: Path) -> Le
         log.warning("Yahoo matchups failed: %s", exc)
         matchups_raw = None
 
-    return build_snapshot(
+    snap = build_snapshot(
         league, week, profile, my_team_key, rosters, free_agents, teams_meta, matchups_raw
     )
+    snap.extra["platform_scoring"] = platform_scoring(league)
+    return snap

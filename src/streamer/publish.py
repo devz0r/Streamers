@@ -978,6 +978,7 @@ def team_panels_for(
                 from .roster.projections import load_history
 
                 scoring_check.check(snap, load_history(bound))
+                scoring_check.check_sheet(snap, bound._profile.get("offense_scoring"))
             except Exception as exc:  # noqa: BLE001 - a check must never block the page
                 log.warning("scoring check for %s skipped: %s", name, exc)
             try:

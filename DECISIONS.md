@@ -5051,3 +5051,16 @@ quarterback points did not match the Yahoo app.
 Checked offline on the Yahoo rosters: quarterbacks' season values +3.5 a game
 on average, weekly projections +2.0 (Yahoo's own projection, already on its
 sheet, was part of the blend), backs, receivers and tight ends unchanged.
+
+**Closing the gap: Yahoo's own sheet is read and compared every refresh.**
+The Yahoo sync now reads the league's scoring modifiers from the settings
+payload Yahoo returns (`yahoo.platform_scoring`: `stat_modifiers`, named
+through `stat_categories`) into `snapshot.extra["platform_scoring"]`, and
+every refresh compares them with `offense_scoring` in config.yaml
+(`scoring_check.check_sheet`), warning on any difference -- the check that
+would have caught the 4-point touchdown pass in week 1. The parser is
+written to the payload `yahoo_fantasy_api` documents and tested on that
+shape; Yahoo is not reachable from the development sandbox, so the first
+refresh's log is the real test: "scoring sheet matches the platform's (N
+stats checked)", or a warning naming the difference / "had no readable
+offensive modifiers" if the payload differs from what was expected.
