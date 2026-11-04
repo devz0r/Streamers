@@ -142,11 +142,11 @@ def test_a_platform_average_of_zero_is_missing_not_a_mismatch(caplog):
 
 
 _YAHOO_SETTINGS = """<html><body>
-<table><tr><th>Stat</th><th>League Value</th></tr>
+<table><tr><th>Stat</th><th>League Value</th><th>Yahoo Default Value</th></tr>
 <tr><td>Passing Yards</td><td>25 yards per point</td></tr>
-<tr><td>Passing Touchdowns</td><td>6</td></tr>
+<tr><td>Passing Touchdowns</td><td>6</td><td>4</td></tr>
 <tr><td>Interceptions</td><td>-1</td></tr>
-<tr><td>Receptions</td><td>1</td></tr>
+<tr><td>Receptions</td><td>1</td><td>0.5</td></tr>
 <tr><td>Field Goals 0-19 Yards</td><td>3</td></tr>
 <tr><td>Field Goals 50+ Yards</td><td>5</td></tr>
 <tr><td>Point After Attempt Made</td><td>1</td></tr>
@@ -154,7 +154,7 @@ _YAHOO_SETTINGS = """<html><body>
 <tr><td>Points Allowed 0 points</td><td>10</td></tr>
 <tr><td>Points Allowed 1-6 points</td><td>7</td></tr>
 <tr><td>Points Allowed 35+ points</td><td>-4</td></tr>
-<tr><td>4th Down Stops (Yahoo Default: 0)</td><td>1</td></tr>
+<tr><td>4th Down Stops (Yahoo Default: 0)</td><td>1</td><td>0</td></tr>
 <tr><td>Extra Point Returned</td><td>2</td></tr>
 <tr><td>Roster Positions</td><td>QB, WR</td></tr>
 </table></body></html>"""
@@ -189,3 +189,10 @@ def test_every_yahoo_sheet_line_is_covered_by_the_config():
                                  "dst.pa_14_20", "dst.pa_21_27", "dst.return_td")} == {
         "k.fg_0_19": 3.0, "k.fg_20_29": 3.0, "k.fg_30_39": 3.0, "k.fg_40_49": 4.0, "k.fg_50_plus": 5.0,
         "dst.pa_14_20": 1.0, "dst.pa_21_27": 0.0, "dst.return_td": 6.0}
+
+
+def test_without_a_header_the_first_value_after_the_label_is_the_leagues():
+    from streamer.league.yahoo_web import parse_scoring
+
+    html = "<table><tr><td>Passing Touchdowns</td><td>6</td><td>4</td></tr></table>"
+    assert parse_scoring(html) == {"pass_td": 6.0}

@@ -954,13 +954,20 @@ def _scoring_value(text: str, key: str) -> float | None:
 def parse_scoring(html: str) -> dict[str, float]:
     """The league's scoring sheet from its settings page: every row whose
     label is a known stat ("Passing Touchdowns", "Field Goals 50+ Yards",
-    "Points Allowed 1-6 points", "Sack") with a number for its value."""
+    "Points Allowed 1-6 points", "Sack") with the league's value for it --
+    the page also shows Yahoo's default value for each, which is not it."""
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(html, "html.parser")
     out: dict[str, float] = {}
+    col = None          # the "League Value" column, once a header names it
     for tr in soup.find_all("tr"):
         cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
+        heads = [i for i, c in enumerate(cells) if "league value" in c.lower()]
+        if heads:
+            col = heads[0]
+            log.info("Yahoo settings: scoring header %s, league values in column %d", cells, col)
+            continue
         if len(cells) < 2:
             continue
         label = re.sub(r"\s*\(.*?\)\s*", " ", cells[0]).strip().rstrip(":").lower()
@@ -970,7 +977,10 @@ def parse_scoring(html: str) -> dict[str, float]:
         key = f"dst.pa_{pa.group(1)}_{hi}" if pa else _SCORING_ROWS.get(label)
         if not key:
             continue
-        val = next((v for v in (_scoring_value(c, key) for c in reversed(cells[1:])) if v is not None), None)
+        # The league's value, never Yahoo's default beside it: the column a
+        # header names, else the first value after the label.
+        picks = [cells[col]] if col is not None and col < len(cells) else cells[1:]
+        val = next((v for v in (_scoring_value(c, key) for c in picks) if v is not None), None)
         if val is not None:
             out[key] = val
     return out
