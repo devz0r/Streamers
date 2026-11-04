@@ -1045,7 +1045,7 @@
         },
         {
           "player_id": "100004",
-          "name": "Bengals",
+          "name": "Cincinnati",
           "position": "DST",
           "team": "CIN",
           "status": "",
@@ -12606,7 +12606,7 @@
         },
         {
           "player_id": "100028",
-          "name": "Commanders",
+          "name": "Washington",
           "position": "DST",
           "team": "WAS",
           "status": "",
@@ -28029,7 +28029,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-04T03:43:21.405435+00:00",
+  "synced_at": "2026-11-04T03:57:00.538930+00:00",
   "extra": {
     "source": "yahoo-web"
   },
@@ -28046,11 +28046,11 @@
     "tiebreak": "points",
     "platform_scoring": {
       "pass_yards": 0.04,
-      "pass_td": 4.0,
+      "pass_td": 6.0,
       "interception": -1.0,
       "rush_yards": 0.1,
       "rush_td": 6.0,
-      "reception": 0.5,
+      "reception": 1.0,
       "reception_yards": 0.1,
       "reception_td": 6.0,
       "two_point": 2.0,
@@ -28075,7 +28075,7 @@
       "dst.pa_21_27": 0.0,
       "dst.pa_28_34": -1.0,
       "dst.pa_35_plus": -4.0,
-      "dst.fourth_down_stop": 0.0,
+      "dst.fourth_down_stop": 1.0,
       "dst.extra_point_returned": 2.0
     },
     "schedule": [
