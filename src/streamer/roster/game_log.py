@@ -63,6 +63,35 @@ def line(pos: str, r) -> str:
     return ", ".join(parts)
 
 
+def _kicker_points(stats: pd.DataFrame, cfg: Config) -> pd.Series:
+    """The points column with kickers scored on this league's sheet: nflverse
+    leaves a kicker's fantasy points at zero, so they come from his field goals
+    by distance, misses and extra points."""
+    from ..scoring import KickerScoring
+
+    pts = stats["fantasy_points_ppr"].astype(float)
+    k = stats["position"].eq("K")
+    if not k.any() or "fg_made_0_19" not in stats.columns:
+        return pts
+    try:
+        sc = KickerScoring.from_config(cfg)
+    except Exception as exc:  # noqa: BLE001 - kickers show a stat line without points
+        log.warning("kicker points for the game log skipped: %s", exc)
+        return pts
+
+    def n(col: str) -> pd.Series:
+        return stats[col].fillna(0).astype(float) if col in stats.columns else 0.0
+
+    made = {"0_39": n("fg_made_0_19") + n("fg_made_20_29") + n("fg_made_30_39"), "40_49": n("fg_made_40_49"),
+            "50_59": n("fg_made_50_59"), "60_plus": n("fg_made_60_")}
+    miss = {"0_39": n("fg_missed_0_19") + n("fg_missed_20_29") + n("fg_missed_30_39"), "40_49": n("fg_missed_40_49"),
+            "50_59": n("fg_missed_50_59"), "60_plus": n("fg_missed_60_")}
+    total = n("pat_made") * sc.pat_made + n("pat_missed") * sc.pat_missed
+    for b in made:
+        total = total + made[b] * sc.made_value(b) + miss[b] * sc.missed_value(b)
+    return pts.where(~k, total)
+
+
 def _frames(cfg: Config, season: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     from ..teams import normalize_team
     from .players import normalize_name
@@ -78,6 +107,7 @@ def _frames(cfg: Config, season: int) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     stats["fantasy_points_ppr"] = rescore(stats, cfg._profile.get("offense_scoring"), "fantasy_points_ppr",
                                           STAT_COLUMNS)
+    stats["fantasy_points_ppr"] = _kicker_points(stats, cfg)
     stats["_team"] = stats["team"].map(normalize_team)
     stats["_name"] = stats["player_display_name"].map(normalize_name)
     try:

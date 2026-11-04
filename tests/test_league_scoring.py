@@ -196,3 +196,19 @@ def test_without_a_header_the_first_value_after_the_label_is_the_leagues():
 
     html = "<table><tr><td>Passing Touchdowns</td><td>6</td><td>4</td></tr></table>"
     assert parse_scoring(html) == {"pass_td": 6.0}
+
+
+def test_a_kickers_game_log_points_follow_each_leagues_sheet():
+    """Harrison Butker, 2026 weeks 2 and 6, by hand: ESPN scores a miss -1 and a
+    missed extra point -0.5; Yahoo scores neither, and a 50+ kick 5 on both."""
+    from streamer.roster.game_log import _kicker_points
+
+    cols = ["position", "fantasy_points_ppr", "fg_made_0_19", "fg_made_20_29", "fg_made_30_39", "fg_made_40_49",
+            "fg_made_50_59", "fg_made_60_", "fg_missed_0_19", "fg_missed_20_29", "fg_missed_30_39",
+            "fg_missed_40_49", "fg_missed_50_59", "fg_missed_60_", "pat_made", "pat_missed"]
+    wk2 = ["K", 0.0, 0, 1, 1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0]     # 46 28 31 40 made, 51 missed, 3 XP
+    wk6 = ["K", 0.0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1]     # 44 50 30 made, 52 missed, 1 of 2 XP
+    df = pd.DataFrame([wk2, wk6, ["QB"] + [0.0] * 15], columns=cols)
+    e = _kicker_points(df, get_config().for_profile("espn"))
+    y = _kicker_points(df, get_config().for_profile("yahoo"))
+    assert list(e) == [16.0, 11.5, 0.0] and list(y) == [17.0, 13.0, 0.0]
