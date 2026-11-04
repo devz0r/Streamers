@@ -85,7 +85,7 @@ def replay(walk: pd.DataFrame, pts: pd.DataFrame, n_teams: int, picture: str, k:
                     continue
                 level = g["baseline_points"].sort_values(ascending=False)
 
-                def wire(exclude: set) -> pd.Series:
+                def wire(exclude: set, level=level, g=g) -> pd.Series:
                     others = [t for t in level.index if t not in exclude][:held_n]
                     pool = g.drop(index=[t for t in others if t in g.index] + [t for t in exclude if t in g.index])
                     pool = pool["expected_points"].sort_values(ascending=False)
