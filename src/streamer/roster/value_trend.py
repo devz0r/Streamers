@@ -33,7 +33,7 @@ from ..league.model import LeagueSnapshot, PlayerRow
 log = logging.getLogger(__name__)
 
 #: Bump when a change to the model moves season values across the board.
-MODEL_EPOCH = 1
+MODEL_EPOCH = 2      # 2: D/ST and K season levels (roster.unit_level)
 
 #: Bands in points a game: under FLAT is no change (week-to-week noise in
 #: the season value is about that size); then light, medium, strong.

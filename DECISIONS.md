@@ -5104,3 +5104,25 @@ Predicting the rest of the season's points a game (weeks 3-10 checkpoints),
 the league mean beats it in every season (RMSE 3.12/2.73/3.00 against
 3.38/3.28/3.41); season-to-date points shrunk 16 games toward the mean tie
 the mean (3.27/2.75/2.82). Not yet changed.
+
+### A season level for defences and kickers
+The season value of a D/ST or kicker was `baseline_points`, this week's
+Vegas-only projection, so this week's matchup was carried into every later
+week of the season simulator (title odds, trades, waiver holds, the value
+list): Jacksonville facing Baltimore read 13.3 a game for the season on
+ESPN, against a league mean of 8.3. Now (`roster.unit_level`,
+`scripts/fit_unit_level.py`): `line * baseline + (1 - line) * shrunk`,
+`shrunk` the unit's points so far this season pulled toward the league's
+mean unit by `shrink` games. Fitted on two of 2023-2025, scored on the third,
+rest-of-season points a game from checkpoints at weeks 3-10:
+
+| | fitted (a, k) per fold | held-out RMSE | current | league mean |
+|---|---|---|---|---|
+| D/ST | 0.1/24, 0.3/48, 0.2/inf | 3.080, 2.699, 2.882 | 3.307, 3.235, 3.351 | 3.037, 2.708, 2.956 |
+| K | 0.7/8, 0.6/16, 0.8/8 | 1.431, 1.795, 1.858 | 1.436, 1.806, 1.900 | 1.569, 2.086, 1.918 |
+
+In use: D/ST 0.2 and 48, K 0.7 and 8 (all three seasons). Defences barely
+differ over a season; a kicker's team total is a lasting trait of his
+offence. Week 9 of 2026: the spread of D/ST season values falls from 2.5 to
+0.6 a game (ESPN), Jacksonville to 9.6; kickers barely move. The weekly
+schedule factor (`roster.schedule`) still moves each later week.

@@ -479,6 +479,11 @@ roster:
   # from (trades, waiver moves, this week's pickups); the screen that picks
   # them stays at 6,000. Four times the seasons halves the noise.
   confirm_sims: 24000
+  # A D/ST's and a kicker's season level: line * this week's Vegas baseline + (1 - line) *
+  # points so far shrunk toward the league mean by `shrink` games (scripts/fit_unit_level.py).
+  unit_level:
+    DST: {line: 0.2, shrink: 48}
+    K: {line: 0.7, shrink: 8}
   # Skill-position projection = opportunity x efficiency (validated
   # walk-forward, see DECISIONS.md), scaled by the week's team implied total
   # relative to its recent average. `vegas_damping` is the exponent on that

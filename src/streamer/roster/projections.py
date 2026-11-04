@@ -1322,6 +1322,16 @@ def project_snapshot(
             k_rows = {r.team: r for r in rankings.kicker.itertuples()}
     # Units on bye this week are not in this week's rankings: their season
     # value comes from next week's (``rankings.*_next``).
+    # A D/ST's or kicker's season level: this week's line blended with his
+    # points so far (roster.unit_level), not this week's matchup alone.
+    from . import unit_level
+
+    unit_conf = unit_level.conf(cfg)
+    try:
+        unit_pts = unit_level.season_points(cfg, int(snapshot.season), int(snapshot.week))
+    except Exception as exc:  # noqa: BLE001 - the line alone, as before
+        log.warning("D/ST and K season levels from the line alone: %s", exc)
+        unit_pts = {}
     next_rows: dict[tuple[str, str], pd.Series] = {}
     for pos, attr in (("DST", "dst_next"), ("K", "kicker_next")):
         frame = getattr(rankings, attr, None) if rankings is not None else None
@@ -1620,21 +1630,22 @@ def project_snapshot(
             r = dst_rows[p.team]
             mean = float(r.expected_points)
             sd = max((float(r.ceiling) - float(r.floor)) / 2.07, 1.0)
-            ros = float(getattr(r, "baseline_points", mean) or mean)
+            ros = unit_level.level("DST", p.team, float(getattr(r, "baseline_points", mean) or mean), unit_pts, unit_conf)
             source = "stream/hold" if bool(getattr(r, "two_week_hold", False)) else "stream"
 
         elif p.position == "K" and p.team in k_rows:
             r = k_rows[p.team]
             mean = float(r.expected_points)
             sd = max((float(r.ceiling) - float(r.floor)) / 2.07, 1.0)
-            ros = float(getattr(r, "baseline_points", mean) or mean)
+            ros = unit_level.level("K", p.team, float(getattr(r, "baseline_points", mean) or mean), unit_pts, unit_conf)
             source = "stream/hold" if bool(getattr(r, "two_week_hold", False)) else "stream"
 
         elif p.position in ("DST", "K"):
             nxt = next_rows.get((p.position, p.team)) if p.team else None
             if nxt is not None:
                 # Off this week (a bye): nothing now, next week's level for the season.
-                ros = float(getattr(nxt, "baseline_points", nxt.expected_points) or nxt.expected_points)
+                ros = unit_level.level(p.position, p.team, float(getattr(nxt, "baseline_points", nxt.expected_points)
+                                                                 or nxt.expected_points), unit_pts, unit_conf)
                 mean, sd, source = (0.0 if p.on_bye else ros), 4.5, "stream (next week)"
             elif plat is not None:
                 mean, sd, ros, source = float(plat), 4.5, float(plat), "platform"
