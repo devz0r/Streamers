@@ -287,7 +287,7 @@ odds:
   # COST, because this one bites: props are billed per market per region PER
   # EVENT. Only events with a startable player of yours -- in either league,
   # pulled once for both -- are fetched, and `max_events` caps it, so a run
-  # costs at most len(markets) x max_events = 8 x 8 = 64 credits. The weekly job publishes twice a week, so about 480
+  # costs at most len(markets) x max_events = 7 x 8 = 56 credits. The weekly job publishes twice a week, so about 480
   # credits a month -- just inside the 500 the free tier allows, and the page
   # prints the balance the API reports so it is not a guess. Lower
   # `max_events`, drop a market, or set `enabled: false` to spend less; a paid
@@ -308,8 +308,8 @@ odds:
       - player_receptions
       - player_reception_yds
       - player_anytime_td
-      # Kickers: logged and graded, not yet blended (roster/unit_props.py).
-      - player_kicking_points
+      # player_kicking_points was bought weeks 6-9 of 2026 and never came back
+      # from these books (nor from SportsGameOdds): dropped, a credit a game saved.
     # How many games' props a run buys is paced by the month's credits (they
     # reset on the 1st; see props.event_cap): a Sunday run spends what is
     # left, less the midweek runs still to come, over the Sundays left --

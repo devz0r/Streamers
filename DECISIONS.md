@@ -5155,3 +5155,12 @@ Above the 52.4% a -110 bet needs, but three weeks, with week 6 near 50%,
 and the two leagues share most players. And fantasy points are not a
 sportsbook market: a bet is on one stat, and we make no per-stat
 projections. Not a betting tool; a lead, rechecked as weeks accumulate.
+
+### Kicker props: never posted
+The kicking-points market (`player_kicking_points`) was bought from week 6
+to be graded before it could move a kicker's projection. The unit log has no
+kicker row in weeks 6-9 in either league, and a refresh logging each feed's
+prices (week 9) found none from The Odds API's books (Pinnacle, FanDuel,
+Caesars) or SportsGameOdds, while both priced the usual skill markets. The
+market is dropped from the purchase (7 markets a game, not 8); the parsing
+stays, so a book that starts posting it can be added back in config.
