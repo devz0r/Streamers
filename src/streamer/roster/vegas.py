@@ -105,6 +105,12 @@ def attach(
         from ..data.props import consensus, implied_means, to_fantasy_points
 
         points = to_fantasy_points(consensus(implied_means(result.frame, cfg), cfg), cfg)
+        try:
+            kp = result.frame[result.frame["stat"] == "kicking_points"]
+            log.info("kicking-points props: %d prices, %d kickers, books %s", len(kp), kp["player"].nunique(),
+                     sorted(kp["bookmaker"].dropna().unique().tolist()))
+        except Exception:  # noqa: BLE001 - a diagnostic
+            pass
 
     if points.empty:
         return report

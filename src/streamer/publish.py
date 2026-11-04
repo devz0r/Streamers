@@ -847,6 +847,11 @@ def team_panels_for(
 
             extra, note = sgo.props_frame(loaded[0][1])
             log.info("SportsGameOdds props: %s", note)
+            for label, fr in (("The Odds API", shared.frame if shared is not None else None), ("SportsGameOdds", extra)):
+                if fr is not None and not fr.empty and "stat" in fr:
+                    kp = fr[fr["stat"] == "kicking_points"]
+                    log.info("kicking-points prices from %s: %d (%d kickers); stats priced: %s", label, len(kp),
+                             kp["player"].nunique(), sorted(fr["stat"].dropna().unique().tolist()))
             if not extra.empty:
                 if shared is None:
                     shared = PropsResult(extra.iloc[:0], _dt.now(_UTC))
