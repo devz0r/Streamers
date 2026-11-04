@@ -5079,3 +5079,28 @@ exactly (25 of 25). The stored 2026 ESPN D/ST results (`results/espn/
 history.parquet`, 242 rows) were rescored (mean -1.14 a game); features and
 the D/ST model rebuild from play-by-play on the sheet each run. A test pins
 both leagues' kicker and D/ST sheets to the supplied values.
+
+### Hold a defence or stream it
+`scripts/replay_dst_hold_vs_stream.py` replays 2023-2025 from the walk-forward
+D/ST projections, on each league's sheet, weeks after a checkpoint (3-10) to
+17: keep one unit against starting the best-projected defence on the wire
+each week. Points a week, hold minus stream:
+
+| wire | ESPN (10) hold #1 / #3 | Yahoo (14) hold #1 / #3 |
+|---|---|---|
+| realistic (6 / 8 held, 2 / 3 streamers pick first) | -0.19 / +0.30 | -0.02 / +0.59 |
+| you get the best matchup (N-1 held, no other streamers) | -2.34 / -2.13 | +0.05 / +0.15 |
+
+Season to season the gap swings by 1-3 points either way, so the realistic
+wire is a tie; streaming wins when you reach the best matchup first, and by
+more on ESPN, whose sheet rewards sacks and yards allowed. In 2026 through
+week 8, on the real free-agent pools, the user's own streams scored 11.4
+(ESPN) and 10.2 (Yahoo) a game in the weeks Jacksonville played, against
+Jacksonville's 11.1 and 10.4.
+
+Found along the way: a D/ST's (and kicker's) "season value" is its
+`baseline_points` -- this week's Vegas-only projection, not a season level.
+Predicting the rest of the season's points a game (weeks 3-10 checkpoints),
+the league mean beats it in every season (RMSE 3.12/2.73/3.00 against
+3.38/3.28/3.41); season-to-date points shrunk 16 games toward the mean tie
+the mean (3.27/2.75/2.82). Not yet changed.
