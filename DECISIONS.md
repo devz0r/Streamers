@@ -5016,3 +5016,38 @@ locked in place), moves over and the cover takes his flex spot. The late
 swap the win odds count on (`swap_plan`) and the "If a questionable starter
 is ruled out" list both use it, and the list names the extra step ("move X
 to WR and start Y at FLEX").
+
+## Every league on its own scoring sheet (Yahoo quarterbacks were mis-scored)
+
+**The bug.** The config said "both configured leagues are full PPR on the
+platform defaults" and gave Yahoo ESPN's offensive sheet: 4 a touchdown pass,
+-2 an interception. The Yahoo league pays **6 and -1**. Every Yahoo number
+built on nflverse's points -- quarterback projections and season values, the
+season simulation, P(win), trades, waivers, the game log -- was on the wrong
+sheet for quarterbacks (about 3.5 a game low for a starter; Josh Allen 23.3
+-> 27.1 a game, Joe Burrow 21.0 -> 26.6). Backs, receivers and tight ends were
+unaffected (the sheets agree on them), as was ESPN. Found when the game log's
+quarterback points did not match the Yahoo app.
+
+**The fix.**
+
+* `config.yaml`: the Yahoo profile's `offense_scoring` is the league's own
+  (pass_td 6, interception -1), checked against Yahoo's points for every
+  2026 game of Allen and Burrow: 14 of 14 exact.
+* `scoring.rescore`: nflverse's `fantasy_points_ppr` and ff_opportunity's
+  expected points re-scored onto a league's sheet from the stats behind them
+  (`STANDARD_OFFENSE` is the sheet nflverse uses). `load_history` returns
+  points on the bound league's sheet, so everything downstream follows; the
+  comparison pools are cached per sheet (`scoring_tag`).
+* FantasyPros and Sleeper weekly projections are re-scored from the
+  projected stats they send (`rescore_feed`); a quarterback whose stats
+  cannot be read is left out rather than mixed in on the wrong sheet.
+* The game log is built per league (the same quarterback's week reads 26.6
+  on ESPN, 31.6 on Yahoo) and the sheet opens the log of the league tapped in.
+* `roster.scoring_check`: every refresh compares each player's season average
+  where the platform reports one (ESPN does; the Yahoo sync does not) with
+  ours, and logs a warning when a position is off. ESPN matches.
+
+Checked offline on the Yahoo rosters: quarterbacks' season values +3.5 a game
+on average, weekly projections +2.0 (Yahoo's own projection, already on its
+sheet, was part of the blend), backs, receivers and tight ends unchanged.

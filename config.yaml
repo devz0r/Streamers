@@ -50,8 +50,9 @@ profiles:
       # of managers who need a usable one each week.
       startable_rank: 12
 
-    # Offensive scoring, used to turn sportsbook player props into fantasy
-    # points. Both configured leagues are full PPR on the platform defaults.
+    # Offensive scoring: this league's own sheet (see the Yahoo profile).
+    # ESPN here is the standard: full PPR, 4 a touchdown pass, -2 an
+    # interception -- the sheet nflverse's points are on.
     offense_scoring:
       pass_yards: 0.04          # 1 point per 25 yards
       pass_td: 4.0
@@ -130,12 +131,16 @@ profiles:
       teams: 14
       startable_rank: 14
 
-    # Offensive scoring, used to turn sportsbook player props into fantasy
-    # points. Both configured leagues are full PPR on the platform defaults.
+    # Offensive scoring: this league's own sheet. Every fantasy point the
+    # model uses for this league -- history, projections, props, the game
+    # log -- is scored on it (nflverse's points are re-scored where it
+    # differs from the standard sheet: scoring.STANDARD_OFFENSE). Full PPR,
+    # 6 a touchdown pass and -1 an interception, checked against Yahoo's own
+    # points for every 2026 game of Josh Allen and Joe Burrow (exact).
     offense_scoring:
       pass_yards: 0.04          # 1 point per 25 yards
-      pass_td: 4.0
-      interception: -2.0
+      pass_td: 6.0
+      interception: -1.0
       rush_yards: 0.1          # 1 point per 10 yards
       rush_td: 6.0
       reception: 1.0

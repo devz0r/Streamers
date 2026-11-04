@@ -68,6 +68,9 @@ def attach(snapshot: LeagueSnapshot, cfg: Config) -> int:
         log.warning("FantasyPros pull failed: %s", type(exc).__name__)
         return 0
     idx = {name: _index(f) for name, f in (("ros", ros), ("weekly", weekly), ("proj", proj)) if not f.empty}
+    from ..scoring import rescore_feed
+
+    sheet = cfg._profile.get("offense_scoring")
     matched = 0
     for p in snapshot.all_players():
         if p.position not in SKILL:
@@ -78,7 +81,11 @@ def attach(snapshot: LeagueSnapshot, cfg: Config) -> int:
         if "weekly" in idx and (r := _find(p, idx["weekly"])) is not None and r.pos_rank:
             p.ecr_week_pos_rank, hit = int(r.pos_rank), True
         if "proj" in idx and (r := _find(p, idx["proj"])) is not None and r.points is not None:
-            p.fp_projection, hit = float(r.points), True
+            # FantasyPros scores the standard sheet; on the league's own
+            # (Yahoo: 6 a touchdown pass, -1 an interception), or not at all.
+            pts = rescore_feed(float(r.points), getattr(r, "stats", None), sheet, p.position)
+            if pts is not None:
+                p.fp_projection, hit = pts, True
         matched += hit
     log.info("FantasyPros consensus matched %d players", matched)
     if "ros" in idx:

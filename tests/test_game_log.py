@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace as NS
+
 import pandas as pd
 
 from fixtures_league import snapshot
 from streamer.roster import game_log
-from types import SimpleNamespace as NS
 
 
 def test_stat_lines_read_like_a_box_score():
@@ -57,6 +58,8 @@ def test_the_page_embeds_the_log_once_and_the_sheet_script():
 
     block = _game_log_block({"espn": {"_gamelog": {"1": {"n": "A </b>", "g": []}}}, "yahoo": {"_gamelog": {"1": {"n": "B"}}}})
     assert block.count('id="gamelog-data"') == 1 and "<\\/b>" in block and "caretRangeFromPoint" in block
+    # One log per league: the same player is scored on each league's sheet.
+    assert '"espn":{"1":{"n":"A' in block and '"yahoo":{"1":{"n":"B"}}' in block
     assert _game_log_block({"espn": {"hub": "x"}}) == ""
 
 

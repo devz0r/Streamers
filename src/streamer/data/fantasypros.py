@@ -202,8 +202,11 @@ def projections(cfg: Config, season: int, week: int) -> pd.DataFrame:
                 "team": _first(r, "player_team_id", "team_id", "team"),
                 "position": _first(r, "player_position_id", "position_id", "position") or pos,
                 "points": pts,
+                # The projected stats behind the points, so a league scoring
+                # differently can re-score them (scoring.rescore_feed).
+                "stats": {k: v for k, v in stats.items() if isinstance(v, int | float)},
             })
-    return pd.DataFrame(rows, columns=["name", "team", "position", "points"])
+    return pd.DataFrame(rows, columns=["name", "team", "position", "points", "stats"])
 
 
 #: Field names that could carry a chance to play (names only are printed).

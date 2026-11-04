@@ -18,8 +18,18 @@
   }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
-  var byName = {};
-  Object.keys(D).forEach(function (k) { var p = D[k]; (byName[norm(p.n)] = byName[norm(p.n)] || []).push(p); });
+  // One log per league (each on its own scoring sheet), picked by the
+  // league panel the tap is in.
+  var byLeague = {}, leagues = Object.keys(D);
+  leagues.forEach(function (lg) {
+    var idx = byLeague[lg] = {};
+    Object.keys(D[lg]).forEach(function (k) { var p = D[lg][k]; (idx[norm(p.n)] = idx[norm(p.n)] || []).push(p); });
+  });
+  function leagueOf(el) {
+    var host = el && el.closest && el.closest("[data-league]");
+    var lg = host && host.getAttribute("data-league");
+    return byLeague[lg] ? lg : leagues[0];
+  }
 
   // The player whose name is under the tap, from the text node at that point.
   function at(ev) {
@@ -32,6 +42,7 @@
       if (r) { n = r.startContainer; off = r.startOffset; }
     }
     if (!n || n.nodeType !== 3) return null;
+    var byName = byLeague[leagueOf(n.parentElement)];
     tx = n.nodeValue;
     var words = [], re = /\S+/g, m;
     while ((m = re.exec(tx))) words.push([m[0], m.index]);

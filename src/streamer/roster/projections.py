@@ -45,6 +45,7 @@ from ..data.nflverse import (
 )
 from ..data.odds import get_lines, lines_to_team_rows
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, LeagueSnapshot, PlayerRow
+from ..scoring import EXPECTED_COLUMNS, STAT_COLUMNS, rescore
 from . import depth, market_calibration, outcome
 from .players import build_index, match_players
 
@@ -93,7 +94,9 @@ PLATFORM_MAX = {"QB": 50.0, "RB": 45.0, "WR": 45.0, "TE": 40.0, "K": 25.0, "DST"
 
 
 def load_history(cfg: Config | None = None) -> pd.DataFrame:
-    """Weekly PPR points and opportunity-expected points, all training seasons."""
+    """Weekly fantasy points and opportunity-expected points, all training
+    seasons, on the league's own scoring sheet (``offense_scoring``; the
+    column keeps nflverse's name, ``fantasy_points_ppr``)."""
     cfg = cfg or get_config()
     seasons = sorted(set(cfg.train_seasons) | {cfg.current_season})
     newest = latest_available_season(cfg)
@@ -120,7 +123,13 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
         except Exception as exc:  # noqa: BLE001
             log.warning("player history for %s unavailable: %s", season, exc)
             continue
-        stats = stats[stats["season_type"].eq("REG") & stats["position"].isin(SKILL)]
+        stats = stats[stats["season_type"].eq("REG") & stats["position"].isin(SKILL)].copy()
+        # Points on this league's own sheet (nflverse scores the standard
+        # one: Yahoo here pays 6 a passing touchdown and -1 an interception).
+        sheet = cfg._profile.get("offense_scoring")
+        stats["fantasy_points_ppr"] = rescore(stats, sheet, "fantasy_points_ppr", STAT_COLUMNS)
+        opp = opp.copy()
+        opp["total_fantasy_points_exp"] = rescore(opp, sheet, "total_fantasy_points_exp", EXPECTED_COLUMNS)
         usage = [c for c in ("targets", "carries", "target_share") if c in stats.columns]
         stats = stats[["player_id", "player_display_name", "position", "season", "week",
                        "team", "fantasy_points_ppr", *usage]].copy()

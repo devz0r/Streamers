@@ -263,10 +263,10 @@ def render_page(
 def _game_log_block(team_panels) -> str:
     """Every player's season so far, embedded once for the tap-a-name sheet
     (static/gamelog.js), with the script that reads it."""
-    from .roster.game_log import merge
-
-    logs = [t.get("_gamelog") for t in (team_panels or {}).values() if isinstance(t, dict)]
-    data = merge(*logs)
+    # One log per league: the same player scores differently on each sheet
+    # (a quarterback's touchdown passes are worth 6 on Yahoo here, 4 on ESPN).
+    data = {name: t["_gamelog"] for name, t in (team_panels or {}).items()
+            if isinstance(t, dict) and t.get("_gamelog")}
     if not data:
         return ""
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
@@ -973,6 +973,13 @@ def team_panels_for(
                 log.info("%s: season values vs last week for %d players (%d recorded)", name, n_prev, n_rec)
             except Exception as exc:  # noqa: BLE001 - a badge must never block the page
                 log.warning("season value trend for %s skipped: %s", name, exc)
+            try:
+                from .roster import scoring_check
+                from .roster.projections import load_history
+
+                scoring_check.check(snap, load_history(bound))
+            except Exception as exc:  # noqa: BLE001 - a check must never block the page
+                log.warning("scoring check for %s skipped: %s", name, exc)
             try:
                 from .roster import game_log
 

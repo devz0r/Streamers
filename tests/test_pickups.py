@@ -153,6 +153,7 @@ def test_a_pickup_that_loses_title_odds_now_and_gains_none_later_is_a_watch():
 
 def test_the_waivers_tab_puts_real_moves_before_watch_only_ones(cfg):
     from types import SimpleNamespace as NS
+
     from streamer.roster.page import _title_moves
 
     p = lambda n: NS(name=n, position="WR", team="PHI", on_waivers=False, photo="", signals=[], ros_value=7.0, ros_prev=None)  # noqa: E731

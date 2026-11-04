@@ -77,7 +77,10 @@ def deep_history(cfg: Config, since: int) -> pd.DataFrame:
 
 def pool(cfg: Config, since: int) -> pd.DataFrame:
     """Every played player-week with features since ``since`` (built once per process)."""
-    key = (str(cfg.raw_dir), int(since))
+    from ..scoring import scoring_tag
+
+    # Points are on the league's own sheet: two leagues must not share a pool.
+    key = (str(cfg.raw_dir), int(since), scoring_tag(cfg._profile.get("offense_scoring")))
     if key not in _POOL:
         from ..data.nflverse import games_frame
 
@@ -219,7 +222,10 @@ def ros_table(h: pd.DataFrame, seasons, weeks) -> pd.DataFrame:
 def ros_pool(cfg: Config, since: int, before_season: int) -> pd.DataFrame:
     """Player-checkpoints of the seasons before ``before_season`` with an
     outcome, cached on disk (finished seasons do not change)."""
-    path = cfg.raw_dir / f"ros_comp_pool_{since}_{before_season}.parquet"
+    from ..scoring import scoring_tag
+
+    tag = scoring_tag(cfg._profile.get("offense_scoring"))
+    path = cfg.raw_dir / f"ros_comp_pool_{since}_{before_season}{tag}.parquet"
     if path.exists():
         try:
             return pd.read_parquet(path)

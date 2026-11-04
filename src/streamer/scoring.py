@@ -402,3 +402,100 @@ def tier_probabilities_from_samples(
     if total_w <= 0:
         raise ValueError("cannot build tier probabilities from an empty sample")
     return [a / total_w for a in acc]
+
+
+# ---------------------------------------------------------------------------
+# Offense: nflverse's points re-scored on a league's own sheet
+# ---------------------------------------------------------------------------
+#: The sheet nflverse's ``fantasy_points_ppr`` (and ff_opportunity's
+#: ``*_fantasy_points_exp``) is scored on: full PPR, 4-point passing
+#: touchdowns, -2 an interception.
+STANDARD_OFFENSE: dict[str, float] = {
+    "pass_yards": 0.04, "pass_td": 4.0, "interception": -2.0, "rush_yards": 0.1, "rush_td": 6.0,
+    "reception": 1.0, "reception_yards": 0.1, "reception_td": 6.0, "fumble_lost": -2.0, "two_point": 2.0,
+}
+
+#: Scoring key -> the nflverse stat columns it counts (weekly player stats).
+STAT_COLUMNS: dict[str, tuple[str, ...]] = {
+    "pass_yards": ("passing_yards",), "pass_td": ("passing_tds",), "interception": ("passing_interceptions",),
+    "rush_yards": ("rushing_yards",), "rush_td": ("rushing_tds",), "reception": ("receptions",),
+    "reception_yards": ("receiving_yards",), "reception_td": ("receiving_tds",),
+    "fumble_lost": ("rushing_fumbles_lost", "receiving_fumbles_lost", "sack_fumbles_lost"),
+    "two_point": ("passing_2pt_conversions", "rushing_2pt_conversions", "receiving_2pt_conversions"),
+}
+
+#: Scoring key -> ff_opportunity's expected-stat columns.
+EXPECTED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "pass_yards": ("pass_yards_gained_exp",), "pass_td": ("pass_touchdown_exp",),
+    "interception": ("pass_interception_exp",), "rush_yards": ("rush_yards_gained_exp",),
+    "rush_td": ("rush_touchdown_exp",), "reception": ("receptions_exp",),
+    "reception_yards": ("rec_yards_gained_exp",), "reception_td": ("rec_touchdown_exp",),
+    "two_point": ("pass_two_point_conv_exp", "rush_two_point_conv_exp", "rec_two_point_conv_exp"),
+}
+
+
+def offense_deltas(scoring: Mapping[str, float] | None) -> dict[str, float]:
+    """How a league's offensive sheet differs from :data:`STANDARD_OFFENSE`
+    (points per unit, league minus standard); empty when it is the standard."""
+    out = {}
+    for key, std in STANDARD_OFFENSE.items():
+        v = (scoring or {}).get(key)
+        if v is not None and abs(float(v) - std) > 1e-12:
+            out[key] = float(v) - std
+    return out
+
+
+def scoring_tag(scoring: Mapping[str, float] | None) -> str:
+    """A short tag naming a non-standard sheet ("" for the standard), for
+    caches that hold points: two leagues must not share them."""
+    d = offense_deltas(scoring)
+    return "" if not d else "_" + "_".join(f"{k}{v:+g}" for k, v in sorted(d.items()))
+
+
+def rescore(frame, scoring: Mapping[str, float] | None, base: str, columns: Mapping[str, tuple[str, ...]]):
+    """``frame[base]`` (points on the standard sheet) on the league's sheet:
+    plus, for every scoring key that differs, the difference times the stat.
+    A stat column the frame does not have counts as zero."""
+    d = offense_deltas(scoring)
+    out = frame[base].astype(float).copy()
+    for key, diff in d.items():
+        for col in columns.get(key, ()):
+            if col in frame.columns:
+                out = out + diff * frame[col].fillna(0).astype(float)
+    # Only where a base value exists: a missing expectation stays missing.
+    return out.where(frame[base].notna())
+
+
+#: Scoring key -> the stat names a projection feed may use for it (FantasyPros,
+#: Sleeper): the first one present is read.
+FEED_STATS: dict[str, tuple[str, ...]] = {
+    "pass_yards": ("pass_yds", "pass_yd", "passing_yards"), "pass_td": ("pass_tds", "pass_td", "passing_tds"),
+    "interception": ("pass_ints", "pass_int", "ints", "passing_interceptions"),
+    "rush_yards": ("rush_yds", "rush_yd"), "rush_td": ("rush_tds", "rush_td"),
+    "reception": ("rec", "receptions", "rec_rec"), "reception_yards": ("rec_yds", "rec_yd"),
+    "reception_td": ("rec_tds", "rec_td"), "fumble_lost": ("fumbles_lost", "fum_lost", "fumbles"),
+    "two_point": ("pass_2pt", "rush_2pt", "rec_2pt"),
+}
+
+
+def rescore_feed(points: float | None, stats: Mapping[str, object] | None, scoring: Mapping[str, float] | None,
+                 position: str = "") -> float | None:
+    """A feed's standard-sheet projection on the league's sheet, from the
+    projected stats it sends with it. None when the sheet differs on a stat
+    the feed does not send and the player would have it (a quarterback's
+    touchdown passes): better no number than one on the wrong sheet."""
+    if points is None:
+        return None
+    d = offense_deltas(scoring)
+    if not d:
+        return float(points)
+    out = float(points)
+    for key, diff in d.items():
+        names = FEED_STATS.get(key, ())
+        val = next((stats.get(n) for n in names if stats and isinstance(stats.get(n), int | float)), None)
+        if val is None:
+            if key in ("pass_yards", "pass_td", "interception") and position != "QB":
+                continue                        # non-passers: nothing to rescore
+            return None
+        out += diff * float(val)
+    return out

@@ -109,25 +109,26 @@ def projection_rows(cfg: Config, season: int, week: int, allow_network: bool = T
         name = (f"{first} {last}" if first and last else None) or rec.get("full_name")
         out.append({"gsis": rec.get("gsis_id") or None, "name": name,
                     "team": r.get("team") or who.get("team") or rec.get("team"),
-                    "position": who.get("position") or rec.get("position"), "points": float(pts)})
+                    "position": who.get("position") or rec.get("position"), "points": float(pts),
+                    "stats": r.get("stats") or {}})
     return out
 
 
-def match(rows: list[dict], people) -> dict:
+def match(rows: list[dict], people, field: str = "points") -> dict:
     """Pair Sleeper rows with our players: by nflverse id where Sleeper has
     one, otherwise by name on the same team and position (as the depth charts
     are). ``people`` is an iterable of ``(key, nfl_id, name, team, position)``;
-    returns key -> points. A name shared by two players on one team and
+    returns key -> ``field`` (points, or the projected stats). A name shared by two players on one team and
     position is left unmatched rather than guessed."""
     from ..roster.players import normalize_name
     from ..teams import normalize_team
 
-    by_gsis = {r["gsis"]: r["points"] for r in rows if r.get("gsis")}
-    by_name: dict[tuple, list[float]] = {}
+    by_gsis = {r["gsis"]: r.get(field) for r in rows if r.get("gsis")}
+    by_name: dict[tuple, list] = {}
     for r in rows:
         if r.get("name") and r.get("team") and r.get("position"):
             k = (normalize_team(r["team"]), r["position"], normalize_name(r["name"]))
-            by_name.setdefault(k, []).append(r["points"])
+            by_name.setdefault(k, []).append(r.get(field))
     out = {}
     for key, nid, name, team, pos in people:
         if nid and str(nid) in by_gsis:

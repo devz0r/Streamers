@@ -73,6 +73,11 @@ def _frames(cfg: Config, season: int) -> tuple[pd.DataFrame, pd.DataFrame]:
         return pd.DataFrame(), pd.DataFrame()
     stats = pd.read_parquet(path)
     stats = stats[stats["season_type"].eq("REG")].copy()
+    # On this league's own sheet (Yahoo here: 6 a touchdown pass, -1 an interception).
+    from ..scoring import STAT_COLUMNS, rescore
+
+    stats["fantasy_points_ppr"] = rescore(stats, cfg._profile.get("offense_scoring"), "fantasy_points_ppr",
+                                          STAT_COLUMNS)
     stats["_team"] = stats["team"].map(normalize_team)
     stats["_name"] = stats["player_display_name"].map(normalize_name)
     try:
