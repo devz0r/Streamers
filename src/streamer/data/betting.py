@@ -194,6 +194,73 @@ def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 
     return out.sort_values(["_k", "ev_market", "ev"], ascending=[True, False, False]).drop(columns="_k").reset_index(drop=True)
 
 
+def hedges(lines: pd.DataFrame, exclude: set[str] | None = None, min_middle_ev: float = 0.0) -> dict:
+    """Bets on the same player and stat at different books that lock in a profit
+    (``arbs``) or can win both ways (``middles``).
+
+    * **Arb**: the best over and the best under, at different books on the same
+      line, whose implied chances add to under one. Stake the over share
+      ``(1 / over odds) / sum`` of the total and either side returns the same.
+    * **Middle**: over at a lower line at one book, under at a higher line at
+      another. Both win if the result lands between; otherwise one wins and one
+      loses (about the books' margin, 4% or so). The chance of landing between
+      comes from the same curve as the board (the books' consensus), and the
+      expected profit per unit staked is priced on it.
+    """
+    from ..roster.players import normalize_name
+    from .props import load_shape
+
+    if lines is None or lines.empty:
+        return {"arbs": [], "middles": [], "checked": 0}
+    shape = load_shape()
+    d = latest(lines)
+    if exclude:
+        d = d[~d["player"].map(normalize_name).isin(exclude)]
+    d = d.assign(do=[_decimal(float(x)) for x in d["over_price"]], du=[_decimal(float(x)) for x in d["under_price"]])
+    arbs, middles = [], []
+    for (_season, _week, _event, stat, player), g in d.groupby(["season", "week", "event_id", "stat", "player"], dropna=False):
+        if len(g) < 2:
+            continue
+        for line, at in g.groupby("line"):
+            o, u = at.loc[at["do"].idxmax()], at.loc[at["du"].idxmax()]
+            if o["bookmaker"] == u["bookmaker"]:
+                alt = at[at["bookmaker"] != o["bookmaker"]]
+                if alt.empty:
+                    continue
+                u = alt.loc[alt["du"].idxmax()]
+            total = 1.0 / o["do"] + 1.0 / u["du"]
+            if total < 1.0:
+                arbs.append({"player": player, "stat": stat, "line": float(line), "over_book": o["bookmaker"],
+                             "over_price": float(o["over_price"]), "under_book": u["bookmaker"],
+                             "under_price": float(u["under_price"]), "profit": 1.0 / total - 1.0,
+                             "over_share": (1.0 / o["do"]) / total, "logged_at": str(min(o["logged_at"], u["logged_at"]))})
+        centres = [center(stat, r.line, r.fair_over, shape) for r in g.itertuples()]
+        ok = [c for c in centres if c is not None]
+        if not ok:
+            continue
+        c_mkt = float(np.average(ok, weights=g["w"].to_numpy()[[c is not None for c in centres]]))
+        best = None
+        for lo in g.itertuples():
+            for hi in g.itertuples():
+                if lo.line >= hi.line or lo.bookmaker == hi.bookmaker:
+                    continue
+                pa, pb = p_over(stat, c_mkt, lo.line, shape), p_over(stat, c_mkt, hi.line, shape)
+                if pa is None or pb is None:
+                    continue
+                gap, below, above = max(pa - pb, 0.0), 1.0 - pa, pb
+                ev = (below * (hi.du - 2.0) + gap * (lo.do + hi.du - 2.0) + above * (lo.do - 2.0)) / 2.0
+                if best is None or ev > best["ev"]:
+                    best = {"player": player, "stat": stat, "over_line": float(lo.line), "over_book": lo.bookmaker,
+                            "over_price": float(lo.over_price), "under_line": float(hi.line), "under_book": hi.bookmaker,
+                            "under_price": float(hi.under_price), "gap": float(gap), "ev": float(ev),
+                            "logged_at": str(min(lo.logged_at, hi.logged_at))}
+        if best and best["ev"] > min_middle_ev:
+            middles.append(best)
+    arbs.sort(key=lambda x: -x["profit"])
+    middles.sort(key=lambda x: -x["ev"])
+    return {"arbs": arbs, "middles": middles, "checked": int(len(d))}
+
+
 def path(cfg: Config):
     return cfg.path("results") / "bet_log.parquet"
 
@@ -308,7 +375,10 @@ def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now
     stamp = now or pd.Timestamp.now(tz="UTC").isoformat()
     rows = pd.concat([flagged[flagged["kind"] != "model"].head(30),
                       flagged[(flagged["kind"] == "model") & (flagged["ev"] > 0)].head(20)]) if len(flagged) else flagged
-    out = {"built_at": stamp, "new_flags": new, "record": record, "sides": int(len(flagged)),
+    hedge = hedges(lines, exclude=started)
+    out = {"hedges": {"arbs": hedge["arbs"][:15], "middles": hedge["middles"][:15], "checked": hedge["checked"],
+                      "n_arbs": len(hedge["arbs"]), "n_middles": len(hedge["middles"])},
+           "built_at": stamp, "new_flags": new, "record": record, "sides": int(len(flagged)),
            "way_off": int(flagged["way_off"].sum()) if len(flagged) else 0, "by_kind": by_kind,
            "rows": json.loads(rows.to_json(orient="records"))}
     p = cfg.path("results") / "betting_board.json"

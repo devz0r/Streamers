@@ -44,3 +44,19 @@ def test_a_lone_line_far_off_the_others_is_priced_and_flagged_way_off():
     assert (top.side, top.book, top.line) == ("over", "fanduel", 30.5)
     assert top.p_market > 0.85 and top.p_ours > 0.85 and top.way_off
     assert top.ev > 0.6                                                  # a -110 price on a ~90% chance
+
+
+def test_a_sure_bet_and_a_middle_are_found():
+    sure = pd.DataFrame([_q("a", 110, -140), _q("b", -150, 105), _q("c", -115, -105)])
+    h = betting.hedges(sure)
+    assert len(h["arbs"]) == 1
+    a = h["arbs"][0]
+    assert (a["over_book"], a["under_book"]) == ("a", "b") and 0.03 < a["profit"] < 0.06
+    # Each side returns the same: stake share x over odds = (1 - share) x under odds.
+    do, du = 2.10, 2.05
+    assert abs(a["over_share"] * do - (1 - a["over_share"]) * du) < 1e-9
+    none = pd.DataFrame([_q("a", -110, -110), _q("b", -108, -112), _q("c", -112, -108)])
+    assert betting.hedges(none)["arbs"] == []
+    mid = pd.DataFrame([_q("a", -110, -110, line=70.5), _q("b", -110, -110, line=78.5), _q("c", -110, -110, line=74.5)])
+    m = betting.hedges(mid)["middles"]
+    assert m and m[0]["over_line"] < m[0]["under_line"] and m[0]["gap"] > 0.05

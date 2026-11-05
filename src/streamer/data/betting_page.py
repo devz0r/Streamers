@@ -75,6 +75,34 @@ def render(cfg: Config) -> str:
             by_kind += (f"<li><b>{label}</b>: {k['flagged']} flagged, {k.get('wins', 0)}-{k.get('losses', 0)}, "
                         f"{k.get('profit', 0):+.1f} units{clv}</li>")
     by_kind = f"<ul class='sub'>{by_kind}</ul>" if by_kind else ""
+    h = data.get("hedges") or {}
+    arbs = "".join(
+        f"<tr><td class='unit'>{_e(r['player'])}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
+        f"<td>over {r['line']:g} {_price(r['over_price'])} {_e(BOOK.get(r['over_book'], r['over_book']))}<br>"
+        f"under {r['line']:g} {_price(r['under_price'])} {_e(BOOK.get(r['under_book'], r['under_book']))}</td>"
+        f"<td>{r['over_share']:.0%} / {1 - r['over_share']:.0%}</td><td><b>{r['profit']:+.1%}</b></td></tr>"
+        for r in h.get("arbs", []))
+    mids = "".join(
+        f"<tr><td class='unit'>{_e(r['player'])}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
+        f"<td>over {r['over_line']:g} {_price(r['over_price'])} {_e(BOOK.get(r['over_book'], r['over_book']))}<br>"
+        f"under {r['under_line']:g} {_price(r['under_price'])} {_e(BOOK.get(r['under_book'], r['under_book']))}</td>"
+        f"<td>{r['gap']:.0%}</td><td><b>{r['ev']:+.1%}</b></td></tr>"
+        for r in h.get("middles", []))
+    hedge = (
+        "<h3>Hedging: sure bets</h3><p class='sub'>The same line at two books, over at one and under at the other, "
+        "where the two prices together pay more than the stakes whichever way it lands. Stake the split shown. "
+        "They are rare and corrected in minutes; by the time a refresh shows one it may be gone, and both bets must "
+        "be placed before either price moves.</p>"
+        + (f"<div class='scroll'><table><thead><tr><th class='unit'>Player</th><th>Stat</th><th>Bets</th><th>Stake split</th>"
+           f"<th>Guaranteed</th></tr></thead><tbody>{arbs}</tbody></table></div>" if arbs else
+           f"<p class='sub'>None right now ({h.get('checked', 0)} quotes checked).</p>")
+        + "<h3>Hedging: middles</h3><p class='sub'>Over at a lower line at one book, under at a higher line at another. "
+        "If the result lands in between, both win; if not, one wins and one loses (about the books' margin). "
+        "<b>Between</b> is the chance it lands there, from the books' consensus curve; <b>EV</b> is the expected "
+        "profit per unit staked. Not guaranteed. Only positive ones are shown.</p>"
+        + (f"<div class='scroll'><table><thead><tr><th class='unit'>Player</th><th>Stat</th><th>Bets</th><th>Between</th>"
+           f"<th>EV</th></tr></thead><tbody>{mids}</tbody></table></div>" if mids else
+           "<p class='sub'>None with positive expected profit right now.</p>"))
     return (
         "<h2>Betting</h2>"
         "<p class='sub'>Prop lines that look wrong. For each player and stat, the other books' quotes (their margin "
@@ -86,6 +114,6 @@ def render(cfg: Config) -> str:
         "<b>Way off</b>: 10%+ on both the books' read and ours. One-sided markets (anytime touchdown) are left out.</p>"
         f"<p class='sub'>Prices pulled with the last refresh ({built:%a %-I:%M %p} ET); props move fast, so check the "
         "book before betting. Books limit accounts that keep taking prices well off the market.</p>"
-        f"{tables}{record}{by_kind}"
+        f"{tables}{record}{by_kind}{hedge}"
         "<p class='sub'>Not advice: an edge on paper is a fraction of a percent to a few percent, and a long losing "
         "stretch is normal. The record above is the test of whether these flags are worth acting on.</p>")

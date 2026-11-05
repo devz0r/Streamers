@@ -5231,3 +5231,17 @@ weights of the per-stat blend). The board and the record split three ways:
 agree and we do not: unproven, graded on its own). On the week-9 log before
 Sunday's props: nothing way off, 5 prices 2%+ on the books' read, 125 sides
 where only our projection disagrees.
+
+### Hedging: sure bets and middles
+The Betting tab also lists bets across books on the same player and stat. A
+**sure bet** is the best over and the best under, at different books on one
+line, whose implied chances sum to under one: staking `(1 / over odds) / sum`
+on the over returns the same either way. A **middle** is an over at a lower
+line at one book and an under at a higher line at another: both win if the
+result lands between (chance from the books' consensus curve), otherwise one
+wins and one loses about the books' margin; shown only when the expected
+profit per unit staked is positive. On the week-9 log (1,529 quotes): no sure
+bets, one middle above zero (Daniel Jones rushing yards, over 6.5 at -102 and
+under 8.5 at -115, 5% to land between, +1.4%). Sure bets last minutes and
+refreshes are hours apart, so the counts per refresh are kept in the board
+file to show how often any appear.
