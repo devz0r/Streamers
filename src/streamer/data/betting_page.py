@@ -30,36 +30,62 @@ def render(cfg: Config) -> str:
     data = json.loads(path.read_text(encoding="utf-8"))
     rows, rec = data.get("rows") or [], data.get("record") or {}
     built = pd.Timestamp(data["built_at"]).tz_convert("America/New_York")
-    body = []
-    for r in rows:
-        age = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(r["logged_at"])).total_seconds() / 3600
-        body.append(
-            f"<tr><td class='unit'>{_e(r['player'])}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
-            f"<td><b>{_e(r['side'])} {r['line']:g}</b></td><td>{_price(r['price'])}</td>"
-            f"<td>{_e(BOOK.get(r['book'], r['book']))}</td><td>{r['fair']:.1%}</td>"
-            f"<td><b>{r['ev']:+.1%}</b></td><td>{r['books']}</td><td>{age:.0f}h</td></tr>")
-    table = ("<div class='scroll'><table><thead><tr><th class='unit'>Player</th><th>Stat</th><th>Bet</th><th>Price</th>"
-             "<th>Book</th><th>Fair</th><th>EV</th><th>Books</th><th>Age</th></tr></thead><tbody>"
-             + "".join(body) + "</tbody></table></div>") if body else (
-        "<p class='sub'>No price beats the other books' average by anything right now"
-        f" ({data.get('sides', 0)} sides priced).</p>")
+    def table(sub: list[dict], empty: str) -> str:
+        body = []
+        for r in sub:
+            age = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(r["logged_at"])).total_seconds() / 3600
+            ours = "&ndash;" if r.get("p_ours") is None else f"{r['p_ours']:.0%}"
+            mean = "" if r.get("ours_mean") is None else f" <span class='opp'>(ours {r['ours_mean']:.1f})</span>"
+            tag = " <span class='hold-tag'>way off</span>" if r.get("way_off") else ""
+            body.append(
+                f"<tr><td class='unit'>{_e(r['player'])}{tag}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
+                f"<td><b>{_e(r['side'])} {r['line']:g}</b> <span class='opp'>(books {r['consensus']:.1f})</span>{mean}</td>"
+                f"<td>{_price(r['price'])} {_e(BOOK.get(r['book'], r['book']))}</td>"
+                f"<td>{r['p_market']:.0%}</td><td><b>{r['ev_market']:+.1%}</b></td><td>{ours}</td>"
+                f"<td>{r['ev']:+.1%}</td><td>{r['books']}</td><td>{age:.0f}h</td></tr>")
+        if not body:
+            return f"<p class='sub'>{empty}</p>"
+        return ("<div class='scroll'><table><thead><tr><th class='unit'>Player</th><th>Stat</th><th>Bet</th><th>Price</th>"
+                "<th>Books' chance</th><th>EV (books)</th><th>Ours</th><th>EV (combined)</th><th>Books</th><th>Age</th>"
+                "</tr></thead><tbody>" + "".join(body) + "</tbody></table></div>")
+
+    market = [r for r in rows if r.get("kind") in ("way off", "market")]
+    model = [r for r in rows if r.get("kind") == "model"]
+    tables = ("<h3>Prices the other books say are wrong</h3>"
+              + table(market, f"None right now: no price beats what the other books say by 2%+ "
+                              f"({data.get('sides', 0)} sides priced). Lines that are way off are rare and get "
+                              "fixed fast; the board checks every refresh.")
+              + "<h3>Where only our projection disagrees</h3><p class='sub'>The books agree with each other here and "
+                "our per-stat projection does not. Unproven: our edge over the market has three weeks behind it, so "
+                "these are graded separately below before they mean anything.</p>"
+              + table(model, "None."))
     record = ""
     if rec.get("flagged"):
         clv = ("" if rec.get("clv_hit") is None else
                f" The market moved toward {rec['clv_hit']:.0%} of the {rec['clv_n']} it could be checked on "
                f"(average {rec['clv_mean'] * 100:+.1f} points).")
-        record = (f"<p class='sub'><b>Record of past flags:</b> {rec['flagged']} flagged at 2%+, {rec.get('settled', 0)} "
+        record = (f"<p class='sub'><b>Record of past flags:</b> {rec['flagged']} flagged at 2%+ combined, {rec.get('settled', 0)} "
                   f"settled ({rec.get('wins', 0)}-{rec.get('losses', 0)}), {rec.get('profit', 0):+.1f} units at one "
                   f"unit a bet, average expected {rec['mean_ev']:+.1%}.{clv}</p>")
+    by_kind = ""
+    for kind, label in (("way off", "Way off"), ("market", "Books' read"), ("model", "Our projection only")):
+        k = (data.get("by_kind") or {}).get(kind)
+        if k and k.get("flagged"):
+            clv = "" if k.get("clv_hit") is None else f", market moved its way {k['clv_hit']:.0%} of {k['clv_n']}"
+            by_kind += (f"<li><b>{label}</b>: {k['flagged']} flagged, {k.get('wins', 0)}-{k.get('losses', 0)}, "
+                        f"{k.get('profit', 0):+.1f} units{clv}</li>")
+    by_kind = f"<ul class='sub'>{by_kind}</ul>" if by_kind else ""
     return (
         "<h2>Betting</h2>"
-        "<p class='sub'>The best price on each side of each prop line, against what the <i>other</i> books say the "
-        "chance is. Each book's two prices carry its margin; scaled to sum to one they give that book's own read, "
-        "and Pinnacle, the sharpest, counts double. <b>EV</b> is the expected profit per unit staked if the other books "
-        "are right. No projection of ours is in it. Needs three books quoting the same line; one-sided markets "
-        "(anytime touchdown) are left out.</p>"
+        "<p class='sub'>Prop lines that look wrong. For each player and stat, the other books' quotes (their margin "
+        "taken out; Pinnacle, the sharpest, counts double) are fitted to one curve of his outcomes, so <i>any</i> line "
+        "can be priced: a book at 30.5 rushing yards when the rest sit near 72 shows as a near-certain over. "
+        "<b>Ours</b> is the chance from our own projection of that stat and how much such projections miss by "
+        "(2021-2025). <b>Combined</b> leans toward the books on yards (they know the matchup) and toward ours where "
+        "we have been as good. <b>EV</b> is the expected profit per unit staked at that price: on the books' chance, and on the combined one. "
+        "<b>Way off</b>: 10%+ on both the books' read and ours. One-sided markets (anytime touchdown) are left out.</p>"
         f"<p class='sub'>Prices pulled with the last refresh ({built:%a %-I:%M %p} ET); props move fast, so check the "
         "book before betting. Books limit accounts that keep taking prices well off the market.</p>"
-        f"{table}{record}"
+        f"{tables}{record}{by_kind}"
         "<p class='sub'>Not advice: an edge on paper is a fraction of a percent to a few percent, and a long losing "
         "stretch is normal. The record above is the test of whether these flags are worth acting on.</p>")

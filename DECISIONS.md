@@ -5216,3 +5216,18 @@ per-stat market test. Every price flagged at 2%+ is logged once
 ways: whether it won (nflverse stats, one unit a bet) and closing-line value,
 the closing fair chance of its side less the chance its price implied.
 Closing-line value needs weeks, not a season, to say whether flags are real.
+
+The board then priced only books on the line most others quoted, which threw
+out exactly the case worth finding: one book far off the rest. Now every
+quote is priced. The other books' quotes (margin out) are fitted to one curve
+of the player's outcomes -- the measured shape for yards, a Poisson for
+catches, touchdown passes and interceptions (a smooth curve misprices 0.5
+and 1.5) -- so any line gets a chance; books on the same line still give it
+directly. Beside it, our own chance from the per-stat projection on the same
+shape, and a combined one leaning toward the books per stat (the provisional
+weights of the per-stat blend). The board and the record split three ways:
+**way off** (10%+ expected on both the books' read and ours), **books' read**
+(2%+ against the other books alone) and **our projection only** (the books
+agree and we do not: unproven, graded on its own). On the week-9 log before
+Sunday's props: nothing way off, 5 prices 2%+ on the books' read, 125 sides
+where only our projection disagrees.

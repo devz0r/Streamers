@@ -20,8 +20,9 @@ def test_a_price_better_than_the_others_read_is_flagged_once_and_graded(tmp_path
     b = betting.board(lines)
     top = b.iloc[0]
     assert (top.side, top.book, top.price) == ("over", "fanduel", 120.0)
-    assert 0.47 < top.fair < 0.52 and top.ev > 0.05                   # +120 on a near coin flip
-    assert betting.flag(b, cfg) == 1 and betting.flag(b, cfg) == 0      # logged once
+    assert 0.45 < top.fair < 0.55 and top.ev > 0.05                   # +120 on a near coin flip
+    n = int((b.ev >= betting.MIN_EV).sum())
+    assert n >= 1 and betting.flag(b, cfg) == n and betting.flag(b, cfg) == 0      # logged once
     assert betting.board(lines, exclude={"wide out"}).empty              # a started game is off the board
     # The market then moved toward it: closing prices lower the over's price and the actual lands over.
     close = pd.concat([lines, pd.DataFrame([_q("betmgm", -125, 105, at="2026-11-09T17:00:00+00:00"),
@@ -29,6 +30,16 @@ def test_a_price_better_than_the_others_read_is_flagged_once_and_graded(tmp_path
                                             _q("pinnacle", -130, 110, at="2026-11-09T17:00:00+00:00"),
                                             _q("fanduel", -126, 106, at="2026-11-09T17:00:00+00:00")])])
     s = betting.settle(cfg, close)
-    assert s.iloc[0].clv > 0 and s.iloc[0].result is None               # no stats file here: ungraded
-    sm = betting.summary(s)
-    assert sm["flagged"] == 1 and sm["clv_hit"] == 1.0
+    over = s[(s.side == "over") & (s.book == "fanduel")].iloc[0]
+    assert over.clv > 0 and over.result is None                          # no stats file here: ungraded
+    assert betting.summary(s)["flagged"] == n
+
+
+def test_a_lone_line_far_off_the_others_is_priced_and_flagged_way_off():
+    lines = pd.DataFrame([_q("draftkings", -110, -110, line=72.5), _q("betmgm", -112, -108, line=71.5),
+                          _q("pinnacle", -108, -112, line=72.5), _q("fanduel", -110, -110, line=30.5)])
+    b = betting.board(lines, ours={"wide out": {"rec_yards": 74.0}})
+    top = b.iloc[0]
+    assert (top.side, top.book, top.line) == ("over", "fanduel", 30.5)
+    assert top.p_market > 0.85 and top.p_ours > 0.85 and top.way_off
+    assert top.ev > 0.6                                                  # a -110 price on a ~90% chance

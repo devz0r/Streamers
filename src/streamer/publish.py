@@ -885,11 +885,7 @@ def team_panels_for(
                      if p.team and (p.locked or p.actual_points is not None)}
             held = props_log.record(shared.frame, loaded[0][1], int(lead.season), int(lead.week), begun)
             log.info("prop lines log: %d rows held for week %s", held, lead.week)
-            from .data import betting
 
-            got = betting.build(loaded[0][1], pd.read_parquet(props_log.path(loaded[0][1])), begun)
-            log.info("betting board: %d sides priced, %d new flags, record %s", got["sides"], got["new_flags"],
-                     got["record"])
         except Exception as exc:  # noqa: BLE001 - a log never blocks the page
             log.warning("prop lines log skipped: %s", exc)
 
@@ -1082,6 +1078,27 @@ def team_panels_for(
                 panels[name]["_me"] = snap.my_team.name
         except Exception as exc:  # noqa: BLE001
             log.warning("my-team panel for %s skipped: %s", name, exc)
+    if loaded and allow_network:
+        # The betting board, once every league's per-stat projections are on.
+        try:
+            from .data import betting, props_log
+            from .roster.players import normalize_name as _nn
+
+            begun = {_nn(p.name) for _n, _b, lg, _s, _r in loaded for p in lg.all_players()
+                     if p.team and (p.locked or p.actual_points is not None)}
+            ours = {}
+            for _n, _b, lg, _s, _r in loaded:
+                for p in lg.all_players():
+                    # Props assume he plays: a tagged player's split carries his injury discount.
+                    if p.stat_projection and not p.status:
+                        ours.setdefault(_nn(p.name), p.stat_projection)
+            path = props_log.path(loaded[0][1])
+            if path.exists():
+                got = betting.build(loaded[0][1], pd.read_parquet(path), begun, ours=ours)
+                log.info("betting board: %d sides priced (%d way off), %d new flags, record %s", got["sides"],
+                         got.get("way_off", 0), got["new_flags"], got["record"])
+        except Exception as exc:  # noqa: BLE001 - a bonus tab never blocks the page
+            log.warning("betting board skipped: %s", exc)
     return panels
 
 

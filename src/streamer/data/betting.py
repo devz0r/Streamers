@@ -31,7 +31,7 @@ from ..config import Config
 log = logging.getLogger(__name__)
 
 SHARP = {"pinnacle": 2.0}
-MIN_OTHERS = 2          # other books at the same line before a price is judged
+MIN_OTHERS = 2          # other books quoting the player and stat before a price is judged
 MIN_EV = 0.02           # expected profit per unit a flag needs
 KEY = ["season", "week", "event_id", "stat", "player"]
 #: nflverse player_stats column a stat settles on.
@@ -60,41 +60,138 @@ def latest(lines: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 0.0) -> pd.DataFrame:
-    """One row per side of each line worth a look: the best price across books at the
-    line most books quote, its fair chance (the other books' weighted average),
-    expected profit per unit, how many books, and when it was pulled."""
+#: Stats that are small whole counts settled on a half (catches too: a smooth
+#: curve misprices 0.5 and 1.5): Poisson; the rest on the
+#: shape measured from 2021-2025 player-games (``prop_shape.json``).
+POISSON = {"passing_tds", "passing_interceptions", "receptions"}
+#: Our per-stat projection's key for each prop stat (``roster.stat_projections``).
+OURS = {"passing_yards": "pass_yards", "passing_tds": "pass_td", "passing_interceptions": "interception",
+        "rushing_yards": "rush_yards", "receiving_yards": "rec_yards", "receptions": "reception"}
+#: How far the combined number sits toward the market's, per stat: the per-stat
+#: market blend fitted on weeks 6-8 of 2026 (DECISIONS.md, "Projecting each
+#: stat"); provisional, refitted as weeks are graded.
+MARKET_WEIGHT = {"passing_yards": 0.9, "passing_tds": 0.75, "passing_interceptions": 0.9, "rushing_yards": 0.8,
+                 "receptions": 0.6, "receiving_yards": 0.4}
+WAY_OFF = 0.10          # expected profit a line needs, on both the market's and our read, to be "way off"
+
+
+def _rows(shape: dict, stat: str, level: float):
+    rows = (shape.get("stats") or {}).get(stat)
+    if not rows:
+        return None
+    meds = np.array([r["median"] for r in rows], dtype=float)
+    i = int(np.clip(np.searchsorted(meds, level), 1, len(rows) - 1))
+    lo, hi = rows[i - 1], rows[i]
+    t = float(np.clip((level - lo["median"]) / max(hi["median"] - lo["median"], 1e-9), 0.0, 1.0))
+    q = (1 - t) * np.asarray(lo["q"], dtype=float) + t * np.asarray(hi["q"], dtype=float)
+    gap = (1 - t) * lo["mean_minus_median"] + t * hi["mean_minus_median"]
+    return q, float(gap)
+
+
+def center(stat: str, line: float, p_over: float, shape: dict) -> float | None:
+    """The distribution's centre that puts ``p_over`` above ``line``: the median
+    on the measured shape, the rate for a Poisson stat."""
+    from .props import mean_from_poisson_line
+
+    if stat in POISSON:
+        return mean_from_poisson_line(line, p_over)
+    got = _rows(shape, stat, line)
+    if got is None:
+        return None
+    q, _gap = got
+    grid = np.asarray(shape["grid"], dtype=float)
+    return float(line) - float(np.interp(float(np.clip(1 - p_over, grid[0], grid[-1])), grid, q))
+
+
+def p_over(stat: str, c: float, line: float, shape: dict) -> float | None:
+    """The chance of beating ``line`` for a player centred at ``c`` (median, or rate)."""
+    from scipy import stats as st
+
+    if stat in POISSON:
+        return float(st.poisson.sf(int(np.ceil(line)) - 1, max(c, 1e-6)))
+    got = _rows(shape, stat, c)
+    if got is None:
+        return None
+    q, _gap = got
+    grid = np.asarray(shape["grid"], dtype=float)
+    u = float(np.interp(float(line) - c, q, grid, left=0.0, right=1.0))
+    return float(np.clip(1.0 - u, 0.005, 0.995))
+
+
+def median_of_mean(stat: str, mean: float, shape: dict) -> float:
+    """Our projection is a mean; the shape is about the median."""
+    if stat in POISSON:
+        return float(mean)
+    got = _rows(shape, stat, mean)
+    return float(mean) - (got[1] if got else 0.0)
+
+
+def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 0.0,
+          ours: dict | None = None) -> pd.DataFrame:
+    """Every book's quote on every line, priced three ways: the other books'
+    read (their quotes, margin out, fitted to one curve for the player so any
+    line can be priced -- a lone 30.5 against a 72.5 consensus included), our
+    projection's (``ours``: normalised name -> {stat: mean}), and the two
+    combined. One row per player, stat and side: the book paying most on the
+    combined read, with its expected profit per unit on each."""
     from ..roster.players import normalize_name
+    from .props import load_shape
 
     if lines is None or lines.empty:
         return pd.DataFrame()
+    shape = load_shape()
     d = latest(lines)
+    d["_n"] = d["player"].map(normalize_name)
     if exclude:
-        d = d[~d["player"].map(normalize_name).isin(exclude)]
+        d = d[~d["_n"].isin(exclude)]
     rows = []
     for (season, week, event, stat, player), g in d.groupby(["season", "week", "event_id", "stat", "player"], dropna=False):
-        by_line = g.groupby("line")["w"].sum()
-        line = by_line.idxmax()
-        at = g[g["line"] == line]
-        if len(at) < MIN_OTHERS + 1:
+        if len(g) < MIN_OTHERS + 1:
             continue
-        for side in ("over", "under"):
-            best = None
-            for r in at.itertuples():
-                others = at[at["bookmaker"] != r.bookmaker]
-                p_over = float(np.average(others["fair_over"], weights=others["w"]))
-                fair = p_over if side == "over" else 1.0 - p_over
-                price = float(r.over_price if side == "over" else r.under_price)
-                ev = fair * _decimal(price) - 1.0
-                if best is None or ev > best["ev"]:
-                    best = {"season": season, "week": week, "event_id": event, "stat": stat, "player": player,
-                            "side": side, "line": float(line), "book": r.bookmaker, "price": price, "fair": fair,
-                            "ev": ev, "books": int(len(at)), "spread": float(others["fair_over"].max() - others["fair_over"].min()),
-                            "logged_at": str(at["logged_at"].max())}
-            if best and best["ev"] >= min_ev:
-                rows.append(best)
+        g = g.assign(c=[center(stat, r.line, r.fair_over, shape) for r in g.itertuples()])
+        g = g[g["c"].notna()]
+        mine = (ours or {}).get(normalize_name(player), {}).get(OURS.get(stat, ""))
+        c_ours = median_of_mean(stat, mine, shape) if mine is not None and mine > 0 else None
+        best: dict[str, dict] = {}
+        for r in g.itertuples():
+            others = g[g["bookmaker"] != r.bookmaker]
+            if len(others) < MIN_OTHERS:
+                continue
+            c_mkt = float(np.average(others["c"], weights=others["w"]))
+            same = others[others["line"] == r.line]
+            # Books on the same line say it directly; the curve prices a line nobody else quotes.
+            pm = (float(np.average(same["fair_over"], weights=same["w"])) if len(same) >= MIN_OTHERS
+                  else p_over(stat, c_mkt, r.line, shape))
+            po = p_over(stat, c_ours, r.line, shape) if c_ours is not None else None
+            w = MARKET_WEIGHT.get(stat, 1.0)
+            c_comb = c_mkt if c_ours is None else w * c_mkt + (1 - w) * c_ours
+            pc = p_over(stat, c_comb, r.line, shape)
+            if pm is None or pc is None:
+                continue
+            for side, price in (("over", r.over_price), ("under", r.under_price)):
+                flip = (lambda x: x) if side == "over" else (lambda x: None if x is None else 1.0 - x)
+                dec = _decimal(float(price))
+                ev_c, ev_m = flip(pc) * dec - 1.0, flip(pm) * dec - 1.0
+                ev_o = flip(po) * dec - 1.0 if po is not None else None
+                row = {"season": season, "week": week, "event_id": event, "stat": stat, "player": player,
+                       "side": side, "line": float(r.line), "book": r.bookmaker, "price": float(price),
+                       "fair": flip(pc), "p_market": flip(pm), "p_ours": flip(po), "ev": ev_c, "ev_market": ev_m,
+                       "ev_ours": ev_o, "books": int(len(g)), "consensus": float(np.average(g["line"], weights=g["w"])),
+                       "ours_mean": None if mine is None else float(mine),
+                       "way_off": bool(ev_m >= WAY_OFF and (ev_o is None or ev_o >= WAY_OFF)),
+                       "logged_at": str(g["logged_at"].max())}
+                if side not in best or ev_c > best[side]["ev"]:
+                    best[side] = row
+        rows += [b for b in best.values() if b["ev"] >= min_ev]
     out = pd.DataFrame(rows)
-    return out.sort_values("ev", ascending=False).reset_index(drop=True) if not out.empty else out
+    if out.empty:
+        return out
+    # What kind of edge: the books' own read beats the price ("market", "way off" when ours agrees by 10%+),
+    # or only our projection says so ("model": unproven until the record says otherwise).
+    out["kind"] = np.where(out["way_off"], "way off", np.where(out["ev_market"] >= MIN_EV, "market", "model"))
+    order = {"way off": 0, "market": 1, "model": 2}
+    out["_k"] = out["kind"].map(order)
+    return out.sort_values(["_k", "ev_market", "ev"], ascending=[True, False, False]).drop(columns="_k").reset_index(drop=True)
 
 
 def path(cfg: Config):
@@ -108,7 +205,7 @@ def flag(flagged: pd.DataFrame, cfg: Config) -> int:
     if flagged is None or flagged.empty:
         return 0
     k = KEY + ["side", "line", "book"]
-    new = flagged[flagged["ev"] >= MIN_EV].copy()
+    new = flagged[(flagged["ev"] >= MIN_EV) | (flagged["ev_market"] >= MIN_EV)].copy()
     p = path(cfg)
     old = pd.read_parquet(p) if p.exists() else pd.DataFrame()
     if not old.empty:
@@ -169,6 +266,12 @@ def settle(cfg: Config, lines: pd.DataFrame) -> pd.DataFrame:
     return bets
 
 
+def summary_by_kind(bets: pd.DataFrame) -> dict:
+    if bets is None or bets.empty or "kind" not in bets:
+        return {}
+    return {k: summary(g) for k, g in bets.groupby("kind")}
+
+
 def summary(bets: pd.DataFrame) -> dict:
     """The record: flagged, settled, wins-losses, flat one-unit profit, mean
     expected profit, and how often the market moved toward the bet."""
@@ -183,18 +286,23 @@ def summary(bets: pd.DataFrame) -> dict:
             "clv_hit": float((c > 0).mean()) if len(c) else None, "clv_mean": float(c.mean()) if len(c) else None}
 
 
-def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now: str | None = None) -> dict:
+def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now: str | None = None,
+          ours: dict | None = None) -> dict:
     """Each refresh: the board (games not yet started), this pull's new flags
     logged, the record graded; written to ``results/betting_board.json`` for
     the page. Returns what was written."""
     import json
 
-    flagged = board(lines, exclude=started, min_ev=0.0)
+    flagged = board(lines, exclude=started, min_ev=0.0, ours=ours)
     new = flag(flagged, cfg)
-    record = summary(settle(cfg, lines))
+    graded = settle(cfg, lines)
+    record = summary(graded)
+    by_kind = summary_by_kind(graded)
     stamp = now or pd.Timestamp.now(tz="UTC").isoformat()
-    rows = flagged[flagged["ev"] > 0].head(40)
+    rows = pd.concat([flagged[flagged["kind"] != "model"].head(30),
+                      flagged[(flagged["kind"] == "model") & (flagged["ev"] > 0)].head(20)]) if len(flagged) else flagged
     out = {"built_at": stamp, "new_flags": new, "record": record, "sides": int(len(flagged)),
+           "way_off": int(flagged["way_off"].sum()) if len(flagged) else 0, "by_kind": by_kind,
            "rows": json.loads(rows.to_json(orient="records"))}
     p = cfg.path("results") / "betting_board.json"
     p.parent.mkdir(parents=True, exist_ok=True)
