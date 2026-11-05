@@ -147,8 +147,8 @@ def range_bar(lo: float | None, hi: float | None) -> str:
 
 #: The tabs a league's page is split into, in order: (key, label).
 TABS = (("hub", "Hub"), ("lineup", "Lineup"), ("roster", "Roster"), ("waivers", "Waivers"),
-        ("trades", "Trades"), ("players", "Players"), ("streams", "D/ST & K"), ("season", "Season"),
-        ("model", "Model"))
+        ("trades", "Trades"), ("players", "Players"), ("streams", "D/ST & K"), ("betting", "Betting"),
+        ("season", "Season"), ("model", "Model"))
 #: Which tab explains each kind of hub move.
 _TAB_OF = {"lineup": "lineup", "streams": "streams", "waivers": "waivers", "trades": "trades"}
 

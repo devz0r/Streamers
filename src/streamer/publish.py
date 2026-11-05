@@ -65,6 +65,7 @@ ICONS = {
     "season": "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
     "model": "M3 3v18h18M7 16v-5M12 16V8M17 16V7",
     "players": "M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z",
+    "betting": "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
     "more": "M5 12h.01M12 12h.01M19 12h.01",
 }
 #: The tabs a phone's bottom bar shows; the rest sit behind "More".
@@ -105,6 +106,19 @@ def _section_tabs(profile: str, sections: dict[str, str]) -> str:
                     for i, key, _label in tabs)
     return (f'{radios}{toggle}<nav class="sec-labels" aria-label="Sections">{labels}{more}</nav>{sheet}'
             f"{panes}")
+
+
+def _betting_tab(cfg: Config) -> str:
+    """The betting board from the last refresh (``results/betting_board.json``)."""
+    import logging
+
+    from .data.betting_page import render
+
+    try:
+        return render(cfg)
+    except Exception as exc:  # noqa: BLE001 - a bonus tab never blocks the page
+        logging.getLogger(__name__).warning("betting tab skipped: %s", exc)
+        return ""
 
 
 def _section_rules(profiles: list[str]) -> str:
@@ -238,6 +252,7 @@ def render_page(
         avail = unit_availability(bound, rankings.week, units, knames) if team_panels else {}
         pwin = team.get("_units") or {}
         sections = {k: v for k, v in team.items() if not k.startswith("_")}
+        sections["betting"] = _betting_tab(bound)
         sections["streams"] = "".join([
             _badges(rankings, bound), _notices(rankings),
             f'<div class="team-streams">{team.get("streams", "")}</div>',
@@ -870,6 +885,11 @@ def team_panels_for(
                      if p.team and (p.locked or p.actual_points is not None)}
             held = props_log.record(shared.frame, loaded[0][1], int(lead.season), int(lead.week), begun)
             log.info("prop lines log: %d rows held for week %s", held, lead.week)
+            from .data import betting
+
+            got = betting.build(loaded[0][1], pd.read_parquet(props_log.path(loaded[0][1])), begun)
+            log.info("betting board: %d sides priced, %d new flags, record %s", got["sides"], got["new_flags"],
+                     got["record"])
         except Exception as exc:  # noqa: BLE001 - a log never blocks the page
             log.warning("prop lines log skipped: %s", exc)
 

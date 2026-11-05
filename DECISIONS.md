@@ -5202,3 +5202,17 @@ three weeks with weights fitted from two (0.3-1.0 for yards and catches,
 0 for touchdowns: the market's anytime-TD odds did not beat our shrunk
 touchdown rate). Not switched yet: the logged split lets it be refitted on
 every graded week, and it goes in once five or more weeks hold up.
+
+### A best-price board
+`data/betting.py`, shown on a Betting tab (both leagues): for each player and
+stat the books' over/under quotes are scaled to sum to one (taking out each
+book's margin), and a book's price is judged against the *other* books'
+weighted average (Pinnacle counts double): expected profit per unit staked =
+that fair chance x the price's decimal odds - 1. It needs three books on the
+same line; one-sided markets (anytime touchdown) cannot be scaled and are
+left out. No projection of ours is involved, so it does not wait on the
+per-stat market test. Every price flagged at 2%+ is logged once
+(`results/bet_log.parquet`, at the first pull that showed it) and graded two
+ways: whether it won (nflverse stats, one unit a bet) and closing-line value,
+the closing fair chance of its side less the chance its price implied.
+Closing-line value needs weeks, not a season, to say whether flags are real.
