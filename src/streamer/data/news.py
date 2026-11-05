@@ -925,3 +925,82 @@ def breaking(snapshot, cfg: Config, espn_ids: dict[str, str], fp_names: dict[str
     order = {"yours": 0, "opponent": 1, "rostered": 2, "free agent": 3}
     out.sort(key=lambda n: (order.get(n.whose, 4), -n.published.timestamp()))
     return out
+
+
+#: A quarterback's job this week, from the news: named to start, or benched.
+_STARTS = re.compile(r"\b(will|is set to|is expected to|is slated to|is in line to|gets the nod to|has been named to|"
+                     r"was named to)\s+(make\s+(the|his)\s+)?(first\s+)?start\b|\bnamed\s+(the\s+)?starter\b|"
+                     r"\b(will|to)\s+start\s+(at\s+quarterback|under\s+center)\b|\btakes?\s+over\s+as\s+(the\s+)?starter\b", re.I)
+_BENCHED = re.compile(r"\bbenched\b|\b(will|is expected to)\s+(not|n't)\s+start\b|\bwon't\s+start\b|"
+                      r"\blost\s+(the|his)\s+starting\b|\bdemoted\b|\bto\s+the\s+bench\b|"
+                      r"\bwill\s+(serve\s+as|be)\s+(the\s+)?backup\b", re.I)
+_MAYBE = re.compile(r"\b(could|might|may|if|unless|possibly|would)\b", re.I)
+
+
+_NOT_NAMES = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Week", "The", "I",
+              "He", "His", "QB", "NFL"}
+
+
+def _another_name(between: str) -> bool:
+    """A capitalised word between his name and the call is most likely someone
+    else's: "Brissett is out, and Minshew will start" is Minshew's start."""
+    return any(w not in _NOT_NAMES for w in re.findall(r"\b[A-Z][a-z]+\b", between))
+
+
+def starter_call(text: str, last: str) -> str | None:
+    """What a headline says of the quarterback whose last name is ``last``:
+    "start" (named to start), "benched", or None. Only a sentence that names
+    him before the phrase counts, and a hedge ("could start", "if he cannot
+    go") says nothing: "Fagnano will start Thursday" -> start for Fagnano, not
+    for anyone named after it."""
+    for sentence in re.split(r"(?<=[.!?])\s+", str(text or "")):
+        named = re.search(rf"\b{re.escape(last)}\b", sentence)
+        if not named:
+            continue
+        rest = sentence[named.end():]
+        for rx, call in ((_BENCHED, "benched"), (_STARTS, "start")):
+            m = rx.search(rest)
+            if m and not _MAYBE.search(rest[:m.start()]) and not _another_name(rest[:m.start()]):
+                return call
+    return None
+
+
+def qb_calls(snapshot, cfg: Config | None = None, now: datetime | None = None) -> list[str]:
+    """Set ``starter_call`` on each quarterback this week's news names to start
+    or benches (the newest such item wins), from the items :func:`breaking`
+    gathered. Breaking news keeps two days, so the calls are kept for the week
+    (``results/qb_calls.json``) and a Wednesday naming still counts on Sunday.
+    The depth charts can take days to follow; the news is same-day. Returns a
+    line per call."""
+    now = now or datetime.now(UTC)
+    start = week_start(now)
+    by_name = {p.name: p for p in snapshot.all_players() if p.position == "QB"}
+    for p in by_name.values():
+        p.starter_call = ""
+    path = cfg.path("results") / "qb_calls.json" if cfg is not None else None
+    kept: dict[str, list] = {}
+    if path is not None and path.exists():
+        try:
+            kept = {k: v for k, v in json.loads(path.read_text(encoding="utf-8")).items()
+                    if datetime.fromisoformat(v[1]) >= start}
+        except (ValueError, OSError, TypeError, IndexError):
+            kept = {}
+    for it in getattr(snapshot, "_news", []) or []:
+        p = by_name.get(it.name)
+        if p is None or it.published < start:
+            continue
+        call = starter_call(it.headline, p.name.split()[-1])
+        if call and (it.name not in kept or datetime.fromisoformat(kept[it.name][1]) < it.published):
+            kept[it.name] = [call, it.published.isoformat()]
+    out = []
+    for name, (call, when) in kept.items():
+        if name in by_name:
+            by_name[name].starter_call = call
+            out.append(f"{name}: {call} ({datetime.fromisoformat(when):%a %b %d})")
+    if path is not None:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(kept, sort_keys=True), encoding="utf-8")
+        except OSError as exc:
+            log.warning("quarterback calls not kept: %s", exc)
+    return out

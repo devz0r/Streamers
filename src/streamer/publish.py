@@ -935,6 +935,8 @@ def team_panels_for(
             snap._news = news.breaking(snap, bound, espn_ids, fp_names, allow_network=allow_network)
             for line in news.timelines(snap, bound, espn_ids, allow_network=allow_network):
                 log.info("%s reported timeline: %s", name, line)
+            for line in news.qb_calls(snap, bound):
+                log.info("%s quarterback news: %s", name, line)
             acted = [f"{n.name}: {n.acted}" for n in snap._news if n.acted]
             log.info("%s breaking news: %d items%s", name, len(snap._news),
                      f"; {'; '.join(acted)}" if acted else "")

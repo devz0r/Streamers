@@ -58,8 +58,9 @@ def ratings(q: pd.DataFrame, shrink: float) -> tuple[dict[str, float], float, fl
 
 
 def this_weeks_starters(players: list[PlayerRow], ids: dict[str, str]) -> dict[str, tuple[str, str]]:
-    """Team -> (nflverse id, name) of the quarterback in line to start: the
-    first on the depth chart who is not out or on a bye."""
+    """Team -> (nflverse id, name) of the quarterback in line to start: one
+    this week's news names to start, else the first on the depth chart who is
+    not out, on a bye or benched in the news."""
     by_team: dict[str, list[PlayerRow]] = {}
     for p in players:
         if p.position == "QB" and p.team and ids.get(p.player_id):
@@ -69,7 +70,11 @@ def this_weeks_starters(players: list[PlayerRow], ids: dict[str, str]) -> dict[s
         ok = [p for p in qbs if p.status not in OUT_STATUSES and not p.on_bye]
         if not ok:
             continue
-        first = min(ok, key=lambda p: (p.depth_order is None, p.depth_order or 0, -float(p.ros_value or 0.0)))
+        # This week's news first (named to start, then the rest, then benched): the depth
+        # charts can take days to follow a benching; then the depth chart.
+        call = {"start": 0, "": 1, "benched": 2}
+        first = min(ok, key=lambda p: (call.get(getattr(p, "starter_call", "") or "", 1), p.depth_order is None,
+                                       p.depth_order or 0, -float(p.ros_value or 0.0)))
         out[team] = (ids[first.player_id], first.name)
     return out
 

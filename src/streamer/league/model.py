@@ -195,6 +195,8 @@ class PlayerRow:
     #: weights the betting market and the FantasyPros consensus projection
     #: got (0 where he had none).
     pre_market_projection: float | None = None
+    #: A quarterback named to start ("start") or benched ("benched") in this week's news.
+    starter_call: str = ""
     #: This week's projection split into stats (roster.stat_projections), scaled to it.
     stat_projection: dict = field(default_factory=dict)
     market_weight: float = 0.0

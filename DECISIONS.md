@@ -5265,3 +5265,16 @@ so one multiple each, the mean of the six: D/ST 1.14, K 1.13
 simulation and on the D/ST and K replacement level of the value list. With it
 the simulation's streamed defence sits about where a top held one does, as
 the hold-or-stream replay found.
+
+### A new quarterback from the news, not a week later
+Who is "in line to start" for the receivers' quarterback-change factor came
+from Sleeper's depth charts, which can take days to follow a benching or a
+trade. Now this week's news comes first (`news.qb_calls`): a headline naming
+a quarterback before "will start", "named the starter", "takes over as
+starter" makes him the starter; "benched", "will not start", "demoted" takes
+him out of line. Hedged sentences ("could start if...") and calls with
+another name between his and the phrase ("Brissett is out, and Minshew will
+start") are not read. Breaking news keeps two days, so the calls are kept for
+the week (`results/qb_calls.json`): a Wednesday naming still counts on
+Sunday. It moves the receivers' factor only; a backup named to start still
+gets his projection from the depth-chart and next-man-up logic.
