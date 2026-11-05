@@ -572,6 +572,7 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
             "vegas_version": VEGAS_VERSION if p.vegas_points is not None else None,
             "vegas_filled": ",".join(getattr(p, "vegas_filled", []) or []),
             "vegas_stats": json.dumps(p.vegas_stats or {}, sort_keys=True) if p.vegas_points is not None else "",
+            "stat_projection": json.dumps(p.stat_projection, sort_keys=True) if p.stat_projection else "",
         })
     if not rows:
         return 0

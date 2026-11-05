@@ -981,8 +981,13 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("chance-to-play log for %s skipped: %s", name, exc)
             try:
+                from .roster import stat_projections
                 from .roster.vegas import log_projections
 
+                try:
+                    log.info("%s: per-stat projections for %d players", name, stat_projections.attach(snap, bound))
+                except Exception as exc:  # noqa: BLE001 - the split is logged when it can be
+                    log.warning("per-stat projections for %s skipped: %s", name, exc)
                 log_projections(snap, bound)
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("projection log for %s skipped: %s", name, exc)

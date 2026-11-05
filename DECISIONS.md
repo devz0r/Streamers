@@ -5164,3 +5164,41 @@ prices (week 9) found none from The Odds API's books (Pinnacle, FanDuel,
 Caesars) or SportsGameOdds, while both priced the usual skill markets. The
 market is dropped from the purchase (7 markets a game, not 8); the parsing
 stays, so a book that starts posting it can be added back in config.
+
+### Projecting each stat
+`scripts/fit_stat_projections.py`: the skill projection's core (volume x
+efficiency) run on each stat nflverse's `ff_opportunity` gives an expectation
+for -- receptions, receiving / rushing / passing yards, touchdowns of each
+kind, interceptions, two-pointers -- and summed on each sheet, against the
+same core on fantasy points. Walk-forward 2022-2025, same 15,101
+player-weeks, priors fitted on three seasons and scored on the fourth:
+
+| RMSE | 2022 | 2023 | 2024 | 2025 | all |
+|---|---|---|---|---|---|
+| ESPN, points | 7.015 | 6.985 | 7.132 | 7.126 | 7.064 |
+| ESPN, per stat | 7.013 | 6.990 | 7.133 | 7.111 | 7.061 |
+| Yahoo, points | 7.316 | 7.302 | 7.501 | 7.495 | 7.403 |
+| Yahoo, per stat | 7.319 | 7.310 | 7.501 | 7.475 | 7.401 |
+
+A tie: projecting stats costs nothing. Touchdowns, interceptions and
+two-pointers want four times production's efficiency prior (mostly luck);
+yards and catches the same prior. `roster/stat_projections.py` now splits
+every skill player's projection (before the market) into those stats, scaled
+together to it, and the projection log keeps the split (`stat_projection`).
+
+The market blend per stat (`scripts/fit_stat_market_blend.py`), weeks 6-8
+of 2026 held out one at a time, each stat's weight fitted on the other two,
+against today's single weight on fantasy points:
+
+| RMSE | week 6 | week 7 | week 8 | mean |
+|---|---|---|---|---|
+| ESPN, one weight | 6.282 | 6.611 | 7.373 | 6.755 |
+| ESPN, per stat | 6.283 | 6.582 | 7.359 | 6.741 |
+| Yahoo, one weight | 6.732 | 7.040 | 7.952 | 7.241 |
+| Yahoo, per stat | 6.710 | 6.865 | 7.911 | 7.162 |
+
+It passes the rule (better overall, worse in one week by 0.001), but on
+three weeks with weights fitted from two (0.3-1.0 for yards and catches,
+0 for touchdowns: the market's anytime-TD odds did not beat our shrunk
+touchdown rate). Not switched yet: the logged split lets it be refitted on
+every graded week, and it goes in once five or more weeks hold up.
