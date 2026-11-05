@@ -75,12 +75,20 @@ def check_sheet(snapshot: LeagueSnapshot, profile: dict | None) -> list[str]:
 
 
 def check(snapshot: LeagueSnapshot, history: pd.DataFrame) -> dict[str, float]:
-    """Position -> median |platform season average - ours| over players with
-    three or more games; logs a warning for any above :data:`TOLERANCE`."""
+    """Position -> median gap between the platform's season average and ours
+    over players with three or more games (the closest of the averages over
+    the games he could have been counted in); logs a warning for any above
+    :data:`TOLERANCE`."""
     if history is None or history.empty:
         return {}
     h = history[history["season"] == int(snapshot.season)]
-    g = h.groupby("player_id")["fantasy_points_ppr"].agg(["mean", "count"])
+    g = h.groupby("player_id")["fantasy_points_ppr"].agg(["sum", "count"])
+    # ESPN averages over the games a player was active, and nflverse has a row only where he recorded
+    # a stat: a tight end who played and caught nothing is a game ESPN counts and we do not. So his
+    # average may be his points over any number of games from those with a stat line to every game his
+    # team has played; a scoring difference is one no such count reproduces.
+    team_games = h.groupby("team")["week"].nunique() if "team" in h.columns else pd.Series(dtype=float)
+    last_team = h.sort_values(["season", "week"]).groupby("player_id")["team"].last() if "team" in h.columns else {}
     gaps: dict[str, list[float]] = {}
     for p in snapshot.all_players():
         nid = getattr(p, "nfl_id", None)
@@ -88,9 +96,11 @@ def check(snapshot: LeagueSnapshot, history: pd.DataFrame) -> dict[str, float]:
         # Gibbs): not an average, a missing one.
         if p.season_avg is None or float(p.season_avg) == 0.0 or not nid or str(nid) not in g.index:
             continue
-        mean, n = g.loc[str(nid)]
+        total, n = g.loc[str(nid)]
         if n >= 3:
-            gaps.setdefault(p.position, []).append(abs(float(p.season_avg) - float(mean)))
+            most = max(int(team_games.get(last_team.get(str(nid)), n)), int(n))
+            gaps.setdefault(p.position, []).append(
+                min(abs(float(p.season_avg) - float(total) / k) for k in range(int(n), most + 1)))
     out = {pos: float(pd.Series(v).median()) for pos, v in gaps.items() if len(v) >= MIN_PLAYERS}
     bad = {pos: v for pos, v in out.items() if v > TOLERANCE}
     if bad:

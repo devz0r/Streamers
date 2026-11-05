@@ -225,3 +225,28 @@ def test_a_defences_game_log_follows_each_leagues_sheet():
     assert (e[("JAX", 1)][1], y[("JAX", 1)][1], y[("JAX", 3)][1]) == (19.5, 14.0, 17.0)
     assert "4th-down stop" in y[("JAX", 1)][2] and "4th-down stop" not in e[("JAX", 1)][2]
     assert y[("JAX", 1)][2].startswith("10 pts allowed, 272 yds, 5 sck")
+
+
+def test_a_games_count_difference_is_not_a_scoring_mismatch(caplog):
+    """ESPN averages a tight end over the games he was active; nflverse has a row only
+    where he recorded a stat. 12.4 points over his 3 stat lines is 4.13, over his team's 7
+    games 1.77 -- ESPN's number, and no scoring difference."""
+    from types import SimpleNamespace as NS
+
+    from streamer.roster import scoring_check
+
+    rows = []
+    for i in range(6):                       # six tight ends, each with 3 stat lines of 12.4 / 3 points
+        for w in (1, 2, 3):
+            rows.append({"player_id": f"te{i}", "season": 2026, "week": w, "team": "AAA", "fantasy_points_ppr": 12.4 / 3})
+    rows += [{"player_id": "wr", "season": 2026, "week": w, "team": "AAA", "fantasy_points_ppr": 1.0}
+             for w in (1, 2, 3, 4, 5, 6, 7)]                      # the team has played seven games
+    hist = pd.DataFrame(rows)
+    players = [NS(nfl_id=f"te{i}", position="TE", season_avg=round(12.4 / 7, 2)) for i in range(6)]
+    snap = NS(season=2026, profile="espn", all_players=lambda: players)
+    assert scoring_check.check(snap, hist)["TE"] < 0.02
+    assert "differ" not in caplog.text
+    wrong = [NS(nfl_id=f"te{i}", position="TE", season_avg=9.0) for i in range(6)]     # no count gives 9.0
+    snap.all_players = lambda: wrong
+    assert scoring_check.check(snap, hist)["TE"] > 1.0
+    assert "differ" in caplog.text
