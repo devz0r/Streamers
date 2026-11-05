@@ -60,3 +60,12 @@ def test_a_sure_bet_and_a_middle_are_found():
     mid = pd.DataFrame([_q("a", -110, -110, line=70.5), _q("b", -110, -110, line=78.5), _q("c", -110, -110, line=74.5)])
     m = betting.hedges(mid)["middles"]
     assert m and m[0]["over_line"] < m[0]["under_line"] and m[0]["gap"] > 0.05
+
+
+def test_a_book_missing_from_the_latest_pull_is_not_judged_on_its_old_quote():
+    old = "2026-11-05T14:34:00+00:00"
+    new = "2026-11-05T20:16:00+00:00"
+    lines = pd.DataFrame([_q("betmgm", -120, -111, line=14.5, at=old)]
+                         + [_q(b, -110, -115, line=9.5, at=new) for b in ("bovada", "caesars", "draftkings", "fanduel")])
+    b = betting.board(lines)
+    assert b.empty or "betmgm" not in set(b.book)

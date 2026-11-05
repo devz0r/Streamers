@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 SHARP = {"pinnacle": 2.0}
 MIN_OTHERS = 2          # other books quoting the player and stat before a price is judged
 MIN_EV = 0.02           # expected profit per unit a flag needs
+STALE_MINUTES = 90      # a quote older than this behind the newest for its player and stat is not on offer
 KEY = ["season", "week", "event_id", "stat", "player"]
 #: nflverse player_stats column a stat settles on.
 SETTLE = {"passing_yards": "passing_yards", "passing_tds": "passing_tds", "passing_interceptions": "passing_interceptions",
@@ -53,6 +54,10 @@ def latest(lines: pd.DataFrame) -> pd.DataFrame:
     """Each book's latest two-sided quote, with its own fair chance of the over."""
     d = lines[lines["line"].notna() & lines["over_price"].notna() & lines["under_price"].notna()].copy()
     d = d.sort_values("logged_at").groupby(KEY[2:] + ["bookmaker", "season", "week"], dropna=False).tail(1)
+    # A book missing from the latest pull for this player and stat may have moved or pulled the line:
+    # its last quote is history, not a price on offer. Keep quotes within STALE_MINUTES of the newest.
+    newest = pd.to_datetime(d.groupby(KEY[2:] + ["season", "week"], dropna=False)["logged_at"].transform("max"), utc=True)
+    d = d[pd.to_datetime(d["logged_at"], utc=True) >= newest - pd.Timedelta(minutes=STALE_MINUTES)]
     po, pu = _implied(d["over_price"]), _implied(d["under_price"])
     d["fair_over"] = po / (po + pu)
     d["hold"] = po + pu - 1.0
