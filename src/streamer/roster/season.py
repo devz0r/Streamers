@@ -181,16 +181,27 @@ def wilson(p: float, n: int, z: float = 1.96) -> tuple[float, float]:
     return max(c - h, 0.0), min(c + h, 1.0)
 
 
+#: Streaming a D/ST or kicker -- the best-projected unit left on the wire each
+#: week -- beats the best free agent's season level, because each week's pick
+#: has a good matchup. Replayed 2023-2025 with the other managers who stream
+#: picking first (scripts/fit_stream_premium.py): defences 1.29/1.22/1.33 a
+#: season in a ten-team league and 0.87/1.20/0.94 in a fourteen, kickers
+#: 1.05/1.04/1.07 and 1.11/1.28/1.22; the mean of all six each. The wire's
+#: D/ST and K are filled at this multiple of the best free agent's level.
+#: DECISIONS.md, "Streaming in the season simulation".
+STREAM_PREMIUM = {"DST": 1.14, "K": 1.13}
+
+
 def replacement_levels(snapshot: LeagueSnapshot) -> dict[str, float]:
     """Per position: the second-best free agent's per-game value (D/ST and
-    K: the best, since they are streamed weekly)."""
+    K: the best, since they are streamed weekly, times :data:`STREAM_PREMIUM`)."""
     out = {}
     for pos in ("QB", "RB", "WR", "TE", "K", "DST"):
         vals = sorted((float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
                        for p in snapshot.free_agents if p.position == pos and not p.is_long_term_out
                        and p.team), reverse=True)
         if vals:
-            out[pos] = vals[0] if pos in ("K", "DST") else vals[min(1, len(vals) - 1)]
+            out[pos] = vals[0] * STREAM_PREMIUM[pos] if pos in ("K", "DST") else vals[min(1, len(vals) - 1)]
     return out
 
 
@@ -392,6 +403,9 @@ class SeasonModel:
                     here = sorted((v for v, team in pool.get(pos, []) if week not in byes.get(team, set())),
                                   reverse=True)
                     first = 0 if pos in ("K", "DST") else min(1, max(len(here) - 1, 0))
+                    if pos in ("K", "DST") and here:
+                        # Streamed: each week's pick is a good matchup, worth more than the best level.
+                        here = [here[0] * STREAM_PREMIUM[pos]] + here[1:]
                     vals += here[first:]
                 vals = sorted(vals, reverse=True)[:self.WIRE_DEPTH]
                 if vals:

@@ -5245,3 +5245,23 @@ bets, one middle above zero (Daniel Jones rushing yards, over 6.5 at -102 and
 under 8.5 at -115, 5% to land between, +1.4%). Sure bets last minutes and
 refreshes are hours apart, so the counts per refresh are kept in the board
 file to show how often any appear.
+
+### Streaming in the season simulation
+The season simulation filled a D/ST or kicker slot from the wire at the best
+free agent's season level each week, but a streamer starts the week's best
+matchup, which scores more. Replayed 2023-2025 (`scripts/fit_stream_premium.py`,
+levels as `roster.unit_level`, rosters holding the top 60% by level, the
+other streamers picking first): the week's pick over the best free agent's
+level, by season --
+
+| | 10 teams | 14 teams |
+|---|---|---|
+| D/ST | x1.29 / 1.22 / 1.33 | x0.87 / 1.20 / 0.94 |
+| K | x1.05 / 1.04 / 1.07 | x1.11 / 1.28 / 1.22 |
+
+Noisy (in a fourteen-team league three streamers ahead of you leave little),
+so one multiple each, the mean of the six: D/ST 1.14, K 1.13
+(`season.STREAM_PREMIUM`), on the wire's best unit every week of the
+simulation and on the D/ST and K replacement level of the value list. With it
+the simulation's streamed defence sits about where a top held one does, as
+the hold-or-stream replay found.
