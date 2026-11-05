@@ -63,6 +63,8 @@ BENCH_WEIGHTS: dict[str, tuple[float, ...]] = {
 #: Positions whose bench bodies carry upside (their role can grow into a
 #: starting one). Kickers and defences are streamed week to week instead.
 UPSIDE_POSITIONS = ("QB", "RB", "WR", "TE")
+#: Positions with one starting job and no flex: only the best bench body's upside counts.
+SINGLE_SLOT = ("QB",)
 
 #: Share of games a lead back misses (2021-2025: 8.5% of the games after one
 #: he played with 12+ expected points). What a handcuff's contingency is worth.
@@ -259,6 +261,7 @@ def roster_value(
     if with_upside:
         by_id = {p.player_id: v for p, v in zip(players, vals)}
         starters = [(by_id[i], slot) for i, slot in assigned.items()]
+        single: dict[str, float] = {}
         for p, v in zip(players, vals):
             if p.player_id in assigned or p.position not in UPSIDE_POSITIONS or p.ros_sd is None:
                 continue
@@ -266,7 +269,14 @@ def roster_value(
             can = _slot_set(p)
             rivals = [sv for sv, slot in starters if slot in can]
             if rivals:
-                total += upside(v, float(p.ros_sd), min(rivals))
+                u = upside(v, float(p.ros_sd), min(rivals))
+                if p.position in SINGLE_SLOT:
+                    # One starting job: a third quarterback cannot take it ahead of the second,
+                    # so only the bench player with the most upside counts.
+                    single[p.position] = max(single.get(p.position, 0.0), u)
+                else:
+                    total += u
+        total += sum(single.values())
     return total
 
 

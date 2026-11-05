@@ -5278,3 +5278,16 @@ start") are not read. Breaking news keeps two days, so the calls are kept for
 the week (`results/qb_calls.json`): a Wednesday naming still counts on
 Sunday. It moves the receivers' factor only; a backup named to start still
 gets his projection from the depth-chart and next-man-up logic.
+
+### A third quarterback
+Trades that open a roster spot fill it with the free agent who adds most to
+roster value, and on Yahoo that was Malik Willis -- a third quarterback
+behind Stafford and Shough -- in most offers. Roster value credited every
+bench player's upside (his chance to outgrow the starter he could replace)
+on its own, so a third quarterback's counted in full though he can only
+take the job after the second. Now, at a position with one starting job and
+no flex (quarterback), only the bench body with the most upside counts.
+Also, the "starters who project below a free agent" list no longer names a
+questionable starter whose late swap is planned (the fallback card covers
+who takes his slot): Stafford at his discounted 9.5 was listed against
+free-agent quarterbacks while Shough and the planned swap covered him.

@@ -1459,8 +1459,12 @@ def _weak_starters(report: MatchupReport) -> str:
           if p.position in ("QB", "RB", "WR", "TE") and p.team and not p.is_out and not p.locked
           and not p.unsigned and p.projection is not None]
     weak = []
+    # A questionable starter with a late-swap plan is covered: his discounted projection
+    # is not what the slot scores (the fallback card says who takes it).
+    covered = {f.starter.player_id for f in (getattr(report.optimisation, "fallbacks", None) or []) if f.options}
     for slot, p in report.optimisation.best_win.flat():
-        if p.locked or p.actual_points is not None or p.position not in ("QB", "RB", "WR", "TE"):
+        if p.locked or p.actual_points is not None or p.position not in ("QB", "RB", "WR", "TE") \
+                or p.player_id in covered:
             continue
         better = sorted((f for f in fa if _eligible(f, slot) and f.week_value > p.week_value),
                         key=lambda f: -f.week_value)
