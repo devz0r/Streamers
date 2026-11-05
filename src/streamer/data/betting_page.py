@@ -30,7 +30,7 @@ def render(cfg: Config) -> str:
     data = json.loads(path.read_text(encoding="utf-8"))
     rows, rec = data.get("rows") or [], data.get("record") or {}
     built = pd.Timestamp(data["built_at"]).tz_convert("America/New_York")
-    def table(sub: list[dict], empty: str) -> str:
+    def table(sub: list[dict], empty: str, verb: str = "Bet") -> str:
         body = []
         for r in sub:
             age = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(r["logged_at"])).total_seconds() / 3600
@@ -39,7 +39,7 @@ def render(cfg: Config) -> str:
             tag = " <span class='hold-tag'>way off</span>" if r.get("way_off") else ""
             body.append(
                 f"<tr><td class='unit'>{_e(r['player'])}{tag}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
-                f"<td><b>{_e(r['side'])} {r['line']:g}</b> <span class='opp'>(books {r['consensus']:.1f})</span>{mean}</td>"
+                f"<td><b>{verb} {_e(r['side']).upper()} {r['line']:g}</b> <span class='opp'>(books {r['consensus']:.1f})</span>{mean}</td>"
                 f"<td>{_price(r['price'])} {_e(BOOK.get(r['book'], r['book']))}</td>"
                 f"<td>{r['p_market']:.0%}</td><td><b>{r['ev_market']:+.1%}</b></td><td>{ours}</td>"
                 f"<td>{r['ev']:+.1%}</td><td>{r['books']}</td><td>{age:.0f}h</td></tr>")
@@ -49,16 +49,21 @@ def render(cfg: Config) -> str:
                 "<th>Books' chance</th><th>EV (books)</th><th>Ours</th><th>EV (combined)</th><th>Books</th><th>Age</th>"
                 "</tr></thead><tbody>" + "".join(body) + "</tbody></table></div>")
 
-    market = [r for r in rows if r.get("kind") in ("way off", "market")]
+    # A recommendation only where the price is expected to earn over time: on the books' own read, and on
+    # the combined one. Where only our projection says so, it is a lean, not a recommendation, until proven.
+    market = [r for r in rows if r.get("kind") in ("way off", "market") and r["ev_market"] > 0 and r["ev"] > 0]
     model = [r for r in rows if r.get("kind") == "model"]
-    tables = ("<h3>Prices the other books say are wrong</h3>"
+    tables = ("<h3>Recommended: prices the other books say are wrong</h3><p class='sub'>Each one is expected to "
+              "earn over time, on the other books' read and on the combined one. Even so most single bets here "
+              "lose; the edge shows over many.</p>"
               + table(market, f"None right now: no price beats what the other books say by 2%+ "
                               f"({data.get('sides', 0)} sides priced). Lines that are way off are rare and get "
                               "fixed fast; the board checks every refresh.")
-              + "<h3>Where only our projection disagrees</h3><p class='sub'>The books agree with each other here and "
-                "our per-stat projection does not. Unproven: our edge over the market has three weeks behind it, so "
+              + "<h3>Where only our projection disagrees (not recommended)</h3><p class='sub'>The books agree with each "
+                "other here and our per-stat projection does not; on the books' read these lose money, so they are leans, "
+                "not bets. Unproven: our edge over the market has three weeks behind it, so "
                 "these are graded separately below before they mean anything.</p>"
-              + table(model, "None."))
+              + table(model, "None.", verb="Lean"))
     record = ""
     if rec.get("flagged"):
         clv = ("" if rec.get("clv_hit") is None else
