@@ -234,10 +234,15 @@ def settle(cfg: Config, lines: pd.DataFrame) -> pd.DataFrame:
         return bets
     # Flags logged before the board told the kinds apart were all on the books' read alone.
     bets["kind"] = bets["kind"].fillna("market") if "kind" in bets else "market"
-    close = latest(lines).groupby(KEY[2:] + ["line"]).apply(
-        lambda g: float(np.average(g["fair_over"], weights=g["w"])), include_groups=False).rename("close_over").reset_index()
+    lt = latest(lines)
+    close = lt.groupby(KEY[2:] + ["line"]).apply(
+        lambda g: pd.Series({"close_over": float(np.average(g["fair_over"], weights=g["w"])),
+                             "close_at": str(g["logged_at"].max())}), include_groups=False).reset_index()
     bets = bets.merge(close, on=KEY[2:] + ["line"], how="left")
     bets["close_fair"] = np.where(bets["side"] == "over", bets["close_over"], 1.0 - bets["close_over"])
+    # Only a later pull says where the market went; the flagging pull itself proves nothing.
+    later = pd.to_datetime(bets["close_at"], utc=True, errors="coerce") > pd.to_datetime(bets["logged_at"], utc=True)
+    bets.loc[~later, "close_fair"] = np.nan
     bets["implied"] = _implied(bets["price"])
     bets["clv"] = bets["close_fair"] - bets["implied"]
     actual = {}

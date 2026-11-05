@@ -23,6 +23,7 @@ def test_a_price_better_than_the_others_read_is_flagged_once_and_graded(tmp_path
     assert 0.45 < top.fair < 0.55 and top.ev > 0.05                   # +120 on a near coin flip
     n = int((b.ev >= betting.MIN_EV).sum())
     assert n >= 1 and betting.flag(b, cfg) == n and betting.flag(b, cfg) == 0      # logged once
+    assert betting.settle(cfg, lines)["clv"].isna().all()                 # no later pull yet: nothing to say
     assert betting.board(lines, exclude={"wide out"}).empty              # a started game is off the board
     # The market then moved toward it: closing prices lower the over's price and the actual lands over.
     close = pd.concat([lines, pd.DataFrame([_q("betmgm", -125, 105, at="2026-11-09T17:00:00+00:00"),
