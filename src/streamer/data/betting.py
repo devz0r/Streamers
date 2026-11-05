@@ -232,6 +232,8 @@ def settle(cfg: Config, lines: pd.DataFrame) -> pd.DataFrame:
     bets = pd.read_parquet(p)
     if bets.empty:
         return bets
+    # Flags logged before the board told the kinds apart were all on the books' read alone.
+    bets["kind"] = bets["kind"].fillna("market") if "kind" in bets else "market"
     close = latest(lines).groupby(KEY[2:] + ["line"]).apply(
         lambda g: float(np.average(g["fair_over"], weights=g["w"])), include_groups=False).rename("close_over").reset_index()
     bets = bets.merge(close, on=KEY[2:] + ["line"], how="left")
