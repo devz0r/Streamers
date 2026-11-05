@@ -217,6 +217,7 @@ def team_sections(
     # -- waivers -----------------------------------------------------------
     waivers = []
     if report.title_moves is not None:
+        waivers.append(_tonight(report))
         waivers.append(_title_moves(report) + _plans(report))
         stream_moves = [m for m in moves if m.add.position in ("DST", "K")]
     else:
@@ -714,6 +715,52 @@ def _title_moves(report: MatchupReport) -> str:
             + (f"<span>playoffs {m.po_base:.0%} &rarr; {m.po_now:.0%}</span>" if getattr(m, "po_base", 0) else "") + "</div>"
             f'<div class="why">{_e("; ".join(m.reasons))}</div></div>')
     return head + "".join(cards) + _passed(report)
+
+
+def _tonight(report: MatchupReport) -> str:
+    """Waivers tonight, in one place: what to put in, in what order, and what
+    it costs -- the moves worth making, nothing else. Claims already entered
+    are not readable from either platform's feed, so the card is for checking
+    them against."""
+    snap = report.snapshot
+    me = snap.my_team
+    moves = [m for m in (report.title_moves or []) if m.verdict == "claim" and not m.watch]
+    plans = [p for p in (report.plans or []) if p.verdict == "plan"]
+    n = len(snap.teams)
+    rank = getattr(me, "waiver_rank", None)
+    order = f"your waiver priority is {rank} of {n}" if rank else "your waiver priority is not known"
+    rolling = (snap.rules or {}).get("waiver_order") == "rolling" or snap.platform == "espn"
+    spend = (" A claim that succeeds sends you to the back of the list, so the claims below are in order of "
+             "what they are worth: the first that lands uses your priority." if rolling else "")
+    head = f'<h3>Waivers tonight</h3><p class="sub">{order.capitalize()}.{spend}</p>'
+    if plans:
+        best = max(plans, key=lambda p: p.gain)
+        items = "".join(
+            f"<li><b>{'Add' if a.on_waivers is False else 'Claim'} {_e(a.name)}</b> ({_e(a.position)} {_e(a.team or '')})"
+            + (f" &middot; {best.claim_odds[a.player_id][0]:.0%} chance another manager claims him"
+               if a.on_waivers is not False and a.player_id in best.claim_odds else "") + "</li>"
+            for a, _d in best.moves)
+        return (head + f'<p class="sub"><b>Make the plan</b> ({best.gain * 100:+.1f} points of title odds), in this order:</p>'
+                f'<ol class="steps">{items}</ol><p class="sub"><b>Drop:</b> {_e(drops_text(best))}.</p>'
+                + _claims_note())
+    if not moves:
+        return (head + '<p class="sub"><b>Nothing to claim tonight:</b> no pickup raises your title odds enough to be '
+                "worth a move. Anything you have already entered is a claim the numbers below do not back.</p>")
+    moves = sorted(moves, key=lambda m: -m.gain_now)
+    items = ""
+    for m in moves:
+        free = m.add.on_waivers is False
+        odds = "" if free else (f" &middot; a rival lands him {m.rival_share:.0%} of the time if you pass"
+                                if m.rival_share else "")
+        items += (f"<li><b>{'Add' if free else 'Claim'} {_e(m.add.name)}</b> ({_e(m.add.position)} {_e(m.add.team or '')}), "
+                  f"{_e(move_text(m))} &middot; title {m.p_base:.1%} &rarr; {m.p_now:.1%} "
+                  f"({m.gain_now * 100:+.1f}){' &middot; no claim: he is yours at once' if free else ''}{odds}</li>")
+    return head + f'<p class="sub"><b>Put in, in this order:</b></p><ol class="steps">{items}</ol>' + _claims_note()
+
+
+def _claims_note() -> str:
+    return ('<p class="sub">Check these against the claims you have entered: neither platform shows them to this page, '
+            "so a claim not listed here is one these numbers do not back.</p>")
 
 
 def _passed(report: MatchupReport) -> str:
