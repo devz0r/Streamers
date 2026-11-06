@@ -5291,3 +5291,15 @@ Also, the "starters who project below a free agent" list no longer names a
 questionable starter whose late swap is planned (the fallback card covers
 who takes his slot): Stafford at his discounted 9.5 was listed against
 free-agent quarterbacks while Shough and the planned swap covered him.
+
+### Back from a long absence
+A player more than `inactive_weeks` (4) since his last game needed a status
+tag to keep his history; with none, the platform's projection became his
+projection *and his season level*. Breece Hall, out weeks 4-8 with a quad
+and untagged on ESPN for his return, went from 12.9 a game (his games) to
+10.9 -- ESPN's cautious number for his first game back -- while on Yahoo,
+still tagged Q, he kept 12.6. Now a player out 4-18 weeks whom the platform
+projects at 60%+ of his history's level is a return from injury and keeps
+his history (the first-game-back discount still applies to the week); a
+projection far below it (a benched starter now a backup) still takes the
+platform's number, and gone for more than a season is unchanged.

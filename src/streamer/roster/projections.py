@@ -1265,6 +1265,11 @@ def _collapse_factor(row, p: PlayerRow, ros: float, conf: dict) -> float:
     return float(rule.get("factor", 1.0)) if recent < float(rule.get("below", 0.0)) * before else 1.0
 
 
+#: A player back from a long absence keeps his history's level when the platform
+#: projects him at least this share of it (a return from injury, not a lost job).
+RETURN_SHARE = 0.6
+
+
 def project_snapshot(
     snapshot: LeagueSnapshot,
     cfg: Config | None = None,
@@ -1514,6 +1519,15 @@ def project_snapshot(
             # kept an 11.9-a-game value and was recommended as a pickup.
             gone = row is not None and weeks_since(row, snapshot.season, snapshot.week) > long_gone_weeks
             signing = p.signing_odds is not None and row is not None
+            # Back from a long absence: out more than ``inactive_weeks`` with no tag left, and the
+            # platform projecting him near his old level, is a return from injury -- his history
+            # speaks for the season (Breece Hall, out weeks 4-8 with a quad, read ESPN's cautious
+            # 10.9 for his first game back as his season level, against 12.9 from his games).
+            # A projection far below his history (a benched starter now a backup) is not.
+            hist = float(row["vol"]) * float(row["eff"]) if row is not None and pd.notna(row.get("vol")) \
+                and pd.notna(row.get("eff")) else None
+            returning = (stale and not gone and plat is not None and hist is not None and hist > 0
+                         and float(plat) >= RETURN_SHARE * hist)
             if gone and plat is None and not signing:
                 mean, ros, source = 0.0, 0.0, "inactive"
                 p.signals.append(f"has not played since {int(row['last_season'])} week "
@@ -1522,7 +1536,7 @@ def project_snapshot(
             # his history still speaks to rest-of-season value (this week is
             # zeroed by the status adjustment). A stale player with no status,
             # or any unsigned one, needs a platform projection to count.
-            elif row is not None and (not unsigned or signing) and (not stale or p.status or signing):
+            elif row is not None and (not unsigned or signing) and (not stale or p.status or signing or returning):
                 vol, eff = float(row["vol"]), float(row["eff"])
                 vol_ros = float(row.get("vol_ros", vol)) if pd.notna(row.get("vol_ros", vol)) else vol
                 extra_week, extra_ros, why = heirs.get(p.player_id, (0.0, 0.0, ""))

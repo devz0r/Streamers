@@ -781,3 +781,29 @@ def test_a_reported_timeline_sets_how_much_of_the_season_an_absence_takes(cfg):
     assert _absence(p, False, cfg)[1] == pytest.approx(0.75)
     ir = PlayerRow(player_id="2", name="B", position="WR", team="PHI", status="INJURY_RESERVE", reported_share=0.5)
     assert _absence(ir, False, cfg)[1] == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("platform,expect", [
+    (11.0, "model"),       # Breece Hall: out weeks 4-8, the platform projects his return near his level
+    (3.0, "platform"),     # projected far below his old level: a lost job, not a return
+])
+def test_back_from_a_long_absence_keeps_his_history(cfg, monkeypatch, platform, expect):
+    import streamer.roster.projections as pj
+
+    snap = _stale_snapshot("", platform, "LV")
+    snap.week = 9
+    history = _stale_history()
+    gone = history.player_id == "nfl-g1"
+    history.loc[gone, "season"] = 2026
+    history = history[~gone | (history.week <= 3)]
+    others = history.player_id != "nfl-g1"
+    extra = history[others & (history.season == 2026)].copy()
+    history = pd.concat([history] + [extra.assign(week=w) for w in range(3, 9)], ignore_index=True)
+    monkeypatch.setattr(pj, "_implied_scale", lambda *a, **k: ({}, "test"))
+    monkeypatch.setattr(pj, "match_players",
+                        lambda rows, index: type("M", (), {"mapping": {"g1": "nfl-g1"}, "unmatched": []})())
+    pj.project_snapshot(snap, cfg.for_profile("espn"), rankings=None, allow_network=False, history=history)
+    back = snap.free_agents[0]
+    assert back.projection_source.startswith(expect), back.projection_source
+    if expect == "model":
+        assert back.ros_value > 8.0          # his games (15 a game, shrunk), not a cautious first week back
