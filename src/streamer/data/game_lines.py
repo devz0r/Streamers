@@ -78,7 +78,11 @@ def parse(events: list[dict]) -> pd.DataFrame:
             if len(parts) != 5:
                 continue
             stat, entity, period, bet, side = parts
-            if stat != "points" or period != "game" or bet not in ("ml", "sp", "ou") or entity not in ("home", "away", "all"):
+            if stat != "points" or period != "game" or bet not in ("ml", "sp", "ou"):
+                continue
+            # The game total is the "all" entity's over/under; "home"/"away" over/unders are each
+            # team's own points (team totals), a different market. Moneyline and spread: the team's own.
+            if (bet == "ou" and entity != "all") or (bet != "ou" and entity != side):
                 continue
             for book, b in (odd.get("byBookmaker") or {}).items():
                 if not isinstance(b, dict) or b.get("available") is False:
@@ -179,7 +183,10 @@ def centre(cfg: Config, kind: str, line: float, fair_a: float) -> float:
     by more than ``-line``), or the over."""
     grid = GRID if kind == "spread" else TOTAL_GRID
     t = -line if kind == "spread" else line
-    best, err = grid[0], 9.0
+    # Near the number only: the measured chances are not perfectly monotone in m (sampling noise
+    # where few games had that line), and a far-off m can match a price by accident.
+    grid = grid[np.abs(grid - t) <= 4.0]
+    best, err = t, 9.0
     for m in grid:
         up, push, down = chances(cfg, kind, m, t)
         p = up / max(up + down, 1e-9)
