@@ -26048,7 +26048,7 @@
       "name": "Ronnie Rivers",
       "position": "RB",
       "team": "LA",
-      "status": "INJURY_RESERVE",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -66873,7 +66873,7 @@
     "my_points": 22.58,
     "opp_points": 5.3
   },
-  "synced_at": "2026-11-07T17:51:12.347602+00:00",
+  "synced_at": "2026-11-07T18:04:48.194879+00:00",
   "extra": {
     "nfl_week": 9,
     "current_week": 9
