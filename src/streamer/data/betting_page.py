@@ -23,6 +23,62 @@ def _price(p: float) -> str:
     return f"{p:+.0f}"
 
 
+def _games_html(cfg: Config) -> str:
+    """Spreads, moneylines and totals: the prices the other books say are wrong, sure bets, middles."""
+    from .game_lines import side_text
+
+    path = cfg.path("results") / "game_board.json"
+    if not path.exists():
+        return ""
+    g = json.loads(path.read_text(encoding="utf-8")) or {}
+    if not g:
+        return ""
+
+    def game(r):
+        return f"{_e(r['away'])} @ {_e(r['home'])}"
+
+    def row(r) -> str:
+        tag = " <span class='hold-tag'>way off</span>" if r["kind"] == "way off" else ""
+        cons = r.get("consensus")
+        if cons is None:
+            books = ""
+        elif r["market"] == "spread":
+            books = f" <span class='opp'>(books {cons if r['side'] == 'a' else -cons:+g})</span>"
+        else:
+            books = f" <span class='opp'>(books {cons:g})</span>"
+        push = f" (push {r['push']:.0%})" if r.get("push") else ""
+        return (f"<tr><td class='unit'>{game(r)}{tag}</td><td><b>Bet {_e(side_text(r))}</b>{books}</td>"
+                f"<td>{_price(r['price'])} {_e(BOOK.get(r['book'], r['book']))}</td><td>{r['win']:.0%}{push}</td>"
+                f"<td><b>{r['ev']:+.1%}</b></td><td>{r['books']}</td></tr>")
+
+    rows = "".join(row(r) for r in g.get("rows", []))
+    table = ("<div class='scroll'><table><thead><tr><th class='unit'>Game</th><th>Bet</th><th>Price</th><th>Wins</th>"
+             "<th>EV</th><th>Books</th></tr></thead><tbody>" + rows + "</tbody></table></div>") if rows else (
+        f"<p class='sub'>None right now: no spread, moneyline or total beats what the other books say by 2%+ "
+        f"({g.get('quotes', 0)} quotes on {g.get('games', 0)} games checked).</p>")
+    arbs = "".join(
+        f"<li>{game(r)} {_e(r['market'])}{'' if r.get('line') is None else ' ' + format(r['line'], 'g')}: "
+        f"{_price(r['price_a'])} {_e(BOOK.get(r['book_a'], r['book_a']))} and {_price(r['price_b'])} "
+        f"{_e(BOOK.get(r['book_b'], r['book_b']))}, stake {r['share_a']:.0%} / {1 - r['share_a']:.0%}: "
+        f"<b>{r['profit']:+.1%} guaranteed</b></li>" for r in g.get("arbs", []))
+    mids = "".join(
+        f"<li>{game(r)} {_e(r['market'])}: {r['line_a']:g} at {_price(r['price_a'])} {_e(BOOK.get(r['book_a'], r['book_a']))}"
+        f" and the other side of {r['line_b']:g} at {_price(r['price_b'])} {_e(BOOK.get(r['book_b'], r['book_b']))}: "
+        f"{r['between']:.0%} to land between, <b>{r['ev']:+.1%}</b> expected</li>" for r in g.get("middles", []))
+    rec = g.get("record") or {}
+    record = (f"<p class='sub'><b>Record:</b> {rec['flagged']} flagged, {rec.get('wins', 0)}-{rec.get('losses', 0)}, "
+              f"{rec.get('profit', 0):+.1f} units at one a bet.</p>" if rec.get("flagged") else "")
+    return ("<h3>Game lines: spreads, moneylines, totals</h3><p class='sub'>The same check on the main markets. "
+            "Each book's price against the other books' read; a spread or total at a different number is priced on "
+            "how often NFL games end on each margin and total (since 1999) -- half a point around 3 or 7 is worth "
+            "far more than elsewhere. <b>Wins</b> is the chance the bet wins at that number (a push returns the "
+            "stake). No opinion of ours on who wins: main lines are the sharpest market there is, so expect few.</p>"
+            + table
+            + ("<p class='sub'><b>Sure bets:</b></p><ul class='sub'>" + arbs + "</ul>" if arbs else "")
+            + ("<p class='sub'><b>Middles</b> (not guaranteed; both can win):</p><ul class='sub'>" + mids + "</ul>" if mids else "")
+            + record)
+
+
 def render(cfg: Config) -> str:
     path = cfg.path("results") / "betting_board.json"
     if not path.exists():
@@ -119,6 +175,6 @@ def render(cfg: Config) -> str:
         "<b>Way off</b>: 10%+ on both the books' read and ours. One-sided markets (anytime touchdown) are left out.</p>"
         f"<p class='sub'>Prices pulled with the last refresh ({built:%a %-I:%M %p} ET); props move fast, so check the "
         "book before betting. Books limit accounts that keep taking prices well off the market.</p>"
-        f"{tables}{record}{by_kind}{hedge}"
+        f"{tables}{record}{by_kind}{hedge}{_games_html(cfg)}"
         "<p class='sub'>Not advice: an edge on paper is a fraction of a percent to a few percent, and a long losing "
         "stretch is normal. The record above is the test of whether these flags are worth acting on.</p>")

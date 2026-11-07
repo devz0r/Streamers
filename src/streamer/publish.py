@@ -862,6 +862,27 @@ def team_panels_for(
 
             extra, note = sgo.props_frame(loaded[0][1])
             log.info("SportsGameOdds props: %s", note)
+            try:
+                from .data import game_lines
+
+                evs, _gnote = sgo.events(loaded[0][1])               # the same pull, from the cache
+                games = game_lines.parse(evs)
+                if games.empty:
+                    # Say what the feed's game markets look like (names only) so the reader can be fixed.
+                    keys = sorted({k.rsplit("-", 0)[0] for e in evs for k in (e.get("odds") or {})
+                                   if k.startswith("points-")})[:12]
+                    fields = sorted({f for e in evs for k, o in (e.get("odds") or {}).items() if k.startswith("points-")
+                                     for b in (o.get("byBookmaker") or {}).values() if isinstance(b, dict) for f in b})
+                    log.info("game lines: none parsed; points keys %s; byBookmaker fields %s", keys, fields)
+                else:
+                    log.info("game lines: %d quotes, %s", len(games), games.groupby("market")["bookmaker"].nunique().to_dict())
+                got = game_lines.build(loaded[0][1], games)
+                (loaded[0][1].path("results") / "game_board.json").write_text(json.dumps(got, default=str),
+                                                                               encoding="utf-8")
+                log.info("game-line board: %d flagged, %d sure bets, %d middles, record %s", len(got.get("rows", [])),
+                         len(got.get("arbs", [])), len(got.get("middles", [])), got.get("record"))
+            except Exception as exc:  # noqa: BLE001 - a bonus section never blocks the page
+                log.warning("game lines skipped: %s", exc)
             for label, fr in (("The Odds API", shared.frame if shared is not None else None), ("SportsGameOdds", extra)):
                 if fr is not None and not fr.empty and "stat" in fr:
                     kp = fr[fr["stat"] == "kicking_points"]

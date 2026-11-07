@@ -5303,3 +5303,17 @@ projects at 60%+ of his history's level is a return from injury and keeps
 his history (the first-game-back discount still applies to the week); a
 projection far below it (a benched starter now a backup) still takes the
 platform's number, and gone for more than a season is unchanged.
+
+### Game lines
+The Betting tab also checks moneylines, spreads and totals (`data/game_lines.py`),
+from the same SportsGameOdds pull as the props (billed per game, so no extra
+cost). Each book's two prices, margin out, against the other books' read; a
+spread or total at a different number is priced on the chance of each final
+margin and total, measured on nflverse games since 1999 (totals since 2015)
+whose closing line sat near the market's: a pick'em-priced -3 puts 8.5% of
+games exactly on 3, so -2.5 covers 54% and -3.5 46%; through 7 is about 4.7%;
+totals move about 2% a point. Sure bets (moneyline, or the same number), and
+middles across numbers priced on the same distributions. Flags at 2%+ are
+logged once (`results/game_bet_log.parquet`) and graded on the final score.
+No opinion of ours on who wins: main lines are the sharpest market, so few
+should show; stale books and different numbers are where any are.
