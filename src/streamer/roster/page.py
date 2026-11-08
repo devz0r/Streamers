@@ -1669,7 +1669,9 @@ def _bench_reason(p, opt) -> str:
         return opt.bench_reasons[p.player_id]
     q = min(lower, key=lambda x: x.week_value)
     if q.locked:
-        return f"{q.name}'s game has started, so his spot is frozen"
+        done = "scored" if q.actual_points is not None else "is playing, at"
+        return (f"projects more than {q.name} ({done} {q.week_value:.1f}), but {q.name}'s game has started, "
+                "so his slot is locked: the swap could only have been made before his kickoff")
     return ""
 
 
