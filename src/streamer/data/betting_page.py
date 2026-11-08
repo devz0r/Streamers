@@ -136,6 +136,22 @@ def render(cfg: Config) -> str:
             by_kind += (f"<li><b>{label}</b>: {k['flagged']} flagged, {k.get('wins', 0)}-{k.get('losses', 0)}, "
                         f"{k.get('profit', 0):+.1f} units{clv}</li>")
     by_kind = f"<ul class='sub'>{by_kind}</ul>" if by_kind else ""
+    par = data.get("parlays") or []
+    prows = "".join(
+        "<tr><td class='unit'>" + "<br>".join(
+            f"{_e(leg['side']).upper()} {leg['line']:g} {_e(leg['player'])} {_e(STAT.get(leg['stat'], leg['stat']))} "
+            f"<span class='opp'>({_price(leg['price'])})</span>" for leg in r["legs"])
+        + f"</td><td>{_e(BOOK.get(r['book'], r['book']))}</td><td>{r['win']:.0%}</td><td>{r['payout']:.1f}x</td>"
+        f"<td><b>{r['ev']:+.1%}</b></td><td>{r['ev_legs']:+.1%}</td></tr>" for r in par)
+    parlay = (
+        "<h3>Parlays</h3><p class='sub'>Two or three of the recommended bets above, at the same book and from "
+        "different games (so they don't move together). A parlay pays the legs' odds multiplied and wins only if "
+        "all do, so a parlay of good prices multiplies the edge &mdash; <i>and the error in the chances</i>, and the "
+        "book's margin on any leg that isn't an edge. It wins far less often, so keep the stake smaller than a "
+        "single bet's. <b>Legs avg</b> is what the same legs earn as separate bets.</p>"
+        + (f"<div class='scroll'><table><thead><tr><th class='unit'>Legs</th><th>Book</th><th>Wins</th><th>Pays</th>"
+           f"<th>EV</th><th>Legs avg</th></tr></thead><tbody>{prows}</tbody></table></div>" if prows else
+           "<p class='sub'>None right now: it needs two recommended bets at one book from different games.</p>"))
     h = data.get("hedges") or {}
     arbs = "".join(
         f"<tr><td class='unit'>{_e(r['player'])}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
@@ -175,6 +191,6 @@ def render(cfg: Config) -> str:
         "<b>Way off</b>: 10%+ on both the books' read and ours. One-sided markets (anytime touchdown) are left out.</p>"
         f"<p class='sub'>Prices pulled with the last refresh ({built:%a %-I:%M %p} ET); props move fast, so check the "
         "book before betting. Books limit accounts that keep taking prices well off the market.</p>"
-        f"{tables}{record}{by_kind}{hedge}{_games_html(cfg)}"
+        f"{tables}{record}{by_kind}{parlay}{hedge}{_games_html(cfg)}"
         "<p class='sub'>Not advice: an edge on paper is a fraction of a percent to a few percent, and a long losing "
         "stretch is normal. The record above is the test of whether these flags are worth acting on.</p>")

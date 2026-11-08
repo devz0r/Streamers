@@ -266,6 +266,36 @@ def hedges(lines: pd.DataFrame, exclude: set[str] | None = None, min_middle_ev: 
     return {"arbs": arbs, "middles": middles, "checked": int(len(d))}
 
 
+def parlays(rows: pd.DataFrame, max_legs: int = 3, top: int = 8) -> list[dict]:
+    """Parlays worth a look: legs flagged +EV at the same book, from different
+    games (so independent), two or three at a time. A parlay pays the product
+    of its legs' odds and wins when all do, so its expected profit is
+    ``prod(chance) * prod(decimal odds) - 1`` -- the edges multiply, and so do
+    the errors in the chances. Chances are the other books' read (the
+    conservative one). Only positive legs are combined, so each is a bet by
+    itself and the parlay is the amplified version."""
+    from itertools import combinations
+
+    if rows is None or len(rows) == 0:
+        return []
+    legs = rows[(rows["kind"].isin(["way off", "market"])) & (rows["ev_market"] > 0) & (rows["ev"] > 0)]
+    out = []
+    for book, g in legs.groupby("book"):
+        g = g.sort_values("ev_market", ascending=False).head(8)
+        for n in range(2, max_legs + 1):
+            for combo in combinations(g.to_dict("records"), n):
+                if len({c["event_id"] for c in combo}) < n:
+                    continue                      # two legs of one game are correlated
+                win = float(np.prod([c["p_market"] for c in combo]))
+                dec = float(np.prod([_decimal(c["price"]) for c in combo]))
+                out.append({"book": book, "legs": [{k: c[k] for k in ("player", "stat", "side", "line", "price", "p_market")}
+                                                   for c in combo],
+                            "win": win, "payout": dec, "ev": win * dec - 1.0,
+                            "ev_legs": float(np.mean([c["ev_market"] for c in combo]))})
+    out.sort(key=lambda r: -r["ev"])
+    return out[:top]
+
+
 def path(cfg: Config):
     return cfg.path("results") / "bet_log.parquet"
 
@@ -378,13 +408,14 @@ def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now
     record = summary(graded)
     by_kind = summary_by_kind(graded)
     stamp = now or pd.Timestamp.now(tz="UTC").isoformat()
+    par = parlays(flagged)
     rows = pd.concat([flagged[flagged["kind"] != "model"].head(30),
                       flagged[(flagged["kind"] == "model") & (flagged["ev"] > 0)].head(20)]) if len(flagged) else flagged
     hedge = hedges(lines, exclude=started)
     out = {"hedges": {"arbs": hedge["arbs"][:15], "middles": hedge["middles"][:15], "checked": hedge["checked"],
                       "n_arbs": len(hedge["arbs"]), "n_middles": len(hedge["middles"])},
            "built_at": stamp, "new_flags": new, "record": record, "sides": int(len(flagged)),
-           "way_off": int(flagged["way_off"].sum()) if len(flagged) else 0, "by_kind": by_kind,
+           "way_off": int(flagged["way_off"].sum()) if len(flagged) else 0, "by_kind": by_kind, "parlays": par,
            "rows": json.loads(rows.to_json(orient="records"))}
     p = cfg.path("results") / "betting_board.json"
     p.parent.mkdir(parents=True, exist_ok=True)

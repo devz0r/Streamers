@@ -69,3 +69,20 @@ def test_a_book_missing_from_the_latest_pull_is_not_judged_on_its_old_quote():
                          + [_q(b, -110, -115, line=9.5, at=new) for b in ("bovada", "caesars", "draftkings", "fanduel")])
     b = betting.board(lines)
     assert b.empty or "betmgm" not in set(b.book)
+
+
+def test_parlays_combine_flagged_legs_at_one_book_from_different_games():
+    def leg(book, event, player, p, price, ev_market):
+        return {"book": book, "event_id": event, "player": player, "stat": "receptions", "side": "over", "line": 3.5,
+                "price": price, "p_market": p, "ev": ev_market, "ev_market": ev_market, "kind": "market"}
+
+    rows = pd.DataFrame([leg("fanduel", "e1", "A", 0.42, 154.0, 0.067), leg("fanduel", "e2", "B", 0.54, -108.0, 0.041),
+                         leg("fanduel", "e1", "C", 0.55, 100.0, 0.10),          # the same game as A
+                         leg("betmgm", "e3", "D", 0.5, 110.0, 0.05)])           # a lone leg at another book
+    out = betting.parlays(rows)
+    two = [r for r in out if len(r["legs"]) == 2]
+    assert {tuple(sorted(x["player"] for x in r["legs"])) for r in two} == {("A", "B"), ("B", "C")}
+    ab = next(r for r in two if {x["player"] for x in r["legs"]} == {"A", "B"})
+    assert abs(ab["win"] - 0.42 * 0.54) < 1e-9 and abs(ab["payout"] - 2.54 * (1 + 100 / 108)) < 1e-9
+    assert abs(ab["ev"] - (ab["win"] * ab["payout"] - 1)) < 1e-9 and ab["ev"] > ab["ev_legs"]
+    assert all(r["book"] == "fanduel" for r in out)
