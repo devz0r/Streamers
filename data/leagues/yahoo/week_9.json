@@ -4542,7 +4542,7 @@
         },
         {
           "player_id": "100007",
-          "name": "Broncos",
+          "name": "Denver",
           "position": "DST",
           "team": "DEN",
           "status": "",
@@ -6736,7 +6736,7 @@
         },
         {
           "player_id": "100012",
-          "name": "Chiefs",
+          "name": "Kansas City",
           "position": "DST",
           "team": "KC",
           "status": "",
@@ -8930,7 +8930,7 @@
         },
         {
           "player_id": "100003",
-          "name": "Bears",
+          "name": "Chicago",
           "position": "DST",
           "team": "CHI",
           "status": "",
@@ -10133,7 +10133,7 @@
         },
         {
           "player_id": "100008",
-          "name": "Detroit",
+          "name": "Lions",
           "position": "DST",
           "team": "DET",
           "status": "",
@@ -12468,7 +12468,7 @@
         },
         {
           "player_id": "100018",
-          "name": "Saints",
+          "name": "New Orleans",
           "position": "DST",
           "team": "NO",
           "status": "",
@@ -13531,7 +13531,7 @@
         },
         {
           "player_id": "100002",
-          "name": "Buffalo",
+          "name": "Bills",
           "position": "DST",
           "team": "BUF",
           "status": "",
@@ -29546,7 +29546,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-09T01:57:49.907035+00:00",
+  "synced_at": "2026-11-09T02:09:46.744269+00:00",
   "extra": {
     "source": "yahoo-web"
   },
