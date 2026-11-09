@@ -23,6 +23,7 @@ import numpy as np
 from ..config import Config
 from ..league.model import LeagueSnapshot, PlayerRow
 from ..teams import normalize_team
+from .lineup import WIN_SHRINK
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def payload(snapshot: LeagueSnapshot, opt, cfg: Config) -> dict | None:
     ids = espn_ids(snapshot, cfg, [p for _s, p in me + them])
     prof = cfg.profiles[cfg.profile]
     return {
-        "season": int(snapshot.season), "week": int(snapshot.week), "n": n,
+        "season": int(snapshot.season), "week": int(snapshot.week), "n": n, "k": WIN_SHRINK,
         "sc": {"off": prof.get("offense_scoring", {}), "k": prof.get("kicker_scoring", {}),
                "dst": prof.get("dst_scoring", {})},
         "teams": ESPN_TEAMS,

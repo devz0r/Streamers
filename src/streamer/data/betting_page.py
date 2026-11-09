@@ -65,6 +65,11 @@ def _games_html(cfg: Config) -> str:
         f"<li>{game(r)} {_e(r['market'])}: {r['line_a']:g} at {_price(r['price_a'])} {_e(BOOK.get(r['book_a'], r['book_a']))}"
         f" and the other side of {r['line_b']:g} at {_price(r['price_b'])} {_e(BOOK.get(r['book_b'], r['book_b']))}: "
         f"{r['between']:.0%} to land between, <b>{r['ev']:+.1%}</b> expected</li>" for r in g.get("middles", []))
+    asof = ""
+    if g.get("quoted_at"):
+        hours = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(g["quoted_at"])).total_seconds() / 3600
+        asof = (f"<p class='sub'>These prices were read {pd.Timestamp(g['quoted_at']).tz_convert('America/New_York'):%a %-I:%M %p} ET"
+                f" ({hours:.0f}h before this page was built); the feed is re-read every few hours, not every refresh.</p>")
     rec = g.get("record") or {}
     record = (f"<p class='sub'><b>Record:</b> {rec['flagged']} flagged, {rec.get('wins', 0)}-{rec.get('losses', 0)}, "
               f"{rec.get('profit', 0):+.1f} units at one a bet.</p>" if rec.get("flagged") else "")
@@ -72,8 +77,9 @@ def _games_html(cfg: Config) -> str:
             "Each book's price against the other books' read; a spread or total at a different number is priced on "
             "how often NFL games end on each margin and total (since 1999) -- half a point around 3 or 7 is worth "
             "far more than elsewhere. <b>Wins</b> is the chance the bet wins at that number (a push returns the "
-            "stake). No opinion of ours on who wins: main lines are the sharpest market there is, so expect few.</p>"
-            + table
+            "stake). No opinion of ours on who wins: main lines are the sharpest market there is, so expect few. "
+            "Long-shot moneylines (under a 15% chance) are left out: the books' read overstates them.</p>"
+            + asof + table
             + ("<p class='sub'><b>Sure bets:</b></p><ul class='sub'>" + arbs + "</ul>" if arbs else "")
             + ("<p class='sub'><b>Middles</b> (not guaranteed; both can win):</p><ul class='sub'>" + mids + "</ul>" if mids else "")
             + record)
@@ -85,11 +91,12 @@ def render(cfg: Config) -> str:
         return ""
     data = json.loads(path.read_text(encoding="utf-8"))
     rows, rec = data.get("rows") or [], data.get("record") or {}
-    built = pd.Timestamp(data["built_at"]).tz_convert("America/New_York")
+    built_utc = pd.Timestamp(data["built_at"])
+    built = built_utc.tz_convert("America/New_York")
     def table(sub: list[dict], empty: str, verb: str = "Bet") -> str:
         body = []
         for r in sub:
-            age = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(r["logged_at"])).total_seconds() / 3600
+            age = max((built_utc - pd.Timestamp(r["logged_at"])).total_seconds() / 3600, 0.0)
             ours = "&ndash;" if r.get("p_ours") is None else f"{r['p_ours']:.0%}"
             mean = "" if r.get("ours_mean") is None else f" <span class='opp'>(ours {r['ours_mean']:.1f})</span>"
             tag = " <span class='hold-tag'>way off</span>" if r.get("way_off") else ""
@@ -98,7 +105,7 @@ def render(cfg: Config) -> str:
                 f"<td><b>{verb} {_e(r['side']).upper()} {r['line']:g}</b> <span class='opp'>(books {r['consensus']:.1f})</span>{mean}</td>"
                 f"<td>{_price(r['price'])} {_e(BOOK.get(r['book'], r['book']))}</td>"
                 f"<td>{r['p_market']:.0%}</td><td><b>{r['ev_market']:+.1%}</b></td><td>{ours}</td>"
-                f"<td>{r['ev']:+.1%}</td><td>{r['books']}</td><td>{age:.0f}h</td></tr>")
+                f"<td>{r['ev']:+.1%}</td><td>{r['books']}</td><td>{age:.1f}h</td></tr>")
         if not body:
             return f"<p class='sub'>{empty}</p>"
         return ("<div class='scroll'><table><thead><tr><th class='unit'>Player</th><th>Stat</th><th>Bet</th><th>Price</th>"
@@ -109,9 +116,11 @@ def render(cfg: Config) -> str:
     # the combined one. Where only our projection says so, it is a lean, not a recommendation, until proven.
     market = [r for r in rows if r.get("kind") in ("way off", "market") and r["ev_market"] > 0 and r["ev"] > 0]
     model = [r for r in rows if r.get("kind") == "model"]
-    tables = ("<h3>Recommended: prices the other books say are wrong</h3><p class='sub'>Each one is expected to "
-              "earn over time, on the other books' read and on the combined one. Even so most single bets here "
-              "lose; the edge shows over many.</p>"
+    tables = ("<h3>Recommended: prices the other books say are wrong</h3><p class='sub'>Each one pays more than "
+              "the other books' read says it should, and more than the combined read does: positive expected "
+              "profit <i>if</i> the other books are right and the price is still there. Whether that has held is "
+              "the record below (wins and losses, and whether the market then moved toward these bets or away "
+              "from them); until it does, keep stakes small. Even a real edge loses most single bets.</p>"
               + table(market, f"None right now: no price beats what the other books say by 2%+ "
                               f"({data.get('sides', 0)} sides priced). Lines that are way off are rare and get "
                               "fixed fast; the board checks every refresh.")
@@ -120,21 +129,30 @@ def render(cfg: Config) -> str:
                 "not bets. Unproven: our edge over the market has three weeks behind it, so "
                 "these are graded separately below before they mean anything.</p>"
               + table(model, "None.", verb="Lean"))
+    def close(k: dict) -> str:
+        bits = []
+        if k.get("clv_hit") is not None:
+            bits.append(f"{k['clv_hit']:.0%} of {k['clv_n']} beat the closing price")
+        if k.get("move_toward") is not None:
+            bits.append(f"the market moved toward {k['move_toward']:.0%} and away from {k['move_away']:.0%} "
+                        f"(average {k['move_mean'] * 100:+.1f} points)")
+        return "; ".join(bits)
+
     record = ""
     if rec.get("flagged"):
-        clv = ("" if rec.get("clv_hit") is None else
-               f" The market moved toward {rec['clv_hit']:.0%} of the {rec['clv_n']} it could be checked on "
-               f"(average {rec['clv_mean'] * 100:+.1f} points).")
-        record = (f"<p class='sub'><b>Record of past flags:</b> {rec['flagged']} flagged at 2%+ combined, {rec.get('settled', 0)} "
-                  f"settled ({rec.get('wins', 0)}-{rec.get('losses', 0)}), {rec.get('profit', 0):+.1f} units at one "
-                  f"unit a bet, average expected {rec['mean_ev']:+.1%}.{clv}</p>")
+        record = (f"<p class='sub'><b>Record of past flags:</b> {rec['flagged']} bets flagged (a player, stat and side "
+                  f"counts once, at the first price flagged; {rec.get('prices', rec['flagged'])} prices in all), "
+                  f"{rec.get('settled', 0)} settled ({rec.get('wins', 0)}-{rec.get('losses', 0)}), "
+                  f"{rec.get('profit', 0):+.1f} units at one unit a bet, average expected {rec['mean_ev']:+.1%}. "
+                  "<b>The close</b> is the early test of an edge: a real one beats the closing price more often than "
+                  "not, and the market moves toward it."
+                  f"{' Overall: ' + close(rec) + '.' if close(rec) else ''}</p>")
     by_kind = ""
     for kind, label in (("way off", "Way off"), ("market", "Books' read"), ("model", "Our projection only")):
         k = (data.get("by_kind") or {}).get(kind)
         if k and k.get("flagged"):
-            clv = "" if k.get("clv_hit") is None else f", market moved its way {k['clv_hit']:.0%} of {k['clv_n']}"
             by_kind += (f"<li><b>{label}</b>: {k['flagged']} flagged, {k.get('wins', 0)}-{k.get('losses', 0)}, "
-                        f"{k.get('profit', 0):+.1f} units{clv}</li>")
+                        f"{k.get('profit', 0):+.1f} units{'; ' + close(k) if close(k) else ''}</li>")
     by_kind = f"<ul class='sub'>{by_kind}</ul>" if by_kind else ""
     par = data.get("parlays") or []
     prows = "".join(
@@ -189,8 +207,11 @@ def render(cfg: Config) -> str:
         "(2021-2025). <b>Combined</b> leans toward the books on yards (they know the matchup) and toward ours where "
         "we have been as good. <b>EV</b> is the expected profit per unit staked at that price: on the books' chance, and on the combined one. "
         "<b>Way off</b>: 10%+ on both the books' read and ours. One-sided markets (anytime touchdown) are left out.</p>"
-        f"<p class='sub'>Prices pulled with the last refresh ({built:%a %-I:%M %p} ET); props move fast, so check the "
-        "book before betting. Books limit accounts that keep taking prices well off the market.</p>"
+        f"<p class='sub'>Built {built:%a %-I:%M %p} ET. <b>Age</b> is how long before that each price was last read "
+        "from its feed: the feeds are re-read every few hours (one of them mostly on Sunday, Tuesday and Wednesday "
+        "mornings), not every refresh, and a price more than 90 minutes behind the newest for the same player is "
+        "left out as stale. Props move fast, so check the book before betting. Books limit accounts that keep "
+        "taking prices well off the market.</p>"
         f"{tables}{record}{by_kind}{parlay}{hedge}{_games_html(cfg)}"
         "<p class='sub'>Not advice: an edge on paper is a fraction of a percent to a few percent, and a long losing "
         "stretch is normal. The record above is the test of whether these flags are worth acting on.</p>")

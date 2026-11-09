@@ -33,6 +33,13 @@ COLUMNS = ["event_id", "bookmaker", "market", "home", "away", "starts", "line", 
 #: price_a / price_b: home / away (moneyline and spread), over / under (total).
 #: ``line`` is the home team's spread (-3: home gives three) or the total.
 STALE_MINUTES = 90
+ARB_MINUTES = 30        # a sure bet needs both prices read this close together
+#: Moneyline sides the books' margin-free read puts under this are not flagged. Scaling a book's two
+#: prices to sum to one overstates a long shot: 2006-2025, home or away sides read at 15% or less
+#: won 8.9% of 271 games against the 12.0% read (a third too high, far more than any edge here).
+#: Other ways of removing the margin (power, Shin) were closer there but not better in every
+#: stretch of seasons, so the read stands and the long shots are left out.
+LONGSHOT = 0.15
 MIN_OTHERS = 2
 MIN_EV = 0.02
 WAY_OFF = 0.10
@@ -120,8 +127,11 @@ def record(frame: pd.DataFrame, cfg: Config, now: str | None = None) -> int:
     """Each book's first and latest quote per game and market (as the prop log)."""
     if frame is None or frame.empty:
         return 0
+    from .props_log import quote_times
+
     new = frame.copy()
-    new["logged_at"] = now or pd.Timestamp.now(tz="UTC").isoformat()
+    new["logged_at"] = quote_times(new, now)       # when the feed was read, not when this run happened
+    new = new.drop(columns=[c for c in ("quoted_at",) if c in new])
     p = path(cfg)
     old = pd.read_parquet(p) if p.exists() else pd.DataFrame(columns=new.columns)
     k = KEY + ["bookmaker"]
@@ -243,7 +253,9 @@ def board(cfg: Config, lines: pd.DataFrame, now: pd.Timestamp | None = None) -> 
                 row = {"event_id": event, "market": market, "home": r.home, "away": r.away, "starts": r.starts,
                        "side": side, "line": None if r.line is None or pd.isna(r.line) else float(r.line),
                        "consensus": cons, "book": r.bookmaker, "price": float(price), "win": win, "push": push,
-                       "ev": ev, "books": int(len(g)), "logged_at": str(g["logged_at"].max())}
+                       "ev": ev, "books": int(len(g)), "logged_at": str(r.logged_at)}
+                if market == "moneyline" and win < LONGSHOT:
+                    continue
                 if side not in best or ev > best[side]["ev"]:
                     best[side] = row
         rows += list(best.values())
@@ -278,16 +290,24 @@ def hedges(cfg: Config, lines: pd.DataFrame, now: pd.Timestamp | None = None) ->
         if len(g) < 2:
             continue
         for line, at in g.groupby(g["line"].fillna(0.0)):
-            a, b = at.loc[at["da"].idxmax()], at.loc[at["db"].idxmax()]
-            if a["bookmaker"] == b["bookmaker"]:
-                continue
-            s = 1 / a["da"] + 1 / b["db"]
-            if s < 1:
-                arbs.append({"event_id": event, "market": market, "home": a["home"], "away": a["away"],
+            # The best pair at two different books, either way round, read within ARB_MINUTES of each other.
+            pair = None
+            for a in at.itertuples():
+                for b in at.itertuples():
+                    if a.bookmaker == b.bookmaker:
+                        continue
+                    apart = abs((pd.Timestamp(a.logged_at) - pd.Timestamp(b.logged_at)).total_seconds()) / 60.0
+                    s = 1 / a.da + 1 / b.db
+                    if apart <= ARB_MINUTES and (pair is None or s < pair[0]):
+                        pair = (s, a, b)
+            if pair is not None and pair[0] < 1:
+                s, a, b = pair
+                arbs.append({"event_id": event, "market": market, "home": a.home, "away": a.away,
                              "line": None if market == "moneyline" else float(line),
-                             "book_a": a["bookmaker"], "price_a": float(a["price_a"]),
-                             "book_b": b["bookmaker"], "price_b": float(b["price_b"]),
-                             "profit": 1 / s - 1, "share_a": (1 / a["da"]) / s})
+                             "book_a": a.bookmaker, "price_a": float(a.price_a),
+                             "book_b": b.bookmaker, "price_b": float(b.price_b),
+                             "profit": 1 / s - 1, "share_a": (1 / a.da) / s,
+                             "logged_at": str(min(a.logged_at, b.logged_at))})
         if market == "moneyline":
             continue
         fair = [_devig(r.price_a, r.price_b) for r in g.itertuples()]
@@ -407,4 +427,5 @@ def build(cfg: Config, frame: pd.DataFrame, now: pd.Timestamp | None = None) -> 
     return {"rows": _json.loads(rows.to_json(orient="records")) if len(rows) else [],
             "arbs": h["arbs"][:10], "middles": h["middles"][:10], "new_flags": new,
             "record": summary(settle(cfg)), "quotes": int(len(latest(lines, now))),
-            "games": int(lines["event_id"].nunique())}
+            "games": int(lines["event_id"].nunique()),
+            "quoted_at": str(latest(lines, now)["logged_at"].max()) if len(latest(lines, now)) else None}

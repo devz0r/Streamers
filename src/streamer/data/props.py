@@ -189,10 +189,10 @@ def mean_from_poisson_line(line: float, p_over: float) -> float:
     """Rate of a Poisson whose P(X > line) is ``p_over``.
 
     Prop lines sit on a half (over 1.5 touchdowns), so "over the line" means
-    at least ``ceil(line)`` events. Solved by bisection: the survival function
+    at least ``floor(line) + 1`` events (a whole-number line pushes on the number). Solved by bisection: the survival function
     rises monotonically in the rate, so there is exactly one answer.
     """
-    k = int(np.ceil(line))            # smallest count that beats the line
+    k = int(np.floor(line)) + 1       # smallest count that beats the line (3 for a whole-number 2)
     p_over = float(np.clip(p_over, 1e-6, 1 - 1e-6))
     lo, hi = 1e-6, 25.0
     for _ in range(80):
@@ -216,16 +216,22 @@ def mean_from_anytime(p: float) -> float:
 # ---------------------------------------------------------------------------
 # Payload -> tidy frame
 # ---------------------------------------------------------------------------
-def parse_props_payload(payload: dict | list, cfg: Config | None = None) -> pd.DataFrame:
+def parse_props_payload(payload: dict | list, cfg: Config | None = None,
+                        fetched: dict[str, datetime] | None = None) -> pd.DataFrame:
     """Flatten The Odds API event-odds JSON into one row per player/market/book.
 
-    Separate from the HTTP call so it is tested against a fixture.
+    Separate from the HTTP call so it is tested against a fixture. ``fetched``:
+    event id -> when that game's prices were read from the feed (a cached game
+    keeps the time it was bought); it becomes each row's ``quoted_at``, the
+    moment the price was last known to be on offer.
     """
     cfg = cfg or get_config()
     events = payload if isinstance(payload, list) else [payload]
     rows: list[dict] = []
     for event in events or []:
         event_id = event.get("id")
+        at = (fetched or {}).get(str(event_id))
+        quoted = at.isoformat() if at is not None else None
         for book in event.get("bookmakers", []) or []:
             book_key = book.get("key")
             for market in book.get("markets", []) or []:
@@ -251,10 +257,10 @@ def parse_props_payload(payload: dict | list, cfg: Config | None = None) -> pd.D
                         "line": slot.get("line"),
                         "over_price": slot.get("over"),
                         "under_price": slot.get("under"),
-                        "yes_price": slot.get("yes"),
+                        "yes_price": slot.get("yes"), "quoted_at": quoted,
                     })
     return pd.DataFrame(rows, columns=["event_id", "bookmaker", "market", "stat", "kind",
-                                       "player", "line", "over_price", "under_price", "yes_price"])
+                                       "player", "line", "over_price", "under_price", "yes_price", "quoted_at"])
 
 
 def implied_means(frame: pd.DataFrame, cfg: Config | None = None) -> pd.DataFrame:
@@ -553,7 +559,9 @@ def fetch_props(
                 remaining = int(float(left))
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"props for {event.get('away_team')} @ {event.get('home_team')}: {exc}")
-    frame = parse_props_payload(payloads, cfg)
+    # When each game's prices were actually read: a reused game keeps the time it was bought.
+    fetched = {str(e["id"]): _MEMORY[str(e["id"])][0] for e in events if str(e["id"]) in _MEMORY}
+    frame = parse_props_payload(payloads, cfg, fetched=fetched)
     if frame.empty and not warnings:
         if window > 0 and not events:
             warnings.append(

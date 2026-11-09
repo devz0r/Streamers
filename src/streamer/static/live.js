@@ -266,6 +266,42 @@
 
   function mean(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return a.length ? s / a.length : 0; }
 
+  function marginVar(a, b) {
+    var n = a.length, m = 0, v = 0, i;
+    for (i = 0; i < n; i++) m += a[i] - b[i];
+    m /= n || 1;
+    for (i = 0; i < n; i++) v += (a[i] - b[i] - m) * (a[i] - b[i] - m);
+    return n ? v / n : 0;
+  }
+  function ncdf(x) {
+    var t = 1 / (1 + 0.2316419 * Math.abs(x)), d = 0.3989423 * Math.exp(-x * x / 2);
+    var p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return x > 0 ? 1 - p : p;
+  }
+  function nppf(p) {
+    var a = [-39.69683, 220.9461, -275.9285, 138.3578, -30.66480, 2.506628], b = [-54.47610, 161.5858, -155.6990, 66.80131, -13.28068];
+    var c = [-0.007784894, -0.3223964, -2.400758, -2.549733, 4.374664, 2.938164], e = [0.007784696, 0.3224671, 2.445134, 3.754409], q, r;
+    if (p < 0.02425) { q = Math.sqrt(-2 * Math.log(p)); return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((e[0] * q + e[1]) * q + e[2]) * q + e[3]) * q + 1); }
+    if (p > 1 - 0.02425) { q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((e[0] * q + e[1]) * q + e[2]) * q + e[3]) * q + 1); }
+    q = p - 0.5; r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+  /* P(win) as it happens from P(win) as drawn. Before kickoff this is the
+     lineup model's own mapping, Phi(k Phi^-1(p)) (lineup.calibrated:
+     favourites on paper win a little less often than drawn), so the live
+     number starts where the page's pre-game number stood. Points already
+     scored are facts, not projections, so the pull eases off with the share
+     of the pre-game uncertainty still to play (`left`, the margin's variance
+     now over its variance before kickoff): k -> 1 as left -> 0, and a
+     decided game reads as drawn. The in-between is an interpolation: the
+     two ends are exact, the path has not been graded (DECISIONS.md). */
+  function calibrated(p, k, left) {
+    if (!k || k >= 1) return p;
+    var ke = k + (1 - k) * (1 - Math.min(Math.max(left, 0), 1));
+    if (ke >= 0.9999) return p;
+    return ncdf(ke * nppf(Math.min(Math.max(p, 1e-6), 1 - 1e-6)));
+  }
+
   /* The live picture for one card's data, given the scoreboard's games and
      the summaries already read (game id -> summary). */
   function evaluate(D, gamesByTeam, summaries) {
@@ -287,7 +323,10 @@
     var mine0 = totals(pre(me), S, n, D.me.map(function (p) { return p.m; }));
     var opp0 = totals(pre(opp), O, n, D.opp.map(function (p) { return p.m; }));
     var sum = function (rows) { return rows.reduce(function (s, r) { return s + (r.state && r.state !== "pre" ? r.now : 0); }, 0); };
-    return { me: me, opp: opp, mineT: mineT, oppT: oppT, p: winShare(mineT, oppT), p0: winShare(mine0, opp0),
+    var raw = winShare(mineT, oppT), raw0 = winShare(mine0, opp0), v0 = marginVar(mine0, opp0);
+    var left = v0 > 0 ? Math.min(marginVar(mineT, oppT) / v0, 1) : 0;
+    return { me: me, opp: opp, mineT: mineT, oppT: oppT, raw: raw, raw0: raw0, left: left,
+             p: calibrated(raw, D.k, left), p0: calibrated(raw0, D.k, 1),
              nowMe: sum(me), nowOpp: sum(opp), projMe: mean(mineT), projOpp: mean(oppT),
              started: me.concat(opp).some(function (r) { return r.state && r.state !== "pre"; }),
              done: me.concat(opp).every(function (r) { return !r.state || r.state === "post"; }) };
@@ -457,7 +496,7 @@
 
   var api = { mount: mount, now: now, fetchNow: fetchNow, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
               kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games, shortLabel: shortLabel,
-              evaluate: evaluate, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
+              evaluate: evaluate, calibrated: calibrated, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.StreamerLive = api;
   if (typeof document !== "undefined") {

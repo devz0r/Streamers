@@ -120,3 +120,18 @@ def test_only_this_weeks_games_are_asked_for_and_the_month_is_tallied(cfg, monke
     monkeypatch.setitem(cfg.raw["odds"]["props"].setdefault("sportsgameodds", {}), "monthly_budget", 2)
     evs, note = sgo.events(cfg)
     assert evs == [] and "budget" in note and len(asked) == 1
+
+
+def test_when_both_feeds_have_a_book_the_price_read_more_recently_counts(cfg):
+    """The first feed is bought a few times a week and reused in between: its
+    Friday price must not stand in for a book the second feed read an hour ago."""
+    row = {"event_id": "e1", "market": "m", "stat": "receiving_yards", "kind": "normal", "player": "Wide Out",
+           "line": 54.5, "over_price": -110, "under_price": -110, "yes_price": None}
+    primary = pd.DataFrame([{**row, "bookmaker": "fanduel", "quoted_at": "2026-11-06T12:00:00+00:00"},
+                            {**row, "bookmaker": "pinnacle", "quoted_at": "2026-11-08T12:00:00+00:00"}])
+    extra = pd.DataFrame([{**row, "bookmaker": "fanduel", "line": 58.5, "quoted_at": "2026-11-08T11:00:00+00:00"},
+                          {**row, "bookmaker": "pinnacle", "line": 50.5, "quoted_at": "2026-11-08T09:00:00+00:00"}])
+    merged = sgo.merge(primary, extra, cfg).set_index("bookmaker")
+    assert len(merged) == 2
+    assert merged.loc["fanduel", "line"] == 58.5              # the second feed's, read later
+    assert merged.loc["pinnacle", "line"] == 54.5             # the first feed's, read later

@@ -34,6 +34,7 @@ SHARP = {"pinnacle": 2.0}
 MIN_OTHERS = 2          # other books quoting the player and stat before a price is judged
 MIN_EV = 0.02           # expected profit per unit a flag needs
 STALE_MINUTES = 90      # a quote older than this behind the newest for its player and stat is not on offer
+ARB_MINUTES = 30        # a sure bet needs both prices read this close together: one stale leg is no arb
 KEY = ["season", "week", "event_id", "stat", "player"]
 #: nflverse player_stats column a stat settles on.
 SETTLE = {"passing_yards": "passing_yards", "passing_tds": "passing_tds", "passing_interceptions": "passing_interceptions",
@@ -113,7 +114,8 @@ def p_over(stat: str, c: float, line: float, shape: dict) -> float | None:
     from scipy import stats as st
 
     if stat in POISSON:
-        return float(st.poisson.sf(int(np.ceil(line)) - 1, max(c, 1e-6)))
+        # Beating the line takes at least floor(line) + 1: 2 for 1.5, and 3 for a whole-number 2 (a 2 pushes).
+        return float(st.poisson.sf(int(np.floor(line)), max(c, 1e-6)))
     got = _rows(shape, stat, c)
     if got is None:
         return None
@@ -121,6 +123,15 @@ def p_over(stat: str, c: float, line: float, shape: dict) -> float | None:
     grid = np.asarray(shape["grid"], dtype=float)
     u = float(np.interp(float(line) - c, q, grid, left=0.0, right=1.0))
     return float(np.clip(1.0 - u, 0.005, 0.995))
+
+
+def p_push(stat: str, c: float, line: float) -> float:
+    """The chance a count stat lands exactly on a whole-number line (stake returned); zero on a half."""
+    from scipy import stats as st
+
+    if stat not in POISSON or float(line) != float(int(line)):
+        return 0.0
+    return float(st.poisson.pmf(int(line), max(c, 1e-6)))
 
 
 def median_of_mean(stat: str, mean: float, shape: dict) -> float:
@@ -173,18 +184,28 @@ def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 
             pc = p_over(stat, c_comb, r.line, shape)
             if pm is None or pc is None:
                 continue
+            # A whole-number line on a count stat can push (stake back): the under wins on fewer, not on a tie.
+            push_c, push_m = p_push(stat, c_comb, r.line), p_push(stat, c_mkt, r.line)
+            push_o = p_push(stat, c_ours, r.line) if c_ours is not None else 0.0
+            if len(same) >= MIN_OTHERS:
+                push_m = 0.0                      # the books' own two prices already set a push aside
             for side, price in (("over", r.over_price), ("under", r.under_price)):
-                flip = (lambda x: x) if side == "over" else (lambda x: None if x is None else 1.0 - x)
+                def flip(x, push=0.0, side=side):
+                    return x if side == "over" or x is None else 1.0 - x - push
+
                 dec = _decimal(float(price))
-                ev_c, ev_m = flip(pc) * dec - 1.0, flip(pm) * dec - 1.0
-                ev_o = flip(po) * dec - 1.0 if po is not None else None
+                ev_c = flip(pc, push_c) * dec + push_c - 1.0
+                ev_m = flip(pm, push_m) * dec + push_m - 1.0
+                ev_o = flip(po, push_o) * dec + push_o - 1.0 if po is not None else None
                 row = {"season": season, "week": week, "event_id": event, "stat": stat, "player": player,
                        "side": side, "line": float(r.line), "book": r.bookmaker, "price": float(price),
-                       "fair": flip(pc), "p_market": flip(pm), "p_ours": flip(po), "ev": ev_c, "ev_market": ev_m,
+                       "fair": flip(pc, push_c), "p_market": flip(pm, push_m), "p_ours": flip(po, push_o),
+                       "ev": ev_c, "ev_market": ev_m,
                        "ev_ours": ev_o, "books": int(len(g)), "consensus": float(np.average(g["line"], weights=g["w"])),
                        "ours_mean": None if mine is None else float(mine),
                        "way_off": bool(ev_m >= WAY_OFF and (ev_o is None or ev_o >= WAY_OFF)),
-                       "logged_at": str(g["logged_at"].max())}
+                       # When this book's price was read (the price to check before betting), not the newest in the group.
+                       "logged_at": str(r.logged_at)}
                 if side not in best or ev_c > best[side]["ev"]:
                     best[side] = row
         rows += [b for b in best.values() if b["ev"] >= min_ev]
@@ -227,18 +248,22 @@ def hedges(lines: pd.DataFrame, exclude: set[str] | None = None, min_middle_ev: 
         if len(g) < 2:
             continue
         for line, at in g.groupby("line"):
-            o, u = at.loc[at["do"].idxmax()], at.loc[at["du"].idxmax()]
-            if o["bookmaker"] == u["bookmaker"]:
-                alt = at[at["bookmaker"] != o["bookmaker"]]
-                if alt.empty:
-                    continue
-                u = alt.loc[alt["du"].idxmax()]
-            total = 1.0 / o["do"] + 1.0 / u["du"]
-            if total < 1.0:
-                arbs.append({"player": player, "stat": stat, "line": float(line), "over_book": o["bookmaker"],
-                             "over_price": float(o["over_price"]), "under_book": u["bookmaker"],
-                             "under_price": float(u["under_price"]), "profit": 1.0 / total - 1.0,
-                             "over_share": (1.0 / o["do"]) / total, "logged_at": str(min(o["logged_at"], u["logged_at"]))})
+            # The best pair at two different books, either way round, read within ARB_MINUTES of each other.
+            pair = None
+            for o in at.itertuples():
+                for u in at.itertuples():
+                    if o.bookmaker == u.bookmaker:
+                        continue
+                    apart = abs((pd.Timestamp(o.logged_at) - pd.Timestamp(u.logged_at)).total_seconds()) / 60.0
+                    total = 1.0 / o.do + 1.0 / u.du
+                    if apart <= ARB_MINUTES and (pair is None or total < pair[0]):
+                        pair = (total, o, u)
+            if pair is not None and pair[0] < 1.0:
+                total, o, u = pair
+                arbs.append({"player": player, "stat": stat, "line": float(line), "over_book": o.bookmaker,
+                             "over_price": float(o.over_price), "under_book": u.bookmaker,
+                             "under_price": float(u.under_price), "profit": 1.0 / total - 1.0,
+                             "over_share": (1.0 / o.do) / total, "logged_at": str(min(o.logged_at, u.logged_at))})
         centres = [center(stat, r.line, r.fair_over, shape) for r in g.itertuples()]
         ok = [c for c in centres if c is not None]
         if not ok:
@@ -323,9 +348,11 @@ def flag(flagged: pd.DataFrame, cfg: Config) -> int:
 
 def settle(cfg: Config, lines: pd.DataFrame) -> pd.DataFrame:
     """The bet log with each bet's result (win / loss / push, once the game is in
-    nflverse's stats) and its closing-line value (the closing fair chance of its
-    side, from the latest pull at the same line, less the chance its price
-    implied; positive: the market came to it)."""
+    nflverse's stats) and two readings of the close (the latest pull before
+    kickoff, priced at the bet's own line): ``clv``, the closing fair chance of
+    its side less the chance its price needed (positive: the bet beat the
+    close), and ``move``, the closing fair chance less the fair chance when it
+    was flagged (positive: the market moved toward the bet)."""
     from ..roster.players import normalize_name
 
     p = path(cfg)
@@ -336,17 +363,39 @@ def settle(cfg: Config, lines: pd.DataFrame) -> pd.DataFrame:
         return bets
     # Flags logged before the board told the kinds apart were all on the books' read alone.
     bets["kind"] = bets["kind"].fillna("market") if "kind" in bets else "market"
+    from .props import load_shape
+
+    shape = load_shape()
     lt = latest(lines)
-    close = lt.groupby(KEY[2:] + ["line"]).apply(
-        lambda g: pd.Series({"close_over": float(np.average(g["fair_over"], weights=g["w"])),
-                             "close_at": str(g["logged_at"].max())}), include_groups=False).reset_index()
-    bets = bets.merge(close, on=KEY[2:] + ["line"], how="left")
-    bets["close_fair"] = np.where(bets["side"] == "over", bets["close_over"], 1.0 - bets["close_over"])
+    lt = lt.assign(c=[center(r.stat, r.line, r.fair_over, shape) for r in lt.itertuples()])
+    groups = {k: g for k, g in lt.groupby(KEY[2:])}
+    close_fair, close_at = [], []
+    for b in bets.itertuples():
+        g = groups.get((b.event_id, b.stat, b.player))
+        over, at = np.nan, None
+        if g is not None:
+            same = g[g["line"] == b.line]
+            if len(same):
+                over = float(np.average(same["fair_over"], weights=same["w"]))
+            else:
+                # The line has moved off this number -- the clearest sign of where the market went. Price the
+                # bet's own line on the closing books' curve.
+                ok = g[g["c"].notna()]
+                got = p_over(b.stat, float(np.average(ok["c"], weights=ok["w"])), b.line, shape) if len(ok) else None
+                over = np.nan if got is None else float(got)
+            at = str(g["logged_at"].max())
+        close_fair.append(over if b.side == "over" else 1.0 - over)
+        close_at.append(at)
+    bets["close_fair"], bets["close_at"] = close_fair, close_at
     # Only a later pull says where the market went; the flagging pull itself proves nothing.
     later = pd.to_datetime(bets["close_at"], utc=True, errors="coerce") > pd.to_datetime(bets["logged_at"], utc=True)
     bets.loc[~later, "close_fair"] = np.nan
     bets["implied"] = _implied(bets["price"])
+    # Beat the close: the closing fair chance of the bet's side less the chance its price needed.
     bets["clv"] = bets["close_fair"] - bets["implied"]
+    # Movement: the closing fair chance less the books' fair chance when it was flagged (toward the bet if positive).
+    at_flag = pd.to_numeric(bets["p_market"], errors="coerce") if "p_market" in bets else np.nan
+    bets["move"] = bets["close_fair"] - at_flag
     actual = {}
     for season in sorted(bets["season"].unique()):
         f = cfg.raw_dir / f"player_stats_{int(season)}.parquet"
@@ -375,24 +424,44 @@ def settle(cfg: Config, lines: pd.DataFrame) -> pd.DataFrame:
     return bets
 
 
+def first_flags(bets: pd.DataFrame) -> pd.DataFrame:
+    """One bet per player, stat and side: the first price flagged. The log
+    keeps every line and book a side was flagged at (801 rows for 349 bets in
+    its first week), and counting each as a bet inflates the record."""
+    if bets is None or bets.empty:
+        return bets
+    return (bets.sort_values("logged_at").drop_duplicates(KEY + ["side"], keep="first")
+            .reset_index(drop=True))
+
+
 def summary_by_kind(bets: pd.DataFrame) -> dict:
     if bets is None or bets.empty or "kind" not in bets:
         return {}
-    return {k: summary(g) for k, g in bets.groupby("kind")}
+    return {k: summary(g, unique=False) for k, g in first_flags(bets).groupby("kind")}
 
 
-def summary(bets: pd.DataFrame) -> dict:
-    """The record: flagged, settled, wins-losses, flat one-unit profit, mean
-    expected profit, and how often the market moved toward the bet."""
+def summary(bets: pd.DataFrame, unique: bool = True) -> dict:
+    """The record, one bet per player, stat and side (:func:`first_flags`):
+    flagged, settled, wins-losses, flat one-unit profit, mean expected profit,
+    how often the bet beat the closing price (``clv``) and how often the
+    market moved toward it after the flag (``move``; half a point or more)."""
     if bets is None or bets.empty:
         return {"flagged": 0}
+    prices = int(len(bets))
+    if unique:
+        bets = first_flags(bets)
     done = bets[bets["result"].isin(["win", "loss"])]
     profit = sum((_decimal(float(r.price)) - 1.0) if r.result == "win" else -1.0 for r in done.itertuples())
     c = bets["clv"].dropna()
-    return {"flagged": int(len(bets)), "settled": int(len(done)), "wins": int((done["result"] == "win").sum()),
+    m = bets["move"].dropna() if "move" in bets else pd.Series(dtype=float)
+    return {"flagged": int(len(bets)), "prices": prices, "settled": int(len(done)),
+            "wins": int((done["result"] == "win").sum()),
             "losses": int((done["result"] == "loss").sum()), "profit": float(profit),
             "mean_ev": float(bets["ev"].mean()), "clv_n": int(len(c)),
-            "clv_hit": float((c > 0).mean()) if len(c) else None, "clv_mean": float(c.mean()) if len(c) else None}
+            "clv_hit": float((c > 0).mean()) if len(c) else None, "clv_mean": float(c.mean()) if len(c) else None,
+            "move_n": int(len(m)), "move_toward": float((m >= 0.005).mean()) if len(m) else None,
+            "move_away": float((m <= -0.005).mean()) if len(m) else None,
+            "move_mean": float(m.mean()) if len(m) else None}
 
 
 def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now: str | None = None,

@@ -213,3 +213,15 @@ def test_the_live_card_carries_this_weeks_game_stakes_when_there_are_some():
     Snap.week = 9                                                       # no such game left
     assert season_stakes(Snap(), odds, stakes) is None
     assert season_stakes(Snap(), None, stakes) is None
+
+
+def test_the_live_number_starts_at_the_pre_game_one_and_ends_as_drawn():
+    """Before kickoff the live P(win) is the lineup model's calibrated one; a decided game reads as drawn."""
+    from streamer.roster.lineup import WIN_SHRINK, calibrated
+
+    got = _node(f"console.log(JSON.stringify([L.calibrated(0.7, {WIN_SHRINK}, 1), L.calibrated(0.7, {WIN_SHRINK}, 0),"
+                f"L.calibrated(0.7, {WIN_SHRINK}, 0.5), L.calibrated(0.7, undefined, 1), L.calibrated(1, {WIN_SHRINK}, 0)]))")
+    assert got[0] == pytest.approx(float(calibrated(0.7)), abs=2e-4)      # all still to play: the tile's number
+    assert got[1] == 0.7                                                  # nothing left: as drawn
+    assert got[0] < got[2] < got[1]                                       # in between, in between
+    assert got[3] == 0.7 and got[4] == 1                                  # no mapping given; a locked win is 100%

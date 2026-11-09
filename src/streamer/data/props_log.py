@@ -29,6 +29,17 @@ def path(cfg: Config):
     return cfg.path("results") / "prop_lines.parquet"
 
 
+def quote_times(frame: pd.DataFrame, now: str | None = None) -> pd.Series:
+    """When each row's price was read from its feed (``quoted_at``), as ISO
+    text; this run's time where the feed did not say, and never later than it."""
+    stamp = pd.Timestamp(now) if now else pd.Timestamp.now(tz="UTC")
+    stamp = stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
+    if "quoted_at" not in frame:
+        return pd.Series([stamp.isoformat()] * len(frame), index=frame.index)
+    at = pd.to_datetime(frame["quoted_at"], utc=True, errors="coerce").fillna(stamp).clip(upper=stamp)
+    return at.map(lambda t: t.isoformat())
+
+
 def record(frame: pd.DataFrame, cfg: Config, season: int, week: int, started: set[str] | None = None,
            now: str | None = None) -> int:
     """Add this pull to the log; returns the rows now held for the week.
@@ -43,7 +54,7 @@ def record(frame: pd.DataFrame, cfg: Config, season: int, week: int, started: se
     if new.empty:
         return 0
     new["season"], new["week"] = int(season), int(week)
-    new["logged_at"] = now or pd.Timestamp.now(tz="UTC").isoformat()
+    new["logged_at"] = quote_times(new, now)
     new = new.reindex(columns=COLUMNS)
     p = path(cfg)
     old = pd.read_parquet(p) if p.exists() else pd.DataFrame(columns=COLUMNS)

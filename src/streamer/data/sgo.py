@@ -54,6 +54,11 @@ STATS: dict[str, tuple[str, str]] = {
 COLUMNS = ["event_id", "bookmaker", "market", "stat", "kind", "player", "line",
            "over_price", "under_price", "yes_price"]
 
+#: When the events last returned by :func:`events` were read from the feed
+#: (the cache's own time when they came from it): the moment their prices
+#: were last known to be on offer.
+LAST_FETCHED: datetime | None = None
+
 
 def api_key() -> str | None:
     return os.environ.get("SPORTSGAMEODDS_API_KEY") or None
@@ -170,6 +175,8 @@ def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
 
     import requests
 
+    global LAST_FETCHED
+
     c = conf(cfg)
     path = _cache(cfg)
     max_age = float(c.get("cache_minutes", 360))
@@ -180,6 +187,7 @@ def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
             blob = json.loads(path.read_text(encoding="utf-8"))
             age = (now - datetime.fromisoformat(blob["fetched_at"])).total_seconds() / 60
             if age <= max_age:
+                LAST_FETCHED = datetime.fromisoformat(blob["fetched_at"])
                 return _upcoming(blob["events"], now, until), f"cached {age:.0f} min ago"
         except (OSError, ValueError, KeyError):
             pass
@@ -208,6 +216,7 @@ def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
             break
     returned = len(out)
     out = _upcoming(out, now, until)
+    LAST_FETCHED = now
     try:
         path.write_text(json.dumps({"fetched_at": now.isoformat(), "events": out}), encoding="utf-8")
     except OSError:
@@ -238,9 +247,10 @@ ALIASES = {"williamhill_us": "caesars"}
 
 
 def merge(primary: pd.DataFrame, extra: pd.DataFrame, cfg: Config) -> pd.DataFrame:
-    """The Odds API's rows plus SportsGameOdds' where they add a book: a price
-    the first feed already has for that player, stat and book counts once.
-    Pick'em sites are not sportsbook prices and are left out."""
+    """The Odds API's rows plus SportsGameOdds': a price both feeds have for
+    a player, stat and book counts once -- the one read more recently
+    (``quoted_at``; the first feed's when neither says). Pick'em sites are
+    not sportsbook prices and are left out."""
     from ..roster.players import normalize_name
 
     skip = set(conf(cfg).get("exclude_books", ["prizepicks", "underdog", "sleeper", "dabble"]))
@@ -253,9 +263,17 @@ def merge(primary: pd.DataFrame, extra: pd.DataFrame, cfg: Config) -> pd.DataFra
     def key(f):
         return list(zip(f["player"].map(normalize_name), f["stat"], f["bookmaker"].map(lambda b: ALIASES.get(b, b))))
 
-    have = set(key(primary))
-    new = extra[[k not in have for k in key(extra)]]
-    return pd.concat([primary, new], ignore_index=True)
+    def when(f):
+        col = f["quoted_at"] if "quoted_at" in f else pd.Series([None] * len(f), index=f.index)
+        return pd.to_datetime(col, utc=True, errors="coerce")
+
+    have = dict(zip(key(primary), when(primary)))
+    fresher = [k not in have or (pd.notna(t) and (pd.isna(have[k]) or t > have[k]))
+               for k, t in zip(key(extra), when(extra))]
+    new = extra[fresher]
+    taken = set(key(new))
+    kept = primary[[k not in taken for k in key(primary)]]
+    return pd.concat([kept, new], ignore_index=True)
 
 
 def props_frame(cfg: Config) -> tuple[pd.DataFrame, str]:
@@ -268,6 +286,7 @@ def props_frame(cfg: Config) -> tuple[pd.DataFrame, str]:
     except Exception as exc:  # noqa: BLE001 - a second source never blocks the first
         return pd.DataFrame(columns=COLUMNS), f"unavailable: {type(exc).__name__}"
     frame = parse(evs)
+    frame["quoted_at"] = LAST_FETCHED.isoformat() if LAST_FETCHED is not None else None
     return frame, f"{note}; {frame['player'].nunique() if not frame.empty else 0} players priced"
 
 

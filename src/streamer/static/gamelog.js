@@ -159,7 +159,8 @@
     for (i = 0; i < n; i++) mg[i] = me[i] - opp[i];
     var pos = mg.filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
     var neg = mg.filter(function (v) { return v < 0; }).map(function (v) { return -v; }).sort(function (a, b) { return a - b; });
-    return { me: meH, opp: oppH, margin: hist(mg, 2, null, null), raw: L.p, p: L.p, p0: L.p0, names: names, live: true, n: n,
+    return { me: meH, opp: oppH, margin: hist(mg, 2, null, null), raw: L.raw === undefined ? L.p : L.raw, p: L.p, p0: L.p0,
+             names: names, live: true, n: n,
              at: L.at, now: [L.nowMe, L.nowOpp], left: [left(L.me), left(L.opp)],
              win_by: pos.length ? pctile(pos, 0.5) : 0, lose_by: neg.length ? pctile(neg, 0.5) : 0 };
   }
@@ -193,8 +194,9 @@
     var what = m.live ? "From " + n + " simulated finishes as of " + clock(m.at) + ": points already scored are counted, and each player still to play " +
         "keeps his draw cut to the time he has left. Each bar is the share of draws that landed there."
       : "From the " + n + " simulated games behind the percentage, as of the last update. Each bar is the share of draws that landed there.";
-    var pnote = m.live ? pct(m.raw) + " of the simulated finishes go your way" + (m.p0 !== undefined ? " (" + pct(m.p0) + " before kickoff)" : "") +
-        ", the same figure as the live card. Your lineup as set."
+    var pnote = m.live ? pct(m.raw) + " of the simulated finishes go your way; the figure above is " + pct(m.p) +
+        (m.p0 !== undefined ? " (" + pct(m.p0) + " before kickoff)" : "") + ", the same as the live card: the pull toward 50% " +
+        "the model applies before kickoff, easing off as points are banked. Your lineup as set."
       : Math.abs(m.raw - m.p) < 0.0005 ? pct(m.raw) + " of the simulated games go your way."
       : "The simulation draws " + pct(m.raw) + " of games for you; the figure above is " + pct(m.p) +
         ": favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.";

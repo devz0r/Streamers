@@ -872,6 +872,7 @@ def team_panels_for(
 
                 evs, _gnote = sgo.events(loaded[0][1])               # the same pull, from the cache
                 games = game_lines.parse(evs)
+                games["quoted_at"] = sgo.LAST_FETCHED.isoformat() if sgo.LAST_FETCHED is not None else None
                 if games.empty:
                     # Say what the feed's game markets look like (names only) so the reader can be fixed.
                     keys = sorted({k.rsplit("-", 0)[0] for e in evs for k in (e.get("odds") or {})

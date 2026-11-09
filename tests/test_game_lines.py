@@ -55,3 +55,26 @@ def test_a_sure_bet_on_the_moneyline():
     f = G.parse([_event(books)]).assign(logged_at="2026-11-08T11:00:00+00:00")
     arbs = [a for a in G.hedges(cfg, f, now=NOW)["arbs"] if a["market"] == "moneyline"]
     assert arbs and arbs[0]["book_a"] == "fanduel" and arbs[0]["book_b"] == "caesars" and arbs[0]["profit"] > 0
+
+
+def test_a_long_shot_moneyline_is_not_flagged():
+    """Scaling two prices to one overstates a long shot (8.9% won against 12.0% read, 2006-2025)."""
+    cfg = get_config()
+    books = {b: (-900, 600, -13.5, -110, -110, 46.5, -110, -110) for b in ("draftkings", "fanduel", "caesars")}
+    books["betmgm"] = (-900, 800, -13.5, -110, -110, 46.5, -110, -110)      # the best price on the long shot
+    f = G.parse([_event(books)]).assign(logged_at="2026-11-08T11:00:00+00:00")
+    b = G.board(cfg, f, now=NOW)
+    ml = b[b.market == "moneyline"]
+    assert "b" not in set(ml.side)                                          # the away long shot is left out
+    assert "a" in set(ml.side)
+
+
+def test_a_sure_bet_needs_both_game_prices_read_close_together():
+    cfg = get_config()
+    books = {"draftkings": (-120, 110, -1.5, -110, -110, 46.5, -110, -110),
+             "fanduel": (-105, -105, -1.5, -110, -110, 46.5, -110, -110),
+             "caesars": (-130, 125, -1.5, -110, -110, 46.5, -110, -110)}
+    f = G.parse([_event(books)]).assign(logged_at="2026-11-08T11:00:00+00:00")
+    f.loc[f.bookmaker == "caesars", "logged_at"] = "2026-11-08T10:00:00+00:00"      # read an hour earlier
+    arbs = [a for a in G.hedges(cfg, f, now=NOW)["arbs"] if a["market"] == "moneyline"]
+    assert not any("caesars" in (a["book_a"], a["book_b"]) for a in arbs)

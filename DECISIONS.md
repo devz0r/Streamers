@@ -3791,15 +3791,27 @@ loss 0.6673 -> 0.6657, better in all four. It applies to every P(win) the
 lineup code reports: the optimiser, swap explanations, stream and pickup
 options, and the in-page lineup editor (the same mapping in its script).
 It is monotone, so the chosen lineup never changes, though gains near 50%
-read about a fifth smaller. The live in-game P(win) is not mapped: it was not
-graded.
+read about a fifth smaller. The live in-game P(win) was at first left
+unmapped (it was not graded); see below.
 
 (Found 2026-11: the recommended lineup's own P(win), taken from the
 confirmation draws, had been left unmapped, so the headline tile showed the
 raw draw while the "as set" figure was mapped. It is mapped now too. The
 score charts behind the tile are histograms of exactly those draws; once a
 game kicks off they are redrawn from the live draws, and the tile shows the
-live P(win), unmapped like the live card.)
+live P(win).)
+
+**The live number starts where the pre-game one stood.** Left unmapped, the
+live P(win) jumped at the first kickoff from the mapped pre-game figure to the
+raw draw (57.8% to 60% for a 60% draw) with nothing having happened, and its
+"before kickoff" figure disagreed with the tile. The live card now applies the
+same mapping with an exponent that eases to 1 as the game is played:
+`k_eff = k + (1 - k)(1 - left)`, `left` the margin's variance now over its
+variance before kickoff (`static/live.js`, `calibrated`). At kickoff it is
+the graded pre-game mapping; with nothing left it is the result. Points
+already scored are facts, so the pull belongs only to what is still
+projected -- but the path between the two ends is an interpolation and has
+not been graded against in-game results.
 
 The odds check now streams units too (`--units`; `--no-units` for the old
 setup), and its baseline was rewritten: P(win) 0.2366, P(playoffs) 0.1653,
@@ -5324,3 +5336,76 @@ middles across numbers priced on the same distributions. Flags at 2%+ are
 logged once (`results/game_bet_log.parquet`) and graded on the final score.
 No opinion of ours on who wins: main lines are the sharpest market, so few
 should show; stale books and different numbers are where any are.
+
+### An audit of the Betting tab's arithmetic (week 9)
+
+Read end to end against the logged lines (`results/prop_lines.parquet`, 9,909
+quotes) and the first week's flags. What was wrong, with the evidence:
+
+**Prices reused from a feed's cache were stamped as current.** The log stamped
+every row with the run's time. But The Odds API is bought on three mornings a
+week and reused for up to seven days by the two-hourly refreshes, and
+SportsGameOdds is cached six hours. In the log, Pinnacle's price was unchanged
+between its first and latest entry for 394 of 394 players and FanDuel's for
+63%, against 10-27% for the books the second feed supplies: they were the
+same purchase, re-stamped. So the 90-minute stale filter could not see them,
+the "Age" column read zero, Pinnacle (weighted double) anchored the consensus
+on a price hours or days old, and a frozen FanDuel price could be flagged as
+the best on offer. Now each row carries `quoted_at`, the time its feed was
+read; the log keeps that time; where both feeds have a book the one read more
+recently counts; the board row shows its own book's age; and a sure bet needs
+both prices read within 30 minutes of each other.
+
+**The record counted one bet several times.** A flag is logged per line and
+book, so a side that stayed flagged while its line moved was several rows:
+801 rows for 349 bets, 395-292 (+73.2 units) for what was 169-136 (+21.9).
+The record now counts a player, stat and side once, at the first price
+flagged (`betting.first_flags`).
+
+**"The market moved toward" was measuring something else.** `clv` is the
+closing fair chance less the chance the bet's *price* needed -- whether the
+bet beat the close -- and a bet flagged only by our projection starts below
+that by construction, so "10% moved toward" said nothing. And a bet whose line
+had moved off its number by the close (the clearest movement there is) had no
+close at all. Now the close is priced at the bet's own line on the closing
+books' curve when no book still quotes it, and the record reports two things:
+how often the bet beat the close, and `move`, the closing fair chance less the
+fair chance at the flag. On week 9, the books'-read flags: 23-21, +0.5 units;
+57% beat the close; the market moved toward 18% of them and away from 65%
+(-1.9 points on average, against +4.3% expected). The other books mostly moved
+to the outlier, not the outlier back -- what stale consensus prices would
+produce. Projection-only leans: 146-115, +21.4 units, one week, +9% a game
+with a standard error of 7 across 14 games; the market moved toward 33% and
+away from 41%. Neither is evidence of an edge yet.
+
+**A whole-number line on a count stat.** Poisson stats took "over 2" as two or
+more; it is three or more, and a two pushes. No book in the log posts one
+(every line is on a half), so nothing shown was affected; fixed with the push
+priced (`p_push`).
+
+**Long-shot moneylines.** Scaling a book's two prices to sum to one overstates
+the long shot. 2006-2025 (5,414 games): sides read at 15% or less won 8.9% of
+271 against 12.0% read; above 15% the read is within a point or two. Power and
+Shin's method were closer there (10.3%, 11.0%) and better overall (log loss
+0.60968 against 0.60981) but worse in two of six four-season stretches, so
+the read stands and moneyline sides under 15% are not flagged
+(`game_lines.LONGSHOT`).
+
+Checked and left alone:
+
+- *Catches as Poisson.* Against the market's own mean, weeks 6-9 (563
+  player-games), the variance is 1.10 times the mean; a negative binomial at
+  1.2 fits better overall but worse in two of the four weeks.
+- *The yardage curve's width.* Around the market's centre, weeks 6-9: results
+  within 10 yards 32% for receiving against the curve's 30% (584), 38% for
+  rushing against 31% (272). The curve (built from trailing-four-game levels)
+  is a little too wide, which understates an off-number line's edge: the
+  conservative side. To refit around the market's own centre once a season of
+  lines is logged.
+- *Shifting margins to the line.* `_dist` shifts each game by how far its line
+  sat from the one asked for. Against not shifting, out of season: log loss on
+  covers 0.6832 against 0.6840 (spreads), 0.6872 against 0.6892 (totals), push
+  chances the same. Kept.
+- *Parlays.* Legs from different games at one book, chances multiplied: sound
+  as far as the legs' chances are.
+

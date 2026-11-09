@@ -86,3 +86,63 @@ def test_parlays_combine_flagged_legs_at_one_book_from_different_games():
     assert abs(ab["win"] - 0.42 * 0.54) < 1e-9 and abs(ab["payout"] - 2.54 * (1 + 100 / 108)) < 1e-9
     assert abs(ab["ev"] - (ab["win"] * ab["payout"] - 1)) < 1e-9 and ab["ev"] > ab["ev_legs"]
     assert all(r["book"] == "fanduel" for r in out)
+
+
+def test_a_book_frozen_since_an_earlier_pull_is_not_on_the_board():
+    """Three books read at noon, one last read at 08:00: its price is history, not an offer."""
+    noon, early = "2026-11-08T12:00:00+00:00", "2026-11-08T08:00:00+00:00"
+    lines = pd.DataFrame([_q("fanduel", 140, -170, at=early), _q("betmgm", -110, -110, at=noon),
+                          _q("caesars", -112, -108, at=noon), _q("draftkings", 108, -128, at=noon)])
+    b = betting.board(lines)
+    assert len(b) and "fanduel" not in set(b.book)                       # judged among the three read at noon
+    # And the row carries the time its own book was read, which is what the page shows as its age.
+    fresh = pd.DataFrame([_q("fanduel", 120, -150, at="2026-11-08T11:30:00+00:00"), _q("betmgm", -110, -110, at=noon),
+                          _q("caesars", -112, -108, at=noon), _q("pinnacle", -105, -115, at=noon)])
+    top = betting.board(fresh).iloc[0]
+    assert top.book == "fanduel" and top.logged_at.startswith("2026-11-08T11:30")
+
+
+def test_a_sure_bet_needs_both_prices_read_close_together():
+    stale = pd.DataFrame([_q("a", 110, -140, at="2026-11-08T11:00:00+00:00"), _q("b", -150, 105), _q("c", -115, -105)])
+    assert betting.hedges(stale)["arbs"] == []                           # an hour apart: one leg may be gone
+    fresh = pd.DataFrame([_q("a", 110, -140, at="2026-11-08T11:50:00+00:00"), _q("b", -150, 105), _q("c", -115, -105)])
+    assert len(betting.hedges(fresh)["arbs"]) == 1
+
+
+def test_the_record_counts_a_bet_once_and_reads_the_close_two_ways():
+    row = {"season": 2026, "week": 9, "event_id": "e1", "stat": "receiving_yards", "player": "Wide Out", "side": "over",
+           "price": 100.0, "ev": 0.05, "kind": "market", "p_market": 0.52}
+    bets = pd.DataFrame([
+        {**row, "line": 54.5, "book": "a", "logged_at": "2026-11-08T12:00:00+00:00", "result": "win", "clv": 0.03, "move": 0.01},
+        {**row, "line": 55.5, "book": "b", "logged_at": "2026-11-08T14:00:00+00:00", "result": "win", "clv": 0.02, "move": 0.02},
+        {**row, "player": "Tight End", "line": 30.5, "book": "a", "logged_at": "2026-11-08T12:00:00+00:00",
+         "result": "loss", "clv": -0.02, "move": -0.03}])
+    s = betting.summary(bets)
+    assert (s["flagged"], s["prices"], s["wins"], s["losses"]) == (2, 3, 1, 1)      # the second price is the same bet
+    assert s["profit"] == 0.0 and s["clv_hit"] == 0.5 and s["move_toward"] == 0.5 and s["move_away"] == 0.5
+
+
+def test_a_line_that_moved_is_still_graded_at_the_close(tmp_path, monkeypatch):
+    """Flagged over 54.5; by the close every book has moved to 58.5: the market came to the bet."""
+    cfg = get_config()
+    monkeypatch.setattr(betting, "path", lambda _c: tmp_path / "bet_log.parquet")
+    lines = pd.DataFrame([_q("fanduel", 120, -150), _q("betmgm", -110, -110), _q("caesars", -112, -108),
+                          _q("pinnacle", -105, -115)])
+    betting.flag(betting.board(lines), cfg)
+    later = "2026-11-09T17:00:00+00:00"
+    close = pd.concat([lines, pd.DataFrame([_q(b, -110, -110, line=58.5, at=later)
+                                            for b in ("fanduel", "betmgm", "caesars", "pinnacle")])])
+    s = betting.settle(cfg, close)
+    over = s[(s.side == "over") & (s.book == "fanduel")].iloc[0]
+    assert over.close_fair > 0.53 and over.move > 0.03 and over.clv > 0
+
+
+def test_a_whole_number_line_on_a_count_stat_pushes_on_the_number():
+    from scipy import stats as st
+
+    from streamer.data.props import mean_from_poisson_line
+
+    assert betting.p_over("receptions", 4.0, 4.0, {}) == st.poisson.sf(4, 4.0)        # five or more
+    assert betting.p_over("receptions", 4.0, 4.5, {}) == st.poisson.sf(4, 4.0)
+    assert betting.p_push("receptions", 4.0, 4.0) == st.poisson.pmf(4, 4.0) and betting.p_push("receptions", 4.0, 4.5) == 0
+    assert abs(st.poisson.sf(4, mean_from_poisson_line(4.0, 0.4)) - 0.4) < 1e-6

@@ -1206,8 +1206,14 @@ def _stakes(report: MatchupReport) -> str:
     for g in st.games:
         flag = ' style="font-weight:700"' if g.week in must else ""
         tag = " &#9888;" if g.week in must else ""
+        # This week's game has one win chance on the page: the lineup simulation's (the tile), which
+        # knows the lineups as set and the games already played; the season model's is for later weeks.
+        p_win = g.p_win
+        snap, tile = getattr(report, "snapshot", None), getattr(report, "win_probability", None)
+        if snap is not None and tile is not None and int(g.week) == int(snap.week):
+            p_win = tile
         rows.append(f"<tr{flag}><td>Wk {g.week}{tag}</td><td class='unit'>{_e(g.opponent)}</td>"
-                    f"<td>{g.p_win:.0%}</td><td>{g.playoffs_win:.0%}</td><td>{g.playoffs_loss:.0%}</td>"
+                    f"<td>{p_win:.0%}</td><td>{g.playoffs_win:.0%}</td><td>{g.playoffs_loss:.0%}</td>"
                     f"<td>{g.swing * 100:+.0f}</td></tr>")
     need = st.wins_needed(0.5)
     record = ", ".join(f"{k} wins: {p:.0%}" for k, (p, n) in sorted(st.by_wins.items()) if n >= 30)
