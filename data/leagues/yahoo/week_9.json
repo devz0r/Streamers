@@ -23566,7 +23566,7 @@
       "name": "Phil Mafah",
       "position": "RB",
       "team": "NYG",
-      "status": "",
+      "status": "NA",
       "slot": "FA",
       "eligible_slots": [
         "RB",
@@ -29615,7 +29615,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-09T20:31:48.858688+00:00",
+  "synced_at": "2026-11-09T20:44:30.008485+00:00",
   "extra": {
     "source": "yahoo-web"
   },
