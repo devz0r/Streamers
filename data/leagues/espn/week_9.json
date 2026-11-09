@@ -16082,7 +16082,7 @@
       "name": "Riley Leonard",
       "position": "QB",
       "team": "IND",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -16502,7 +16502,7 @@
       "name": "Taylen Green",
       "position": "QB",
       "team": "CLE",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -16572,7 +16572,7 @@
       "name": "Garrett Nussmeier",
       "position": "QB",
       "team": "KC",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -16852,7 +16852,7 @@
       "name": "Aidan O'Connell",
       "position": "QB",
       "team": "LV",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -17832,7 +17832,7 @@
       "name": "Sam Ehlinger",
       "position": "QB",
       "team": "DEN",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -31806,7 +31806,7 @@
       "name": "Ben VanSumeren",
       "position": "RB",
       "team": "KC",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -40969,7 +40969,7 @@
       "name": "Dont'e Thornton Jr.",
       "position": "WR",
       "team": "LV",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -41918,7 +41918,7 @@
       "name": "Lil'Jordan Humphrey",
       "position": "WR",
       "team": "DEN",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -42064,7 +42064,7 @@
       "name": "Malik Benson",
       "position": "WR",
       "team": "LV",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -46152,7 +46152,7 @@
       "name": "CJ Williams",
       "position": "WR",
       "team": "JAX",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -51590,7 +51590,7 @@
       "name": "Will Mallory",
       "position": "TE",
       "team": "IND",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -53102,7 +53102,7 @@
       "name": "Cade Stover",
       "position": "TE",
       "team": "HOU",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -55190,7 +55190,7 @@
       "name": "Jackson Meeks",
       "position": "TE",
       "team": "DET",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -57422,7 +57422,7 @@
       "name": "Dallen Bentley",
       "position": "TE",
       "team": "DEN",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -57854,7 +57854,7 @@
       "name": "Pharaoh Brown",
       "position": "TE",
       "team": "IND",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -67015,7 +67015,7 @@
     "my_points": 104.54,
     "opp_points": 112.24
   },
-  "synced_at": "2026-11-09T20:59:50.130512+00:00",
+  "synced_at": "2026-11-09T21:21:12.454470+00:00",
   "extra": {
     "nfl_week": 9,
     "current_week": 9
