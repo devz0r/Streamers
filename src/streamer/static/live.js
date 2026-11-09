@@ -287,7 +287,7 @@
     var mine0 = totals(pre(me), S, n, D.me.map(function (p) { return p.m; }));
     var opp0 = totals(pre(opp), O, n, D.opp.map(function (p) { return p.m; }));
     var sum = function (rows) { return rows.reduce(function (s, r) { return s + (r.state && r.state !== "pre" ? r.now : 0); }, 0); };
-    return { me: me, opp: opp, p: winShare(mineT, oppT), p0: winShare(mine0, opp0),
+    return { me: me, opp: opp, mineT: mineT, oppT: oppT, p: winShare(mineT, oppT), p0: winShare(mine0, opp0),
              nowMe: sum(me), nowOpp: sum(opp), projMe: mean(mineT), projOpp: mean(oppT),
              started: me.concat(opp).some(function (r) { return r.state && r.state !== "pre"; }),
              done: me.concat(opp).every(function (r) { return !r.state || r.state === "post"; }) };
@@ -409,7 +409,14 @@
           var sums = {};
           Object.keys(ids).forEach(function (id) { sums[id] = cache[id] || cache["live:" + id]; });
           var R = evaluate(D, g, sums);
-          if (R.started) render(el, D, R);
+          if (R.started) {
+            render(el, D, R);
+            // The score charts read the same live draws (static/gamelog.js).
+            var host = el.closest && el.closest("[data-league]");
+            if (host && typeof window !== "undefined") {
+              (window.StreamerLiveLast = window.StreamerLiveLast || {})[host.getAttribute("data-league")] = R;
+            }
+          }
           if (!R.done) setTimeout(tick, POLL_MS);
         });
       }).catch(function () { setTimeout(tick, POLL_MS * 2); });

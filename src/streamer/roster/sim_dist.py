@@ -49,6 +49,10 @@ def matchup(opt, my_name: str, opp_name: str) -> dict | None:
     me, them = me[:n], them[:n]
     margin = me - them
     raw = float((margin > 0).mean() + 0.5 * (margin == 0).mean())
+    if float(me.std()) < 0.05 and float(them.std()) < 0.05:
+        # Nobody left to play on either side: a result, not a distribution.
+        return {"final": [round(float(me[0]), 2), round(float(them[0]), 2)], "p": round(raw, 4), "raw": round(raw, 4),
+                "names": [my_name or "You", opp_name or "Opponent"]}
     lo, hi = float(min(me.min(), them.min())), float(max(me.max(), them.max()))
     lo, hi = np.floor(lo / 2) * 2, np.ceil(hi / 2) * 2
     step = 2.0

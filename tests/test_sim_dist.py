@@ -40,3 +40,12 @@ def test_each_player_gets_his_own_density_and_a_locked_player_a_fixed_score():
     got = sim_dist.players(opt)
     assert got["b"] == {"fixed": 14.2}
     assert got["a"]["p10"] < got["a"]["p50"] < got["a"]["p90"] and abs(sum(got["a"]["y"]) * got["a"]["dx"] - 1) < 0.03
+
+
+def test_with_nobody_left_on_either_side_it_is_a_result_not_a_curve():
+    rng = np.random.default_rng(3)
+    opt = _opt(rng)
+    opt.samples[:] = [[100.0, 50.0]]                        # both final: 150 for you
+    opt.opp_samples = np.full(5000, 138.0)
+    m = sim_dist.matchup(opt, "Me", "Them")
+    assert m["final"] == [150.0, 138.0] and m["p"] == 1.0 and "me" not in m

@@ -120,10 +120,57 @@
   try { M = JSON.parse((document.getElementById("matchup-dist") || {}).textContent || "null"); } catch (e) { M = null; }
   var matchSheet;
   function closeMatch() { if (matchSheet) { matchSheet.remove(); matchSheet = null; document.documentElement.classList.remove("gl-open"); } }
+  // The live draws (static/live.js) once games have started: your total and theirs with the points
+  // already scored counted and the rest of each player's draw scaled to what is left.
+  function pctile(sorted, q) { return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * sorted.length)))]; }
+  function jsDensity(arr, step, lo, hi, k) {
+    var s = Array.prototype.slice.call(arr).sort(function (x, y) { return x - y; });
+    var mean = s.reduce(function (a, v) { return a + v; }, 0) / s.length;
+    lo = lo === null ? Math.floor(pctile(s, 0.003) / step) * step : lo;
+    hi = hi === null ? Math.ceil(pctile(s, 0.997) / step) * step : hi;
+    if (hi - lo < step * 3) hi = lo + step * 3;
+    var nb = Math.round((hi - lo) / step), h = new Array(nb).fill(0);
+    s.forEach(function (v) { var i = Math.floor((v - lo) / step); if (i >= 0 && i < nb) h[i]++; });
+    var w = [], tot = 0, i, j;
+    for (i = -3 * k; i <= 3 * k; i++) { var e = Math.exp(-0.5 * i * i / (k * k)); w.push(e); tot += e; }
+    var y = h.map(function (_, i2) { var a = 0; for (j = 0; j < w.length; j++) { var q = i2 + j - 3 * k; if (q >= 0 && q < nb) a += h[q] * w[j] / tot; } return a; });
+    var area = y.reduce(function (a, v) { return a + v; }, 0) * step || 1;
+    return { x0: lo + step / 2, dx: step, y: y.map(function (v) { return v / area; }),
+             p10: pctile(s, 0.1), p50: pctile(s, 0.5), p90: pctile(s, 0.9), mean: mean };
+  }
+  function liveMatch(lg, base) {
+    var L = window.StreamerLiveLast && window.StreamerLiveLast[lg];
+    if (!L || !L.started || !L.mineT || !base) return null;
+    var me = L.mineT, opp = L.oppT, n = me.length, mg = new Array(n), i;
+    var sd = function (a) { var m = 0, v = 0; a.forEach(function (x) { m += x; }); m /= a.length; a.forEach(function (x) { v += (x - m) * (x - m); }); return Math.sqrt(v / a.length); };
+    if (sd(me) < 0.05 && sd(opp) < 0.05) return { final: [me[0], opp[0]], p: L.p, raw: L.p, names: base.names };
+    var lo = Math.floor(Math.min(Math.min.apply(null, me), Math.min.apply(null, opp)) / 2) * 2;
+    var hi = Math.ceil(Math.max(Math.max.apply(null, me), Math.max.apply(null, opp)) / 2) * 2;
+    for (i = 0; i < n; i++) mg[i] = me[i] - opp[i];
+    var pos = mg.filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
+    var neg = mg.filter(function (v) { return v < 0; }).map(function (v) { return -v; }).sort(function (a, b) { return a - b; });
+    return { me: jsDensity(me, 2, lo, hi, 3), opp: jsDensity(opp, 2, lo, hi, 3), margin: jsDensity(mg, 2, null, null, 3),
+             raw: L.p, p: L.p, names: base.names, live: true,
+             win_by: pos.length ? pctile(pos, 0.5) : 0, lose_by: neg.length ? pctile(neg, 0.5) : 0 };
+  }
   function openMatch(lg) {
     var m = M && M[lg]; if (!m) return false;
+    m = liveMatch(lg, m) || m;
     closeMatch(); close();
     var a = m.names[0], b = m.names[1];
+    if (m.final) {
+      matchSheet = document.createElement("div");
+      matchSheet.className = "gl-back";
+      matchSheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="Final score">' +
+        '<div class="gl-head"><div><strong>' + (m.final[0] > m.final[1] ? "You win" : m.final[0] < m.final[1] ? "You lose" : "A tie") +
+        '</strong> <span class="opp">' + esc(a) + " vs " + esc(b) + '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' +
+        '<p class="sub"><b>' + m.final[0].toFixed(2) + " &ndash; " + m.final[1].toFixed(2) + "</b>: nobody left to play on either side, " +
+        "so there is no distribution left, just the result. The score is the platform's once it posts the week.</p></div>";
+      document.body.appendChild(matchSheet);
+      document.documentElement.classList.add("gl-open");
+      matchSheet.addEventListener("click", function (e) { if (e.target === matchSheet || e.target.closest(".gl-x")) closeMatch(); });
+      return true;
+    }
     var scores = chart([{ d: m.me, color: "#3b82f6" }, { d: m.opp, color: "#f97316" }],
       [[m.me.p50, a.split(" ")[0] + " " + m.me.p50.toFixed(0), "#3b82f6"], [m.opp.p50, b.split(" ")[0] + " " + m.opp.p50.toFixed(0), "#f97316"]], null,
       { step: 20, label: "each team's possible score" });
@@ -137,13 +184,15 @@
       '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' +
       '<div class="chips"><button type="button" data-v="scores" aria-pressed="true">Scores</button>' +
       '<button type="button" data-v="margin" aria-pressed="false">Margin</button></div>' +
-      '<div class="gl-v" data-v="scores"><p class="sub">Each team\'s possible score, from 5,000 simulated games. ' +
+      '<div class="gl-v" data-v="scores"><p class="sub">Each team\'s possible score, from 5,000 simulated games' + (m.live ? ' with the points already scored counted and each player\'s draw cut to what is left' : '') + '. ' +
       '<span style="color:#3b82f6"><b>' + esc(a) + '</b></span> 10th&ndash;90th: ' + m.me.p10.toFixed(0) + "&ndash;" + m.me.p90.toFixed(0) +
       '; <span style="color:#f97316"><b>' + esc(b) + "</b></span>: " + m.opp.p10.toFixed(0) + "&ndash;" + m.opp.p90.toFixed(0) + ".</p>" + scores + "</div>" +
       '<div class="gl-v" data-v="margin" hidden><p class="sub">Your score minus theirs. The green area, right of zero, is your win chance. ' +
       "When you win it is by about " + m.win_by.toFixed(0) + " points, when you lose by about " + m.lose_by.toFixed(0) + ".</p>" + margin + "</div>" +
-      '<p class="sub">The simulation draws ' + pct(m.raw) + ' of games for you; the figure above is ' + pct(m.p) +
-      ': favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.</p></div>';
+      (m.live || Math.abs(m.raw - m.p) < 0.0005 ? '<p class="sub">' + pct(m.raw) + " of the simulated games go your way" +
+        (m.live ? ", updated as games finish." : ".") + "</p>" :
+        '<p class="sub">The simulation draws ' + pct(m.raw) + ' of games for you; the figure above is ' + pct(m.p) +
+        ': favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.</p>') + "</div>";
     document.body.appendChild(matchSheet);
     document.documentElement.classList.add("gl-open");
     matchSheet.addEventListener("click", function (e) {
