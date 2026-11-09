@@ -5213,6 +5213,23 @@ three weeks with weights fitted from two (0.3-1.0 for yards and catches,
 touchdown rate). Not switched yet: the logged split lets it be refitted on
 every graded week, and it goes in once five or more weeks hold up.
 
+Rerun with week 9 (14 of its 15 games; Monday night not yet in the stats),
+each week held out with the weights fitted on the other three:
+
+| RMSE | week 6 | week 7 | week 8 | week 9 | mean |
+|---|---|---|---|---|---|
+| ESPN, one weight | 6.280 | 6.611 | 7.370 | 6.672 | 6.733 |
+| ESPN, per stat | 6.287 | 6.570 | 7.363 | 6.758 | 6.744 |
+| Yahoo, one weight | 6.701 | 7.027 | 7.947 | 7.028 | 7.176 |
+| Yahoo, per stat | 6.675 | 6.874 | 7.920 | 7.085 | 7.138 |
+
+The first week scored that the original fit never saw went against it in both
+leagues. ESPN now fails the rule (worse overall, and in two weeks); Yahoo
+still passes (worse in week 9 only). Four weeks, not the five set, so it stays
+off in both; rerun after weeks 10 and 11. The yardage and catch weights move
+0.25-0.45 from week to week, which is what a split fitted on a few hundred
+player-weeks looks like.
+
 ### A best-price board
 `data/betting.py`, shown on a Betting tab (both leagues): for each player and
 stat the books' over/under quotes are scaled to sum to one (taking out each
