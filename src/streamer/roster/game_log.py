@@ -199,7 +199,7 @@ def build(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, dict]:
                     games.append([w, "bye"])
                 elif w not in played.get(team, set()):
                     games.append([w, "-"])
-            rec = {"n": p.name, "t": p.team or "", "p": "DST", "g": games, "v": _value(p)}
+            rec = {"n": p.name, "t": p.team or "", "p": "DST", "g": games, "v": _value(p), "pid": p.player_id}
             out[f"dst|{team}"] = rec
             full = TEAM_NAMES.get(team)           # the rankings call it by its city and name
             if full and full != p.name:
@@ -234,7 +234,7 @@ def build(snapshot: LeagueSnapshot, cfg: Config) -> dict[str, dict]:
             else:
                 games.append([w, "-"])
         out[key] = {"n": p.name, "t": p.team or "", "p": p.position, "g": games,
-                    "v": _value(p)}
+                    "v": _value(p), "pid": p.player_id}
     return out
 
 

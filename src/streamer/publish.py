@@ -290,7 +290,12 @@ def _game_log_block(team_panels) -> str:
     if not data:
         return ""
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
-    return (f'<script type="application/json" id="gamelog-data">{payload}</script>'
+    dist = {name: t["_dist"] for name, t in (team_panels or {}).items() if isinstance(t, dict) and t.get("_dist")}
+    dist_tag = ""
+    if dist:
+        dist_tag = ('<script type="application/json" id="matchup-dist">'
+                    + json.dumps(dist, separators=(",", ":")).replace("</", "<\\/") + "</script>")
+    return (f'<script type="application/json" id="gamelog-data">{payload}</script>{dist_tag}'
             f"<script data-enhance>{GAMELOG_SCRIPT}</script>")
 
 
@@ -1095,6 +1100,11 @@ def team_panels_for(
                                        shared=view_shared, game_day=game_day)
             view_shared["odds"] = getattr(snap, "_season_odds", None)
             panels[name]["_gamelog"] = getattr(snap, "_game_log", None)
+            # This week's simulated points for each player, on the top of his game log.
+            for rec in (panels[name]["_gamelog"] or {}).values():
+                d = (panels[name].get("_pdists") or {}).get(rec.get("pid"))
+                if d:
+                    rec["d"] = d
             views = _team_views(snap, bound, rankings, projected, shared=view_shared, game_day=game_day)
             if views:
                 panels[name]["_views"] = views
@@ -1334,6 +1344,13 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
             panel["_units"] = unit_pwin(report)
         except Exception as exc:  # noqa: BLE001 - a bonus column
             log.warning("unit P(win) for the rankings skipped: %s", exc)
+        try:
+            from .roster import sim_dist
+
+            panel["_dist"] = sim_dist.matchup(report.optimisation, snap.my_team.name, report.opponent_name)
+            panel["_pdists"] = sim_dist.players(report.optimisation)
+        except Exception as exc:  # noqa: BLE001 - the charts are a bonus
+            log.warning("score distributions skipped: %s", exc)
     if primary and status and not status.get("ok") and snap.week != rankings.week:
         panel["hub"] = render_sync_failure(status, bound, stale_week=snap.week) + panel.get("hub", "")
     if primary:

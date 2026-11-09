@@ -63,6 +63,98 @@
     return best.hit.filter(function (p) { return text.indexOf(" " + p.t) >= 0; })[0] || best.hit[0];
   }
 
+  // ---- Charts: simulated score distributions (the same draws that give P(win)) ----
+  var SVG = "http://www.w3.org/2000/svg";
+  function curve(d, x, y, h) {
+    // d: {x0, dx, y[]} -> an SVG path (area) in chart coordinates; x(v) maps a value to px, y(f) a density to px.
+    var pts = d.y.map(function (f, i) { return [x(d.x0 + i * d.dx), y(f)]; });
+    var top = pts.map(function (p, i) { return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ");
+    return top + " L" + pts[pts.length - 1][0].toFixed(1) + " " + h + " L" + pts[0][0].toFixed(1) + " " + h + " Z";
+  }
+  function axis(lo, hi, x, h, step) {
+    var s = "";
+    for (var v = Math.ceil(lo / step) * step; v <= hi; v += step)
+      s += '<line x1="' + x(v).toFixed(1) + '" x2="' + x(v).toFixed(1) + '" y1="' + h + '" y2="' + (h + 4) + '" stroke="currentColor" opacity=".4"/>' +
+        '<text x="' + x(v).toFixed(1) + '" y="' + (h + 16) + '" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">' + v + '</text>';
+    return s;
+  }
+  function marker(v, x, h, label, color) {
+    return '<line x1="' + x(v).toFixed(1) + '" x2="' + x(v).toFixed(1) + '" y1="6" y2="' + h + '" stroke="' + color + '" stroke-width="1.5" stroke-dasharray="3 3"/>' +
+      '<text x="' + x(v).toFixed(1) + '" y="12" text-anchor="middle" font-size="10" fill="' + color + '">' + label + '</text>';
+  }
+  function chart(series, markers, shade, opts) {
+    // series: [{d, color}], markers: [[value, label, color]], shade: {d, from, color} fills a density right of `from`.
+    var W = 560, H = 170, L = 8, R = 8, all = series.map(function (s) { return s.d; });
+    var lo = Math.min.apply(null, all.map(function (d) { return d.x0; }));
+    var hi = Math.max.apply(null, all.map(function (d) { return d.x0 + (d.y.length - 1) * d.dx; }));
+    var top = Math.max.apply(null, all.map(function (d) { return Math.max.apply(null, d.y); })) * 1.08;
+    var x = function (v) { return L + (v - lo) / (hi - lo || 1) * (W - L - R); };
+    var y = function (f) { return H - f / top * (H - 22); };
+    var out = '<svg viewBox="0 0 ' + W + ' ' + (H + 22) + '" width="100%" role="img" aria-label="' + esc(opts.label) + '" style="display:block">';
+    if (shade) {
+      var d = shade.d, idx = [];
+      d.y.forEach(function (f, i) { if (d.x0 + i * d.dx >= shade.from) idx.push(i); });
+      if (idx.length) {
+        var sub = { x0: d.x0 + idx[0] * d.dx, dx: d.dx, y: idx.map(function (i) { return d.y[i]; }) };
+        out += '<path d="' + curve(sub, x, y, H) + '" fill="' + shade.color + '" opacity=".35"/>';
+      }
+    }
+    series.forEach(function (s) {
+      out += '<path d="' + curve(s.d, x, y, H) + '" fill="' + (shade ? "none" : s.color) + '" fill-opacity="' + (shade ? 0 : .22) + '" stroke="' + s.color + '" stroke-width="2"/>';
+    });
+    out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + H + '" y2="' + H + '" stroke="currentColor" opacity=".35"/>';
+    out += axis(lo, hi, x, H, opts.step);
+    markers.forEach(function (m) { out += marker(m[0], x, H, m[1], m[2]); });
+    return out + "</svg>";
+  }
+  function playerChart(d, unit) {
+    if (d.fixed !== undefined)
+      return '<p class="sub"><b>This week:</b> locked at ' + d.fixed.toFixed(1) + " points.</p>";
+    var svg = chart([{ d: d, color: "#3b82f6" }], [[d.p50, "median " + d.p50.toFixed(1), "#3b82f6"]], null,
+      { step: d.dx >= 1 ? 5 : 2, label: "simulated points this week" });
+    return '<div class="gl-dist"><p class="sub"><b>Simulated points this week</b> (the draws behind your P(win)): ' +
+      "four games in five he scores " + d.p10.toFixed(1) + "&ndash;" + d.p90.toFixed(1) + " (his 10th&ndash;90th percentile); median " + d.p50.toFixed(1) +
+      ", mean " + d.mean.toFixed(1) + ".</p>" + svg + "</div>";
+  }
+  var M;
+  try { M = JSON.parse((document.getElementById("matchup-dist") || {}).textContent || "null"); } catch (e) { M = null; }
+  var matchSheet;
+  function closeMatch() { if (matchSheet) { matchSheet.remove(); matchSheet = null; document.documentElement.classList.remove("gl-open"); } }
+  function openMatch(lg) {
+    var m = M && M[lg]; if (!m) return false;
+    closeMatch(); close();
+    var a = m.names[0], b = m.names[1];
+    var scores = chart([{ d: m.me, color: "#3b82f6" }, { d: m.opp, color: "#f97316" }],
+      [[m.me.p50, a.split(" ")[0] + " " + m.me.p50.toFixed(0), "#3b82f6"], [m.opp.p50, b.split(" ")[0] + " " + m.opp.p50.toFixed(0), "#f97316"]], null,
+      { step: 20, label: "each team's possible score" });
+    var margin = chart([{ d: m.margin, color: "#64748b" }], [[0, "tie", "#64748b"]],
+      { d: m.margin, from: 0, color: "#22c55e" }, { step: 10, label: "your score minus theirs" });
+    var pct = function (v) { return (v * 100).toFixed(1) + "%"; };
+    matchSheet = document.createElement("div");
+    matchSheet.className = "gl-back";
+    matchSheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="Win probability">' +
+      '<div class="gl-head"><div><strong>Win this week: ' + pct(m.p) + '</strong> <span class="opp">' + esc(a) + " vs " + esc(b) +
+      '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' +
+      '<div class="chips"><button type="button" data-v="scores" aria-pressed="true">Scores</button>' +
+      '<button type="button" data-v="margin" aria-pressed="false">Margin</button></div>' +
+      '<div class="gl-v" data-v="scores"><p class="sub">Each team\'s possible score, from 5,000 simulated games. ' +
+      '<span style="color:#3b82f6"><b>' + esc(a) + '</b></span> 10th&ndash;90th: ' + m.me.p10.toFixed(0) + "&ndash;" + m.me.p90.toFixed(0) +
+      '; <span style="color:#f97316"><b>' + esc(b) + "</b></span>: " + m.opp.p10.toFixed(0) + "&ndash;" + m.opp.p90.toFixed(0) + ".</p>" + scores + "</div>" +
+      '<div class="gl-v" data-v="margin" hidden><p class="sub">Your score minus theirs. The green area, right of zero, is your win chance. ' +
+      "When you win it is by about " + m.win_by.toFixed(0) + " points, when you lose by about " + m.lose_by.toFixed(0) + ".</p>" + margin + "</div>" +
+      '<p class="sub">The simulation draws ' + pct(m.raw) + ' of games for you; the figure above is ' + pct(m.p) +
+      ': favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.</p></div>';
+    document.body.appendChild(matchSheet);
+    document.documentElement.classList.add("gl-open");
+    matchSheet.addEventListener("click", function (e) {
+      if (e.target === matchSheet || e.target.closest(".gl-x")) return closeMatch();
+      var b = e.target.closest("button[data-v]"); if (!b) return;
+      matchSheet.querySelectorAll("button[data-v]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      matchSheet.querySelectorAll(".gl-v").forEach(function (x) { x.hidden = x.getAttribute("data-v") !== b.getAttribute("data-v"); });
+    });
+    return true;
+  }
+
   var sheet;
   function close() { if (sheet) { sheet.remove(); sheet = null; document.documentElement.classList.remove("gl-open"); } }
 
@@ -101,7 +193,7 @@
     sheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="' + esc(p.n) + ' game log">' +
       '<div class="gl-head"><div><strong>' + esc(p.n) + '</strong> <span class="opp">' + esc(p.p) + " " + esc(p.t) +
       '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' + v + sum +
-      '<div class="gl-bars">' + bars + '</div><div class="scroll"><table class="gl-table"><thead><tr><th>Wk</th><th>Opp</th><th>Pts</th><th>Snaps</th>' +
+      (p.d ? playerChart(p.d) : "") + '<div class="gl-bars">' + bars + '</div><div class="scroll"><table class="gl-table"><thead><tr><th>Wk</th><th>Opp</th><th>Pts</th><th>Snaps</th>' +
       '<th class="gl-line">Line</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
     document.body.appendChild(sheet);
     document.documentElement.classList.add("gl-open");
@@ -113,6 +205,12 @@
   // itself would do (expanding a pickup, say); links, buttons and form
   // controls keep their own behaviour.
   document.addEventListener("click", function (ev) {
+    var win = ev.target.closest && ev.target.closest(".kpi[data-win]");
+    if (win && !(matchSheet && matchSheet.contains(ev.target))) {
+      var host = win.closest("[data-league]"), lg = host && host.getAttribute("data-league");
+      if (openMatch(lg)) { ev.preventDefault(); ev.stopPropagation(); return; }
+    }
+    if (matchSheet && matchSheet.contains(ev.target)) return;
     if (sheet && sheet.contains(ev.target)) return;
     var t = ev.target;
     if (!t.closest || t.closest("a, button, select, input, textarea, label, summary, th, .gl-back")) return;
@@ -122,5 +220,5 @@
     ev.stopPropagation();
     open(p);
   }, true);
-  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") close(); });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { close(); closeMatch(); } });
 })();

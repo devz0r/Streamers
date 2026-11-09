@@ -594,16 +594,17 @@ def kpi_tiles(snapshot: LeagueSnapshot, report: MatchupReport) -> str:
     m = o.mine if o is not None else None
     st = getattr(report, "stakes", None)
 
-    def tile(value: str, label: str, tab: str, share: float | None = None, sub: str = "") -> str:
+    def tile(value: str, label: str, tab: str, share: float | None = None, sub: str = "", win: bool = False) -> str:
         bar = (f'<span class="kbar"><i style="width:{min(max(share, 0.0), 1.0) * 100:.0f}%"></i></span>'
                if share is not None else "")
-        return (f'<label class="kpi" for="sec-{uid}-{tab}"><b>{value}</b><span>{_e(label)}</span>'
+        mark = ' data-win="1" title="Tap for the score distributions"' if win else ""
+        return (f'<label class="kpi" for="sec-{uid}-{tab}"{mark}><b>{value}</b><span>{_e(label)}</span>'
                 f'{f"<small>{_e(sub)}</small>" if sub else ""}{bar}</label>')
 
     tiles = []
     if report.win_probability is not None:
         tiles.append(tile(_pct(report.win_probability), "Win this week", "lineup", report.win_probability,
-                          f"vs {report.opponent_name}" if report.opponent_name else ""))
+                          f"vs {report.opponent_name}" if report.opponent_name else "", win=True))
     if m is not None:
         from .season import wilson
 
