@@ -135,3 +135,59 @@ def test_when_both_feeds_have_a_book_the_price_read_more_recently_counts(cfg):
     assert len(merged) == 2
     assert merged.loc["fanduel", "line"] == 58.5              # the second feed's, read later
     assert merged.loc["pinnacle", "line"] == 54.5             # the first feed's, read later
+
+
+def test_games_about_to_start_are_re_read_on_their_own_and_stamped_with_their_own_time(cfg, monkeypatch, tmp_path):
+    """A pull six hours old still stands for the slate, but the game kicking off in two hours is re-read
+    (only it is asked for and counted), and each game keeps the time its own prices were read."""
+    import json
+    from datetime import UTC, datetime, timedelta
+
+    import requests
+
+    monkeypatch.setenv("SPORTSGAMEODDS_API_KEY", "k")
+    monkeypatch.setattr(sgo, "_cache", lambda c: tmp_path / "events.json")
+    now = datetime.now(UTC)
+    iso = lambda h: (now + timedelta(hours=h)).isoformat()          # noqa: E731
+    stale = (now - timedelta(minutes=80)).isoformat()
+    cached = {"fetched_at": stale, "event_times": {},
+              "events": [_event() | {"eventID": "soon", "status": {"startsAt": iso(2)}},
+                         _event() | {"eventID": "later", "status": {"startsAt": iso(30)}}]}
+    (tmp_path / "events.json").write_text(json.dumps(cached))
+    asked = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [_event() | {"eventID": "soon", "status": {"startsAt": iso(2)}, "marker": "fresh"}]}
+
+    monkeypatch.setattr(requests, "get", lambda url, params=None, headers=None, timeout=None: asked.append(params) or Resp())
+    evs, note = sgo.events(cfg)
+    assert len(asked) == 1 and "re-read" in note and sgo.used_this_month(cfg) == 1
+    assert {e["eventID"]: e.get("marker") for e in evs} == {"soon": "fresh", "later": None}
+    assert sgo.EVENT_FETCHED["soon"] > datetime.fromisoformat(stale) and sgo.EVENT_FETCHED["later"] == datetime.fromisoformat(stale)
+    stamps = sgo.quote_stamps(pd.Series(["soon", "later", "unknown"]))
+    assert stamps.iloc[0] > stamps.iloc[1]
+    # Straight away again: its read is a minute old, so nothing more is asked.
+    sgo.events(cfg)
+    assert len(asked) == 1
+    # Over 85% of the month's budget: the re-read waits for the six-hour pull.
+    monkeypatch.setitem(cfg.raw["odds"]["props"].setdefault("sportsgameodds", {}), "monthly_budget", 1)
+    data = json.loads((tmp_path / "events.json").read_text())
+    data["event_times"]["soon"] = stale
+    (tmp_path / "events.json").write_text(json.dumps(data))
+    sgo.events(cfg)
+    assert len(asked) == 1
+
+
+def test_the_fast_re_read_is_off_when_nothing_is_about_to_start():
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    blob = {"fetched_at": (now - timedelta(hours=3)).isoformat(), "event_times": {}}
+    far = [{"eventID": "a", "status": {"startsAt": (now + timedelta(hours=20)).isoformat()}}]
+    near = [{"eventID": "a", "status": {"startsAt": (now + timedelta(hours=3)).isoformat()}}]
+    assert not sgo.fast_due(blob, far, now, {}) and sgo.fast_due(blob, near, now, {})
+    assert not sgo.fast_due(blob, near, now, {"fast_hours": 0})

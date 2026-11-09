@@ -5491,3 +5491,25 @@ worse in 2025; states with a questionable starter in progress (2,874) 0.43129
 -> 0.42823, better in all four; states with a starter in progress and no
 touch yet (3,833) 0.46477 -> 0.46182, better in three.
 
+### Fresher prices on game days, and an alert
+
+After the audit the board runs mostly on SportsGameOdds, read every six hours:
+on a Sunday a price could be most of a day old by kickoff. A shorter cache for
+the whole slate is expensive (the free plan counts every game returned, 2,500 a
+month, and a 96-hour window holds about 15), so the re-read is aimed:
+games kicking off within `fast_hours` (6) are re-read on their own once their
+last read is `fast_minutes` (50) old -- a call limited to that window, merged into
+the cached pull, each game keeping its own read time (`sgo.EVENT_FETCHED`, which
+the rows' `quoted_at` follows) -- and it stops at `fast_share` (85%) of the month's
+budget. On a Sunday that is about a hundred games (ten at 1 PM re-read hourly from
+7 AM, four at 4 PM, the night game), a few hundred a month, which the six-hour pull
+leaves room for; the monthly tally is checked rather than assumed, since the
+Actions cache holding it is not readable from here. The Odds API, bought on three
+mornings a week, is unchanged: where a book is in both feeds the fresher read counts.
+
+A newly recommended price (both the other books' read and the combined one
+positive, not logged before) is written to `results/betting_alert.json` each
+build, and the workflow posts it to one rolling "Betting alerts" issue, which the
+GitHub app pushes to a phone (as the Yahoo sign-in alert does). Only what the Betting
+tab shows, no secrets; it says plainly the edge is unproven.
+

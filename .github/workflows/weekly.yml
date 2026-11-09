@@ -313,6 +313,29 @@ jobs:
           WEEK="${{ steps.week.outputs.upcoming_week }}"
           streamer rank --week "$WEEK" --publish
 
+      # A price the board newly recommends (the other books' read and the combined one both say it beats
+      # its odds) goes to one rolling issue, which the GitHub app pushes to a phone. Only what the
+      # Betting tab already shows; no secrets. The edge is unproven (the record on the tab is the test).
+      - name: Tell me about newly recommended bets
+        if: contains(fromJSON('["publish", "both", "refresh"]'), steps.mode.outputs.mode)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f=results/betting_alert.json
+          [ -f "$f" ] || exit 0
+          built=$(jq -r '.built_at' "$f"); n=$(jq '.new | length' "$f")
+          age=$(( $(date +%s) - $(date -d "$built" +%s) ))
+          [ "$n" -gt 0 ] && [ "$age" -lt 1800 ] || exit 0
+          body=$(jq -r '.new[] | "- \(.player) \(.stat) \(.side) \(.line) at \(.price) (\(.book)): \(.ev_market * 100 | floor)% on the other books read, price read \(.read_at[0:16]) UTC"' "$f")
+          msg=$(printf '%s newly recommended price(s), as of %s UTC. Unproven: the record on the Betting tab is the test, and a price may have moved since it was read; check the book.\n\n%s' "$n" "$built" "$body")
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "Betting alerts in:title" --json number --jq '.[0].number // empty')
+          if [ -z "$open" ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Betting alerts" --body "$msg"
+          else
+            gh issue comment "$open" --repo "$GITHUB_REPOSITORY" --body "$msg"
+          fi
+
       - name: Package the page
         id: package
         if: |

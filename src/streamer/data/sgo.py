@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 
@@ -54,9 +54,10 @@ STATS: dict[str, tuple[str, str]] = {
 COLUMNS = ["event_id", "bookmaker", "market", "stat", "kind", "player", "line",
            "over_price", "under_price", "yes_price"]
 
-#: When the events last returned by :func:`events` were read from the feed
-#: (the cache's own time when they came from it): the moment their prices
-#: were last known to be on offer.
+#: When each event last returned by :func:`events` was read from the feed, by
+#: event id (the cache's own time for a game it still holds): the moment its
+#: prices were last known to be on offer. ``LAST_FETCHED``: the pull's own time.
+EVENT_FETCHED: dict[str, datetime] = {}
 LAST_FETCHED: datetime | None = None
 
 
@@ -163,43 +164,43 @@ def _count(cfg: Config, n: int, now: datetime) -> None:
         pass
 
 
-def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
-    """The NFL games starting in the next ``window_hours`` (default 96) with
-    odds, from the cache when it is fresh enough (``cache_minutes``, default
-    360). The free plan counts every game returned, 2,500 a month: without
-    the window the feed returns every game already priced weeks ahead (173
-    on the first call), so the window is asked for and checked, and a
-    month's tally stops fetching at ``monthly_budget``. Returns (events,
-    where they came from)."""
-    from datetime import timedelta
+def _load(path) -> dict | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
+
+def fast_due(blob: dict | None, events_: list[dict], now: datetime, c: dict) -> bool:
+    """Should the games about to start be re-read now? Games kicking off within
+    ``fast_hours`` (default 6) are re-read once their newest read is
+    ``fast_minutes`` (default 50) old, so a refresh an hour apart on a game day
+    sees prices an hour old, not six; the rest of the slate waits for the
+    ``cache_minutes`` pull. Off with ``fast_hours: 0``."""
+    hours = float(c.get("fast_hours", 6))
+    if hours <= 0 or not blob:
+        return False
+    soon = []
+    for e in events_:
+        try:
+            when = datetime.fromisoformat(str((e.get("status") or {}).get("startsAt")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if now < when <= now + timedelta(hours=hours):
+            soon.append(str(e.get("eventID") or ""))
+    if not soon:
+        return False
+    times = blob.get("event_times") or {}
+    oldest = min((datetime.fromisoformat(times[eid]) if eid in times else datetime.fromisoformat(blob["fetched_at"]))
+                 for eid in soon)
+    return (now - oldest).total_seconds() / 60.0 >= float(c.get("fast_minutes", 50))
+
+
+def _fetch(cfg: Config, key: str, now: datetime, until: datetime, c: dict, timeout: float, pages: int) -> list[dict]:
     import requests
 
-    global LAST_FETCHED
-
-    c = conf(cfg)
-    path = _cache(cfg)
-    max_age = float(c.get("cache_minutes", 360))
-    now = datetime.now(UTC)
-    until = now + timedelta(hours=float(c.get("window_hours", 96)))
-    if path.exists():
-        try:
-            blob = json.loads(path.read_text(encoding="utf-8"))
-            age = (now - datetime.fromisoformat(blob["fetched_at"])).total_seconds() / 60
-            if age <= max_age:
-                LAST_FETCHED = datetime.fromisoformat(blob["fetched_at"])
-                return _upcoming(blob["events"], now, until), f"cached {age:.0f} min ago"
-        except (OSError, ValueError, KeyError):
-            pass
-    key = api_key()
-    if not key:
-        return [], "no SPORTSGAMEODDS_API_KEY"
-    budget = int(c.get("monthly_budget", 2300))
-    used = used_this_month(cfg, now)
-    if used >= budget:
-        return [], f"monthly budget reached ({used} of {budget} games)"
     out, cursor = [], None
-    for _ in range(int(c.get("max_pages", 2))):
+    for _ in range(pages):
         params = {"leagueID": "NFL", "oddsAvailable": "true", "limit": int(c.get("page_size", 30)),
                   "startsAfter": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
                   "startsBefore": until.strftime("%Y-%m-%dT%H:%M:%SZ")}
@@ -214,11 +215,80 @@ def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
         cursor = body.get("nextCursor")
         if not cursor:
             break
+    return out
+
+
+def events(cfg: Config, timeout: float = 20.0) -> tuple[list[dict], str]:
+    """The NFL games starting in the next ``window_hours`` (default 96) with
+    odds, from the cache when it is fresh enough (``cache_minutes``, default
+    360). The free plan counts every game returned, 2,500 a month: without
+    the window the feed returns every game already priced weeks ahead (173
+    on the first call), so the window is asked for and checked, and a
+    month's tally stops fetching at ``monthly_budget``. Games about to start
+    are re-read sooner, on their own (:func:`fast_due`: the games within
+    ``fast_hours`` once their read is ``fast_minutes`` old), which costs a
+    few games a pull and stops at ``fast_share`` (default 0.85) of the
+    month's budget. Returns (events, where they came from); :data:`EVENT_FETCHED`
+    says when each game's prices were read."""
+    global LAST_FETCHED
+
+    c = conf(cfg)
+    path = _cache(cfg)
+    max_age = float(c.get("cache_minutes", 360))
+    now = datetime.now(UTC)
+    until = now + timedelta(hours=float(c.get("window_hours", 96)))
+    blob = _load(path)
+    held, note = None, ""
+    if blob:
+        try:
+            age = (now - datetime.fromisoformat(blob["fetched_at"])).total_seconds() / 60
+            if age <= max_age:
+                held = _upcoming(blob["events"], now, until)
+                note = f"cached {age:.0f} min ago"
+        except (KeyError, ValueError):
+            blob = None
+    key = api_key()
+    budget = int(c.get("monthly_budget", 2300))
+    used = used_this_month(cfg, now)
+    if held is not None:
+        times = (blob or {}).get("event_times") or {}
+        if key and fast_due(blob, held, now, c) and used < budget * float(c.get("fast_share", 0.85)):
+            soon_until = now + timedelta(hours=float(c.get("fast_hours", 6)))
+            try:
+                fresh = _fetch(cfg, key, now, soon_until, c, timeout, 1)
+            except Exception as exc:  # noqa: BLE001 - the cached pull still stands
+                log.warning("SportsGameOdds fast re-read failed: %s", type(exc).__name__)
+                fresh = []
+            fresh = _upcoming(fresh, now, soon_until)
+            if fresh:
+                ids = {str(e.get("eventID")) for e in fresh}
+                held = [e for e in held if str(e.get("eventID")) not in ids] + fresh
+                times = {**times, **{i: now.isoformat() for i in ids}}
+                try:
+                    path.write_text(json.dumps({"fetched_at": blob["fetched_at"], "events": held, "event_times": times}),
+                                    encoding="utf-8")
+                except OSError:
+                    pass
+                note += f"; {len(fresh)} games about to start re-read"
+        stamp = datetime.fromisoformat(blob["fetched_at"])
+        EVENT_FETCHED.clear()
+        EVENT_FETCHED.update({str(e.get("eventID")): datetime.fromisoformat(times[str(e.get("eventID"))])
+                              if str(e.get("eventID")) in times else stamp for e in held})
+        LAST_FETCHED = max(EVENT_FETCHED.values(), default=stamp)
+        return held, note
+    if not key:
+        return [], "no SPORTSGAMEODDS_API_KEY"
+    if used >= budget:
+        return [], f"monthly budget reached ({used} of {budget} games)"
+    out = _fetch(cfg, key, now, until, c, timeout, int(c.get("max_pages", 2)))
     returned = len(out)
     out = _upcoming(out, now, until)
     LAST_FETCHED = now
+    EVENT_FETCHED.clear()
+    EVENT_FETCHED.update({str(e.get("eventID")): now for e in out})
     try:
-        path.write_text(json.dumps({"fetched_at": now.isoformat(), "events": out}), encoding="utf-8")
+        path.write_text(json.dumps({"fetched_at": now.isoformat(), "events": out,
+                                   "event_times": {i: now.isoformat() for i in EVENT_FETCHED}}), encoding="utf-8")
     except OSError:
         pass
     return out, f"{len(out)} games fetched ({returned} counted; {used + returned} this month)"
@@ -276,6 +346,12 @@ def merge(primary: pd.DataFrame, extra: pd.DataFrame, cfg: Config) -> pd.DataFra
     return pd.concat([kept, new], ignore_index=True)
 
 
+def quote_stamps(event_ids: pd.Series) -> pd.Series:
+    """When each row's game was read from the feed (ISO text), falling back to the pull's own time."""
+    fallback = LAST_FETCHED.isoformat() if LAST_FETCHED is not None else None
+    return event_ids.map(lambda e: EVENT_FETCHED[str(e)].isoformat() if str(e) in EVENT_FETCHED else fallback)
+
+
 def props_frame(cfg: Config) -> tuple[pd.DataFrame, str]:
     """The props frame from SportsGameOdds, and a note on where it came from.
     Empty (with the reason) when there is no key or the call fails."""
@@ -286,7 +362,7 @@ def props_frame(cfg: Config) -> tuple[pd.DataFrame, str]:
     except Exception as exc:  # noqa: BLE001 - a second source never blocks the first
         return pd.DataFrame(columns=COLUMNS), f"unavailable: {type(exc).__name__}"
     frame = parse(evs)
-    frame["quoted_at"] = LAST_FETCHED.isoformat() if LAST_FETCHED is not None else None
+    frame["quoted_at"] = quote_stamps(frame["event_id"])
     return frame, f"{note}; {frame['player'].nunique() if not frame.empty else 0} players priced"
 
 

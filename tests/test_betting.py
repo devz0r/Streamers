@@ -155,3 +155,20 @@ def test_a_market_last_seen_two_days_ago_is_not_offered():
     assert len(betting.board(lines))                                     # judged among themselves, it would flag
     assert betting.board(lines, now="2026-11-08T12:00:00+00:00").empty   # but nobody has shown it for two days
     assert len(betting.board(lines, now="2026-11-06T15:00:00+00:00"))    # three hours on, still an offer
+
+
+def test_a_newly_recommended_price_is_written_for_the_alert_once(tmp_path, monkeypatch):
+    import json
+
+    cfg = get_config()
+    monkeypatch.setattr(betting, "path", lambda _c: tmp_path / "bet_log.parquet")
+    monkeypatch.setattr(type(cfg), "path", lambda self, name: tmp_path, raising=False)
+    lines = pd.DataFrame([_q("fanduel", 120, -150, at="2026-11-08T11:50:00+00:00"), _q("betmgm", -110, -110),
+                          _q("caesars", -112, -108), _q("pinnacle", -105, -115)])
+    b = betting.board(lines)
+    first = betting.new_recommended(b, cfg, "2026-11-08T12:05:00+00:00")
+    assert json.loads((tmp_path / "betting_alert.json").read_text())["built_at"] == "2026-11-08T12:05:00+00:00"
+    rec = b[b.kind.isin(["way off", "market"]) & (b.ev_market > 0) & (b.ev > 0)]
+    assert len(first["new"]) == len(rec)
+    betting.flag(b, cfg)
+    assert betting.new_recommended(b, cfg, "2026-11-08T12:35:00+00:00")["new"] == []        # logged: not new again

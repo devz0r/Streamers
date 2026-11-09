@@ -335,6 +335,34 @@ def path(cfg: Config):
     return cfg.path("results") / "bet_log.parquet"
 
 
+def new_recommended(board_: pd.DataFrame, cfg: Config, stamp: str) -> dict:
+    """The recommended prices (the books' read and the combined one both
+    positive) this pull would log for the first time, as ``results/betting_alert.json``
+    -- what the workflow turns into a phone alert. Rewritten every build (empty when
+    there is nothing new), with the build's time so a stale file is never alerted twice.
+    One line per bet: no secrets, only what the Betting tab already shows."""
+    import json
+
+    new = []
+    if board_ is not None and len(board_):
+        rec = board_[board_["kind"].isin(["way off", "market"]) & (board_["ev_market"] > 0) & (board_["ev"] > 0)]
+        k = KEY + ["side", "line", "book"]
+        p = path(cfg)
+        if len(rec) and p.exists():
+            old = pd.read_parquet(p)
+            seen = set(map(tuple, old[k].to_numpy().tolist())) if len(old) else set()
+            rec = rec[[tuple(r) not in seen for r in rec[k].to_numpy().tolist()]]
+        for r in rec.sort_values("ev_market", ascending=False).head(8).itertuples():
+            new.append({"player": r.player, "stat": r.stat, "side": r.side, "line": float(r.line), "book": r.book,
+                        "price": float(r.price), "ev_market": round(float(r.ev_market), 3), "kind": r.kind,
+                        "read_at": str(r.logged_at)})
+    out = {"built_at": stamp, "new": new}
+    f = cfg.path("results") / "betting_alert.json"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
+    return out
+
+
 def flag(flagged: pd.DataFrame, cfg: Config) -> int:
     """Add the flagged prices not already logged; returns how many were new.
     A bet is keyed by player, stat, side, line and book, so a price that stays
@@ -483,6 +511,7 @@ def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now
 
     stamp = now or pd.Timestamp.now(tz="UTC").isoformat()
     flagged = board(lines, exclude=started, min_ev=0.0, ours=ours, now=stamp)
+    alert = new_recommended(flagged, cfg, stamp)
     new = flag(flagged, cfg)
     graded = settle(cfg, lines)
     record = summary(graded)
