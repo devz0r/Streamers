@@ -52,3 +52,13 @@ def test_the_page_uses_the_exponent_the_grading_reports():
 
     assert G.K0 == WIN_SHRINK
     assert float(G.k_live(1.0)) == WIN_SHRINK and float(G.k_live(0.0)) == G.K_END
+
+
+def test_the_page_reads_playing_on_the_grid_the_grading_used():
+    js = (ROOT / "src" / "streamer" / "static" / "live.js").read_text(encoding="utf-8")
+    grid = re.search(r"var SHARE_PLAYED = \[([^\]]+)\]", js).group(1)
+    assert tuple(float(x) for x in grid.split(",")) == tuple(float(x) for x in G.SHARE_PLAYED)
+    assert float(re.search(r"var PLAYS_HEALTHY = ([0-9.]+);", js).group(1)) == G.PLAYS_HEALTHY
+    table = {"WR": [1.0] + [0.5] * 11 + [0.0]}
+    assert G.playing("WR", 1.0, True, 0.3, table) == 1.0
+    assert abs(G.playing("WR", 1.0, False, 0.3, table) - 0.935 * 0.5 / (0.935 * 0.5 + 0.065)) < 1e-12

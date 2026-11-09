@@ -240,6 +240,60 @@
     return new Int16Array(u.buffer);
   }
 
+  // -- whether he is playing ---------------------------------------------
+  /* A starter's draws carry the chance he sits (an injury tag's coin; for a
+     healthy starter, none). Once his game is on, the box score says more:
+     a pass, carry or target means he is playing; none yet, as the game goes
+     on, means he may well not be. Of starters projected 6+ who played,
+     2022-2025, the share with no pass, carry or target yet by each point of
+     the game (SHARE_PLAYED), by position (scripts/grade_live_odds.py): */
+  var SHARE_PLAYED = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.375, 0.5, 0.625, 0.75, 0.875, 1];
+  var NONE_YET = {
+    QB: [1, 0.346, 0.148, 0.068, 0.055, 0.051, 0.05, 0.047, 0.042, 0.038, 0.032, 0.02, 0],
+    RB: [1, 0.511, 0.302, 0.187, 0.126, 0.085, 0.059, 0.035, 0.015, 0.011, 0.007, 0.004, 0],
+    WR: [1, 0.732, 0.562, 0.42, 0.332, 0.252, 0.196, 0.133, 0.048, 0.031, 0.019, 0.009, 0],
+    TE: [1, 0.763, 0.594, 0.46, 0.365, 0.288, 0.241, 0.172, 0.064, 0.029, 0.012, 0.006, 0]
+  };
+  /* A starter with no injury tag played 93.5% of the time (2022-2025, the
+     same starters; a questionable one at about his tag's chance). */
+  var PLAYS_HEALTHY = 0.935;
+
+  function noneYet(pos, played) {
+    var y = NONE_YET[pos];
+    if (!y) return 1;
+    for (var i = 1; i < SHARE_PLAYED.length; i++) {
+      if (played <= SHARE_PLAYED[i]) {
+        var a = SHARE_PLAYED[i - 1], b = SHARE_PLAYED[i], t = (played - a) / (b - a);
+        return y[i - 1] + t * (y[i] - y[i - 1]);
+      }
+    }
+    return 0;
+  }
+
+  /* The chance he is playing: 1 once he has touched the ball; before his
+     game, as the draws have it; in progress with nothing yet, his prior
+     chance weighed against how rarely a player who is in has nothing by now. */
+  function playing(p, involved, started, played) {
+    if (!NONE_YET[p.pos]) return null;                 // kickers and defences: no coin
+    if (!started) return null;                         // the draws as they are
+    if (involved) return 1;
+    var prior = Math.min(p.q === undefined ? 1 : p.q, PLAYS_HEALTHY), s = noneYet(p.pos, played);
+    return prior * s / (prior * s + 1 - prior);
+  }
+
+  function involvedIn(summary, p, alias) {
+    var T = boxStats(summary, alias)[p.tm], s = find(T, p);
+    if (!s) return false;
+    return Object.keys(s).some(function (k) { return /^(passing|rushing|receiving)\./.test(k); });
+  }
+
+  function bits(b64, n) {
+    if (!b64) return null;
+    var s = (typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("binary")), out = new Uint8Array(n);
+    for (var i = 0; i < n; i++) out[i] = (s.charCodeAt(i >> 3) >> (i & 7)) & 1;
+    return out;
+  }
+
   /* What a defence holds at kickoff, before anything has happened: the
      sheet's tiers for no points (and, where scored, no yards) allowed. */
   function dstBase(dst) {
@@ -252,9 +306,24 @@
   function totals(rows, draws, n, means, base) {
     var out = new Float64Array(n);
     rows.forEach(function (r, j) {
-      var m = means[j], f = r.left, root = Math.sqrt(f);
+      var m = means[j], f = r.left, root = Math.sqrt(f), pp = r.pp, sat = r.sat;
+      // Once he is known to be playing (pp set), a draw in which he sat takes a draw in which he
+      // played instead (the next one along), and his remaining mean is his mean if he plays.
+      var ok = null;
+      if (pp !== null && pp !== undefined && sat) {
+        ok = [];
+        for (var k = 0; k < n; k++) if (!sat[k]) ok.push(k);
+        if (!ok.length) ok = null;
+      }
+      if (pp !== null && pp !== undefined && r.mp !== undefined) m = r.mp;
       for (var i = 0; i < n; i++) {
-        var d = draws[j * n + i] / 10, v;
+        var src = ok && sat[i] ? ok[(i * 7919) % ok.length] : i;
+        var d = draws[j * n + src] / 10, v;
+        // Not seen yet and maybe not playing: in a pp share of the draws he is, in the rest he scores nothing more.
+        if (pp !== null && pp !== undefined && pp < 1 && f > 0 && f < 1) {
+          var u = ((i + 0.5) * 0.6180339887498949 + j * 0.3819660112501051) % 1;
+          if (u >= pp) { out[i] += r.now; continue; }
+        }
         if (f >= 1) v = d;
         else if (f <= 0) v = r.now;
         // A defence starts with the sheet's points for nothing allowed (`base`) and gives them back as
@@ -327,7 +396,10 @@
         var sum = summaries[g.id], now = 0;
         if (g.state !== "pre" && sum) now = Math.round(pointsFor(p, g, sum, D.sc, D.teams) * 100) / 100;   // leagues score to the hundredth
         var left = g.state !== "pre" && !sum ? 1 : g.left;    // no box score yet: still the draw
-        return { p: p, now: now, left: left, dst: p.pos === "DST", label: g.label, state: g.state };
+        var on = g.state !== "pre" && !!sum, inv = on && involvedIn(sum, p, D.teams);
+        var pp = playing(p, inv, on, 1 - left);
+        return { p: p, now: now, left: left, dst: p.pos === "DST", label: g.label, state: g.state,
+                 pp: pp, mp: p.mp, sat: bits(p.x, D.n), involved: inv };
       });
     }
     var me = side(D.me), opp = side(D.opp);
@@ -512,7 +584,7 @@
 
   var api = { mount: mount, now: now, fetchNow: fetchNow, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
               kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games, shortLabel: shortLabel,
-              evaluate: evaluate, calibrated: calibrated, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
+              evaluate: evaluate, calibrated: calibrated, playing: playing, noneYet: noneYet, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.StreamerLive = api;
   if (typeof document !== "undefined") {

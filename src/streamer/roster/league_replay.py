@@ -261,9 +261,10 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
     ``strength_fade`` values whose odds are recorded beside the model's;
     ``units``: week -> defences and kickers (:func:`unit_rows`), streamed
     each week in waiver order, best projected first (their points in
-    ``points``); ``on_game(week, a, b, lineup_a, lineup_b, draws)`` is called
-    with every graded game's starters and its lineup draws (columns in that
-    order), for grading what the page does with them in-game."""
+    ``points``); ``on_game(week, a, b, lineup_a, lineup_b, draws, sat)`` is
+    called with every graded game's starters, its lineup draws (columns in
+    that order) and which draws had a player sit, for grading what the page
+    does with them in-game."""
     rng = np.random.default_rng(seed)
     out = Replay(season, seed)
     rows = {w: {p.player_id: p for p in ps} for w, ps in weekly.items()}
@@ -362,10 +363,11 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
                 if w != week:
                     continue
                 both = lineups[a] + lineups[b]
-                draws = lineup.sample_points(both, win_sims, np.random.default_rng(seed * 1000 + week * 10 + a))
+                sat = np.zeros((win_sims, len(both)), dtype=bool)
+                draws = lineup.sample_points(both, win_sims, np.random.default_rng(seed * 1000 + week * 10 + a), sits=sat)
                 ta, tb = draws[:, :len(lineups[a])].sum(axis=1), draws[:, len(lineups[a]):].sum(axis=1)
                 if on_game is not None:
-                    on_game(week, a, b, lineups[a], lineups[b], draws)
+                    on_game(week, a, b, lineups[a], lineups[b], draws, sat)
                 p_win = lineup.calibrated((ta > tb).mean() + 0.5 * (ta == tb).mean())
                 margin = ta - tb
                 real = scored[a] - scored[b]

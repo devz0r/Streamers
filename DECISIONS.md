@@ -5460,6 +5460,34 @@ a season share its games), -0.00075 log loss with a 95% interval of -0.0019 to
 number continuous with the tile; it is not a large correction. The straight
 line was worse than doing nothing, which is what grading is for.
 
-Not graded: the Yahoo sheet, lineups changed mid-week, and a questionable
-starter after his game kicks off (his draws still carry the chance he sits).
+Not graded: the Yahoo sheet, and lineups changed mid-week.
+
+**Whether a starter is playing.** A questionable starter's draws carry the
+chance he sits (zeros in about a quarter of them at a 75% tag), and the live
+card kept them after he had caught three passes; and a starter ruled out
+after the last build (or a healthy scratch) kept being credited his
+projection for the time left until his game ended. The box score settles it:
+a pass, carry or target means he is in; none yet means less and less as the
+game goes on. Of starters projected 6+ who played, 2022-2025, the share with
+no pass, carry or target yet:
+
+| played | 10% | 25% | 50% | 75% |
+|---|---|---|---|---|
+| QB | 14.8% | 5.1% | 4.2% | 3.2% |
+| RB | 30.2% | 8.5% | 1.5% | 0.7% |
+| WR | 56.2% | 25.2% | 4.8% | 1.9% |
+| TE | 59.4% | 28.8% | 6.4% | 1.2% |
+
+and a starter with no tag played 93.5% of the time (a questionable one at
+about his tag's chance: 76.7% against 72.2% tagged). So the card now treats
+him as in once he has touched the ball -- his sat draws replaced by played
+ones, his remaining mean his mean if he plays -- and, with nothing yet, as in
+with chance `prior x none_yet / (prior x none_yet + 1 - prior)`, `prior` his
+tag's chance capped at 0.935 (`static/live.js`, `playing`). Nothing is fitted
+beyond the measured table. On the replay (the table and the 0.935 from the
+other three seasons for each season graded), through the shipped mapping:
+log loss 0.39104 -> 0.39071 over all states, better in 2022-2024 and 0.00011
+worse in 2025; states with a questionable starter in progress (2,874) 0.43129
+-> 0.42823, better in all four; states with a starter in progress and no
+touch yet (3,833) 0.46477 -> 0.46182, better in three.
 

@@ -247,3 +247,57 @@ def test_a_defence_in_progress_keeps_what_it_has_and_gives_back_the_kickoff_base
     r = _node(js)
     # now = 6 + 5 (nothing allowed) + sacks; every draw is at his projection, so each total is now + 0.5 (9 - 11).
     assert r["mine"] == [pytest.approx(r["now"] - 1.0)] * 4
+
+
+def test_a_questionable_starter_carries_his_sit_draws_to_the_page(cfg):
+    from streamer.league.model import PlayerRow
+    from streamer.roster import lineup
+    from streamer.roster.live import payload
+
+    q = PlayerRow(player_id="101", name="P101", position="WR", team="KC", slot="WR", projection=12.0, projection_sd=5.0,
+                  outcome_sd=5.0, status="Q", play_probability=0.75)
+    theirs = [PlayerRow(player_id="201", name="P201", position="WR", team="BUF", slot="WR", projection=12.0,
+                        projection_sd=5.0, outcome_sd=5.0)]
+    opt = lineup.optimise([q], {"WR": 1}, theirs, n_sims=3000)
+
+    class Snap:
+        platform, profile, season, week = "espn", "espn", 2026, 7
+
+    d = payload(Snap(), opt, cfg.for_profile("espn"))
+    row = d["me"][0]
+    assert row["q"] == 0.75 and row["mp"] == pytest.approx(16.0) and "x" not in d["opp"][0]
+    sat = np.unpackbits(np.frombuffer(base64.b64decode(row["x"]), np.uint8), bitorder="little")[:d["n"]].astype(bool)
+    draws = np.frombuffer(base64.b64decode(d["S"]), "<i2")
+    assert 0.65 < sat.mean() < 0.85 or 0.15 < sat.mean() < 0.35        # about a quarter of the draws he sat
+    assert (draws[sat] == 0).all() and (draws[~sat] > 0).mean() > 0.9
+
+
+def test_whether_a_starter_is_playing_is_read_from_the_box_score():
+    got = _node("var p={pos:'WR',q:1},q={pos:'WR',q:0.75};console.log(JSON.stringify(["
+                "L.playing(p,false,false,0), L.playing(p,true,true,0.1), L.playing(p,false,true,0.1),"
+                "L.playing(p,false,true,0.5), L.playing(q,false,true,0.5), L.playing({pos:'K'},false,true,0.5)]))")
+    assert got[0] is None and got[1] == 1 and got[5] is None             # before kickoff: the draws; seen: in
+    assert 0.85 < got[2] < 0.95                                          # a quarter-early quiet start says little
+    assert 0.3 < got[3] < 0.5 and got[4] < got[3]                        # nothing by the half: probably out
+
+
+def test_a_questionable_starter_seen_playing_drops_his_sit_draws_and_one_never_seen_fades():
+    def b64bits(mask):
+        return base64.b64encode(np.packbits(np.asarray(mask, bool), bitorder="little").tobytes()).decode()
+
+    n = 8
+    draws = [0, 0, 10, 10, 10, 10, 10, 10]                                # sat in the first two
+    me = [{"n": "Rashee Rice", "pos": "WR", "tm": "KC", "eid": "3", "m": 7.5, "mp": 10.0, "q": 0.75, "slot": "WR",
+           "x": b64bits([1, 1, 0, 0, 0, 0, 0, 0])}]
+    D = {"n": n, "sc": SC, "teams": {}, "me": me,
+         "opp": [{"n": "Other Guy", "pos": "WR", "tm": "BUF", "eid": "99", "m": 18.0, "slot": "WR"}],
+         "S": _b64(draws), "O": _b64([18] * n)}
+    live = dict(GAME, state="in", left=0.5)
+    seen = _node(f"var R=L.evaluate({json.dumps(D)}, {{KC:{json.dumps(live)},BUF:{json.dumps(live)}}}, "
+                 f"{{'1': {json.dumps(SUMMARY)}}});console.log(JSON.stringify(Array.from(R.mineT)))")
+    # He has 23 at the half: every draw is a playing one, 23 + 0.5 x 10 + sqrt(.5)(10 - 10) = 28.
+    assert seen == [pytest.approx(28.0)] * n
+    gone = _node(f"var R=L.evaluate({json.dumps(D)}, {{KC:{json.dumps(dict(live, left=0.25))},BUF:{json.dumps(live)}}}, "
+                 f"{{'1': {{boxscore: {{players: []}}}}}});console.log(JSON.stringify(Array.from(R.mineT)))")
+    # Nothing by three quarters, tagged questionable: in most draws he adds nothing more.
+    assert sum(v == 0 for v in gone) >= 6

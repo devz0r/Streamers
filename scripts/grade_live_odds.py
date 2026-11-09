@@ -129,6 +129,15 @@ def kickoffs(schedules: pd.DataFrame, season: int) -> dict[tuple[int, str], tupl
     return out
 
 
+def first_touch(pbp: pd.DataFrame) -> dict[tuple[str, str], float]:
+    """(game id, player id) -> the share of the game played at his first pass, carry or target."""
+    p = pbp[pbp["game_seconds_remaining"].notna()]
+    t = (1.0 - p["game_seconds_remaining"].clip(0, 3600) / 3600.0).where(p["qtr"] <= 4, 1.0)
+    d = pd.concat([pd.DataFrame({"g": p["game_id"], "pid": p[c], "t": t})
+                   for c in ("passer_player_id", "rusher_player_id", "receiver_player_id")]).dropna()
+    return d.groupby(["g", "pid"])["t"].min().to_dict()
+
+
 class SoFar:
     """A season's points so far: ``now(week, player row, final points, stage)``."""
 
@@ -147,9 +156,16 @@ class SoFar:
         d = pd.concat(frames, ignore_index=True)
         self.table = {(g, p): (a, b, c, e) for g, p, a, b, c, e in
                       d[["game_id", "pid", "q25", "q50", "q75", "q100"]].itertuples(index=False)}
+        self.first = first_touch(raw)
 
     def game(self, week: int, team: str | None) -> tuple[int, str] | None:
         return self.when.get((int(week), team or ""))
+
+    def touched(self, week: int, p, stage: float) -> bool:
+        """Has he had a pass, carry or target by ``stage`` of his game?"""
+        g = self.game(week, p.team)
+        t = self.first.get((g[1], p.player_id)) if g is not None else None
+        return t is not None and t <= stage + 1e-9
 
     def now(self, week: int, p, final: float, stage: float) -> float:
         """His points through ``stage`` of his game: the official final less
@@ -190,6 +206,60 @@ def totals(draws: np.ndarray, m: np.ndarray, now: np.ndarray, left: np.ndarray, 
         else:
             mean = m[j] if pace <= 0 else (1 - pace) * m[j] + pace * max(now[j], 0.0) / (1 - f)
             v = np.maximum(now[j] + f * mean + np.sqrt(f) * (d - m[j]), now[j] - 2)
+        out += v
+    return out
+
+
+SKILL = ("QB", "RB", "WR", "TE")
+SHARE_PLAYED = (0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.375, 0.5, 0.625, 0.75, 0.875, 1)
+PLAYS_HEALTHY = 0.935                    # static/live.js: a starter with no injury tag who played, 2022-2025
+
+
+def none_yet_table(rows: pd.DataFrame) -> dict[str, list[float]]:
+    """Position -> the share of starters who played with no pass, carry or
+    target yet at each point of SHARE_PLAYED (``rows``: pos, first)."""
+    out = {}
+    for pos, g in rows[rows["first"].notna()].groupby("pos"):
+        out[pos] = [1.0] + [round(float((g["first"] > t).mean()), 3) for t in SHARE_PLAYED[1:-1]] + [0.0]
+    return out
+
+
+def playing(pos: str, q: float, touched: bool, played: float, table: dict, healthy: float = PLAYS_HEALTHY) -> float:
+    """live.js ``playing``: 1 once he has touched the ball; with nothing yet,
+    his prior chance against how rarely a player who is in has nothing by now."""
+    if touched:
+        return 1.0
+    prior = min(q, healthy)
+    s = float(np.interp(played, SHARE_PLAYED, table[pos]))
+    return prior * s / (prior * s + 1 - prior)
+
+
+def totals_live(draws: np.ndarray, sat: np.ndarray, m: np.ndarray, mp: np.ndarray, now: np.ndarray, left: np.ndarray,
+                dst: np.ndarray, pp: list, base: float, col0: int = 0) -> np.ndarray:
+    """live.js ``totals`` with a starter's chance of playing: a player known to
+    be in (``pp`` 1) has his sat draws replaced by played ones and his mean if
+    he plays; one not seen yet plays in a ``pp`` share of the draws."""
+    n = draws.shape[0]
+    out = np.zeros(n)
+    idx = np.arange(n)
+    for j in range(draws.shape[1]):
+        f, d, mean = float(left[j]), draws[:, j], m[j]
+        if pp[j] is not None:
+            ok = np.flatnonzero(~sat[:, j])
+            if sat[:, j].any() and len(ok):
+                d = np.where(sat[:, j], d[ok[(idx * 7919) % len(ok)]], d)
+            mean = mp[j]
+        if f >= 1:
+            v = d
+        elif f <= 0:
+            v = np.full(n, now[j])
+        elif dst[j]:
+            v = now[j] + f * (m[j] - base) + np.sqrt(f) * (d - m[j])
+        else:
+            v = np.maximum(now[j] + f * mean + np.sqrt(f) * (d - mean), now[j] - 2)
+        if pp[j] is not None and pp[j] < 1 and 0 < f < 1:
+            u = ((idx + 0.5) * 0.6180339887498949 + (j + col0) * 0.3819660112501051) % 1
+            v = np.where(u < pp[j], v, now[j])
         out += v
     return out
 
@@ -247,6 +317,23 @@ def player_study(weekly: dict, units: pd.DataFrame | None, cfg, schedules: pd.Da
     return pd.DataFrame(rows, columns=["season", "week", "pos", "m", "sd", "f", "now", "rest"])
 
 
+def touch_rows(weekly: dict, so_far: SoFar, season: int) -> pd.DataFrame:
+    """Every starter-grade skill player-week (projected 6+): position, tag and
+    when he first had a pass, carry or target (NaN: never)."""
+    rows = []
+    for week in range(1, 18):
+        for p in weekly[(season, week)]:
+            if p.position not in SKILL or float(p.projection or 0.0) < 6:
+                continue
+            g = so_far.game(week, p.team)
+            if g is None:
+                continue
+            rows.append((season, week, p.position, p.status or "", so_far.first.get((g[1], p.player_id), np.nan)))
+    d = pd.DataFrame(rows, columns=["season", "week", "pos", "status", "first"])
+    d["played"] = d["first"].notna()
+    return d
+
+
 def report_defences(d: pd.DataFrame, base: float) -> None:
     """A defence in progress: the blend first shipped against keeping what it
     has and giving back the kickoff base, as forecasts of its final score."""
@@ -297,14 +384,20 @@ PACES = (0.0, 0.05, 0.1)
 
 
 def states(week: int, a_rows: list, b_rows: list, draws: np.ndarray, points: dict, so_far: SoFar,
-           base: float | None = None) -> list[dict]:
+           base: float | None = None, sat: np.ndarray | None = None, table: dict | None = None) -> list[dict]:
     """One head-to-head game read at every kickoff window's start, quarter
     ends and half: the raw live P(win) (for each pace weight) and the share
     of the pre-game margin variance still to play."""
     rows = list(a_rows) + list(b_rows)
     n_a = len(a_rows)
+    from streamer.roster.lineup import _if_plays
+
     d = np.asarray(draws[:LIVE_SIMS], float)
+    sat = np.zeros(d.shape, bool) if sat is None else np.asarray(sat[:LIVE_SIMS], bool)
     m = np.array([float(p.projection or 0.0) for p in rows])
+    plays = [_if_plays(p) for p in rows]
+    mp = np.array([x[0] if x[2] > 0 else 0.0 for x in plays])
+    qs = [x[2] for x in plays]
     final = np.array([float(points.get((week, p.player_id), 0.0)) for p in rows])
     dst = np.array([p.position == "DST" for p in rows])
     win = [(so_far.game(week, p.team) or (None, None))[0] for p in rows]
@@ -336,6 +429,23 @@ def states(week: int, a_rows: list, b_rows: list, draws: np.ndarray, points: dic
             rec["raw"] = float((ta > tb).mean() + 0.5 * (ta == tb).mean())
             rec["left"] = float(min((ta - tb).var() / v0, 1.0)) if v0 > 0 else 0.0
             rec["dst_in_progress"] = int((dst & (left > 0) & (left < 1)).sum())
+            if table is not None:
+                # Whether each starter is playing, as the page now reads it from the box score.
+                pp = []
+                for j, p in enumerate(rows):
+                    started = left[j] < 1
+                    if p.position not in SKILL or not started:
+                        pp.append(None)
+                    else:
+                        pp.append(playing(p.position, qs[j], so_far.touched(week, p, 1 - left[j]), 1 - left[j], table))
+                ta = totals_live(d[:, :n_a], sat[:, :n_a], m[:n_a], mp[:n_a], now[:n_a], left[:n_a], dst[:n_a], pp[:n_a], base)
+                tb = totals_live(d[:, n_a:], sat[:, n_a:], m[n_a:], mp[n_a:], now[n_a:], left[n_a:], dst[n_a:], pp[n_a:], base,
+                                 col0=n_a)
+                rec["raw_new"] = float((ta > tb).mean() + 0.5 * (ta == tb).mean())
+                rec["left_new"] = float(min((ta - tb).var() / v0, 1.0)) if v0 > 0 else 0.0
+                live = [j for j in range(len(rows)) if pp[j] is not None and 0 < left[j] < 1]
+                rec["q_in_progress"] = int(sum(qs[j] < 1 for j in live))
+                rec["unseen_in_progress"] = int(sum(pp[j] < 1 for j in live))
             out.append(rec)
     return out
 
@@ -420,6 +530,18 @@ def report_states(g: pd.DataFrame) -> None:
     for name, c in (("blend (1 - f) now + f draw, first shipped", "raw0"), ("keeps what it has, gives back the kickoff base", "raw")):
         per = "  ".join(f"{s}: {brier(gs[c], gs.won):.5f}" for s, gs in d.groupby("season"))
         print(f"    {name:46s} {per}   all: {brier(d[c], d.won):.5f}")
+    if "raw_new" in g:
+        print("  whether a starter is playing, read from the box score (raw draws, then each through the shipped mapping):")
+        for name, d in (("all states", g), ("a questionable starter in progress", g[g.q_in_progress > 0]),
+                        ("a starter in progress with no touch yet", g[g.unseen_in_progress > 0])):
+            line = []
+            for c, lc in (("raw", "left"), ("raw_new", "left_new")):
+                pm = mapped(d[c], k_live(d[lc]))
+                per = " ".join(f"{s}: {logloss(pm[d.season == s], d.won[d.season == s]):.5f}" for s in sorted(d.season.unique()))
+                line.append(f"{'as before' if c == 'raw' else 'reading it':10s} Brier {brier(pm, d.won):.5f} log loss {logloss(pm, d.won):.5f} ({per})")
+            print(f"    {name} (n={len(d)}):")
+            for x in line:
+                print(f"      {x}")
     print("  the weight on a player's pace so far (as drawn, Brier by season):")
     for pace in PACES:
         c = f"raw{int(pace * 100)}"
@@ -457,8 +579,15 @@ def main() -> int:
         return 0
     rows = []
     base = dst_base(cfg)
+    sofars = {s: SoFar(s, cfg, schedules, units=unit_frame is not None) for s in SEASONS}
+    touches = pd.concat([touch_rows(weekly, sofars[s], s) for s in SEASONS], ignore_index=True)
+    print("\nno pass, carry or target yet, by share of the game played (all four seasons; static/live.js NONE_YET):")
+    for pos, ys in none_yet_table(touches).items():
+        print(f"  {pos}: {ys}")
+    print(f"  a starter with no injury tag played {touches[touches.status == ''].played.mean():.3f}")
     for season in SEASONS:
-        so_far = SoFar(season, cfg, schedules, units=unit_frame is not None)
+        so_far = sofars[season]
+        table = none_yet_table(touches[touches.season != season])        # held out: the other three seasons
         points = lr.points_by_week(history, season)
         units = None
         if unit_frame is not None:
@@ -470,8 +599,8 @@ def main() -> int:
             seed = 1000 * season + i
             got: list[dict] = []
 
-            def on_game(week, a, b, la, lb, draws, got=got, points=points, so_far=so_far):
-                for r in states(week, la, lb, draws, points, so_far, base):
+            def on_game(week, a, b, la, lb, draws, sat, got=got, points=points, so_far=so_far, table=table):
+                for r in states(week, la, lb, draws, points, so_far, base, sat, table):
                     got.append({"week": week, "a": a, "b": b, **r})
 
             r = lr.play(season, seed, per_week, points, byes, cfg, units=units, checkpoints=(), on_game=on_game)

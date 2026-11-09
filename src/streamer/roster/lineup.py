@@ -162,6 +162,11 @@ class Optimisation:
     #: for the page's score charts.
     win_totals: np.ndarray | None = None
     opp_totals: np.ndarray | None = None
+    #: For the same draws as ``samples`` / ``opp_player_samples``: whether
+    #: each player's injury coin came up "sits" (a questionable player's
+    #: zeros), so the live card can drop them once he is seen playing.
+    sample_sits: np.ndarray | None = None
+    opp_player_sits: np.ndarray | None = None
     #: Moves within the recommended lineup that put the latest kickoff in a
     #: flex slot: (flex slot, player moved in, the slot the other one takes,
     #: player moved out of the flex).
@@ -772,6 +777,8 @@ def optimise(
         opp_ids=opp_ids, opp_player_samples=confirm[:keep, [index[i] for i in opp_ids]] if opp_ids else None,
         opp_bench=opp_bench, opp_notes=opp_notes, flex_moves=flex_moves,
         win_totals=totals[pick], opp_totals=opp_total,
+        sample_sits=sits[:keep, [index[i] for i in ids]],
+        opp_player_sits=sits[:keep, [index[i] for i in opp_ids]] if opp_ids else None,
     )
 
 

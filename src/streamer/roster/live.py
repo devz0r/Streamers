@@ -73,9 +73,24 @@ def _b64(values: np.ndarray) -> str:
     return base64.b64encode(np.round(values * 10).clip(-32000, 32000).astype("<i2").tobytes()).decode()
 
 
-def _row(p: PlayerRow, slot: str, eid: str | None) -> dict:
-    return {"n": p.name, "pos": p.position, "tm": normalize_team(p.team) or (p.team or ""),
-            "eid": eid, "slot": slot, "m": round(float(p.week_value), 2)}
+def _bits(mask: np.ndarray) -> str:
+    """A boolean per draw, packed eight to a byte (little bit order), base64."""
+    return base64.b64encode(np.packbits(np.asarray(mask, bool), bitorder="little").tobytes()).decode()
+
+
+def _row(p: PlayerRow, slot: str, eid: str | None, sits: np.ndarray | None = None) -> dict:
+    """A starter for the live card. ``q`` is his chance to play as the draws
+    have it and ``mp`` his mean if he plays (``m`` mixes in the chance he
+    sits); ``x`` marks the draws in which he sat, when any did."""
+    from .lineup import _if_plays
+
+    mean, _sd, q = _if_plays(p)
+    row = {"n": p.name, "pos": p.position, "tm": normalize_team(p.team) or (p.team or ""),
+           "eid": eid, "slot": slot, "m": round(float(p.week_value), 2), "q": round(float(q), 3),
+           "mp": round(float(mean if p.actual_points is None else p.week_value), 2)}
+    if sits is not None and np.asarray(sits).any():
+        row["x"] = _bits(sits)
+    return row
 
 
 def payload(snapshot: LeagueSnapshot, opt, cfg: Config) -> dict | None:
@@ -95,6 +110,10 @@ def payload(snapshot: LeagueSnapshot, opt, cfg: Config) -> dict | None:
     n = min(LIVE_SIMS, int(opt.samples.shape[0]), int(opt.opp_player_samples.shape[0]))
     mine_s = np.stack([opt.samples[:n, col[p.player_id]] for _s, p in me])           # (players, draws)
     theirs_s = np.asarray(opt.opp_player_samples[:n, :len(them)]).T
+    sits = getattr(opt, "sample_sits", None)
+    opp_sits = getattr(opt, "opp_player_sits", None)
+    mine_x = [sits[:n, col[p.player_id]] if sits is not None else None for _s, p in me]
+    theirs_x = [opp_sits[:n, j] if opp_sits is not None else None for j in range(len(them))]
     ids = espn_ids(snapshot, cfg, [p for _s, p in me + them])
     prof = cfg.profiles[cfg.profile]
     return {
@@ -102,8 +121,8 @@ def payload(snapshot: LeagueSnapshot, opt, cfg: Config) -> dict | None:
         "sc": {"off": prof.get("offense_scoring", {}), "k": prof.get("kicker_scoring", {}),
                "dst": prof.get("dst_scoring", {})},
         "teams": ESPN_TEAMS,
-        "me": [_row(p, s, ids.get(p.player_id)) for s, p in me],
-        "opp": [_row(p, s, ids.get(p.player_id)) for s, p in them],
+        "me": [_row(p, s, ids.get(p.player_id), x) for (s, p), x in zip(me, mine_x)],
+        "opp": [_row(p, s, ids.get(p.player_id), x) for (s, p), x in zip(them, theirs_x)],
         "S": _b64(mine_s), "O": _b64(theirs_s),
     }
 
