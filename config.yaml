@@ -166,6 +166,14 @@ profiles:
       pat_missed: 0.0
 
     dst_scoring:
+      # How the live card forecasts a defence still playing (static/live.js): its points so far
+      # decay by `live_decay` f^2 (f the share of the game left) and it gives back `live_giveback`
+      # of the points it started with, `now (1 - decay f^2) + f (projection - giveback)`. Fitted
+      # per sheet on 2022-2025 defence-games read at the end of each quarter, held out by season
+      # (scripts/grade_live_odds.py; DECISIONS.md "Grading the live win chance"). Unset: no decay
+      # and the sheet's points for a shutout, which is what ESPN's sheet fits.
+      live_decay: 0.57
+      live_giveback: 4.6
       sack: 1.0
       interception: 2.0
       fumble_recovery: 2.0

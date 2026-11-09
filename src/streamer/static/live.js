@@ -294,16 +294,25 @@
     return out;
   }
 
-  /* What a defence holds at kickoff, before anything has happened: the
-     sheet's tiers for no points (and, where scored, no yards) allowed. */
-  function dstBase(dst) {
+  /* How a defence still playing is forecast: `now (1 - decay f^2) + f (m - giveback)`
+     (f the share of the game left, m its projection), plus the draw's spread
+     about its projection. `giveback` is what it holds at kickoff and gives
+     back as the game goes (the sheet's points for nothing allowed, and no
+     yards where those score), `decay` how fast its points so far are worth
+     less than they read (the opponent's score only rises). ESPN's sheet fits
+     decay 0 and the shutout points; Yahoo's, steeper in points allowed and
+     without yardage, decay 0.57 and 4.6 (config.yaml `live_decay` /
+     `live_giveback`). Graded in scripts/grade_live_odds.py. */
+  function dstParams(dst) {
     dst = dst || {};
-    return tier(0, dst.points_allowed_tiers) + (dst.yards_allowed_tiers ? tier(0, dst.yards_allowed_tiers) : 0);
+    var shutout = tier(0, dst.points_allowed_tiers) + (dst.yards_allowed_tiers ? tier(0, dst.yards_allowed_tiers) : 0);
+    return { decay: dst.live_decay != null ? num(dst.live_decay) : 0,
+             giveback: dst.live_giveback != null ? num(dst.live_giveback) : shutout };
   }
 
   /* Totals per draw for one side: rows[j] = {now, left, dst}, draws as
      players x n in tenths. */
-  function totals(rows, draws, n, means, base) {
+  function totals(rows, draws, n, means, dp) {
     var out = new Float64Array(n);
     rows.forEach(function (r, j) {
       var m = means[j], f = r.left, root = Math.sqrt(f), pp = r.pp, sat = r.sat;
@@ -326,11 +335,8 @@
         }
         if (f >= 1) v = d;
         else if (f <= 0) v = r.now;
-        // A defence starts with the sheet's points for nothing allowed (`base`) and gives them back as
-        // the game goes: it keeps what it has, less the share of the base still at risk. (Blending its
-        // score toward the draw, as first shipped, threw away half of a big first half: graded worse
-        // in all of 2022-2025, scripts/grade_live_odds.py.)
-        else if (r.dst) v = r.now + f * (m - (base || 0)) + root * (d - m);
+        // A defence keeps part of what it has and gives back what it started with (dstParams).
+        else if (r.dst) v = r.now * (1 - dp.decay * f * f) + f * (m - dp.giveback) + root * (d - m);
         else v = Math.max(r.now + f * m + root * (d - m), r.now - 2);
         out[i] += v;
       }
@@ -404,12 +410,12 @@
     }
     var me = side(D.me), opp = side(D.opp);
     var S = decode(D.S), O = decode(D.O), n = D.n;
-    var base = dstBase((D.sc || {}).dst);
-    var mineT = totals(me, S, n, D.me.map(function (p) { return p.m; }), base);
-    var oppT = totals(opp, O, n, D.opp.map(function (p) { return p.m; }), base);
+    var dp = dstParams((D.sc || {}).dst);
+    var mineT = totals(me, S, n, D.me.map(function (p) { return p.m; }), dp);
+    var oppT = totals(opp, O, n, D.opp.map(function (p) { return p.m; }), dp);
     var pre = function (rows) { return rows.map(function (r) { return { now: 0, left: 1, dst: r.dst }; }); };
-    var mine0 = totals(pre(me), S, n, D.me.map(function (p) { return p.m; }), base);
-    var opp0 = totals(pre(opp), O, n, D.opp.map(function (p) { return p.m; }), base);
+    var mine0 = totals(pre(me), S, n, D.me.map(function (p) { return p.m; }), dp);
+    var opp0 = totals(pre(opp), O, n, D.opp.map(function (p) { return p.m; }), dp);
     var sum = function (rows) { return rows.reduce(function (s, r) { return s + (r.state && r.state !== "pre" ? r.now : 0); }, 0); };
     var raw = winShare(mineT, oppT), raw0 = winShare(mine0, opp0), v0 = marginVar(mine0, opp0);
     var left = v0 > 0 ? Math.min(marginVar(mineT, oppT) / v0, 1) : 0;
@@ -584,7 +590,7 @@
 
   var api = { mount: mount, now: now, fetchNow: fetchNow, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
               kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games, shortLabel: shortLabel,
-              evaluate: evaluate, calibrated: calibrated, playing: playing, noneYet: noneYet, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
+              evaluate: evaluate, calibrated: calibrated, dstParams: dstParams, playing: playing, noneYet: noneYet, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.StreamerLive = api;
   if (typeof document !== "undefined") {

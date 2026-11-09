@@ -301,3 +301,10 @@ def test_a_questionable_starter_seen_playing_drops_his_sit_draws_and_one_never_s
                  f"{{'1': {{boxscore: {{players: []}}}}}});console.log(JSON.stringify(Array.from(R.mineT)))")
     # Nothing by three quarters, tagged questionable: in most draws he adds nothing more.
     assert sum(v == 0 for v in gone) >= 6
+
+
+def test_a_sheet_can_set_how_a_defence_in_progress_is_forecast():
+    got = _node("console.log(JSON.stringify([L.dstParams({points_allowed_tiers:[[0,0,10],[1,6,7]]}),"
+                "L.dstParams({points_allowed_tiers:[[0,0,6]],yards_allowed_tiers:[[0,99,5]]}),"
+                "L.dstParams({points_allowed_tiers:[[0,0,10]],live_decay:0.57,live_giveback:4.6})]))")
+    assert got == [{"decay": 0, "giveback": 10}, {"decay": 0, "giveback": 11}, {"decay": 0.57, "giveback": 4.6}]

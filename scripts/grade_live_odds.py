@@ -183,15 +183,13 @@ class SoFar:
 # The live rescoring, as static/live.js does it
 # ---------------------------------------------------------------------------
 def totals(draws: np.ndarray, m: np.ndarray, now: np.ndarray, left: np.ndarray, dst: np.ndarray,
-           pace: float = 0.0, dst_base: float | None = None) -> np.ndarray:
+           pace: float = 0.0, dst_params: tuple[float, float] | None = None) -> np.ndarray:
     """Each draw's total for one side (``live.js`` ``totals``). ``pace``: the
     share of a player's remaining mean taken from his pace so far instead of
-    his projection (0 as shipped). ``dst_base``: what a defence holds at
-    kickoff, before anything has happened (the sheet's points for no points
-    and no yards allowed); with it a defence in progress is ``now + f (m -
-    base) + sqrt(f) (draw - m)`` -- it keeps what it has and gives the base
-    back as the game goes -- and without it the blend first shipped,
-    ``(1 - f) now + f draw``."""
+    his projection (0 as shipped). ``dst_params``: ``(decay, giveback)`` for a
+    defence in progress, ``now (1 - decay f^2) + f (m - giveback) + sqrt(f)
+    (draw - m)`` (static/live.js ``dstParams``); without it the blend first
+    shipped, ``(1 - f) now + f draw``."""
     out = np.zeros(draws.shape[0])
     for j in range(draws.shape[1]):
         f, d = float(left[j]), draws[:, j]
@@ -199,10 +197,10 @@ def totals(draws: np.ndarray, m: np.ndarray, now: np.ndarray, left: np.ndarray, 
             v = d
         elif f <= 0:
             v = np.full_like(d, now[j])
-        elif dst[j] and dst_base is None:
+        elif dst[j] and dst_params is None:
             v = (1 - f) * now[j] + f * d
         elif dst[j]:
-            v = now[j] + f * (m[j] - dst_base) + np.sqrt(f) * (d - m[j])
+            v = now[j] * (1 - dst_params[0] * f * f) + f * (m[j] - dst_params[1]) + np.sqrt(f) * (d - m[j])
         else:
             mean = m[j] if pace <= 0 else (1 - pace) * m[j] + pace * max(now[j], 0.0) / (1 - f)
             v = np.maximum(now[j] + f * mean + np.sqrt(f) * (d - m[j]), now[j] - 2)
@@ -235,7 +233,7 @@ def playing(pos: str, q: float, touched: bool, played: float, table: dict, healt
 
 
 def totals_live(draws: np.ndarray, sat: np.ndarray, m: np.ndarray, mp: np.ndarray, now: np.ndarray, left: np.ndarray,
-                dst: np.ndarray, pp: list, base: float, col0: int = 0) -> np.ndarray:
+                dst: np.ndarray, pp: list, dp: tuple[float, float], col0: int = 0) -> np.ndarray:
     """live.js ``totals`` with a starter's chance of playing: a player known to
     be in (``pp`` 1) has his sat draws replaced by played ones and his mean if
     he plays; one not seen yet plays in a ``pp`` share of the draws."""
@@ -254,7 +252,7 @@ def totals_live(draws: np.ndarray, sat: np.ndarray, m: np.ndarray, mp: np.ndarra
         elif f <= 0:
             v = np.full(n, now[j])
         elif dst[j]:
-            v = now[j] + f * (m[j] - base) + np.sqrt(f) * (d - m[j])
+            v = now[j] * (1 - dp[0] * f * f) + f * (m[j] - dp[1]) + np.sqrt(f) * (d - m[j])
         else:
             v = np.maximum(now[j] + f * mean + np.sqrt(f) * (d - mean), now[j] - 2)
         if pp[j] is not None and pp[j] < 1 and 0 < f < 1:
@@ -270,6 +268,13 @@ def dst_base(cfg) -> float:
 
     sc = DstScoring.from_config(cfg)
     return float(sc.points_allowed_points(0)) + (float(sc.yards_allowed_points(0)) if sc.scores_yards_allowed else 0.0)
+
+
+def dst_params(cfg) -> tuple[float, float]:
+    """(decay, giveback) as static/live.js reads them from the sheet: the profile's
+    ``live_decay`` / ``live_giveback``, else no decay and the shutout points."""
+    d = cfg.dst_scoring
+    return (float(d.get("live_decay", 0.0)), float(d.get("live_giveback", dst_base(cfg))))
 
 
 def mapped(p, k):
@@ -334,21 +339,34 @@ def touch_rows(weekly: dict, so_far: SoFar, season: int) -> pd.DataFrame:
     return d
 
 
-def report_defences(d: pd.DataFrame, base: float) -> None:
-    """A defence in progress: the blend first shipped against keeping what it
-    has and giving back the kickoff base, as forecasts of its final score."""
-    x = d[d.pos == "DST"]
+def report_defences(d: pd.DataFrame, base: float, dp: tuple[float, float] | None = None) -> None:
+    """A defence in progress, as forecasts of its final score (RMSE by season): the blend first shipped,
+    keeping what it has and giving back the shutout points (``base``), and -- the sheet's own two numbers
+    ``dp`` = (decay, giveback), as shipped -- ``now (1 - decay f^2) + f (m - giveback)``; then those two
+    numbers refitted on three seasons and scored on the fourth, with the fit on all four."""
+    from scipy.optimize import least_squares
+
+    x = d[d.pos == "DST"].copy()
     if x.empty:
         return
-    print(f"  a defence's final score from where it stands (kickoff base {base:g}): RMSE of the blend (1 - f) now + f m")
-    print("  against now + f (m - base), by season; and the real spread about the second against sqrt(f) x its spread")
+    x["final"] = x.now + x.rest
+    dp = dp or (0.0, base)
+    rm = lambda e: float(np.sqrt((np.asarray(e) ** 2).mean()))                              # noqa: E731
+    form = lambda p, g: g.now * (1 - p[0] * g.f ** 2) + g.f * (g.m - p[1])                   # noqa: E731
+    fit = lambda g: least_squares(lambda p: (g.final - form(p, g)).to_numpy(), [0.0, base]).x  # noqa: E731
+    print(f"  a defence's final score from where it stands (shutout points {base:g}; shipped decay {dp[0]:g}, giveback {dp[1]:g}):")
+    print("  RMSE by season: the blend (1 - f) now + f m  /  keeping what it has, giving back the shutout  /  the sheet's two numbers")
     for f, g in x.groupby("f"):
-        final = g.now + g.rest
-        blend, keep = (1 - f) * g.now + f * g.m, g.now + f * (g.m - base)
-        rm = lambda e: float(np.sqrt((e ** 2).mean()))                                     # noqa: E731
-        per = "  ".join(f"{s}: {rm((final - blend)[g.season == s]):.2f} -> {rm((final - keep)[g.season == s]):.2f}" for s in SEASONS)
-        print(f"  DST   {1 - f:4.0%} played: n={len(g):6d}  {per}   all: {rm(final - blend):.2f} -> {rm(final - keep):.2f}"
-              f"   spread {(final - keep).std():.2f} vs {(np.sqrt(g.f) * g.sd).mean():.2f} (the blend's own: {(g.f * g.sd).mean():.2f})")
+        blend = (1 - f) * g.now + f * g.m
+        per = "  ".join(f"{s}: {rm((g.final - blend)[g.season == s]):.2f} / {rm((g.final - g.now - f * (g.m - base))[g.season == s]):.2f}"
+                        f" / {rm((g.final - form(dp, g))[g.season == s]):.2f}" for s in SEASONS)
+        print(f"  DST {1 - f:4.0%} played: n={len(g):5d}  {per}")
+    print("  all quarter ends, RMSE: blend / keep / the sheet's two numbers, and the two numbers refitted on three seasons, held out:")
+    held = np.concatenate([(x[x.season == s].final - form(fit(x[x.season != s]), x[x.season == s])).to_numpy() for s in SEASONS])
+    blend = (1 - x.f) * x.now + x.f * x.m
+    print(f"    {rm(x.final - blend):.3f} / {rm(x.final - x.now - x.f * (x.m - base)):.3f} / {rm(x.final - form(dp, x)):.3f}"
+          f"   held out {rm(held):.3f}; fitted on all four: decay {fit(x)[0]:.2f}, giveback {fit(x)[1]:.2f}"
+          f" (by season held out: {', '.join(f'{rm(x[x.season == s].final - form(fit(x[x.season != s]), x[x.season == s])):.3f}' for s in SEASONS)})")
 
 
 def report_players(d: pd.DataFrame) -> None:
@@ -384,7 +402,8 @@ PACES = (0.0, 0.05, 0.1)
 
 
 def states(week: int, a_rows: list, b_rows: list, draws: np.ndarray, points: dict, so_far: SoFar,
-           base: float | None = None, sat: np.ndarray | None = None, table: dict | None = None) -> list[dict]:
+           dp: tuple[float, float] | None = None, sat: np.ndarray | None = None, table: dict | None = None,
+           shutout: float | None = None) -> list[dict]:
     """One head-to-head game read at every kickoff window's start, quarter
     ends and half: the raw live P(win) (for each pace weight) and the share
     of the pre-game margin variance still to play."""
@@ -423,11 +442,15 @@ def states(week: int, a_rows: list, b_rows: list, draws: np.ndarray, points: dic
                 rec[f"raw{int(pace * 100)}"] = float((ta > tb).mean() + 0.5 * (ta == tb).mean())
                 if pace == 0.0:
                     rec["left_blend"] = float(min((ta - tb).var() / v0, 1.0)) if v0 > 0 else 0.0
-            # The defence in progress keeping what it has (as now shipped): "raw" and "left" are this one's.
-            ta = totals(d[:, :n_a], m[:n_a], now[:n_a], left[:n_a], dst[:n_a], 0.0, base)
-            tb = totals(d[:, n_a:], m[n_a:], now[n_a:], left[n_a:], dst[n_a:], 0.0, base)
+            # The defence in progress as shipped for this sheet ("raw" and "left"), and keeping what it has
+            # and giving back only the shutout points (the ESPN-fitted first version, "raw_keep").
+            ta = totals(d[:, :n_a], m[:n_a], now[:n_a], left[:n_a], dst[:n_a], 0.0, dp)
+            tb = totals(d[:, n_a:], m[n_a:], now[n_a:], left[n_a:], dst[n_a:], 0.0, dp)
             rec["raw"] = float((ta > tb).mean() + 0.5 * (ta == tb).mean())
             rec["left"] = float(min((ta - tb).var() / v0, 1.0)) if v0 > 0 else 0.0
+            ka = totals(d[:, :n_a], m[:n_a], now[:n_a], left[:n_a], dst[:n_a], 0.0, (0.0, shutout))
+            kb = totals(d[:, n_a:], m[n_a:], now[n_a:], left[n_a:], dst[n_a:], 0.0, (0.0, shutout))
+            rec["raw_keep"] = float((ka > kb).mean() + 0.5 * (ka == kb).mean())
             rec["dst_in_progress"] = int((dst & (left > 0) & (left < 1)).sum())
             if table is not None:
                 # Whether each starter is playing, as the page now reads it from the box score.
@@ -438,8 +461,8 @@ def states(week: int, a_rows: list, b_rows: list, draws: np.ndarray, points: dic
                         pp.append(None)
                     else:
                         pp.append(playing(p.position, qs[j], so_far.touched(week, p, 1 - left[j]), 1 - left[j], table))
-                ta = totals_live(d[:, :n_a], sat[:, :n_a], m[:n_a], mp[:n_a], now[:n_a], left[:n_a], dst[:n_a], pp[:n_a], base)
-                tb = totals_live(d[:, n_a:], sat[:, n_a:], m[n_a:], mp[n_a:], now[n_a:], left[n_a:], dst[n_a:], pp[n_a:], base,
+                ta = totals_live(d[:, :n_a], sat[:, :n_a], m[:n_a], mp[:n_a], now[:n_a], left[:n_a], dst[:n_a], pp[:n_a], dp)
+                tb = totals_live(d[:, n_a:], sat[:, n_a:], m[n_a:], mp[n_a:], now[n_a:], left[n_a:], dst[n_a:], pp[n_a:], dp,
                                  col0=n_a)
                 rec["raw_new"] = float((ta > tb).mean() + 0.5 * (ta == tb).mean())
                 rec["left_new"] = float(min((ta - tb).var() / v0, 1.0)) if v0 > 0 else 0.0
@@ -527,7 +550,8 @@ def report_states(g: pd.DataFrame) -> None:
               f"{brier(mapped(d.raw, k_live(d.left)), d.won):.4f}   best exponent {kb:.2f} (shipped uses {k_live(d.left).mean():.2f})")
     d = g[g.dst_in_progress > 0]
     print(f"  a defence in progress (states with one, n={len(d)}; as drawn, Brier by season):")
-    for name, c in (("blend (1 - f) now + f draw, first shipped", "raw0"), ("keeps what it has, gives back the kickoff base", "raw")):
+    for name, c in (("blend (1 - f) now + f draw, first shipped", "raw0"), ("keeps what it has, gives back the shutout", "raw_keep"),
+                    ("this sheet's two numbers (shipped)", "raw")):
         per = "  ".join(f"{s}: {brier(gs[c], gs.won):.5f}" for s, gs in d.groupby("season"))
         print(f"    {name:46s} {per}   all: {brier(d[c], d.won):.5f}")
     if "raw_new" in g:
@@ -558,6 +582,9 @@ def main() -> int:
     ap.add_argument("--no-units", action="store_true")
     ap.add_argument("--out", help="a directory for the graded states (parquet)")
     ap.add_argument("--players-only", action="store_true")
+    ap.add_argument("--profile", default="espn",
+                    help="whose D/ST and K scoring and walk-forward unit projections (the weekly skill cache is "
+                         "the ESPN-sheet one: with another profile only the defence and kicker results mean something)")
     args = ap.parse_args()
     os.environ.setdefault("STREAMER_CREDIT_FREE", "1")
     logging.disable(logging.WARNING)
@@ -567,18 +594,19 @@ def main() -> int:
     from streamer.roster import ros_backtest as rb
     from streamer.roster.projections import load_history
 
-    cfg = get_config().for_profile("espn")
-    weekly = base.weekly_projections(cfg, args.weekly)
+    cfg = get_config().for_profile(args.profile)
+    weekly = base.weekly_projections(get_config().for_profile("espn"), args.weekly)
     unit_frame = None if args.no_units else base.unit_projections(cfg, args.units)
     history = load_history(cfg)
     schedules = pd.read_parquet(cfg.raw_dir / "schedules.parquet")
     players = player_study(weekly, unit_frame, cfg, schedules, history)
-    report_players(players)
-    report_defences(players, dst_base(cfg))
+    if args.profile == "espn":
+        report_players(players)
+    report_defences(players, dst_base(cfg), dst_params(cfg))
     if args.players_only:
         return 0
     rows = []
-    base = dst_base(cfg)
+    dp, shutout = dst_params(cfg), dst_base(cfg)
     sofars = {s: SoFar(s, cfg, schedules, units=unit_frame is not None) for s in SEASONS}
     touches = pd.concat([touch_rows(weekly, sofars[s], s) for s in SEASONS], ignore_index=True)
     print("\nno pass, carry or target yet, by share of the game played (all four seasons; static/live.js NONE_YET):")
@@ -600,7 +628,7 @@ def main() -> int:
             got: list[dict] = []
 
             def on_game(week, a, b, la, lb, draws, sat, got=got, points=points, so_far=so_far, table=table):
-                for r in states(week, la, lb, draws, points, so_far, base, sat, table):
+                for r in states(week, la, lb, draws, points, so_far, dp, sat, table, shutout):
                     got.append({"week": week, "a": a, "b": b, **r})
 
             r = lr.play(season, seed, per_week, points, byes, cfg, units=units, checkpoints=(), on_game=on_game)

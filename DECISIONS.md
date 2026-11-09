@@ -5430,8 +5430,8 @@ tiers -- nothing fitted, and at kickoff (`now = base`) it is the draw. Its
 forecast of the final beats the blend in every season at every reading (RMSE
 3.81 against 4.23, 5.17 against 5.82, 6.35 against 6.84) and matches a
 regression fitted for the purpose; states with a defence in progress, Brier
-0.15661 against 0.15906, better in all four seasons. Graded on ESPN's sheet
-only.
+0.15661 against 0.15906, better in all four seasons -- on ESPN's sheet. On
+Yahoo's it was not (below).
 
 **The mapping.** Phi(k Phi^-1(p)) with `k` a function of `left`, the margin's
 variance now over its variance before kickoff:
@@ -5512,4 +5512,33 @@ positive, not logged before) is written to `results/betting_alert.json` each
 build, and the workflow posts it to one rolling "Betting alerts" issue, which the
 GitHub app pushes to a phone (as the Yahoo sign-in alert does). Only what the Betting
 tab shows, no secrets; it says plainly the edge is unproven.
+
+**A defence on Yahoo's sheet.** The same forecast, graded on Yahoo's D/ST sheet
+(shutout 10, no yardage tiers; the walk-forward defence projections and points
+rebuilt under it), did not hold: RMSE of a defence's final score 4.66 against
+the blend's 4.62 (worse in three of four seasons at the half and the end of the
+third). Yahoo's sheet is steeper in points allowed and has no yardage, so a
+defence's points so far are worth less than they read as the opponent scores. A
+regression `final ~ a now + b m + c` was better on both sheets with stable
+coefficients, and `now (1 - decay f^2) + f (m - giveback)` captures it in two
+numbers per sheet. Fitted on three seasons and scored on the fourth: ESPN decay
+0.00 and giveback 10.4 (the shutout 11 reproduces it, RMSE 5.216 against 5.210),
+Yahoo decay 0.57 and giveback 4.6 (stable, 0.52-0.65 and 4.3-4.9 by fold), RMSE
+4.347 held out 4.355 against the blend's 4.624 and the shutout form's 4.662,
+better in all four seasons. Through the matchup (8,454 states with a defence in
+progress) Brier 0.15499 against 0.15620 for the blend and 0.15555 for the
+shutout form, better than the blend in all four seasons. ESPN is unchanged
+(no numbers set: no decay, the sheet's shutout points); Yahoo's are
+`live_decay` and `live_giveback` in `dst_scoring` (`config.yaml`),
+which the page reads from the card's scoring.
+
+**Not settled: the win-chance mapping on Yahoo.** The same replay under Yahoo's
+sheet is a hybrid (defences and kickers on Yahoo's, skill players still on
+nflverse's PPR, whose pass touchdown is 4 not Yahoo's 6, and the projections
+the ESPN-sheet ones), so it is not a Yahoo league. On it the mapping (1.12 end,
+power 2) is no better than the raw draws: log loss 0.39859 fitted, 0.39789 as
+drawn, better in 1 of 4 seasons, +0.0009 worse in total (NFL weeks resampled: 95% -0.0003 to
++0.0022). The pre-game `k` (0.78) was fitted on the ESPN-sheet replay too. Grading it on Yahoo
+properly needs a replay with Yahoo's skill scoring and projections; until then
+the live mapping is graded for ESPN's league only and applied to both.
 

@@ -37,11 +37,14 @@ def test_the_draws_are_rescored_as_the_page_does():
     half = np.array([0.5, 0.5])
     # A receiver at the half: 8 + 0.5 x 15 + sqrt(0.5) (draw - 15). A defence with 20 on a sheet that starts it at 11
     # keeps its 20 and gives back half the base: 20 + 0.5 (9 - 11).
-    got = G.totals(d, m, now, half, dst, dst_base=11.0)
+    got = G.totals(d, m, now, half, dst, dst_params=(0.0, 11.0))
     want = [8 + 7.5 + np.sqrt(0.5) * (x - 15) + 19.0 for x in (10.0, 20.0)]
     assert np.allclose(got, want)
-    assert np.allclose(G.totals(d, m, now, np.array([0.0, 0.0]), dst, dst_base=11.0), [28.0, 28.0])      # all final
-    assert np.allclose(G.totals(d, m, now, np.array([1.0, 1.0]), dst, dst_base=11.0), [19.0, 29.0])      # none started
+    assert np.allclose(G.totals(d, m, now, np.array([0.0, 0.0]), dst, dst_params=(0.0, 11.0)), [28.0, 28.0])      # all final
+    # A sheet with decay: 20 (1 - 0.5 x 0.25) + 0.5 (9 - 4) = 20 x 0.875 + 2.5
+    got = G.totals(d, m, now, half, dst, dst_params=(0.5, 4.0))
+    assert np.allclose(got - np.array([8 + 7.5 + np.sqrt(0.5) * (x - 15) for x in (10.0, 20.0)]), [20 * 0.875 + 2.5] * 2)
+    assert np.allclose(G.totals(d, m, now, np.array([1.0, 1.0]), dst, dst_params=(0.0, 11.0)), [19.0, 29.0])      # none started
 
 
 def test_the_page_uses_the_exponent_the_grading_reports():
@@ -62,3 +65,10 @@ def test_the_page_reads_playing_on_the_grid_the_grading_used():
     table = {"WR": [1.0] + [0.5] * 11 + [0.0]}
     assert G.playing("WR", 1.0, True, 0.3, table) == 1.0
     assert abs(G.playing("WR", 1.0, False, 0.3, table) - 0.935 * 0.5 / (0.935 * 0.5 + 0.065)) < 1e-12
+
+
+def test_the_page_reads_the_defence_numbers_the_grading_reads(cfg=None):
+    from streamer.config import get_config
+
+    yahoo, espn = get_config().for_profile("yahoo"), get_config().for_profile("espn")
+    assert G.dst_params(yahoo) == (0.57, 4.6) and G.dst_params(espn) == (0.0, G.dst_base(espn)) == (0.0, 11.0)
