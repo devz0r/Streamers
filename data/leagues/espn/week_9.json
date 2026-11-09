@@ -2864,7 +2864,7 @@
           "name": "Josh Jacobs",
           "position": "RB",
           "team": "GB",
-          "status": "QUESTIONABLE",
+          "status": "DOUBTFUL",
           "slot": "RB",
           "eligible_slots": [
             "FLEX",
@@ -16362,7 +16362,7 @@
       "name": "Andy Dalton",
       "position": "QB",
       "team": "ATL",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -17202,7 +17202,7 @@
       "name": "Jack Strand",
       "position": "QB",
       "team": "ATL",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -17272,7 +17272,7 @@
       "name": "Haynes King",
       "position": "QB",
       "team": "CAR",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -17762,7 +17762,7 @@
       "name": "Kedon Slovis",
       "position": "QB",
       "team": "BAL",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "QB",
@@ -24390,7 +24390,7 @@
       "name": "AJ Dillon",
       "position": "RB",
       "team": "CAR",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -41188,7 +41188,7 @@
       "name": "Elijah Sarratt",
       "position": "WR",
       "team": "BAL",
-      "status": "OUT",
+      "status": "",
       "slot": "FA",
       "eligible_slots": [
         "FLEX",
@@ -67015,7 +67015,7 @@
     "my_points": 104.54,
     "opp_points": 112.24
   },
-  "synced_at": "2026-11-09T20:43:53.947446+00:00",
+  "synced_at": "2026-11-09T20:59:50.130512+00:00",
   "extra": {
     "nfl_week": 9,
     "current_week": 9

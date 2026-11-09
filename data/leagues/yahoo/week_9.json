@@ -1169,7 +1169,7 @@
             "QB"
           ],
           "on_bye": false,
-          "platform_projection": 24.05,
+          "platform_projection": 24.06,
           "season_avg": null,
           "percent_owned": 100.0,
           "projection": null,
@@ -1799,7 +1799,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 8.45,
+          "platform_projection": 8.44,
           "season_avg": null,
           "percent_owned": 75.0,
           "projection": null,
@@ -7110,7 +7110,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 17.78,
+          "platform_projection": 17.79,
           "season_avg": null,
           "percent_owned": 100.0,
           "projection": null,
@@ -9514,7 +9514,7 @@
             "FLEX"
           ],
           "on_bye": false,
-          "platform_projection": 9.56,
+          "platform_projection": 9.55,
           "season_avg": null,
           "percent_owned": 53.0,
           "projection": null,
@@ -29615,7 +29615,7 @@
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-09T20:44:30.008485+00:00",
+  "synced_at": "2026-11-09T21:00:28.536954+00:00",
   "extra": {
     "source": "yahoo-web"
   },
