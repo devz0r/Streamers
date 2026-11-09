@@ -3804,19 +3804,10 @@ live P(win).)
 **The live number starts where the pre-game one stood.** Left unmapped, the
 live P(win) jumped at the first kickoff from the mapped pre-game figure to the
 raw draw (57.8% to 60% for a 60% draw) with nothing having happened, and its
-"before kickoff" figure disagreed with the tile. The live card now applies the
-same mapping with an exponent that eases to 1 as the game is played:
-`k_eff = k + (1 - k)(1 - left)`, `left` the margin's variance now over its
-variance before kickoff (`static/live.js`, `calibrated`). At kickoff it is
-the graded pre-game mapping; with nothing left it is the result. Points
-already scored are facts, so the pull belongs only to what is still
-projected -- but the path between the two ends is an interpolation and has
-not been graded against in-game results.
-
-The odds check now streams units too (`--units`; `--no-units` for the old
-setup), and its baseline was rewritten: P(win) 0.2366, P(playoffs) 0.1653,
-P(title) 0.0878 over 6 leagues a season. The first run on GitHub took 6
-minutes, not 20.
+"before kickoff" figure disagreed with the tile. The live card now maps the
+draw with an exponent that starts at the pre-game `k` and moves with the share
+of the game's uncertainty still to play; how it moves was then graded
+("Grading the live win chance", below).
 
 ### Rivals competing for the same waiver players: need still does not predict
 
@@ -5408,4 +5399,67 @@ Checked and left alone:
   chances the same. Kept.
 - *Parlays.* Legs from different games at one book, chances multiplied: sound
   as far as the legs' chances are.
+
+### Grading the live win chance
+
+`scripts/grade_live_odds.py` plays the replayed leagues of 2022-2025 (six a
+season, 1,680 head-to-head games, the production projections, lineups and
+draws) and reads each game at every NFL kickoff window's start, end of the
+first quarter, half and end of the third -- earlier windows final, later ones
+not started, each starter's points so far from the play-by-play (skill players
+play by play, within 0.06 of the official line; kickers and defences from the
+production scorers on the plays and score so far, exact at the final). 35,532
+in-game states, each scored against who won.
+
+**The player model holds.** A skill player in progress is `now + f m +
+sqrt(f)(draw - m)`. What he actually adds is 1.01-1.06 times `f m` at each
+quarter's end, with a spread 1.01-1.04 times `sqrt(f) sd` (10,907
+player-games). Leaning on his pace so far predicts the rest a hair better (a
+weight of 0.02-0.08) and the matchup's P(win) no better (Brier 0.13262 as
+is, 0.13264 at 0.05), so it is left out.
+
+**A defence in progress was wrong.** It was blended toward its draw, `(1 - f)
+now + f draw`, which throws away half of a big first half and has it far too
+sure of where it ends (real spread about the forecast 4.2 / 5.8 / 6.8 points
+at the three readings against the formula's 1.7 / 3.5 / 5.2). A defence
+starts with the sheet's points for nothing allowed (11 on ESPN's, 10 on
+Yahoo's) and gives them back as the game goes; its score so far carries
+straight through (a coefficient of 0.95-1.07 on `now` at every reading). So:
+`now + f (m - base) + sqrt(f)(draw - m)`, `base` read from the league's own
+tiers -- nothing fitted, and at kickoff (`now = base`) it is the draw. Its
+forecast of the final beats the blend in every season at every reading (RMSE
+3.81 against 4.23, 5.17 against 5.82, 6.35 against 6.84) and matches a
+regression fitted for the purpose; states with a defence in progress, Brier
+0.15661 against 0.15906, better in all four seasons. Graded on ESPN's sheet
+only.
+
+**The mapping.** Phi(k Phi^-1(p)) with `k` a function of `left`, the margin's
+variance now over its variance before kickoff:
+
+| mapping | log loss | Brier |
+|---|---|---|
+| as drawn (what the card did until this week) | 0.39180 | 0.13159 |
+| the pre-game 0.78 throughout | 0.39915 | 0.13298 |
+| a straight line from 0.78 to 1 (shipped the same morning, ungraded) | 0.39259 | 0.13169 |
+| **1.12 - 0.34 left^2** | **0.39104** | **0.13146** |
+
+The pre-game pull toward 50% fades fast, and past the midpoint the draws are
+slightly too *cautious*: as drawn, a side at 80-90% won 85.6% against 85.0%,
+at 90-97% 94.9% against 93.7%; the exponent that fits each slice best runs
+0.86, 0.94, 1.04, 1.08, 1.12 from most left to least. So the exponent starts
+at the pre-game 0.78 (the live number begins where the tile stood) and ends
+past 1. Its end and easing power, fitted on three seasons and scored on the
+fourth: 1.12 and 2 picked in three folds, 1.08 and 2 in the other; log loss
+0.39117 against 0.39180 as drawn and 0.39259 for the straight line, better
+than both in all four seasons. After it, favourites' bins read 84.8% against
+85.1% and 93.8% against 93.9%.
+
+The gain over the draws as they are is small: resampling NFL weeks (leagues in
+a season share its games), -0.00075 log loss with a 95% interval of -0.0019 to
++0.0004, better in 90% of resamples. It passes the rule and keeps the live
+number continuous with the tile; it is not a large correction. The straight
+line was worse than doing nothing, which is what grading is for.
+
+Not graded: the Yahoo sheet, lineups changed mid-week, and a questionable
+starter after his game kicks off (his draws still carry the chance he sits).
 

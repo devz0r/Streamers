@@ -146,3 +146,12 @@ def test_a_whole_number_line_on_a_count_stat_pushes_on_the_number():
     assert betting.p_over("receptions", 4.0, 4.5, {}) == st.poisson.sf(4, 4.0)
     assert betting.p_push("receptions", 4.0, 4.0) == st.poisson.pmf(4, 4.0) and betting.p_push("receptions", 4.0, 4.5) == 0
     assert abs(st.poisson.sf(4, mean_from_poisson_line(4.0, 0.4)) - 0.4) < 1e-6
+
+
+def test_a_market_last_seen_two_days_ago_is_not_offered():
+    old = "2026-11-06T12:00:00+00:00"
+    lines = pd.DataFrame([_q("fanduel", 120, -150, at=old), _q("betmgm", -110, -110, at=old),
+                          _q("caesars", -112, -108, at=old), _q("pinnacle", -105, -115, at=old)])
+    assert len(betting.board(lines))                                     # judged among themselves, it would flag
+    assert betting.board(lines, now="2026-11-08T12:00:00+00:00").empty   # but nobody has shown it for two days
+    assert len(betting.board(lines, now="2026-11-06T15:00:00+00:00"))    # three hours on, still an offer

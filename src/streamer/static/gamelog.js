@@ -195,8 +195,8 @@
         "keeps his draw cut to the time he has left. Each bar is the share of draws that landed there."
       : "From the " + n + " simulated games behind the percentage, as of the last update. Each bar is the share of draws that landed there.";
     var pnote = m.live ? pct(m.raw) + " of the simulated finishes go your way; the figure above is " + pct(m.p) +
-        (m.p0 !== undefined ? " (" + pct(m.p0) + " before kickoff)" : "") + ", the same as the live card: the pull toward 50% " +
-        "the model applies before kickoff, easing off as points are banked. Your lineup as set."
+        (m.p0 !== undefined ? " (" + pct(m.p0) + " before kickoff)" : "") + ", the same as the live card: adjusted the way " +
+        "2022&ndash;2025 in-game results say such draws turn out (a little toward 50% early, a little away from it late). Your lineup as set."
       : Math.abs(m.raw - m.p) < 0.0005 ? pct(m.raw) + " of the simulated games go your way."
       : "The simulation draws " + pct(m.raw) + " of games for you; the figure above is " + pct(m.p) +
         ": favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.";

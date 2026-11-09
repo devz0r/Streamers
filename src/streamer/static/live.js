@@ -240,9 +240,16 @@
     return new Int16Array(u.buffer);
   }
 
+  /* What a defence holds at kickoff, before anything has happened: the
+     sheet's tiers for no points (and, where scored, no yards) allowed. */
+  function dstBase(dst) {
+    dst = dst || {};
+    return tier(0, dst.points_allowed_tiers) + (dst.yards_allowed_tiers ? tier(0, dst.yards_allowed_tiers) : 0);
+  }
+
   /* Totals per draw for one side: rows[j] = {now, left, dst}, draws as
      players x n in tenths. */
-  function totals(rows, draws, n, means) {
+  function totals(rows, draws, n, means, base) {
     var out = new Float64Array(n);
     rows.forEach(function (r, j) {
       var m = means[j], f = r.left, root = Math.sqrt(f);
@@ -250,7 +257,11 @@
         var d = draws[j * n + i] / 10, v;
         if (f >= 1) v = d;
         else if (f <= 0) v = r.now;
-        else if (r.dst) v = (1 - f) * r.now + f * d;
+        // A defence starts with the sheet's points for nothing allowed (`base`) and gives them back as
+        // the game goes: it keeps what it has, less the share of the base still at risk. (Blending its
+        // score toward the draw, as first shipped, threw away half of a big first half: graded worse
+        // in all of 2022-2025, scripts/grade_live_odds.py.)
+        else if (r.dst) v = r.now + f * (m - (base || 0)) + root * (d - m);
         else v = Math.max(r.now + f * m + root * (d - m), r.now - 2);
         out[i] += v;
       }
@@ -286,19 +297,23 @@
     q = p - 0.5; r = q * q;
     return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
   }
-  /* P(win) as it happens from P(win) as drawn. Before kickoff this is the
-     lineup model's own mapping, Phi(k Phi^-1(p)) (lineup.calibrated:
-     favourites on paper win a little less often than drawn), so the live
-     number starts where the page's pre-game number stood. Points already
-     scored are facts, not projections, so the pull eases off with the share
-     of the pre-game uncertainty still to play (`left`, the margin's variance
-     now over its variance before kickoff): k -> 1 as left -> 0, and a
-     decided game reads as drawn. The in-between is an interpolation: the
-     two ends are exact, the path has not been graded (DECISIONS.md). */
+  /* P(win) as it happens from P(win) as drawn: Phi(k Phi^-1(p)), with the
+     exponent a function of `left`, the share of the pre-game uncertainty
+     still to play (the margin's variance now over its variance before
+     kickoff). With everything to play it is the lineup model's own k
+     (lineup.calibrated: favourites on paper win a little less often than
+     drawn), so the live number starts where the page's pre-game number
+     stood. In-game the draws turn out slightly too cautious instead (a side
+     drawn at 90-97% won 94.9%, 2022-2025), so the exponent rises past 1:
+     k = K_END - (K_END - k0) left^K_POWER. Graded on 35,532 in-game states
+     of 1,680 replayed games, the two numbers fitted on three seasons and
+     scored on the fourth: better than the draws as they are and than a
+     straight-line easing in all four (scripts/grade_live_odds.py;
+     DECISIONS.md, "Grading the live win chance"). */
+  var K_END = 1.12, K_POWER = 2;
   function calibrated(p, k, left) {
-    if (!k || k >= 1) return p;
-    var ke = k + (1 - k) * (1 - Math.min(Math.max(left, 0), 1));
-    if (ke >= 0.9999) return p;
+    if (!k || p <= 0 || p >= 1) return p;            // no mapping given; a decided game is decided
+    var l = Math.min(Math.max(left, 0), 1), ke = K_END - (K_END - k) * Math.pow(l, K_POWER);
     return ncdf(ke * nppf(Math.min(Math.max(p, 1e-6), 1 - 1e-6)));
   }
 
@@ -317,11 +332,12 @@
     }
     var me = side(D.me), opp = side(D.opp);
     var S = decode(D.S), O = decode(D.O), n = D.n;
-    var mineT = totals(me, S, n, D.me.map(function (p) { return p.m; }));
-    var oppT = totals(opp, O, n, D.opp.map(function (p) { return p.m; }));
+    var base = dstBase((D.sc || {}).dst);
+    var mineT = totals(me, S, n, D.me.map(function (p) { return p.m; }), base);
+    var oppT = totals(opp, O, n, D.opp.map(function (p) { return p.m; }), base);
     var pre = function (rows) { return rows.map(function (r) { return { now: 0, left: 1, dst: r.dst }; }); };
-    var mine0 = totals(pre(me), S, n, D.me.map(function (p) { return p.m; }));
-    var opp0 = totals(pre(opp), O, n, D.opp.map(function (p) { return p.m; }));
+    var mine0 = totals(pre(me), S, n, D.me.map(function (p) { return p.m; }), base);
+    var opp0 = totals(pre(opp), O, n, D.opp.map(function (p) { return p.m; }), base);
     var sum = function (rows) { return rows.reduce(function (s, r) { return s + (r.state && r.state !== "pre" ? r.now : 0); }, 0); };
     var raw = winShare(mineT, oppT), raw0 = winShare(mine0, opp0), v0 = marginVar(mine0, opp0);
     var left = v0 > 0 ? Math.min(marginVar(mineT, oppT) / v0, 1) : 0;

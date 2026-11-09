@@ -215,13 +215,35 @@ def test_the_live_card_carries_this_weeks_game_stakes_when_there_are_some():
     assert season_stakes(Snap(), None, stakes) is None
 
 
-def test_the_live_number_starts_at_the_pre_game_one_and_ends_as_drawn():
-    """Before kickoff the live P(win) is the lineup model's calibrated one; a decided game reads as drawn."""
+def test_the_live_number_starts_at_the_pre_game_one_and_follows_the_graded_exponent():
+    """Before kickoff the live P(win) is the lineup model's calibrated one; in-game the exponent is the
+    one graded on 2022-2025 (scripts/grade_live_odds.py), which rises past 1 as the game is played."""
+    from scipy.stats import norm
+
     from streamer.roster.lineup import WIN_SHRINK, calibrated
 
     got = _node(f"console.log(JSON.stringify([L.calibrated(0.7, {WIN_SHRINK}, 1), L.calibrated(0.7, {WIN_SHRINK}, 0),"
-                f"L.calibrated(0.7, {WIN_SHRINK}, 0.5), L.calibrated(0.7, undefined, 1), L.calibrated(1, {WIN_SHRINK}, 0)]))")
+                f"L.calibrated(0.7, {WIN_SHRINK}, 0.5), L.calibrated(0.7, undefined, 1), L.calibrated(1, {WIN_SHRINK}, 0),"
+                f"L.calibrated(0, {WIN_SHRINK}, 0.4)]))")
     assert got[0] == pytest.approx(float(calibrated(0.7)), abs=2e-4)      # all still to play: the tile's number
-    assert got[1] == 0.7                                                  # nothing left: as drawn
-    assert got[0] < got[2] < got[1]                                       # in between, in between
-    assert got[3] == 0.7 and got[4] == 1                                  # no mapping given; a locked win is 100%
+    assert got[1] == pytest.approx(float(norm.cdf(1.12 * norm.ppf(0.7))), abs=2e-4)
+    assert got[2] == pytest.approx(float(norm.cdf((1.12 - (1.12 - WIN_SHRINK) * 0.25) * norm.ppf(0.7))), abs=2e-4)
+    assert got[0] < got[2] < got[1]
+    assert got[3] == 0.7 and got[4] == 1 and got[5] == 0                  # no mapping given; decided is decided
+
+
+def test_a_defence_in_progress_keeps_what_it_has_and_gives_back_the_kickoff_base():
+    """At the half with 20 points, a 9-point defence on a sheet that starts it at 11: 20 + 0.5 (9 - 11) = 19."""
+    sc = {"off": {}, "k": {}, "dst": {"points_allowed_tiers": [[0, 0, 6], [1, 99, 0]], "yards_allowed_tiers": [[0, 99, 5], [100, 999, 0]]}}
+    D = {"n": 4, "sc": sc, "teams": {},
+         "me": [{"n": "Broncos D/ST", "pos": "DST", "tm": "DEN", "m": 9.0, "slot": "D/ST"}],
+         "opp": [{"n": "Other Guy", "pos": "WR", "tm": "BUF", "eid": "99", "m": 18.0, "slot": "WR"}],
+         "S": _b64([9, 9, 9, 9]), "O": _b64([18.5, 18.5, 19.5, 19.5])}
+    js = ("var D=" + json.dumps(D) + ";var g={DEN:{id:'1',home:'DEN',away:'KC',score:{KC:0,DEN:0},state:'in',left:0.5,label:'Half'},"
+          "BUF:{id:'2',home:'BUF',away:'MIA',score:{},state:'pre',left:1,label:''}};"
+          "var real=L.pointsFor;var R=L.evaluate(D,g,{'1':{boxscore:{players:[{team:{abbreviation:'DEN'},statistics:"
+          "[{name:'defensive',keys:['sacks'],athletes:[{athlete:{id:'7',displayName:'A B'},stats:['4.5']}]}]}]}}});"
+          "console.log(JSON.stringify({now:R.me[0].now,mine:Array.from(R.mineT)}))")
+    r = _node(js)
+    # now = 6 + 5 (nothing allowed) + sacks; every draw is at his projection, so each total is now + 0.5 (9 - 11).
+    assert r["mine"] == [pytest.approx(r["now"] - 1.0)] * 4

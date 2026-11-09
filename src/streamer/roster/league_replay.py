@@ -253,14 +253,17 @@ def coin_flip_odds(model: SeasonModel, rng: np.random.Generator) -> tuple[np.nda
 def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dict[tuple[int, str], float],
          byes: dict[str, set[int]], cfg: Config, n_sims: int = 2000, win_sims: int = 4000,
          checkpoints=CHECKPOINTS, log=None, upgrade: float | None = UPGRADE,
-         retentions: tuple[float, ...] = (), units: dict[int, list[PlayerRow]] | None = None) -> Replay:
+         retentions: tuple[float, ...] = (), units: dict[int, list[PlayerRow]] | None = None,
+         on_game=None) -> Replay:
     """Draft and play one league through week 17, grading as it goes.
     ``weekly``: week -> projected players (games before it only);
     ``points``: (week, player id) -> real PPR points; ``retentions``: other
     ``strength_fade`` values whose odds are recorded beside the model's;
     ``units``: week -> defences and kickers (:func:`unit_rows`), streamed
     each week in waiver order, best projected first (their points in
-    ``points``)."""
+    ``points``); ``on_game(week, a, b, lineup_a, lineup_b, draws)`` is called
+    with every graded game's starters and its lineup draws (columns in that
+    order), for grading what the page does with them in-game."""
     rng = np.random.default_rng(seed)
     out = Replay(season, seed)
     rows = {w: {p.player_id: p for p in ps} for w, ps in weekly.items()}
@@ -361,6 +364,8 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
                 both = lineups[a] + lineups[b]
                 draws = lineup.sample_points(both, win_sims, np.random.default_rng(seed * 1000 + week * 10 + a))
                 ta, tb = draws[:, :len(lineups[a])].sum(axis=1), draws[:, len(lineups[a]):].sum(axis=1)
+                if on_game is not None:
+                    on_game(week, a, b, lineups[a], lineups[b], draws)
                 p_win = lineup.calibrated((ta > tb).mean() + 0.5 * (ta == tb).mean())
                 margin = ta - tb
                 real = scored[a] - scored[b]

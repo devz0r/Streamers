@@ -35,6 +35,7 @@ MIN_OTHERS = 2          # other books quoting the player and stat before a price
 MIN_EV = 0.02           # expected profit per unit a flag needs
 STALE_MINUTES = 90      # a quote older than this behind the newest for its player and stat is not on offer
 ARB_MINUTES = 30        # a sure bet needs both prices read this close together: one stale leg is no arb
+MAX_AGE_HOURS = 8       # a price read longer ago than this is not offered as a bet (the second feed is re-read every 6)
 KEY = ["season", "week", "event_id", "stat", "player"]
 #: nflverse player_stats column a stat settles on.
 SETTLE = {"passing_yards": "passing_yards", "passing_tds": "passing_tds", "passing_interceptions": "passing_interceptions",
@@ -51,10 +52,18 @@ def _decimal(price: float) -> float:
     return 1.0 + (100.0 / -price if price < 0 else price / 100.0)
 
 
-def latest(lines: pd.DataFrame) -> pd.DataFrame:
-    """Each book's latest two-sided quote, with its own fair chance of the over."""
+def latest(lines: pd.DataFrame, now: str | None = None) -> pd.DataFrame:
+    """Each book's latest two-sided quote, with its own fair chance of the over.
+    With ``now`` (the board's build time), quotes read more than
+    ``MAX_AGE_HOURS`` before it are left out: a market every book last showed
+    two days ago is off the board, not a bet. Without it (grading the close),
+    the last quote before kickoff stands however old."""
     d = lines[lines["line"].notna() & lines["over_price"].notna() & lines["under_price"].notna()].copy()
     d = d.sort_values("logged_at").groupby(KEY[2:] + ["bookmaker", "season", "week"], dropna=False).tail(1)
+    if now is not None:
+        cut = pd.Timestamp(now) - pd.Timedelta(hours=MAX_AGE_HOURS)
+        cut = cut.tz_localize("UTC") if cut.tzinfo is None else cut
+        d = d[pd.to_datetime(d["logged_at"], utc=True) >= cut]
     # A book missing from the latest pull for this player and stat may have moved or pulled the line:
     # its last quote is history, not a price on offer. Keep quotes within STALE_MINUTES of the newest.
     newest = pd.to_datetime(d.groupby(KEY[2:] + ["season", "week"], dropna=False)["logged_at"].transform("max"), utc=True)
@@ -143,7 +152,7 @@ def median_of_mean(stat: str, mean: float, shape: dict) -> float:
 
 
 def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 0.0,
-          ours: dict | None = None) -> pd.DataFrame:
+          ours: dict | None = None, now: str | None = None) -> pd.DataFrame:
     """Every book's quote on every line, priced three ways: the other books'
     read (their quotes, margin out, fitted to one curve for the player so any
     line can be priced -- a lone 30.5 against a 72.5 consensus included), our
@@ -156,7 +165,7 @@ def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 
     if lines is None or lines.empty:
         return pd.DataFrame()
     shape = load_shape()
-    d = latest(lines)
+    d = latest(lines, now)
     d["_n"] = d["player"].map(normalize_name)
     if exclude:
         d = d[~d["_n"].isin(exclude)]
@@ -220,7 +229,8 @@ def board(lines: pd.DataFrame, exclude: set[str] | None = None, min_ev: float = 
     return out.sort_values(["_k", "ev_market", "ev"], ascending=[True, False, False]).drop(columns="_k").reset_index(drop=True)
 
 
-def hedges(lines: pd.DataFrame, exclude: set[str] | None = None, min_middle_ev: float = 0.0) -> dict:
+def hedges(lines: pd.DataFrame, exclude: set[str] | None = None, min_middle_ev: float = 0.0,
+           now: str | None = None) -> dict:
     """Bets on the same player and stat at different books that lock in a profit
     (``arbs``) or can win both ways (``middles``).
 
@@ -239,7 +249,7 @@ def hedges(lines: pd.DataFrame, exclude: set[str] | None = None, min_middle_ev: 
     if lines is None or lines.empty:
         return {"arbs": [], "middles": [], "checked": 0}
     shape = load_shape()
-    d = latest(lines)
+    d = latest(lines, now)
     if exclude:
         d = d[~d["player"].map(normalize_name).isin(exclude)]
     d = d.assign(do=[_decimal(float(x)) for x in d["over_price"]], du=[_decimal(float(x)) for x in d["under_price"]])
@@ -471,16 +481,16 @@ def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now
     the page. Returns what was written."""
     import json
 
-    flagged = board(lines, exclude=started, min_ev=0.0, ours=ours)
+    stamp = now or pd.Timestamp.now(tz="UTC").isoformat()
+    flagged = board(lines, exclude=started, min_ev=0.0, ours=ours, now=stamp)
     new = flag(flagged, cfg)
     graded = settle(cfg, lines)
     record = summary(graded)
     by_kind = summary_by_kind(graded)
-    stamp = now or pd.Timestamp.now(tz="UTC").isoformat()
     par = parlays(flagged)
     rows = pd.concat([flagged[flagged["kind"] != "model"].head(30),
                       flagged[(flagged["kind"] == "model") & (flagged["ev"] > 0)].head(20)]) if len(flagged) else flagged
-    hedge = hedges(lines, exclude=started)
+    hedge = hedges(lines, exclude=started, now=stamp)
     out = {"hedges": {"arbs": hedge["arbs"][:15], "middles": hedge["middles"][:15], "checked": hedge["checked"],
                       "n_arbs": len(hedge["arbs"]), "n_middles": len(hedge["middles"])},
            "built_at": stamp, "new_flags": new, "record": record, "sides": int(len(flagged)),
