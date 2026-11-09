@@ -384,47 +384,78 @@
 
   var cache = {};       // game id -> summary, for finished games
 
+  /* The live picture for one card's data, read now: the week's scoreboard,
+     then the box score of each game under way or over (finished ones once). */
+  function fetchNow(D) {
+    var teams = {};
+    D.me.concat(D.opp).forEach(function (p) { teams[p.tm] = 1; });
+    var url = BASE + "scoreboard?seasontype=2&week=" + D.week + "&dates=" + D.season;
+    return getJSON(url).then(function (sb) {
+      var g = games(sb, D.teams), ids = {};
+      Object.keys(teams).forEach(function (tm) { var x = g[tm]; if (x && x.state !== "pre") ids[x.id] = x; });
+      return Promise.all(Object.keys(ids).map(function (id) {
+        if (cache[id]) return Promise.resolve();
+        return getJSON(BASE + "summary?event=" + id).then(function (s) {
+          if (ids[id].state === "post") cache[id] = s; else cache["live:" + id] = s;
+        }).catch(function () {});
+      })).then(function () {
+        var sums = {};
+        Object.keys(ids).forEach(function (id) { sums[id] = cache[id] || cache["live:" + id]; });
+        var R = evaluate(D, g, sums);
+        R.at = new Date();
+        return R;
+      });
+    });
+  }
+
+  function cardData(el) {
+    try { return JSON.parse(el.querySelector(".live-data").textContent); } catch (e) { return null; }
+  }
+
+  /* Once games are on: the score charts read the same live draws
+     (static/gamelog.js), and the "Win this week" tile shows the live P(win)
+     (only your own: a tile facing another opponent is another team's view). */
+  function remember(el, R, D) {
+    var host = el.closest && el.closest("[data-league]");
+    if (!host || typeof window === "undefined" || !R.started) return;
+    (window.StreamerLiveLast = window.StreamerLiveLast || {})[host.getAttribute("data-league")] = R;
+    Array.prototype.forEach.call(host.querySelectorAll(".kpi[data-win]"), function (k) {
+      var small = k.querySelector("small"), b = k.querySelector("b"), bar = k.querySelector(".kbar i");
+      if (!b || !small || small.textContent.replace(/ \u00b7 live$/, "") !== "vs " + (D.opp_name || "")) return;
+      b.textContent = Math.round(R.p * 100) + "%";
+      small.textContent = "vs " + (D.opp_name || "") + " \u00b7 live";
+      if (bar) bar.style.width = Math.round(R.p * 100) + "%";
+    });
+  }
+
   function mount(uid) {
     var el = document.getElementById(uid);
     if (!el || el.dataset.liveMounted) return;
     el.dataset.liveMounted = "1";
-    var D;
-    try { D = JSON.parse(el.querySelector(".live-data").textContent); } catch (e) { return; }
-    var teams = {};
-    D.me.concat(D.opp).forEach(function (p) { teams[p.tm] = 1; });
-    var url = BASE + "scoreboard?seasontype=2&week=" + D.week + "&dates=" + D.season;
+    var D = cardData(el);
+    if (!D) return;
 
     function tick() {
       if (!document.body.contains(el)) return;                       // the view was swapped out
       if (document.visibilityState === "hidden") { setTimeout(tick, POLL_MS); return; }
-      getJSON(url).then(function (sb) {
-        var g = games(sb, D.teams), ids = {};
-        Object.keys(teams).forEach(function (tm) { var x = g[tm]; if (x && x.state !== "pre") ids[x.id] = x; });
-        return Promise.all(Object.keys(ids).map(function (id) {
-          if (cache[id]) return Promise.resolve();
-          return getJSON(BASE + "summary?event=" + id).then(function (s) {
-            if (ids[id].state === "post") cache[id] = s; else cache["live:" + id] = s;
-          }).catch(function () {});
-        })).then(function () {
-          var sums = {};
-          Object.keys(ids).forEach(function (id) { sums[id] = cache[id] || cache["live:" + id]; });
-          var R = evaluate(D, g, sums);
-          if (R.started) {
-            render(el, D, R);
-            // The score charts read the same live draws (static/gamelog.js).
-            var host = el.closest && el.closest("[data-league]");
-            if (host && typeof window !== "undefined") {
-              (window.StreamerLiveLast = window.StreamerLiveLast || {})[host.getAttribute("data-league")] = R;
-            }
-          }
-          if (!R.done) setTimeout(tick, POLL_MS);
-        });
+      fetchNow(D).then(function (R) {
+        if (R.started) { render(el, D, R); remember(el, R, D); }
+        if (!R.done) setTimeout(tick, POLL_MS);
       }).catch(function () { setTimeout(tick, POLL_MS * 2); });
     }
     tick();
   }
 
-  var api = { mount: mount, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
+  /* The live picture for a league's card, read now (for the score charts):
+     resolves to null when the league has no live card. */
+  function now(league) {
+    var el = document.querySelector('[data-league="' + league + '"] .live-card');
+    var D = el && cardData(el);
+    if (!D) return Promise.resolve(null);
+    return fetchNow(D).then(function (R) { remember(el, R, D); R.D = D; return R; });
+  }
+
+  var api = { mount: mount, now: now, fetchNow: fetchNow, boxStats: boxStats, pointsFor: pointsFor, skillPoints: skillPoints,
               kickerPoints: kickerPoints, dstPoints: dstPoints, remaining: remaining, games: games, shortLabel: shortLabel,
               evaluate: evaluate, seasonOdds: seasonOdds, twoPoints: twoPoints, scoringPlays: scoringPlays, unitPlays: unitPlays };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

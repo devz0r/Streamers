@@ -64,12 +64,19 @@
   }
 
   // ---- Charts: simulated score distributions (the same draws that give P(win)) ----
-  var SVG = "http://www.w3.org/2000/svg";
-  function curve(d, x, y, h) {
-    // d: {x0, dx, y[]} -> an SVG path (area) in chart coordinates; x(v) maps a value to px, y(f) a density to px.
-    var pts = d.y.map(function (f, i) { return [x(d.x0 + i * d.dx), y(f)]; });
-    var top = pts.map(function (p, i) { return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ");
-    return top + " L" + pts[pts.length - 1][0].toFixed(1) + " " + h + " L" + pts[0][0].toFixed(1) + " " + h + " Z";
+  // Plain histograms: each bar is the share of draws that landed in it, nothing
+  // smoothed. A side with nothing left to play has one score: a solid line.
+  function bars(d, x, y, h, from) {
+    // d: {x0 (left edge), dx, y[]} -> a step outline closed on the baseline; `from` keeps bins at or right of it.
+    var p = "", first = null, last = null;
+    d.y.forEach(function (f, i) {
+      var l = d.x0 + i * d.dx, r = l + d.dx;
+      if (from !== undefined && l < from - 1e-9) return;
+      if (first === null) { first = l; p += "M" + x(l).toFixed(1) + " " + h; }
+      p += " L" + x(l).toFixed(1) + " " + y(f).toFixed(1) + " L" + x(r).toFixed(1) + " " + y(f).toFixed(1);
+      last = r;
+    });
+    return first === null ? "" : p + " L" + x(last).toFixed(1) + " " + h + " Z";
   }
   function axis(lo, hi, x, h, step) {
     var s = "";
@@ -78,129 +85,166 @@
         '<text x="' + x(v).toFixed(1) + '" y="' + (h + 16) + '" text-anchor="middle" font-size="10" fill="currentColor" opacity=".7">' + v + '</text>';
     return s;
   }
-  function marker(v, x, h, label, color) {
-    return '<line x1="' + x(v).toFixed(1) + '" x2="' + x(v).toFixed(1) + '" y1="6" y2="' + h + '" stroke="' + color + '" stroke-width="1.5" stroke-dasharray="3 3"/>' +
-      '<text x="' + x(v).toFixed(1) + '" y="12" text-anchor="middle" font-size="10" fill="' + color + '">' + label + '</text>';
+  function marker(v, x, h, label, color, solid, row) {
+    var ty = 12 + (row || 0) * 12;
+    return '<line x1="' + x(v).toFixed(1) + '" x2="' + x(v).toFixed(1) + '" y1="' + (ty - 4) + '" y2="' + h + '" stroke="' + color + '" stroke-width="' + (solid ? 3 : 1.5) + '"' +
+      (solid ? "" : ' stroke-dasharray="3 3"') + '/><text x="' + x(v).toFixed(1) + '" y="' + (ty - 6) + '" text-anchor="middle" font-size="10" font-weight="' +
+      (solid ? 700 : 400) + '" fill="' + color + '">' + label + '</text>';
   }
+  function span(d) { return d.fixed !== undefined ? [d.fixed, d.fixed] : [d.x0, d.x0 + d.y.length * d.dx]; }
   function chart(series, markers, shade, opts) {
-    // series: [{d, color}], markers: [[value, label, color]], shade: {d, from, color} fills a density right of `from`.
-    var W = 560, H = 170, L = 8, R = 8, all = series.map(function (s) { return s.d; });
-    var lo = Math.min.apply(null, all.map(function (d) { return d.x0; }));
-    var hi = Math.max.apply(null, all.map(function (d) { return d.x0 + (d.y.length - 1) * d.dx; }));
-    var top = Math.max.apply(null, all.map(function (d) { return Math.max.apply(null, d.y); })) * 1.08;
+    // series: [{d, color, label}] (d a histogram or {fixed}); markers: [[value, label, color]]; shade: {d, from, color}.
+    var W = 560, H = 190, L = 10, R = 10;
+    var ends = series.map(function (s) { return span(s.d); });
+    var lo = Math.min.apply(null, ends.map(function (e) { return e[0]; }));
+    var hi = Math.max.apply(null, ends.map(function (e) { return e[1]; }));
+    var pad = Math.max(4, (hi - lo) * 0.04); lo -= pad; hi += pad;
+    var dens = series.filter(function (s) { return s.d.fixed === undefined; });
+    var top = Math.max.apply(null, [1e-9].concat(dens.map(function (s) { return Math.max.apply(null, s.d.y); }))) * 1.05;
     var x = function (v) { return L + (v - lo) / (hi - lo || 1) * (W - L - R); };
-    var y = function (f) { return H - f / top * (H - 22); };
+    var y = function (f) { return H - f / top * (H - 34); };
     var out = '<svg viewBox="0 0 ' + W + ' ' + (H + 22) + '" width="100%" role="img" aria-label="' + esc(opts.label) + '" style="display:block">';
-    if (shade) {
-      var d = shade.d, idx = [];
-      d.y.forEach(function (f, i) { if (d.x0 + i * d.dx >= shade.from) idx.push(i); });
-      if (idx.length) {
-        var sub = { x0: d.x0 + idx[0] * d.dx, dx: d.dx, y: idx.map(function (i) { return d.y[i]; }) };
-        out += '<path d="' + curve(sub, x, y, H) + '" fill="' + shade.color + '" opacity=".35"/>';
-      }
-    }
-    series.forEach(function (s) {
-      out += '<path d="' + curve(s.d, x, y, H) + '" fill="' + (shade ? "none" : s.color) + '" fill-opacity="' + (shade ? 0 : .22) + '" stroke="' + s.color + '" stroke-width="2"/>';
+    if (shade && shade.d.fixed === undefined)
+      out += '<path d="' + bars(shade.d, x, y, H, shade.from) + '" fill="' + shade.color + '" opacity=".4"/>';
+    dens.forEach(function (s) {
+      out += '<path d="' + bars(s.d, x, y, H) + '" fill="' + s.color + '" fill-opacity="' + (shade ? 0 : .2) + '" stroke="' + s.color + '" stroke-width="1.5" stroke-linejoin="round"/>';
     });
     out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + H + '" y2="' + H + '" stroke="currentColor" opacity=".35"/>';
     out += axis(lo, hi, x, H, opts.step);
-    markers.forEach(function (m) { out += marker(m[0], x, H, m[1], m[2]); });
+    var row = 0;
+    markers.forEach(function (m) { out += marker(m[0], x, H, m[1], m[2], m[3], row++); });
     return out + "</svg>";
   }
-  function playerChart(d, unit) {
+  function playerChart(d) {
     if (d.fixed !== undefined)
-      return '<p class="sub"><b>This week:</b> locked at ' + d.fixed.toFixed(1) + " points.</p>";
+      return '<p class="sub"><b>This week:</b> ' + d.fixed.toFixed(2) + " points, final (his game is over: one score, no spread left).</p>";
     var svg = chart([{ d: d, color: "#3b82f6" }], [[d.p50, "median " + d.p50.toFixed(1), "#3b82f6"]], null,
       { step: d.dx >= 1 ? 5 : 2, label: "simulated points this week" });
-    return '<div class="gl-dist"><p class="sub"><b>Simulated points this week</b> (the draws behind your P(win)): ' +
-      "four games in five he scores " + d.p10.toFixed(1) + "&ndash;" + d.p90.toFixed(1) + " (his 10th&ndash;90th percentile); median " + d.p50.toFixed(1) +
-      ", mean " + d.mean.toFixed(1) + ".</p>" + svg + "</div>";
+    return '<div class="gl-dist"><p class="sub"><b>Simulated points this week</b> (the draws behind your P(win), as of the last update; ' +
+      "each bar the share of draws that landed there): four games in five he scores " + d.p10.toFixed(1) + "&ndash;" + d.p90.toFixed(1) +
+      " (10th&ndash;90th percentile); median " + d.p50.toFixed(1) + ", mean " + d.mean.toFixed(1) + ".</p>" + svg + "</div>";
   }
   var M;
   try { M = JSON.parse((document.getElementById("matchup-dist") || {}).textContent || "null"); } catch (e) { M = null; }
-  var matchSheet;
-  function closeMatch() { if (matchSheet) { matchSheet.remove(); matchSheet = null; document.documentElement.classList.remove("gl-open"); } }
-  // The live draws (static/live.js) once games have started: your total and theirs with the points
-  // already scored counted and the rest of each player's draw scaled to what is left.
+  var matchSheet, matchLg = null, matchView = "scores";
+  function closeMatch() { if (matchSheet) { matchSheet.remove(); matchSheet = null; matchLg = null; document.documentElement.classList.remove("gl-open"); } }
+
+  // The live draws (static/live.js): points already scored counted, the rest
+  // of each player's draw cut to the time he has left.
   function pctile(sorted, q) { return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(q * sorted.length)))]; }
-  function jsDensity(arr, step, lo, hi, k) {
-    var s = Array.prototype.slice.call(arr).sort(function (x, y) { return x - y; });
+  function hist(arr, step, lo, hi) {
+    var s = Array.prototype.slice.call(arr).sort(function (a, b) { return a - b; });
+    if (s[s.length - 1] - s[0] < 0.05) { var v = s[0]; return { fixed: v, p10: v, p50: v, p90: v, mean: v }; }
     var mean = s.reduce(function (a, v) { return a + v; }, 0) / s.length;
-    lo = lo === null ? Math.floor(pctile(s, 0.003) / step) * step : lo;
-    hi = hi === null ? Math.ceil(pctile(s, 0.997) / step) * step : hi;
+    lo = lo === null ? Math.floor(pctile(s, 0.002) / step) * step : lo;
+    hi = hi === null ? Math.ceil(pctile(s, 0.998) / step) * step : hi;
     if (hi - lo < step * 3) hi = lo + step * 3;
     var nb = Math.round((hi - lo) / step), h = new Array(nb).fill(0);
-    s.forEach(function (v) { var i = Math.floor((v - lo) / step); if (i >= 0 && i < nb) h[i]++; });
-    var w = [], tot = 0, i, j;
-    for (i = -3 * k; i <= 3 * k; i++) { var e = Math.exp(-0.5 * i * i / (k * k)); w.push(e); tot += e; }
-    var y = h.map(function (_, i2) { var a = 0; for (j = 0; j < w.length; j++) { var q = i2 + j - 3 * k; if (q >= 0 && q < nb) a += h[q] * w[j] / tot; } return a; });
-    var area = y.reduce(function (a, v) { return a + v; }, 0) * step || 1;
-    return { x0: lo + step / 2, dx: step, y: y.map(function (v) { return v / area; }),
+    s.forEach(function (v) { h[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / step)))]++; });
+    return { x0: lo, dx: step, y: h.map(function (c) { return c / (s.length * step); }),
              p10: pctile(s, 0.1), p50: pctile(s, 0.5), p90: pctile(s, 0.9), mean: mean };
   }
-  function liveMatch(lg, base) {
-    var L = window.StreamerLiveLast && window.StreamerLiveLast[lg];
+  function liveMatch(L, base) {
     if (!L || !L.started || !L.mineT || !base) return null;
     var me = L.mineT, opp = L.oppT, n = me.length, mg = new Array(n), i;
-    var sd = function (a) { var m = 0, v = 0; a.forEach(function (x) { m += x; }); m /= a.length; a.forEach(function (x) { v += (x - m) * (x - m); }); return Math.sqrt(v / a.length); };
-    if (sd(me) < 0.05 && sd(opp) < 0.05) return { final: [me[0], opp[0]], p: L.p, raw: L.p, names: base.names };
-    var lo = Math.floor(Math.min(Math.min.apply(null, me), Math.min.apply(null, opp)) / 2) * 2;
-    var hi = Math.ceil(Math.max(Math.max.apply(null, me), Math.max.apply(null, opp)) / 2) * 2;
+    var both = Array.prototype.slice.call(me).concat(Array.prototype.slice.call(opp)).sort(function (a, b) { return a - b; });
+    var meH = hist(me, 2, null, null), oppH = hist(opp, 2, null, null);
+    var names = [base.names[0], (L.D && L.D.opp_name) || base.names[1]];
+    var left = function (rows) { return rows.filter(function (r) { return r.state !== "post" && (r.p.m || 0) > 0 && r.left > 0; }).length; };
+    if (meH.fixed !== undefined && oppH.fixed !== undefined)
+      return { final: [meH.fixed, oppH.fixed], p: L.p, raw: L.p, names: names, live: true, at: L.at };
+    var lo = Math.floor(pctile(both, 0.002) / 2) * 2, hi = Math.ceil(pctile(both, 0.998) / 2) * 2;
+    if (meH.fixed === undefined) meH = hist(me, 2, lo, hi);
+    if (oppH.fixed === undefined) oppH = hist(opp, 2, lo, hi);
     for (i = 0; i < n; i++) mg[i] = me[i] - opp[i];
     var pos = mg.filter(function (v) { return v > 0; }).sort(function (a, b) { return a - b; });
     var neg = mg.filter(function (v) { return v < 0; }).map(function (v) { return -v; }).sort(function (a, b) { return a - b; });
-    return { me: jsDensity(me, 2, lo, hi, 3), opp: jsDensity(opp, 2, lo, hi, 3), margin: jsDensity(mg, 2, null, null, 3),
-             raw: L.p, p: L.p, names: base.names, live: true,
+    return { me: meH, opp: oppH, margin: hist(mg, 2, null, null), raw: L.p, p: L.p, p0: L.p0, names: names, live: true, n: n,
+             at: L.at, now: [L.nowMe, L.nowOpp], left: [left(L.me), left(L.opp)],
              win_by: pos.length ? pctile(pos, 0.5) : 0, lose_by: neg.length ? pctile(neg, 0.5) : 0 };
   }
-  function openMatch(lg) {
-    var m = M && M[lg]; if (!m) return false;
-    m = liveMatch(lg, m) || m;
-    closeMatch(); close();
-    var a = m.names[0], b = m.names[1];
-    if (m.final) {
-      matchSheet = document.createElement("div");
-      matchSheet.className = "gl-back";
-      matchSheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="Final score">' +
-        '<div class="gl-head"><div><strong>' + (m.final[0] > m.final[1] ? "You win" : m.final[0] < m.final[1] ? "You lose" : "A tie") +
-        '</strong> <span class="opp">' + esc(a) + " vs " + esc(b) + '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' +
+  function clock(t) { return t ? new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""; }
+  function matchBody(m, status) {
+    var a = m.names[0], b = m.names[1], pct = function (v) { return (v * 100).toFixed(1) + "%"; };
+    var close = '<button type="button" class="gl-x" aria-label="Close">&times;</button>';
+    var foot = '<p class="sub gl-status">' + status + "</p>";
+    if (m.final)
+      return '<div class="gl-head"><div><strong>' + (m.final[0] > m.final[1] ? "You win" : m.final[0] < m.final[1] ? "You lose" : "A tie") +
+        '</strong> <span class="opp">' + esc(a) + " vs " + esc(b) + "</span></div>" + close + "</div>" +
         '<p class="sub"><b>' + m.final[0].toFixed(2) + " &ndash; " + m.final[1].toFixed(2) + "</b>: nobody left to play on either side, " +
-        "so there is no distribution left, just the result. The score is the platform's once it posts the week.</p></div>";
-      document.body.appendChild(matchSheet);
-      document.documentElement.classList.add("gl-open");
-      matchSheet.addEventListener("click", function (e) { if (e.target === matchSheet || e.target.closest(".gl-x")) closeMatch(); });
-      return true;
-    }
-    var scores = chart([{ d: m.me, color: "#3b82f6" }, { d: m.opp, color: "#f97316" }],
-      [[m.me.p50, a.split(" ")[0] + " " + m.me.p50.toFixed(0), "#3b82f6"], [m.opp.p50, b.split(" ")[0] + " " + m.opp.p50.toFixed(0), "#f97316"]], null,
-      { step: 20, label: "each team's possible score" });
-    var margin = chart([{ d: m.margin, color: "#64748b" }], [[0, "tie", "#64748b"]],
+        "so there is no distribution, just the result. The platform's own score is the one that counts.</p>" + foot;
+    var cA = "#3b82f6", cB = "#f97316";
+    var lab = function (name, d, c) {
+      var nm = name.length <= 14 ? name : name.split(" ")[0];
+      return d.fixed !== undefined ? [d.fixed, nm + " " + d.fixed.toFixed(2) + " final", c, true]
+                                   : [d.p50, nm + " median " + d.p50.toFixed(0), c, false];
+    };
+    var scores = chart([{ d: m.me, color: cA }, { d: m.opp, color: cB }], [lab(a, m.me, cA), lab(b, m.opp, cB)], null,
+      { step: 20, label: "each team's possible final score" });
+    var margin = chart([{ d: m.margin, color: "#64748b" }], [[0, "tie", "#64748b", false]],
       { d: m.margin, from: 0, color: "#22c55e" }, { step: 10, label: "your score minus theirs" });
-    var pct = function (v) { return (v * 100).toFixed(1) + "%"; };
+    var side = function (name, d, c, i) {
+      var who = '<span style="color:' + c + '"><b>' + esc(name) + "</b></span>";
+      if (d.fixed !== undefined) return who + ": <b>" + d.fixed.toFixed(2) + "</b>, final (nobody left to play, so one score)";
+      var so = m.now ? " has " + m.now[i].toFixed(2) + " with " + m.left[i] + " to play;" : "";
+      return who + so + " finishes " + d.p10.toFixed(0) + "&ndash;" + d.p90.toFixed(0) + " in four games of five (median " + d.p50.toFixed(0) + ")";
+    };
+    var n = (m.n || 5000).toLocaleString();
+    var what = m.live ? "From " + n + " simulated finishes as of " + clock(m.at) + ": points already scored are counted, and each player still to play " +
+        "keeps his draw cut to the time he has left. Each bar is the share of draws that landed there."
+      : "From the " + n + " simulated games behind the percentage, as of the last update. Each bar is the share of draws that landed there.";
+    var pnote = m.live ? pct(m.raw) + " of the simulated finishes go your way" + (m.p0 !== undefined ? " (" + pct(m.p0) + " before kickoff)" : "") +
+        ", the same figure as the live card. Your lineup as set."
+      : Math.abs(m.raw - m.p) < 0.0005 ? pct(m.raw) + " of the simulated games go your way."
+      : "The simulation draws " + pct(m.raw) + " of games for you; the figure above is " + pct(m.p) +
+        ": favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.";
+    var on = function (v) { return matchView === v; };
+    return '<div class="gl-head"><div><strong>Win this week' + (m.live ? " (live)" : "") + ": " + pct(m.p) + '</strong> <span class="opp">' +
+      esc(a) + " vs " + esc(b) + "</span></div>" + close + "</div>" +
+      '<div class="chips"><button type="button" data-v="scores" aria-pressed="' + on("scores") + '">Scores</button>' +
+      '<button type="button" data-v="margin" aria-pressed="' + on("margin") + '">Margin</button></div>' +
+      '<div class="gl-v" data-v="scores"' + (on("scores") ? "" : " hidden") + '><p class="sub">' + what + "</p><p class=\"sub\">" +
+      side(a, m.me, cA, 0) + "; " + side(b, m.opp, cB, 1) + ".</p>" + scores + "</div>" +
+      '<div class="gl-v" data-v="margin"' + (on("margin") ? "" : " hidden") + '><p class="sub">Your score minus theirs. The green bars, right of zero, are your win chance. ' +
+      "When you win it is by about " + m.win_by.toFixed(0) + " points, when you lose by about " + m.lose_by.toFixed(0) + ".</p>" + margin + "</div>" +
+      '<p class="sub">' + pnote + "</p>" + foot;
+  }
+  function fill(m, status) {
+    if (!matchSheet) return;
+    matchSheet.querySelector(".gl-sheet").innerHTML = matchBody(m, status);
+  }
+  function openMatch(lg) {
+    var base = M && M[lg]; if (!base) return false;
+    closeMatch(); close();
+    var cached = liveMatch(window.StreamerLiveLast && window.StreamerLiveLast[lg], base);
     matchSheet = document.createElement("div");
     matchSheet.className = "gl-back";
-    matchSheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="Win probability">' +
-      '<div class="gl-head"><div><strong>Win this week: ' + pct(m.p) + '</strong> <span class="opp">' + esc(a) + " vs " + esc(b) +
-      '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' +
-      '<div class="chips"><button type="button" data-v="scores" aria-pressed="true">Scores</button>' +
-      '<button type="button" data-v="margin" aria-pressed="false">Margin</button></div>' +
-      '<div class="gl-v" data-v="scores"><p class="sub">Each team\'s possible score, from 5,000 simulated games' + (m.live ? ' with the points already scored counted and each player\'s draw cut to what is left' : '') + '. ' +
-      '<span style="color:#3b82f6"><b>' + esc(a) + '</b></span> 10th&ndash;90th: ' + m.me.p10.toFixed(0) + "&ndash;" + m.me.p90.toFixed(0) +
-      '; <span style="color:#f97316"><b>' + esc(b) + "</b></span>: " + m.opp.p10.toFixed(0) + "&ndash;" + m.opp.p90.toFixed(0) + ".</p>" + scores + "</div>" +
-      '<div class="gl-v" data-v="margin" hidden><p class="sub">Your score minus theirs. The green area, right of zero, is your win chance. ' +
-      "When you win it is by about " + m.win_by.toFixed(0) + " points, when you lose by about " + m.lose_by.toFixed(0) + ".</p>" + margin + "</div>" +
-      (m.live || Math.abs(m.raw - m.p) < 0.0005 ? '<p class="sub">' + pct(m.raw) + " of the simulated games go your way" +
-        (m.live ? ", updated as games finish." : ".") + "</p>" :
-        '<p class="sub">The simulation draws ' + pct(m.raw) + ' of games for you; the figure above is ' + pct(m.p) +
-        ': favourites on paper have won a little less often than drawn (2022&ndash;2025), so the model pulls the draw toward 50%.</p>') + "</div>";
+    matchSheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="Win probability"></div>';
     document.body.appendChild(matchSheet);
     document.documentElement.classList.add("gl-open");
+    matchLg = lg;
+    var live = window.StreamerLive && window.StreamerLive.now;
+    fill(cached || base, live ? "Checking the live scores&hellip;" : "Before kickoff, as of the last update.");
     matchSheet.addEventListener("click", function (e) {
       if (e.target === matchSheet || e.target.closest(".gl-x")) return closeMatch();
-      var b = e.target.closest("button[data-v]"); if (!b) return;
-      matchSheet.querySelectorAll("button[data-v]").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-      matchSheet.querySelectorAll(".gl-v").forEach(function (x) { x.hidden = x.getAttribute("data-v") !== b.getAttribute("data-v"); });
+      var bt = e.target.closest("button[data-v]"); if (!bt) return;
+      matchView = bt.getAttribute("data-v");
+      matchSheet.querySelectorAll("button[data-v]").forEach(function (x) { x.setAttribute("aria-pressed", x === bt ? "true" : "false"); });
+      matchSheet.querySelectorAll(".gl-v").forEach(function (x) { x.hidden = x.getAttribute("data-v") !== matchView; });
     });
+    if (live) {
+      var mine = matchSheet;
+      window.StreamerLive.now(lg).then(function (R) {
+        if (matchSheet !== mine) return;
+        var m = liveMatch(R, base);
+        if (m) fill(m, "Live: ESPN box scores read at " + clock(m.at) + ", scored with this league's rules. Tap again to refresh.");
+        else fill(base, R ? "No game has kicked off yet: this is the pre-game picture, as of the last update."
+                          : "No live card for this league: this is as of the last update.");
+      }).catch(function () {
+        if (matchSheet !== mine) return;
+        fill(cached || base, "Couldn't reach the live scores just now" + (cached ? "; showing the last live read (" + clock(cached.at) + ")." : "; this is as of the last update."));
+      });
+    }
     return true;
   }
 

@@ -157,6 +157,11 @@ class Optimisation:
     #: healthy bench player, a questionable one replaced if he sits.
     opp_bench: list[PlayerRow] = field(default_factory=list)
     opp_notes: list[str] = field(default_factory=list)
+    #: Every confirmation draw of the recommended lineup's total (late swaps
+    #: counted) and the opponent's: the draws behind ``best_win``'s P(win),
+    #: for the page's score charts.
+    win_totals: np.ndarray | None = None
+    opp_totals: np.ndarray | None = None
     #: Moves within the recommended lineup that put the latest kickoff in a
     #: flex slot: (flex slot, player moved in, the slot the other one takes,
     #: player moved out of the flex).
@@ -717,7 +722,7 @@ def optimise(
 
     def result(k: int) -> LineupResult:
         return LineupResult(starters=cand[k], expected=float(projected[top[k]]),
-                            sd=float(totals[k].std()), win_probability=float(wins[k]))
+                            sd=float(totals[k].std()), win_probability=float(calibrated(wins[k])))
 
     best_win = result(pick)
     best_ev = result(ev_k)
@@ -766,6 +771,7 @@ def optimise(
         opp_samples=opp_total[:keep], fallbacks=fallbacks,
         opp_ids=opp_ids, opp_player_samples=confirm[:keep, [index[i] for i in opp_ids]] if opp_ids else None,
         opp_bench=opp_bench, opp_notes=opp_notes, flex_moves=flex_moves,
+        win_totals=totals[pick], opp_totals=opp_total,
     )
 
 

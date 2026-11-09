@@ -3794,6 +3794,13 @@ It is monotone, so the chosen lineup never changes, though gains near 50%
 read about a fifth smaller. The live in-game P(win) is not mapped: it was not
 graded.
 
+(Found 2026-11: the recommended lineup's own P(win), taken from the
+confirmation draws, had been left unmapped, so the headline tile showed the
+raw draw while the "as set" figure was mapped. It is mapped now too. The
+score charts behind the tile are histograms of exactly those draws; once a
+game kicks off they are redrawn from the live draws, and the tile shows the
+live P(win), unmapped like the live card.)
+
 The odds check now streams units too (`--units`; `--no-units` for the old
 setup), and its baseline was rewritten: P(win) 0.2366, P(playoffs) 0.1653,
 P(title) 0.0878 over 6 leagues a season. The first run on GitHub took 6
