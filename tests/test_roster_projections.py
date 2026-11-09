@@ -380,7 +380,15 @@ def _project_depth(snap, cfg):
     return {p.player_id: p for p in snap.all_players()}
 
 
-def test_backup_inherits_part_of_an_injured_starters_work(cfg):
+@pytest.fixture
+def _levels_as_built(monkeypatch):
+    """These tests measure a share of work in the model's own points, before the level calibration reads them."""
+    from streamer.roster import level_calibration
+
+    monkeypatch.setattr(level_calibration, "OFF", True)
+
+
+def test_backup_inherits_part_of_an_injured_starters_work(cfg, _levels_as_built):
     healthy = _project_depth(_depth_snapshot(), cfg)
     hurt = _project_depth(_depth_snapshot(lead_status="INJURY_RESERVE"), cfg)
     gap = healthy["lead"].model_projection - healthy["cuff"].model_projection
@@ -399,7 +407,7 @@ def test_a_one_week_absence_lifts_this_week_more_than_the_season(cfg):
     assert week_gain > 0 and 0 < ros_gain < week_gain
 
 
-def test_receivers_share_a_missing_receivers_targets_in_proportion(cfg):
+def test_receivers_share_a_missing_receivers_targets_in_proportion(cfg, _levels_as_built):
     """Measured: no one receiver inherits a missing receiver's targets the way
     a backup back inherits the job (no "next man up"), but the group left
     takes them in proportion -- at the 0.3 power of a ratio capped at +30%."""

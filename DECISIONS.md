@@ -3785,7 +3785,9 @@ up only 0.83 of the way. That gap was already there on the skill side (0.84);
 the units add variance, not bias. Skill-only, a pull toward 50% did not pass;
 with the units in, it does.
 
-`lineup.calibrated` maps p to Phi(k Phi^-1(p)), `WIN_SHRINK` k = 0.78. Held
+`lineup.calibrated` maps p to Phi(k Phi^-1(p)), `WIN_SHRINK` k = 0.78 (0.91
+since the level calibration took most of the gap out at its source: "The top of
+the weekly number"). Held
 out by season, each fold picked 0.76-0.82, Brier 0.2373 -> 0.2366 and log
 loss 0.6673 -> 0.6657, better in all four. It applies to every P(win) the
 lineup code reports: the optimiser, swap explanations, stream and pickup
@@ -5558,4 +5560,118 @@ drawn, better in 1 of 4 seasons, +0.0009 worse in total (NFL weeks resampled: 95
 +0.0022). The pre-game `k` (0.78) was fitted on the ESPN-sheet replay too. Grading it on Yahoo
 properly needs a replay with Yahoo's skill scoring and projections; until then
 the live mapping is graded for ESPN's league only and applied to both.
+
+### The top of the weekly number
+
+"Grading the odds on replayed leagues" left this open: rosters built on our
+numbers came out weaker than the numbers said, the favourite's projected gap
+held up only about 0.8 of the way, and the notes put it down to the
+optimiser's curse -- "the fix belongs where the bias starts". The weekly win
+chance was instead pulled toward 50% after the fact (`WIN_SHRINK` 0.78).
+
+**It is not only selection; the number bends.** Over every player the weekly
+projection is calibrated (a point more projected is a point more scored: 1.03
+for backs, 1.01 for receivers, 2022-2025 walk-forward). Among the players a
+lineup actually chooses between it is not:
+
+| the pool a week | points scored on points projected | by season |
+|---|---|---|
+| top 30 backs | 0.81 | 0.75, 0.66, 0.72, 1.01 |
+| top 36 receivers | 0.77 | 0.77, 0.84, 0.79, 0.69 |
+| top 12 tight ends | 0.82 | 0.99, 0.81, 0.53, 0.81 |
+| top 12 quarterbacks | 1.21 | 1.31, 1.02, 1.58, 0.89 |
+
+By fifth of the pool, backs projected 9.7 / 11.4 / 13.1 / 15.2 / 18.9 scored
+10.7 / 12.2 / 13.7 / 15.5 / 18.1; receivers 10.2 / 11.6 / 12.8 / 14.6 / 18.4
+scored 10.8 / 12.5 / 13.3 / 14.4 / 17.8. From about 12 points up, a projected
+point is worth about three quarters of one; below, a little more than one. If
+the number were calibrated at every level, choosing the highest could not
+bias it; it is the bend that selection finds. The same shape shows in 2026's
+production log (weeks 3-9, starter-calibre backs, receivers and tight ends,
+within week and position): our model 0.85 +- 0.09, the published blend 0.88,
+the market's number 0.86, ESPN's own 0.94.
+
+**The fix** (`roster/level_calibration.py`, `level_calibration.json`): per
+position a line with one knot at 12, `a + b x + c max(x - 12, 0)`, fitted on
+untagged players' if-he-plays number -- backs -1.22, 1.158, -0.341; receivers
+-0.91, 1.149, -0.437 (22 reads as 20.8 and 20.0; 12 as 12.7 and 12.9; 8 as
+8.0 and 8.3) -- and applied to the model's own weekly number before the
+platform's, the experts' and the market's are blended in. Scaled below 3 so
+it stays continuous; monotone, so no order within a position changes. A card
+says so when it moves a player a point or more.
+
+Held out by season (`scripts/fit_level_calibration.py`; each season scored on
+the line fitted on the other three, the coefficients within a few hundredths
+across folds):
+
+| | as it is | calibrated | seasons better |
+|---|---|---|---|
+| RMSE, backs and receivers projected 3+ (11,504) | 6.7651 | 6.7562 | 3 of 4 |
+| RMSE, the 30 and 36 a week (4,488) | 8.1505 | 8.1364 | 3 of 4 |
+| scored on projected, the 30 and 36 a week | 0.79 | 0.93 | |
+
+2025 is the season it loses (6.653 -> 6.670): the one season the numbers did
+not bend. On 2026's log, with the line fitted on 2022-2025: our model's
+starter-calibre RMSE 7.836 -> 7.803 and scored-on-projected 0.84 -> 1.00
+(seven weeks; backs and receivers better, tight ends not, which is why they
+are left out).
+
+**What it does to the win chance.** Eighty replayed leagues, played on the
+projections as they are, every game priced both ways on the same lineups
+(5,600 games; each line fitted on the other three seasons):
+
+| | as they are | calibrated |
+|---|---|---|
+| real margin on projected margin | 0.80 (0.83, 0.80, 0.74, 0.80) | 0.89 (0.94, 0.88, 0.81, 0.89) |
+| favourites, drawn / won | 61.5% / 59.3% | 60.5% / 59.5% |
+| log loss, as drawn | 0.66465 | 0.66224 |
+| log loss, with its `k` (0.78; held out 0.90-0.93) | 0.66328 | 0.66201 |
+
+Against today's number: -0.0013 log loss (NFL weeks resampled, 95% -0.0026 to
++0.0001), with 2022 and 2024 clearly better (-0.0042, -0.0017) and 2023 and
+2025 worse by less than their noise (+0.0004, +0.0005, each +-0.003). So by
+season it is two better and two level, not the three the rule asks for; the
+projection itself passes the rule, the gap holds up better in every season,
+and given the calibrated projection the `k` that fits is 0.91 (better than
+0.78 in all four seasons), so `WIN_SHRINK` is 0.91 -- most of the pull toward
+50% is no longer needed. The live card's exponent (1.12 - (1.12 - k) left^2)
+was regraded on the calibrated projections with the new `k`: still better than
+the raw draws in three seasons of four, the same two numbers.
+
+Tried beside it, on the same games: blending the week's number 20% toward the
+season value before the line (the week's deviation from the season value
+holds up 0.82 +- 0.06 for backs, receivers and tight ends) -- a little better
+overall (-0.0015) but worse in two seasons, and one more number; a free knot
+per position -- for receivers it found lines that turn down above 19 in two
+folds; tight ends in -- no better; quarterbacks in -- worse (their fit is
+driven by backups who do not play).
+
+**The season value bends the same way** (backs -1.21, 1.158, -0.341; receivers
+-0.95, 1.138, -0.360), and the season simulator now reads every player's level
+through that line (`level_calibration.season_level`; the wire's fill-in levels
+too). Only the simulator: the season value shown, and what trades, claims and
+the top-players list are priced on, is as before. Twenty-four replayed
+leagues, the same leagues both ways, lines held out by season:
+
+| | as they are | calibrated | seasons better |
+|---|---|---|---|
+| P(playoffs), Brier | 0.17862 | 0.17805 | 4 of 4 |
+| P(title), Brier | 0.09313 | 0.09269 | 3 of 4 |
+| team strength, real on expected | 0.675 | 0.734 | |
+
+Small, and in the right direction on everything. The week's number alone
+barely moves the season odds (0.17851, 0.09312): the season is the season
+value.
+
+`odds_baseline.json` was rewritten on the calibrated projections (P(win)
+0.2351, P(playoffs) 0.1699, P(title) 0.0902 on six leagues a season). Those
+three are not comparable with the old file's: a change to the projections
+changes every league's claims and so its history, and six leagues a season
+swing P(playoffs) by about 0.01 from that alone (the same seeds on today's
+code, uncalibrated, score 0.1786 and 0.0931). Comparisons of a change belong
+on the same leagues, as above.
+
+Not done: the Yahoo league's depth (14 teams) and scoring are not replayed;
+the blend's other parts (the platform's, the market's numbers) show the same
+bend on seven weeks of 2026 and are left as they come.
 

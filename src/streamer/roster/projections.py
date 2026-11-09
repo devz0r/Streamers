@@ -46,7 +46,7 @@ from ..data.nflverse import (
 from ..data.odds import get_lines, lines_to_team_rows
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, LeagueSnapshot, PlayerRow
 from ..scoring import EXPECTED_COLUMNS, STAT_COLUMNS, rescore
-from . import depth, market_calibration, outcome
+from . import depth, level_calibration, market_calibration, outcome
 from .players import build_index, match_players
 
 log = logging.getLogger(__name__)
@@ -1628,6 +1628,14 @@ def project_snapshot(
                                      f"players in his spot (2023-2025) scored about {f:.0%} of what the model "
                                      f"expects when they play ({mean:.1f} -> {mean * f:.1f})")
                 mean *= f
+            if source == "model":
+                # The top of a back's or receiver's number has scored less than it reads, and the middle
+                # a little more (level_calibration: 2022-2025, each season held out).
+                level = level_calibration.apply(p.position, mean)
+                if abs(level - mean) >= 1.0:
+                    p.signals.append(f"numbers this high for a {p.position} have scored about {level:.1f} "
+                                     f"(2022-2025), so {mean:.1f} is read as {level:.1f}")
+                mean = level
             model_mean = mean
             if plat is not None and source == "model" and w_platform > 0:
                 mean = (1 - w_platform) * mean + w_platform * float(plat)

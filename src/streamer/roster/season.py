@@ -32,6 +32,7 @@ import numpy as np
 from ..config import Config
 from ..league.model import SLOT_ELIGIBILITY, LeagueSnapshot, PlayerRow
 from . import futures as fut
+from . import level_calibration
 
 log = logging.getLogger(__name__)
 
@@ -192,12 +193,20 @@ def wilson(p: float, n: int, z: float = 1.96) -> tuple[float, float]:
 STREAM_PREMIUM = {"DST": 1.14, "K": 1.13}
 
 
-def replacement_levels(snapshot: LeagueSnapshot) -> dict[str, float]:
+def replacement_levels(snapshot: LeagueSnapshot, simulated: bool = False) -> dict[str, float]:
     """Per position: the second-best free agent's per-game value (D/ST and
-    K: the best, since they are streamed weekly, times :data:`STREAM_PREMIUM`)."""
+    K: the best, since they are streamed weekly, times :data:`STREAM_PREMIUM`).
+    ``simulated``: as the season simulator reads levels (``level_calibration``),
+    for its own fill-ins; everything that sets a season value beside it reads
+    the values as shown."""
+    def value(p: PlayerRow) -> float:
+        if simulated:
+            return level_calibration.season_level(p)
+        return float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+
     out = {}
     for pos in ("QB", "RB", "WR", "TE", "K", "DST"):
-        vals = sorted((float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+        vals = sorted((value(p)
                        for p in snapshot.free_agents if p.position == pos and not p.is_long_term_out
                        and p.team), reverse=True)
         if vals:
@@ -318,7 +327,7 @@ class SeasonModel:
         # is filled at that level instead of scoring zero, which is what a
         # real manager does and what stops a frozen roster from overvaluing
         # bench depth.
-        self.replacement = replacement_levels(snapshot)
+        self.replacement = replacement_levels(snapshot, simulated=True)
         noise_rng = np.random.default_rng(seed + 7)
         self.rep_noise = {slot: noise_rng.standard_normal((n_sims, len(self.weeks))) for slot, _c in self.slots}
         # The wire, week by week (``roster.wire_thinning``): a free agent on
@@ -388,7 +397,7 @@ class SeasonModel:
         for p in snapshot.free_agents:
             if p.is_long_term_out or not p.team:
                 continue
-            v = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+            v = level_calibration.season_level(p)
             pool.setdefault(p.position, []).append((v, p.team))
         out = {}
         for slot, _c in self.slots:

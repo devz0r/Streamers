@@ -254,7 +254,7 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
          byes: dict[str, set[int]], cfg: Config, n_sims: int = 2000, win_sims: int = 4000,
          checkpoints=CHECKPOINTS, log=None, upgrade: float | None = UPGRADE,
          retentions: tuple[float, ...] = (), units: dict[int, list[PlayerRow]] | None = None,
-         on_game=None) -> Replay:
+         on_game=None, odds_variants: dict | None = None) -> Replay:
     """Draft and play one league through week 17, grading as it goes.
     ``weekly``: week -> projected players (games before it only);
     ``points``: (week, player id) -> real PPR points; ``retentions``: other
@@ -264,7 +264,11 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
     ``points``); ``on_game(week, a, b, lineup_a, lineup_b, draws, sat)`` is
     called with every graded game's starters, its lineup draws (columns in
     that order) and which draws had a player sit, for grading what the page
-    does with them in-game."""
+    does with them in-game; odds_variants: name -> a function of a
+    player row returning the row the season model should see instead (a
+    recalibrated projection or season value, say), whose odds are recorded
+    beside the model's on the same leagues (p_playoffs_<name>,
+    p_title_<name>, exp_points_<name>)."""
     rng = np.random.default_rng(seed)
     out = Replay(season, seed)
     rows = {w: {p.player_id: p for p in ps} for w, ps in weekly.items()}
@@ -334,6 +338,15 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
             odds = model.odds()
             faded = {r: model.odds(retention=r) for r in retentions}
             base_po, base_title = coin_flip_odds(model, rng)
+            varied = {}
+            for name, fn in (odds_variants or {}).items():
+                snap_v = snapshot(season, week, [[fn(p) for p in r] for r in rosters], [fn(p) for p in free], wins,
+                                  losses, pts, waiver, schedule,
+                                  slots={**SLOTS, **{u: 1 for u in UNIT_SLOTS}} if units else SLOTS)
+                mv = SeasonModel(snap_v, cfg, n_sims=n_sims, seed=seed * 100 + week)
+                ov = mv.odds()
+                reg_v = [k for k, w in enumerate(mv.weeks) if w <= REG_WEEKS]
+                varied[name] = (ov, mv.base_scores[:, :, reg_v].mean(axis=1).sum(axis=1))
             # P(win) this week as the season model has it (its own draws).
             k0 = 0
             sm_win = {}
@@ -350,6 +363,9 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
                                  "p_title": float(odds.p_title[i]), "p_bye": float(odds.p_bye[i]),
                                  "exp_wins": float(odds.exp_wins[i]), "base_playoffs": float(base_po[i]),
                                  "base_title": float(base_title[i]),
+                                 **{f"p_playoffs_{n}": float(o.p_playoffs[i]) for n, (o, _e) in varied.items()},
+                                 **{f"p_title_{n}": float(o.p_title[i]) for n, (o, _e) in varied.items()},
+                                 **{f"exp_points_{n}": float(e[i]) for n, (_o, e) in varied.items()},
                                  **{f"p_playoffs_r{r:g}": float(o.p_playoffs[i]) for r, o in faded.items()},
                                  **{f"p_title_r{r:g}": float(o.p_title[i]) for r, o in faded.items()}})
         else:

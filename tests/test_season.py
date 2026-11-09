@@ -235,7 +235,11 @@ def test_the_flex_level_without_competition_is_the_old_one(cfg):
     snap.free_agents = [_fa("w1", "WR", 10.0, "KC"), _fa("w2", "WR", 7.0, "KC"),
                         _fa("t1", "TE", 9.0, "KC"), _fa("t2", "TE", 6.5, "KC")]
     model = SeasonModel(snap, cfg, n_sims=200)
-    assert model._rep_table["FLEX"][0, 0] == model.slot_replacement("FLEX") == 7.0
+    from streamer.roster import level_calibration
+
+    # The second-best receiver's 7.0, as the simulator reads a level.
+    assert model._rep_table["FLEX"][0, 0] == model.slot_replacement("FLEX") == pytest.approx(
+        level_calibration.season("WR", 7.0))
 
 
 def test_rivals_with_the_same_hole_leave_a_worse_fill(cfg):

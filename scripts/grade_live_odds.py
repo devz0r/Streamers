@@ -43,7 +43,7 @@ warnings.filterwarnings("ignore")
 
 STAGES = (0.25, 0.5, 0.75, 1.0)          # share of a game played at each reading
 SEASONS = (2022, 2023, 2024, 2025)
-K0 = 0.78                                 # lineup.WIN_SHRINK, the pre-game mapping
+K0 = 0.91                                 # lineup.WIN_SHRINK, the pre-game mapping
 LIVE_SIMS = 2000                          # draws the page carries (roster.live.LIVE_SIMS)
 SKILL_COLUMNS = ["game_id", "season_type", "qtr", "game_seconds_remaining", "passer_player_id", "receiver_player_id",
                  "rusher_player_id", "fumbled_1_player_id", "td_player_id", "passing_yards", "receiving_yards",
@@ -589,6 +589,7 @@ def main() -> int:
     os.environ.setdefault("STREAMER_CREDIT_FREE", "1")
     logging.disable(logging.WARNING)
     import grade_league_odds as base
+
     from streamer.config import get_config
     from streamer.roster import league_replay as lr
     from streamer.roster import ros_backtest as rb

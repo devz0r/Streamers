@@ -56,15 +56,17 @@ CONFIRM_TOP = 30
 #: the higher-projected lineup is recommended.
 MIN_WIN_EDGE = 0.005
 
-#: P(win) as drawn is a little too sure of the favourite: on 100 replayed
-#: leagues of 2022-2025 with defences and kickers (scripts/grade_league_odds.py),
-#: favourites won 59.1% against 61.4% predicted, because the projected gap
-#: between two lineups holds up only about 0.83 of the way (who starts is
-#: picked on the projections). ``calibrated`` maps p to Phi(k Phi^-1(p)):
-#: k picked on three seasons and scored on the fourth was 0.76-0.82, better
-#: in all four (Brier 0.2373 -> 0.2366). Monotone, so it never changes which
-#: lineup is best. DECISIONS.md, "Defences and kickers in the replay".
-WIN_SHRINK = 0.78
+#: P(win) as drawn is a little too sure of the favourite, because the projected
+#: gap between two lineups does not all hold up. ``calibrated`` maps p to
+#: Phi(k Phi^-1(p)); monotone, so it never changes which lineup is best. Most
+#: of that gap was the top of backs' and receivers' numbers reading high, now
+#: taken out where it starts (``level_calibration``): on 80 replayed leagues of
+#: 2022-2025 the real margin on the projected one went from 0.80 to 0.89 and
+#: favourites from 61.5% drawn / 59.3% won to 60.5% / 59.5%. What is left asks
+#: for k = 0.91 (0.90-0.93 picked on three seasons and scored on the fourth,
+#: better than the 0.78 it replaced in all four on the calibrated projections).
+#: scripts/fit_level_calibration.py; DECISIONS.md, "The top of the weekly number".
+WIN_SHRINK = 0.91
 
 
 def calibrated(p):

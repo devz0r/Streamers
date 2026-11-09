@@ -89,7 +89,7 @@ from scipy.special import ndtr
 
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, PlayerRow
 from ..teams import normalize_team
-from . import outcome
+from . import level_calibration, outcome
 
 SKILL = ("QB", "RB", "WR", "TE")
 
@@ -191,7 +191,7 @@ def season_loss_inputs(p: PlayerRow, played: int, team_games: int, prev_games: i
     place on the depth chart, his position and his season value."""
     m = re.search(r"(\d+)$", p.role or "")
     rank = min(max(int(m.group(1)) if m else 1, 1), 5) - 1
-    level = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+    level = level_calibration.season_level(p)
     return {"avail": min(played / team_games, 1.0) if team_games else 0.0, "no_games": float(played == 0),
             "games_missed": float(min(max(p.games_missed or 0, 0), 4)),
             "prev_missed": min(max((17 - prev_games) / 17, 0.0), 1.0) if prev_games is not None else 0.0,
@@ -274,7 +274,7 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
             # 2022-2025: most never play again that season, and the ones who
             # do take about four games (see DECISIONS.md, "Rest of season,
             # graded").
-            level = float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+            level = level_calibration.season_level(p)
             gone = rng.random(n) < ir_gone(ir, level, already)
             pmf = np.asarray(ir["wait"], dtype=float)           # games he misses: 0, 1, 2, ...
             wait = rng.choice(np.arange(len(pmf)), size=n, p=pmf / pmf.sum())
@@ -477,7 +477,7 @@ def simulate(
         next(q for q in players if q.player_id == lead))
         for lead, h in heirs
         if any(q.player_id == lead for q in players) and any(q.player_id == h for q in players)}
-    base = np.array([max(float(p.ros_value if p.ros_value is not None else (p.projection or 0.0))
+    base = np.array([max(level_calibration.season_level(p)
                          - (float(p.inherited_ros or 0.0) if j in heir_of else 0.0), 0.0)
                      for j, p in enumerate(players)])
     # Two parts to a player's level: ``walk`` -- where his projection is and

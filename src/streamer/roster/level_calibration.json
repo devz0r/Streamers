@@ -1,0 +1,28 @@
+{
+ "knot": 12.0,
+ "positions": {
+  "RB": {
+   "a": -1.223,
+   "b": 1.158,
+   "c": -0.341
+  },
+  "WR": {
+   "a": -0.909,
+   "b": 1.149,
+   "c": -0.437
+  }
+ },
+ "season": {
+  "RB": {
+   "a": -1.205,
+   "b": 1.158,
+   "c": -0.341
+  },
+  "WR": {
+   "a": -0.95,
+   "b": 1.138,
+   "c": -0.36
+  }
+ },
+ "evidence": "scripts/fit_level_calibration.py: 2022-2025 walk-forward, untagged players projected 3+, RB n=4219, WR n=6531"
+}

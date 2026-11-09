@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from .lineup import calibrated
-
 #: Spread (points) below which a total is a fixed score: every draw the same.
 FIXED = 0.05
 
