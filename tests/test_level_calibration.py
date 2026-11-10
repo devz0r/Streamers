@@ -46,3 +46,33 @@ def test_the_season_simulator_reads_a_calibrated_level_and_the_row_keeps_its_val
     assert level < 22.0 and p.ros_value == 22.0
     assert lc.season_level(PlayerRow(player_id="2", name="B", position="QB", team="KC", ros_value=22.0)) == 22.0
     assert lc.season_level(PlayerRow(player_id="3", name="C", position="WR", team="KC", ros_value=None, projection=9.0)) == 9.0
+
+
+def test_each_league_prices_p_win_with_its_own_calibration():
+    from scipy.stats import norm
+
+    from streamer.config import get_config
+    from streamer.roster import lineup
+
+    try:
+        assert lineup.use_profile(get_config().for_profile("yahoo")) == 1.0
+        assert lineup.calibrated(0.7) == 0.7 or abs(lineup.calibrated(0.7) - 0.7) < 1e-9
+        assert lineup.use_profile(get_config().for_profile("espn")) == lineup.WIN_SHRINK
+        assert abs(lineup.calibrated(0.7) - float(norm.cdf(lineup.WIN_SHRINK * norm.ppf(0.7)))) < 1e-9
+    finally:
+        lineup.use_profile(get_config().for_profile("espn"))
+
+
+def test_yahoo_reads_season_values_as_they_are():
+    from streamer.config import get_config
+    from streamer.league.model import PlayerRow
+    from streamer.roster import lineup
+
+    p = PlayerRow(player_id="1", name="A", position="WR", team="KC", ros_value=22.0, projection=20.0)
+    try:
+        lineup.use_profile(get_config().for_profile("yahoo"))
+        assert lc.season_level(p) == 22.0
+        lineup.use_profile(get_config().for_profile("espn"))
+        assert lc.season_level(p) < 22.0
+    finally:
+        lineup.use_profile(get_config().for_profile("espn"))

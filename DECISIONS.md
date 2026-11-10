@@ -5675,3 +5675,34 @@ Not done: the Yahoo league's depth (14 teams) and scoring are not replayed;
 the blend's other parts (the platform's, the market's numbers) show the same
 bend on seven weeks of 2026 and are left as they come.
 
+### Replaying the Yahoo league
+
+Every replay grading had been of one league shape: ten teams, ESPN's sheet. The
+Yahoo league is fourteen teams with two flex spots, a five-man bench, six
+playoff teams reseeded after each round, 6-point passing touchdowns and -1
+interceptions. `league_replay.LeagueFormat` (`ESPN`, `YAHOO`) now carries the
+shape through the draft, lineups, holes, the season model's snapshot and the
+real bracket (reseeding included), and `grade_league_odds.py`,
+`grade_live_odds.py`, `fit_level_calibration.py` and
+`grade_season_pieces.py` take `--profile`: that league's format, its sheets
+(the history behind the projections is rescored to it; Yahoo quarterbacks
+project 4-5 points higher) and its walk-forward projections.
+
+What held, and what did not, on Yahoo:
+
+| | Yahoo-format replay | change |
+|---|---|---|
+| the level calibration of the weekly number (backs, receivers) | better in 3 of 4 seasons (RMSE 6.770 -> 6.761) | kept |
+| this week's P(win): real margin on projected | 1.09 (ESPN 0.89): gaps hold up in full | `win_shrink: 1.0` |
+| the pull toward 50% (k = 0.91) against none | log loss 0.63312 -> 0.63164, better in 3 of 4; the paired run (5,488 games) fitted k 1.03, this one 1.14 | none for Yahoo |
+| the season simulator reading season values through the line | P(playoffs) 0.18093 -> 0.18129, P(title) 0.06261 -> 0.06276, better in 2 of 4 | `season_levels: false` |
+| the live card's mapping | better than the raw draws in all four seasons (-0.0013 log loss, NFL weeks resampled 95% -0.0020 to -0.0006) | kept |
+| a defence in progress (Yahoo's two numbers) | Brier 0.13918 against the blend's 0.13969, better in 3 of 4 | kept |
+| reading whether a starter plays from the box score | better overall; questionable starters 0.39606 -> 0.39277 log loss | kept |
+
+P(playoffs) and P(title) on Yahoo beat the standings alone in every season
+(0.1694 against 0.1810; 0.0628 against 0.0645). `lineup.use_profile(cfg)` sets
+each league's own calibrations before anything is priced for it (the page
+build, `matchup.build_report`); the lineup editor and the live card carry the
+league's k to the browser.
+

@@ -1754,7 +1754,7 @@ def _editor(snapshot: LeagueSnapshot, opt, key: str = "") -> str:
     scored here is scored exactly as the optimiser scored it, just with
     fewer draws. Players whose game has kicked off cannot be moved.
     """
-    from .lineup import WIN_SHRINK, _eligible
+    from .lineup import _eligible, win_shrink
 
     if opt.samples is None or not opt.sample_ids or opt.opp_samples is None:
         return ""
@@ -1780,7 +1780,7 @@ def _editor(snapshot: LeagueSnapshot, opt, key: str = "") -> str:
             "st": p.slot if p.starting else "",
         } for p in players],
         "presets": {"set": preset(opt.current), "win": preset(opt.best_win), "pts": preset(opt.best_ev)},
-        "m": len(players), "n": int(opt.samples.shape[0]), "k": WIN_SHRINK,
+        "m": len(players), "n": int(opt.samples.shape[0]), "k": win_shrink(),
         "s": _b64(np.asarray(opt.samples, dtype=float)), "o": _b64(np.asarray(opt.opp_samples, dtype=float)),
     }
     uid = f"ed-{_e(snapshot.profile)}{key}"

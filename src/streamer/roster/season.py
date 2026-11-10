@@ -341,6 +341,12 @@ class SeasonModel:
         # than a list by season value says (that list cost a streaming team
         # 4 points of playoff odds), and they are left to byes alone.
         self._compete_slots = set(roster_conf.get("wire_compete", ["QB", "RB", "WR", "TE", "FLEX"]))
+        # The week under way: lineups are mostly set, so the wire fills only a
+        # spot nobody on the roster can play (a bye, an injury) -- it does not
+        # stand in for a weak starter as it does in the weeks to come
+        # (``roster.stream_this_week``; DECISIONS.md, "The season simulator,
+        # piece by piece").
+        self.stream_now = bool(roster_conf.get("stream_this_week", True))
         self._rep_table: dict[str, np.ndarray] = {}
         self._holes: list[dict[str, np.ndarray]] = []
         self._demand: dict[str, np.ndarray] = {}
@@ -472,6 +478,10 @@ class SeasonModel:
             else:
                 rep_score = np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0) if rep > 0 else 0.0
                 floor = max(rep, 0.0) + 1e-6                                  # beats the wire
+            if not self.stream_now and self.lag < len(self.weeks):
+                # This week only a hole is filled: any player who plays beats the wire.
+                floor = np.broadcast_to(np.asarray(floor, dtype=float), (self.n, len(self.weeks))).copy()
+                floor[:, self.lag] = 1e-6
             for _ in range(count):
                 if idx.size == 0:
                     total += rep_score

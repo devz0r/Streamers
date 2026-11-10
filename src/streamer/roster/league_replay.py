@@ -98,6 +98,12 @@ class Replay:
     games: list[dict] = field(default_factory=list)
     odds: list[dict] = field(default_factory=list)
     finals: dict = field(default_factory=dict)
+    #: With ``keep_sims``: checkpoint week -> (the weeks simulated, the season
+    #: model's team scores, teams x sims x weeks); and every week's real team
+    #: scores (week -> one per team) and the schedule, to grade it piece by piece.
+    sims: dict = field(default_factory=dict)
+    scores: dict = field(default_factory=dict)
+    schedule: list = field(default_factory=list)
 
 
 def round_robin(n: int, weeks: int) -> list[tuple[int, int, int]]:
@@ -285,7 +291,8 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
          byes: dict[str, set[int]], cfg: Config, n_sims: int = 2000, win_sims: int = 4000,
          checkpoints=CHECKPOINTS, log=None, upgrade: float | None = UPGRADE,
          retentions: tuple[float, ...] = (), units: dict[int, list[PlayerRow]] | None = None,
-         on_game=None, odds_variants: dict | None = None, fmt: LeagueFormat = ESPN) -> Replay:
+         on_game=None, odds_variants: dict | None = None, fmt: LeagueFormat = ESPN,
+         keep_sims: bool = False) -> Replay:
     """Draft and play one league through week 17, grading as it goes.
     ``weekly``: week -> projected players (games before it only);
     ``points``: (week, player id) -> real PPR points; ``retentions``: other
@@ -368,6 +375,8 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
                             slots={**slots, **{u: 1 for u in UNIT_SLOTS}} if units else slots, fmt=fmt)
             model = SeasonModel(snap, cfg, n_sims=n_sims, seed=seed * 100 + week)
             odds = model.odds()
+            if keep_sims:
+                out.sims[week] = (list(model.weeks), model._scores(None).astype(np.float32))
             faded = {r: model.odds(retention=r) for r in retentions}
             base_po, base_title = coin_flip_odds(model, rng)
             varied = {}
@@ -436,6 +445,8 @@ def play(season: int, seed: int, weekly: dict[int, list[PlayerRow]], points: dic
         if log:
             log(f"{season} league {seed} week {week}")
     made, champ = realized_bracket(wins, pts, playoff_scores, fmt.playoff_teams, fmt.reseed)
+    if keep_sims:
+        out.scores, out.schedule = weekly_scores, schedule
     out.finals = {"wins": wins.tolist(), "made": sorted(made), "champion": champ}
     for r in out.odds:
         r["made"] = float(r["team"] in made)

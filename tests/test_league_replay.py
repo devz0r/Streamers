@@ -180,3 +180,38 @@ def test_a_yahoo_league_plays_through(cfg, _quiet_schedule):
     first = [o for o in r.odds if o["week"] == 4]
     assert len(first) == 14 and sum(o["p_playoffs"] for o in first) == pytest.approx(6)
     assert sum(o["p_title"] for o in first) == pytest.approx(1.0) and len(r.finals["made"]) == 6
+
+
+@pytest.mark.parametrize("fmt", [lr.ESPN, lr.YAHOO])
+def test_the_simulators_bracket_fed_the_real_results_gives_the_real_field_and_champion(cfg, _quiet_schedule, fmt):
+    """The season simulator's seeding and bracket are bookkeeping on its draws: given one draw equal to what
+    really happened, they must name the same playoff teams and champion as the real bracket does."""
+    pool = _pool(320)
+    weekly = {w: pool for w in range(1, 18)}
+    rng = np.random.default_rng(5)
+    points = {(w, p.player_id): float(max(rng.normal(p.ros_value, 6.0), 0.0)) for w in weekly for p in pool}
+    r = lr.play(2024, 11, weekly, points, {}, cfg, n_sims=50, win_sims=100, checkpoints=(13,), fmt=fmt, keep_sims=True)
+    weeks, _arr = r.sims[13]
+    # The standings before week 13, then one simulated season equal to the real weeks 13-17.
+    n = fmt.n_teams
+    wins, pts = np.zeros(n), np.zeros(n)
+    for w, a, b in r.schedule:
+        if w < 13:
+            sa, sb = r.scores[w][a], r.scores[w][b]
+            wins[a] += (sa > sb) + 0.5 * (sa == sb)
+            wins[b] += (sb > sa) + 0.5 * (sa == sb)
+    for w in range(1, 13):
+        pts += r.scores[w]
+    real = np.stack([np.asarray(r.scores[w], float) for w in weeks], axis=1)[:, None, :]
+    snap = lr.snapshot(2024, 13, [[] for _ in range(n)], [], wins, np.zeros(n), pts, list(range(n)), r.schedule, fmt=fmt)
+    model = season_mod.SeasonModel.__new__(season_mod.SeasonModel)
+    model.snapshot, model.teams, model.n, model.weeks = snap, snap.teams, 1, list(weeks)
+    model.team_index = {t.team_id: i for i, t in enumerate(snap.teams)}
+    model.reg_weeks, model.playoff_teams, model.round_weeks, model.median = fmt.reg_weeks, fmt.playoff_teams, 1, False
+    model.reseed, model.playoff_points_tiebreak, model.divisions = fmt.reseed, False, None
+    model.rounds = 2 ** 0 * int(np.ceil(np.log2(fmt.playoff_teams)))
+    model.schedule = [(w, str(a), str(b)) for w, a, b in r.schedule if w >= 13]
+    sim_wins, sim_pts, _ = model._regular_season(real)
+    made, _byes, champ = model._playoffs(real, sim_wins, sim_pts)
+    assert set(np.flatnonzero(made[:, 0])) == set(r.finals["made"])
+    assert int(np.asarray(champ).ravel()[0]) == r.finals["champion"]

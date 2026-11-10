@@ -122,6 +122,9 @@ def late_wire(snapshot: LeagueSnapshot, cfg: Config | None = None) -> Wire | Non
 def build_report(snapshot: LeagueSnapshot, cfg: Config | None = None) -> MatchupReport:
     """Optimise the user's lineup against this week's opponent."""
     cfg = cfg or get_config()
+    from .lineup import use_profile
+
+    use_profile(cfg)                      # this league's P(win) calibration
     me = snapshot.my_team
     opp = snapshot.opponent
     notes: list[str] = []

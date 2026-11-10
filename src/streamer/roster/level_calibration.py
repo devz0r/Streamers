@@ -48,6 +48,17 @@ FLOOR = 3.0
 #: season value) as it is before this step.
 OFF = False
 SEASON_OFF = False
+#: The league being worked on reads season values through the line
+#: (``season_levels`` in its profile, default on): set by :func:`use_profile`.
+#: Replayed in Yahoo's format it did not hold (P(playoffs) Brier 0.18093 ->
+#: 0.18129, better in 2 of 4 seasons), so Yahoo's is off.
+_SEASON_ON = True
+
+
+def use_profile(cfg) -> None:
+    global _SEASON_ON
+    prof = (getattr(cfg, "profiles", None) or {}).get(getattr(cfg, "profile", None)) or {}
+    _SEASON_ON = bool(prof.get("season_levels", True))
 
 
 @functools.lru_cache(maxsize=1)
@@ -84,7 +95,7 @@ def _mapped(coef: dict | None, knot: float, value: float) -> float:
 
 def season(position: str, value: float, conf: dict | None = None) -> float:
     """A season value as the season simulator reads it."""
-    if value is None or (SEASON_OFF and conf is None):
+    if value is None or (conf is None and (SEASON_OFF or not _SEASON_ON)):
         return value
     conf = load() if conf is None else conf
     return _mapped((conf.get("season") or {}).get(position), float(conf.get("knot", 12.0)), float(value))

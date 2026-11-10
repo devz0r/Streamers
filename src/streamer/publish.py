@@ -980,7 +980,10 @@ def team_panels_for(
     except Exception as exc:  # noqa: BLE001 - a bonus input
         play_odds.WEIGHT = 0.0
         log.warning("FantasyPros chance-to-play weight skipped: %s", exc)
+    from .roster.lineup import use_profile
+
     for name, bound, snap, status, rankings in loaded:
+        use_profile(bound)                # each league's P(win) calibration, for everything built for it
         try:
             if allow_network:
                 log.info("%s: FantasyPros chance to play for %d tagged players", name,

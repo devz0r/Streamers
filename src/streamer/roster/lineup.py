@@ -65,14 +65,37 @@ MIN_WIN_EDGE = 0.005
 #: favourites from 61.5% drawn / 59.3% won to 60.5% / 59.5%. What is left asks
 #: for k = 0.91 (0.90-0.93 picked on three seasons and scored on the fourth,
 #: better than the 0.78 it replaced in all four on the calibrated projections).
-#: scripts/fit_level_calibration.py; DECISIONS.md, "The top of the weekly number".
+#: This is ESPN's league; a profile sets its own (``win_shrink`` in config.yaml):
+#: replayed in Yahoo's format (14 teams, two flex), the projected gap holds up
+#: in full (1.09) and the pull toward 50% only hurts, so Yahoo's is 1.0.
+#: scripts/fit_level_calibration.py, grade_league_odds.py; DECISIONS.md,
+#: "The top of the weekly number" and "The season simulator, piece by piece".
 WIN_SHRINK = 0.91
+#: The league being worked on: set per league by :func:`use_profile`.
+_K = WIN_SHRINK
+
+
+def use_profile(cfg) -> float:
+    """Price P(win) for this league from now on (its ``win_shrink``, else :data:`WIN_SHRINK`),
+    and set its other per-league calibrations (``level_calibration.use_profile``)."""
+    global _K
+    from . import level_calibration
+
+    prof = (getattr(cfg, "profiles", None) or {}).get(getattr(cfg, "profile", None)) or {}
+    _K = float(prof.get("win_shrink", WIN_SHRINK))
+    level_calibration.use_profile(cfg)       # and whether its season simulator reads levels through the line
+    return _K
+
+
+def win_shrink() -> float:
+    """The k in use (the page's lineup editor and live card carry it to the browser)."""
+    return _K
 
 
 def calibrated(p):
-    """P(win) as it happens, from P(win) as drawn (:data:`WIN_SHRINK`)."""
+    """P(win) as it happens, from P(win) as drawn (the league's k, :func:`use_profile`)."""
     q = np.clip(np.asarray(p, dtype=float), 1e-6, 1 - 1e-6)
-    out = norm.cdf(WIN_SHRINK * norm.ppf(q))
+    out = norm.cdf(_K * norm.ppf(q))
     return float(out) if np.ndim(out) == 0 else out
 
 

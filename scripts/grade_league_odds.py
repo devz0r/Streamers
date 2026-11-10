@@ -242,6 +242,9 @@ def main() -> int:
     from streamer.roster.projections import load_history
 
     cfg = get_config().for_profile(args.profile)
+    from streamer.roster.lineup import use_profile
+
+    use_profile(cfg)                     # the league's own P(win) calibration, as production prices it
     fmt = lr.FORMATS[args.profile]
     weekly = weekly_projections(cfg, args.weekly)
     unit_frame = None if args.no_units else unit_projections(cfg, args.units)

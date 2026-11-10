@@ -299,6 +299,9 @@ def main() -> int:
 
     lc.OFF = lc.SEASON_OFF = True        # the projection and the simulator's levels as they are before this step
     cfg = get_config().for_profile(args.profile)
+    from streamer.roster.lineup import use_profile
+
+    use_profile(cfg)                     # the league's own P(win) calibration, as production prices it
     fmt = lr.FORMATS[args.profile]
     weekly = base.weekly_projections(cfg, args.weekly)
     history = load_history(cfg)

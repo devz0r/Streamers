@@ -128,6 +128,15 @@ profiles:
   yahoo:
     name: "Yahoo"
     description: "Yahoo, 14-team"
+    # This week's P(win) as drawn, unmapped: replayed in this league's format (14
+    # teams, two flex), the projected gap between lineups holds up in full and
+    # ESPN's pull toward 50% (0.91) only hurt. lineup.use_profile; DECISIONS.md,
+    # "The season simulator, piece by piece".
+    win_shrink: 1.0
+    # The season simulator reads season values as they are here: the level
+    # calibration's season line did not hold on Yahoo-format replays
+    # (roster/level_calibration.py).
+    season_levels: false
     league_sync:
       platform: yahoo
     league:
