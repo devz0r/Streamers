@@ -5759,3 +5759,7 @@ stay. The simulator's errors offset each other at the settings it has; doing
 better would mean modelling what the errors stand in for -- managers
 replacing what fails, rival claims -- not turning these two dials.
 
+
+## Manual timelines
+
+`roster.manual_timelines` (config.yaml) sets a player's return by hand: `[first week back, last week back]` or `season`. It is for what the news parser skips on purpose (an IR floor of "at least four games", "at most three weeks"). It sets `reported_back` after `news.timelines`, so the simulation draws his return week evenly from the range and the reserve-list table is not used. Ranges already past are ignored. Josh Jacobs [11, 13] (out at most three weeks) and Puka Nacua [14, 18] (IR expected: four-game minimum) are the first entries; the Puka range is an assumption, not a report.

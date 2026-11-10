@@ -189,3 +189,14 @@ def test_an_article_is_used_when_the_blurbs_give_no_time(cfg, monkeypatch):
     monkeypatch.setattr(news, "player_items", lambda *a, **k: items[:-1] + [old])
     news.timelines(snap, cfg, {"davante adams": "9"}, allow_network=False, now=NOW)
     assert snap.teams[0].roster[0].reported_back is None
+
+
+def test_a_manual_timeline_sets_the_range_or_the_season(cfg):
+    snap = _snap(status="", slot="WR")
+    cfg.raw.setdefault("roster", {})["manual_timelines"] = {"Davante Adams": [9, 11], "Healthy Guy": "season"}
+    lines = news.manual_timelines(snap, cfg)
+    a, h = snap.teams[0].roster
+    assert a.reported_back == [9, 11] and h.reported_back == [99, 99] and len(lines) == 2
+    cfg.raw["roster"]["manual_timelines"] = {"Davante Adams": [5, 7]}           # week 7: that date has passed
+    a.reported_back = None
+    assert news.manual_timelines(snap, cfg) == [] and a.reported_back is None

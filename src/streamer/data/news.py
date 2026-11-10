@@ -732,6 +732,40 @@ def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bo
     return out
 
 
+def manual_timelines(snapshot, cfg: Config) -> list[str]:
+    """Timelines set by hand in ``roster.manual_timelines`` (name: ``[first
+    week back, last week back]``, or ``season``), for what the news parser
+    cannot read -- a report that says "at most three weeks" or "expected to go
+    on IR". Applied after :func:`timelines` and replacing it for that player,
+    the way a reported range does: the simulation draws his return week
+    evenly from the range, or sits him for the season. A range already
+    past is ignored; a player named but not on the snapshot is skipped."""
+    from ..roster.players import normalize_name
+
+    table = ((cfg.raw.get("roster") or {}).get("manual_timelines")) or {}
+    want = {normalize_name(k): v for k, v in table.items()}
+    week = int(snapshot.week)
+    out = []
+    for p in snapshot.all_players():
+        v = want.get(normalize_name(p.name))
+        if v is None:
+            continue
+        if str(v).strip().lower() == "season":
+            lo = hi = 99
+            note = "set by hand: out for the season"
+            share = 0.0
+        else:
+            lo, hi = (int(v[0]), int(v[-1])) if isinstance(v, (list, tuple)) else (int(v), int(v))
+            if hi <= week:
+                continue                                   # the date has passed: nothing to say now
+            lo = max(lo, week + 1)
+            note = f"set by hand: back around week {lo}{'-' + str(hi) if hi != lo else ''}"
+            share = min(max(LAST_WEEK - (lo + hi) / 2 + 1, 0.0) / max(LAST_WEEK - week + 1, 1), 1.0)
+        p.reported_back, p.reported_share, p.reported_note = [lo, hi], round(share, 3), note
+        out.append(f"{p.name}: {note}")
+    return out
+
+
 def record_timelines(path, rows: list[dict]) -> int:
     """Keep every reported timeline once (player and report time), so that
     over the season each can be graded against the week he actually came
