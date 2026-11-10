@@ -5706,3 +5706,56 @@ each league's own calibrations before anything is priced for it (the page
 build, `matchup.build_report`); the lineup editor and the live card carry the
 league's k to the browser.
 
+### The season simulator, piece by piece
+
+P(playoffs) and P(title) had been graded as wholes. Underneath them the
+simulator does one thing -- draws every team's score for every week left --
+and the standings, seeds and bracket are bookkeeping on those draws.
+`scripts/grade_season_pieces.py` keeps the draws at each checkpoint of the
+replayed leagues and grades them against what each team scored. The
+bookkeeping is pinned by a test for both formats: the simulator's seeding and
+bracket, fed the real results, name the real playoff field and champion.
+
+| piece | ESPN (20 leagues) | Yahoo (8) |
+|---|---|---|
+| each week's spread: real scores inside the simulated 10-90% | 79-82% | 77-82% |
+| teams told apart, 1-3 weeks ahead (real gap on simulated gap) | 0.89 | 0.81 |
+| 4-7 weeks ahead | 0.78 | 0.76 |
+| the rest of the season summed, from week 1: simulated sd / real | 145 / 110 | 159 / 118 |
+| from week 4 | 108 / 91 | 117 / 105 |
+| the week under way: every team, simulated minus real | +5.4 a week | +7.9 |
+| the week under way: teams told apart | 1.27 | 1.24 |
+
+Three things are off, and they mostly cancel:
+
+- **The week under way.** The simulator lets every team stream a free agent
+  into any slot whose starter is weaker than the wire, this week as in weeks
+  to come: every team about 5 points higher than its own lineup projects, and
+  the weak propped up. A switch that fills only holes this week
+  (`roster.stream_this_week`) was graded: P(playoffs) 0.17079 -> 0.17078,
+  P(title) 0.08993 -> 0.08998. Nothing; left on as it was. (The lineup tab,
+  not the simulator, prices this week's game on the page.)
+- **Too much season-long luck.** Each simulated player carries a lasting error
+  on his level (`persistent_error`, validated player by player), and at team
+  level it adds up to more than real teams show -- real managers bench and
+  replace what is not working.
+- **Strength a little overstated** a few weeks ahead (0.76-0.89).
+
+Narrowing the season-long luck alone fixed the width (from week 1, 145 -> 120
+at `persistent_error` 0.75 against the real 107) and made the odds worse
+(P(title) 0.08993 -> 0.09030, worse in every season): the extra width had
+been covering the overstated strength. So the two knobs were graded together
+-- `persistent_error` 1.5 / 1.0 / 0.75 / 0.5 against `strength_fade` 1.0 /
+0.95 / 0.92 / 0.89 / 0.86 / 0.83, the pair picked on three seasons and scored
+on the fourth:
+
+| | today (1.5, 0.95) | held out | seasons better |
+|---|---|---|---|
+| ESPN, P(playoffs) + P(title) Brier | 0.16932 + 0.09098 | 0.16980 + 0.09105 | 2 of 4 |
+| Yahoo | 0.18154 + 0.06267 | 0.18403 + 0.06309 | 0 of 4 |
+
+No pair beats today's by more than 0.0003, and none holds out: the settings
+stay. The simulator's errors offset each other at the settings it has; doing
+better would mean modelling what the errors stand in for -- managers
+replacing what fails, rival claims -- not turning these two dials.
+
