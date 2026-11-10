@@ -140,3 +140,43 @@ def test_defences_and_kickers_are_streamed_best_first_and_scored(cfg, _quiet_sch
     base = [g for g in plain.games if g["week"] == 1][0]
     assert first["score_a"] == pytest.approx(base["score_a"] + 20.0)
     assert sum(o["p_title"] for o in r.odds) == pytest.approx(1.0)
+
+
+def test_the_yahoo_format_drafts_its_roster_and_starts_two_flex():
+    y = lr.YAHOO
+    assert (y.n_teams, y.bench, y.slot_counts["FLEX"], y.playoff_teams, y.reseed) == (14, 5, 2, 6, True)
+    pool = {p.player_id: p for p in _pool(260)}
+    rosters = lr.draft(list(pool.values()), y.n_teams, np.random.default_rng(1), bench=y.bench, slots=y.slot_counts)
+    assert all(len(r) == 8 + 5 for r in rosters)
+    rows = [_p("qb", "QB", 20), _p("rb1", "RB", 15), _p("rb2", "RB", 12), _p("rb3", "RB", 8),
+            _p("wr1", "WR", 14), _p("wr2", "WR", 11), _p("wr3", "WR", 10), _p("wr4", "WR", 7), _p("te", "TE", 9)]
+    got = [p.player_id for p in lr.best_lineup(rows, y.slot_counts)]
+    assert got == ["qb", "te", "rb1", "rb2", "wr1", "wr2", "wr3", "rb3"]          # both flex spots filled
+    no_wr4 = [r for r in rows if r.player_id not in ("wr4", "rb3")]
+    assert lr._holes(no_wr4, y.slot_counts) == ["FLEX"]                       # seven who play for eight spots
+
+
+def test_a_reseeded_bracket_sends_the_top_seed_left_against_the_lowest():
+    # Six teams, the top two on a bye. Round 1: 6 upsets 3, 4 beats 5. Reseeded, 1 meets 6 (the lowest
+    # left) and 2 meets 4; fixed, 1 would meet the 4-5 winner and 2 the 3-6 winner.
+    wins = np.array([10, 9, 8, 7, 6, 5, 4, 3, 2, 1], float)
+    scores = np.zeros((10, 3))
+    scores[5, 0], scores[2, 0], scores[3, 0], scores[4, 0] = 100, 90, 100, 90
+    scores[5, 1], scores[0, 1], scores[3, 1], scores[1, 1] = 120, 100, 80, 110      # 6 beats 1; 2 beats 4
+    scores[5, 2], scores[1, 2] = 130, 100
+    made, champ = lr.realized_bracket(wins, np.zeros(10), scores, 6, reseed=True)
+    assert made == {0, 1, 2, 3, 4, 5} and champ == 5
+    # The same scores in the fixed bracket: 1 meets 4 (it wins, 100 to 80), 2 meets 6 (6 wins, 120 to 110).
+    assert lr.realized_bracket(wins, np.zeros(10), scores, 6)[1] == 5
+
+
+def test_a_yahoo_league_plays_through(cfg, _quiet_schedule):
+    pool = _pool(320)
+    weekly = {w: pool for w in range(1, 18)}
+    rng = np.random.default_rng(3)
+    points = {(w, p.player_id): float(max(rng.normal(p.ros_value, 6.0), 0.0)) for w in weekly for p in pool}
+    r = lr.play(2024, 7, weekly, points, {}, cfg, n_sims=200, win_sims=300, checkpoints=(4,), fmt=lr.YAHOO)
+    assert len(r.games) == 14 * 14 // 2
+    first = [o for o in r.odds if o["week"] == 4]
+    assert len(first) == 14 and sum(o["p_playoffs"] for o in first) == pytest.approx(6)
+    assert sum(o["p_title"] for o in first) == pytest.approx(1.0) and len(r.finals["made"]) == 6

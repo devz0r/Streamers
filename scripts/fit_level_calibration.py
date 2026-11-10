@@ -135,7 +135,7 @@ def report_players(d: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-def replay(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg, leagues: int) -> None:
+def replay(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg, leagues: int, fmt=None) -> None:
     """The same leagues and lineups (played on the projections as they are), each game priced both ways."""
     from streamer.roster import league_replay as lr
     from streamer.roster import level_calibration as lc
@@ -175,7 +175,8 @@ def replay(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg, league
                     rec["gap_" + name] = float(ta.mean() - tb.mean())
                 got.append(rec)
 
-            r = lr.play(season, seed, per_week, points, byes, cfg, units=unit_week, checkpoints=(), on_game=on_game)
+            r = lr.play(season, seed, per_week, points, byes, cfg, units=unit_week, checkpoints=(), on_game=on_game,
+                        fmt=fmt or lr.ESPN)
             res = {(g["week"], g["a"]): g for g in r.games}
             rows += [{"season": season, **x, "won": res[(x["week"], x["a"])]["won"],
                       "margin": res[(x["week"], x["a"])]["score_a"] - res[(x["week"], x["a"])]["score_b"]} for x in got]
@@ -224,7 +225,7 @@ def replay(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg, league
     print(f"  k on all four seasons: {best:g} (lineup.WIN_SHRINK)")
 
 
-def replay_season(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg, leagues: int) -> None:
+def replay_season(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg, leagues: int, fmt=None) -> None:
     """The season simulator's odds on the same leagues, with the week's number and the season value as
     they are and both calibrated (each line fitted on the other three seasons)."""
     from streamer.roster import league_replay as lr
@@ -258,7 +259,7 @@ def replay_season(d: pd.DataFrame, weekly: dict, units, history, schedules, cfg,
         per_week = {w: weekly[(season, w)] for w in range(1, 18)}
         for i in range(leagues):
             r = lr.play(season, 1000 * season + i, per_week, points, byes, cfg, units=unit_week,
-                        odds_variants={"cal": both})
+                        odds_variants={"cal": both}, fmt=fmt or lr.ESPN)
             odds += [{k: v for k, v in o.items() if k != "roster"} for o in r.odds]
         print(f"season odds replayed {season}", flush=True)
     o = pd.DataFrame(odds)
@@ -283,6 +284,8 @@ def main() -> int:
     ap.add_argument("--units", help="cache of the defence and kicker projections (built if missing)")
     ap.add_argument("--leagues", type=int, default=0, help="leagues per season to replay (0: the player tables only)")
     ap.add_argument("--season-leagues", type=int, default=0, help="leagues per season for the season simulator's odds")
+    ap.add_argument("--profile", default="espn", choices=("espn", "yahoo"),
+                    help="the league whose sheet and format are graded (--weekly must have been built for it)")
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args()
     os.environ.setdefault("STREAMER_CREDIT_FREE", "1")
@@ -290,11 +293,13 @@ def main() -> int:
     import grade_league_odds as base
 
     from streamer.config import get_config
+    from streamer.roster import league_replay as lr
     from streamer.roster import level_calibration as lc
     from streamer.roster.projections import load_history
 
     lc.OFF = lc.SEASON_OFF = True        # the projection and the simulator's levels as they are before this step
-    cfg = get_config().for_profile("espn")
+    cfg = get_config().for_profile(args.profile)
+    fmt = lr.FORMATS[args.profile]
     weekly = base.weekly_projections(cfg, args.weekly)
     history = load_history(cfg)
     schedules = pd.read_parquet(cfg.raw_dir / "schedules.parquet")
@@ -308,10 +313,12 @@ def main() -> int:
     if args.leagues or args.season_leagues:
         units = base.unit_projections(cfg, args.units)
         if args.leagues:
-            replay(d, weekly, units, history, schedules, cfg, args.leagues)
+            replay(d, weekly, units, history, schedules, cfg, args.leagues, fmt)
         if args.season_leagues:
-            replay_season(d, weekly, units, history, schedules, cfg, args.season_leagues)
-    if args.write:
+            replay_season(d, weekly, units, history, schedules, cfg, args.season_leagues, fmt)
+    if args.write and args.profile != "espn":
+        print("--write is for the shipped (ESPN-fitted) line; not written for", args.profile)
+    elif args.write:
         out = {"knot": KNOT, "positions": {p: {k: c[k] for k in ("a", "b", "c")} for p, c in full.items()},
                "season": {p: {k: c[k] for k in ("a", "b", "c")} for p, c in full_season.items()},
                "evidence": "scripts/fit_level_calibration.py: 2022-2025 walk-forward, untagged players projected 3+, "

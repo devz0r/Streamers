@@ -2,7 +2,9 @@
 
     python scripts/grade_league_odds.py [--leagues 8] [--weekly cache.pkl] [--out dir]
 
-Drafts and plays ``--leagues`` ten-team leagues on each of 2022-2025
+Drafts and plays ``--leagues`` leagues on each of 2022-2025 in the format of
+``--profile`` (ESPN: ten teams; Yahoo: fourteen, two flex, a five-man bench,
+a reseeded bracket; each on its own scoring sheets)
 (:mod:`streamer.roster.league_replay`): projections from the games before
 each week only, scaled by that week's closing implied totals as production
 scales by the market's, real scores, the production lineup draws and season
@@ -222,6 +224,9 @@ def main() -> int:
     ap.add_argument("--weekly", help="cache of the weekly projections (built if missing)")
     ap.add_argument("--units", help="cache of the defence and kicker projections (built if missing)")
     ap.add_argument("--no-units", action="store_true", help="skill positions only (no D/ST or K)")
+    ap.add_argument("--profile", default="espn", choices=("espn", "yahoo"),
+                    help="the league replayed: its format (league_replay.FORMATS) and scoring sheets; the "
+                         "--weekly and --units caches must have been built for it")
     ap.add_argument("--out", help="a directory for the graded games and odds (parquet)")
     ap.add_argument("--sims", type=int, default=2000)
     ap.add_argument("--no-upgrades", action="store_true", help="managers only fill holes (no upgrade claims)")
@@ -236,7 +241,8 @@ def main() -> int:
     from streamer.roster import ros_backtest as rb
     from streamer.roster.projections import load_history
 
-    cfg = get_config().for_profile("espn")
+    cfg = get_config().for_profile(args.profile)
+    fmt = lr.FORMATS[args.profile]
     weekly = weekly_projections(cfg, args.weekly)
     unit_frame = None if args.no_units else unit_projections(cfg, args.units)
     history = load_history(cfg)
@@ -251,7 +257,7 @@ def main() -> int:
         byes = rb.byes(schedules, season, list(range(1, 18)))
         per_week = {w: weekly[(season, w)] for w in range(1, 18)}
         for i in range(args.leagues):
-            r = lr.play(season, 1000 * season + i, per_week, points, byes, cfg, n_sims=args.sims, units=units,
+            r = lr.play(season, 1000 * season + i, per_week, points, byes, cfg, n_sims=args.sims, units=units, fmt=fmt,
                         upgrade=None if args.no_upgrades else lr.UPGRADE,
                         retentions=tuple(float(x) for x in args.retentions.split(",") if x))
             games += r.games

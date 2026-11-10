@@ -54,9 +54,12 @@ SKILL_COLUMNS = ["game_id", "season_type", "qtr", "game_seconds_remaining", "pas
 # ---------------------------------------------------------------------------
 # Points so far, from the play-by-play
 # ---------------------------------------------------------------------------
-def skill_so_far(pbp: pd.DataFrame) -> pd.DataFrame:
-    """(game_id, player_id) -> PPR points through each stage (nflverse's
-    standard sheet: the replay's ``fantasy_points_ppr``)."""
+def skill_so_far(pbp: pd.DataFrame, sheet: dict | None = None) -> pd.DataFrame:
+    """(game_id, player_id) -> points through each stage on the league's
+    offensive sheet (``sheet``: a profile's ``offense_scoring``; nflverse's
+    standard full PPR without one)."""
+    sc = {"pass_yards": 0.04, "pass_td": 4.0, "interception": -2.0, "rush_yards": 0.1, "rush_td": 6.0,
+          "reception": 1.0, "reception_yards": 0.1, "reception_td": 6.0, "fumble_lost": -2.0, **(sheet or {})}
     p = pbp[pbp["game_seconds_remaining"].notna()]
     played = 1.0 - p["game_seconds_remaining"].clip(0, 3600) / 3600.0
     played = played.where(p["qtr"] <= 4, 1.0)                    # overtime counts at the end
@@ -64,15 +67,16 @@ def skill_so_far(pbp: pd.DataFrame) -> pd.DataFrame:
     z = lambda c: p[c].fillna(0.0)                               # noqa: E731
     td_by = p["td_player_id"]
     parts.append(pd.DataFrame({"game_id": p["game_id"], "pid": p["passer_player_id"], "t": played,
-                               "pts": 0.04 * z("passing_yards") + 4.0 * z("pass_touchdown") - 2.0 * z("interception")}))
+                               "pts": sc["pass_yards"] * z("passing_yards") + sc["pass_td"] * z("pass_touchdown")
+                               + sc["interception"] * z("interception")}))
     parts.append(pd.DataFrame({"game_id": p["game_id"], "pid": p["receiver_player_id"], "t": played,
-                               "pts": z("complete_pass") + 0.1 * z("receiving_yards")
-                               + 6.0 * (z("pass_touchdown") * (td_by == p["receiver_player_id"]))}))
+                               "pts": sc["reception"] * z("complete_pass") + sc["reception_yards"] * z("receiving_yards")
+                               + sc["reception_td"] * (z("pass_touchdown") * (td_by == p["receiver_player_id"]))}))
     parts.append(pd.DataFrame({"game_id": p["game_id"], "pid": p["rusher_player_id"], "t": played,
-                               "pts": 0.1 * z("rushing_yards")
-                               + 6.0 * (z("rush_touchdown") * (td_by == p["rusher_player_id"]))}))
+                               "pts": sc["rush_yards"] * z("rushing_yards")
+                               + sc["rush_td"] * (z("rush_touchdown") * (td_by == p["rusher_player_id"]))}))
     parts.append(pd.DataFrame({"game_id": p["game_id"], "pid": p["fumbled_1_player_id"], "t": played,
-                               "pts": -2.0 * z("fumble_lost")}))
+                               "pts": sc["fumble_lost"] * z("fumble_lost")}))
     d = pd.concat(parts, ignore_index=True)
     d = d[d["pid"].notna() & (d["pts"] != 0)]
     out = None
@@ -149,7 +153,7 @@ class SoFar:
         self.when = kickoffs(schedules, season)
         raw = pd.read_parquet(cfg.raw_dir / f"pbp_{season}.parquet", columns=SKILL_COLUMNS)
         raw = raw[raw["season_type"].eq("REG")]
-        frames = [skill_so_far(raw)]
+        frames = [skill_so_far(raw, cfg._profile.get("offense_scoring"))]
         if units:
             games = games_frame(cfg)
             frames.append(unit_so_far(pbp, games[games["season"] == season], cfg, raw))
@@ -583,8 +587,8 @@ def main() -> int:
     ap.add_argument("--out", help="a directory for the graded states (parquet)")
     ap.add_argument("--players-only", action="store_true")
     ap.add_argument("--profile", default="espn",
-                    help="whose D/ST and K scoring and walk-forward unit projections (the weekly skill cache is "
-                         "the ESPN-sheet one: with another profile only the defence and kicker results mean something)")
+                    help="the league replayed: its format (league_replay.FORMATS), its scoring sheets and its "
+                         "walk-forward projections (--weekly and --units must have been built for it)")
     args = ap.parse_args()
     os.environ.setdefault("STREAMER_CREDIT_FREE", "1")
     logging.disable(logging.WARNING)
@@ -596,13 +600,12 @@ def main() -> int:
     from streamer.roster.projections import load_history
 
     cfg = get_config().for_profile(args.profile)
-    weekly = base.weekly_projections(get_config().for_profile("espn"), args.weekly)
+    weekly = base.weekly_projections(cfg, args.weekly)
     unit_frame = None if args.no_units else base.unit_projections(cfg, args.units)
     history = load_history(cfg)
     schedules = pd.read_parquet(cfg.raw_dir / "schedules.parquet")
     players = player_study(weekly, unit_frame, cfg, schedules, history)
-    if args.profile == "espn":
-        report_players(players)
+    report_players(players)
     report_defences(players, dst_base(cfg), dst_params(cfg))
     if args.players_only:
         return 0
@@ -632,7 +635,8 @@ def main() -> int:
                 for r in states(week, la, lb, draws, points, so_far, dp, sat, table, shutout):
                     got.append({"week": week, "a": a, "b": b, **r})
 
-            r = lr.play(season, seed, per_week, points, byes, cfg, units=units, checkpoints=(), on_game=on_game)
+            r = lr.play(season, seed, per_week, points, byes, cfg, units=units, checkpoints=(), on_game=on_game,
+                        fmt=lr.FORMATS[args.profile])
             won = {(g["week"], g["a"]): g["won"] for g in r.games}
             rows += [{"season": season, "seed": seed, **x, "won": won[(x["week"], x["a"])]} for x in got]
             print(f"{season} league {i}: {len(got)} states", flush=True)
