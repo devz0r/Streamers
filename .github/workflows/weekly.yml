@@ -63,7 +63,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, dstk-blend, wind-fit, sleeper-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, dstk-blend, dstk-grade, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -222,6 +222,11 @@ jobs:
       - name: Grade a consensus blend for D/ST and K
         if: steps.mode.outputs.mode == 'dstk-blend'
         run: streamer dstk-blend
+
+      # This season's D/ST and K picks against the consensus (aggregates only).
+      - name: Grade this season's D/ST and K picks
+        if: steps.mode.outputs.mode == 'dstk-grade'
+        run: streamer dstk-grade
 
       # Calibrate and test an Open-Meteo wind forecast for kickers against the
       # recorded wind and the stadium-typical wind, 2022-2025 (aggregates only

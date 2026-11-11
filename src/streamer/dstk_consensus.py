@@ -170,3 +170,64 @@ def blend_backtest(cfg: Config, sleep: float = 1.5) -> list[str]:
                              f"top5 {ours['top5_pts']:.2f}->{blend['top5_pts']:.2f}")
             out.append(f"  held out, weight picked on {objective}: " + " | ".join(folds))
     return out
+
+
+# ---------------------------------------------------------------------------
+# This season's picks, graded (run on the runner; aggregates only)
+# ---------------------------------------------------------------------------
+def season_grade(cfg: Config, profile: str, season: int) -> list[str]:
+    """This season's D/ST and K picks against the consensus and the Vegas-only
+    baseline, on the units all three ranked: rank correlation, the top pick's
+    and the top five's points, the share of the top five finishing in the
+    startable ranks, our mean miss and bias, and a paired week-by-week
+    difference from the consensus with its standard error. Lines safe for a
+    public log: no rank or name of theirs."""
+    pcfg = cfg.for_profile(profile)
+    path = pcfg.results_dir / "history.parquet"
+    if not path.exists():
+        return [f"{profile}: no history"]
+    h = pd.read_parquet(path)
+    h = h[(h["season"] == season) & h["position"].isin(["DST", "K"])].dropna(subset=["actual_points"])
+    cons = load(pcfg)
+    weeks = sorted(set(h["week"]))
+    if not cons.empty:
+        missing = [w for w in weeks if not ((cons["season"] == season) & (cons["week"] == w)).any()]
+        if missing:
+            update(pcfg, season, int(weeks[-1]), graded_weeks=missing)
+            cons = load(pcfg)
+    out = [f"== {profile} {season}: weeks graded {weeks[0] if weeks else '-'}-{weeks[-1] if weeks else '-'}; consensus rows {len(cons)}"]
+    if cons.empty:
+        return out + ["  no consensus available"]
+    h = h.assign(team=h["team"].map(normalize_team))
+    j = h.merge(cons.rename(columns={"rank": "fp_rank"}), on=["season", "week", "position", "team"], how="inner")
+    j = j.dropna(subset=["fp_rank", "baseline_points", "expected_points"])
+    k = pcfg.startable_rank
+    for pos, g in j.groupby("position"):
+        per = []
+        for _w, x in g.groupby("week"):
+            if len(x) < 10:
+                continue
+            row = {}
+            for label, score in (("ours", x["expected_points"]), ("consensus", -x["fp_rank"]),
+                                 ("vegas", x["baseline_points"])):
+                top = x.loc[score.nlargest(5).index]
+                row[label] = (spearman(score, x["actual_points"]), float(x.loc[score.idxmax(), "actual_points"]),
+                              float(top["actual_points"].mean()), float((top["actual_rank"] <= k).mean()))
+            per.append(row)
+        if not per:
+            continue
+        out.append(f"-- {pos}: {len(per)} weeks, {len(g)} unit-weeks")
+        for label in ("ours", "consensus", "vegas"):
+            a = np.array([r[label] for r in per])
+            out.append(f"  {label:10s} corr {np.nanmean(a[:, 0]):.3f}  top pick {a[:, 1].mean():.2f}  "
+                       f"top5 {a[:, 2].mean():.2f}  top5 in top-{k} {a[:, 3].mean():.0%}")
+        for other in ("consensus", "vegas"):
+            d5 = np.array([r["ours"][2] - r[other][2] for r in per])
+            d1 = np.array([r["ours"][1] - r[other][1] for r in per])
+            se = lambda d: float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else float("nan")  # noqa: E731
+            out.append(f"  ours - {other}: top5 {d5.mean():+.2f} (se {se(d5):.2f}, weeks ahead/behind "
+                       f"{int((d5 > 0.05).sum())}/{int((d5 < -0.05).sum())}); top pick {d1.mean():+.2f} (se {se(d1):.2f})")
+        err = g["actual_points"] - g["expected_points"]
+        out.append(f"  ours: mean miss {err.abs().mean():.2f}, bias (actual - projected) {err.mean():+.2f}; "
+                   f"vegas baseline miss {(g['actual_points'] - g['baseline_points']).abs().mean():.2f}")
+    return out
