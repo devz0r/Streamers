@@ -116,8 +116,11 @@
     return out + "</svg>";
   }
   function playerChart(d) {
-    if (d.fixed !== undefined)
+    if (d.fixed !== undefined) {
+      if (d.why === "bye") return '<p class="sub"><b>This week:</b> bye, no game.</p>';
+      if (d.why === "out") return '<p class="sub"><b>This week:</b> ruled out, no points.</p>';
       return '<p class="sub"><b>This week:</b> ' + d.fixed.toFixed(2) + " points, final (his game is over: one score, no spread left).</p>";
+    }
     var svg = chart([{ d: d, color: "#3b82f6" }], [[d.p50, "median " + d.p50.toFixed(1), "#3b82f6"]], null,
       { step: d.dx >= 1 ? 5 : 2, label: "simulated points this week" });
     return '<div class="gl-dist"><p class="sub"><b>Simulated points this week</b> (the draws behind your P(win), as of the last update; ' +

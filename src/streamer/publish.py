@@ -1355,6 +1355,12 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
 
             panel["_dist"] = sim_dist.matchup(report.optimisation, snap.my_team.name, report.opponent_name)
             panel["_pdists"] = sim_dist.players(report.optimisation)
+            # A fixed score is a bye or a player ruled out as often as a game
+            # that is over: say which, so a bye's zero is not called final.
+            for p in snap.all_players():
+                d = panel["_pdists"].get(p.player_id)
+                if d is not None and "fixed" in d:
+                    d["why"] = "bye" if p.on_bye else "out" if (p.is_out and not p.locked) else "final"
         except Exception as exc:  # noqa: BLE001 - the charts are a bonus
             log.warning("score distributions skipped: %s", exc)
     if primary and status and not status.get("ok") and snap.week != rankings.week:
