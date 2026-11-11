@@ -200,3 +200,32 @@ def test_a_manual_timeline_sets_the_range_or_the_season(cfg):
     cfg.raw["roster"]["manual_timelines"] = {"Davante Adams": [5, 7]}           # week 7: that date has passed
     a.reported_back = None
     assert news.manual_timelines(snap, cfg) == [] and a.reported_back is None
+
+
+def test_an_out_player_on_his_bye_is_still_hurt():
+    weeks = list(range(10, 18))
+    healthy = _wr("h"); healthy.status = ""; healthy.on_bye = True
+    hurt = _wr("o"); hurt.on_bye = True; hurt.games_missed = 3
+    out = simulate([healthy, hurt], weeks=weeks, byes={"LA": {10}}, n_sims=3000, seed=3)
+    first = weeks.index(11)
+    assert out.played[:, 0, first].mean() > 0.92          # a healthy player on bye is back next week
+    assert out.played[:, 1, first].mean() < 0.75          # a hurt one, three games gone, often is not
+
+
+def test_a_return_set_with_a_chance_is_back_that_often_and_otherwise_later():
+    weeks = list(range(10, 18))
+    p = _wr("a", [11, 11]); p.return_chance = 0.45
+    q = _wr("b", [11, 11])
+    out = simulate([p, q], weeks=weeks, byes={}, n_sims=4000, seed=5).played
+    wk = weeks.index(11)
+    assert 0.40 < out[:, 0, wk].mean() < 0.50             # 45% back in week 11
+    assert out[:, 1, wk].mean() > 0.92                    # a plain reported return: back (bar new injuries)
+    assert out[:, 0, weeks.index(17)].mean() > 0.55       # most of the rest are back by the end
+
+
+def test_a_manual_chance_sets_the_range_and_the_chance(cfg):
+    snap = _snap(status="", slot="WR")
+    cfg.raw.setdefault("roster", {})["manual_timelines"] = {"Davante Adams": {"back": 11, "chance": 0.45}}
+    news.manual_timelines(snap, cfg)
+    a = snap.teams[0].roster[0]
+    assert a.reported_back == [11, 11] and a.return_chance == 0.45 and "45%" in a.reported_note

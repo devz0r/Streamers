@@ -136,6 +136,10 @@ class PlayerRow:
     #: note for his card. The simulator sits him until then instead of
     #: drawing a generic absence. None / empty: no report with a time.
     reported_back: list[int] | None = None
+    #: With ``reported_back``, set by hand (``roster.manual_timelines``): the
+    #: chance he is back by then. Otherwise he misses more games, drawn from
+    #: how long absences last. None: he is back as reported.
+    return_chance: float | None = None
     reported_share: float | None = None
     reported_note: str = ""
     #: For a player on no NFL roster whom the news has close to signing

@@ -280,10 +280,12 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
             wait = rng.choice(np.arange(len(pmf)), size=n, p=pmf / pmf.sum())
             return np.where(gone, GONE, wait)
         return np.maximum(_durations(pos, n, rng, conf, already), 4)
-    if p.on_bye:
+    if p.on_bye and p.status not in OUT_STATUSES:
         # A bye is not an absence: the bye week is skipped by ``byes`` and he
         # plays the next one. (His chance to play this week reads 0, which
         # once drew an injury's worth of missed games for everyone on bye.)
+        # A player tagged out on his bye is hurt all the same: his absence is
+        # still drawn, from the games he has already missed.
         return np.zeros(n, int)
     if p.is_out:
         return _durations(pos, n, rng, conf, already)
@@ -547,6 +549,13 @@ def simulate(
         back = rs[j]["absence"].integers(lo, hi + 1, size=n_sims)
         k = np.searchsorted(np.asarray(weeks), back, side="left")        # weeks before his return week
         out_left[:, j] = np.where(back > weeks[-1], GONE, games_before[np.minimum(k, len(weeks))])
+        ch = getattr(p, "return_chance", None)
+        if ch is not None:
+            # Set by hand with a chance: short of it, he misses more games, drawn as any absence is.
+            miss = rs[j]["absence"].random(n_sims) >= float(ch)
+            pos = p.position if p.position in SKILL else "WR"
+            extra = _durations(pos, n_sims, rs[j]["absence"], conf)
+            out_left[:, j] = np.where(miss & (out_left[:, j] < GONE), out_left[:, j] + extra, out_left[:, j])
     # A role that holds: in each simulated season a player keeps a lasting
     # tilt toward playing or sitting (``role_spread`` by position, a
     # mean-one lognormal on his absence hazard), tied by ``role_corr`` to how

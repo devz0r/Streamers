@@ -734,7 +734,8 @@ def timelines(snapshot, cfg: Config, espn_ids: dict[str, str], allow_network: bo
 
 def manual_timelines(snapshot, cfg: Config) -> list[str]:
     """Timelines set by hand in ``roster.manual_timelines`` (name: ``[first
-    week back, last week back]``, or ``season``), for what the news parser
+    week back, last week back]``, ``season``, or ``{back: week, chance: p}``:
+    back that week with that chance, else later), for what the news parser
     cannot read -- a report that says "at most three weeks" or "expected to go
     on IR". Applied after :func:`timelines` and replacing it for that player,
     the way a reported range does: the simulation draws his return week
@@ -750,7 +751,16 @@ def manual_timelines(snapshot, cfg: Config) -> list[str]:
         v = want.get(normalize_name(p.name))
         if v is None:
             continue
-        if str(v).strip().lower() == "season":
+        p.return_chance = None
+        if isinstance(v, dict):
+            back, chance = int(v["back"]), float(v["chance"])
+            if back <= week:
+                continue
+            lo = hi = max(back, week + 1)
+            note = f"set by hand: {chance:.0%} back in week {lo}, otherwise later"
+            share = min(max(LAST_WEEK - lo + 1, 0.0) / max(LAST_WEEK - week + 1, 1), 1.0) * chance
+            p.return_chance = chance
+        elif str(v).strip().lower() == "season":
             lo = hi = 99
             note = "set by hand: out for the season"
             share = 0.0

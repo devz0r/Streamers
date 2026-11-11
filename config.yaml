@@ -484,11 +484,14 @@ roster:
   # he will lose his season. Ignored once that week arrives.
   known_returns: {}
   # What the news parser cannot read ("at most three weeks", "expected to go
-  # on IR"), by hand: name: [first week back, last week back], or `season`.
+  # on IR"), by hand: name: [first week back, last week back], `season`, or
+  # {back: week, chance: p} (back that week with that chance, else later).
   # His return week is drawn evenly from the range; replaces the generic
   # absence draw and the reserve-list table. Ignored once the range has
   # passed; delete the line when the tag or the news catches up.
   manual_timelines:
+    Kyle Monangai: {back: 11, chance: 0.85}    # limited practice Nov 6; Rapoport: Chicago expects him back after the bye
+    DeVonta Smith: {back: 11, chance: 0.45}    # hamstring, out since week 7, no practice; no word he is expected back
     Josh Jacobs: [11, 13]      # out at most three weeks
     Puka Nacua: [14, 18]       # IR expected: at least four games, 18 = after the fantasy playoffs
   # Rest-of-season comparisons (roster/comps.py): the season value moves this
