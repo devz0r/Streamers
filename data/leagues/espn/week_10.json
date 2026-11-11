@@ -2575,7 +2575,7 @@
           "position": "RB",
           "team": "BAL",
           "status": "",
-          "slot": "RB",
+          "slot": "FLEX",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -3007,7 +3007,7 @@
           "position": "RB",
           "team": "MIA",
           "status": "",
-          "slot": "FLEX",
+          "slot": "RB",
           "eligible_slots": [
             "FLEX",
             "RB",
@@ -3579,7 +3579,7 @@
           "position": "WR",
           "team": "CLE",
           "status": "",
-          "slot": "WR",
+          "slot": "BN",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -3652,7 +3652,7 @@
           "position": "WR",
           "team": "PIT",
           "status": "",
-          "slot": "BN",
+          "slot": "WR",
           "eligible_slots": [
             "FLEX",
             "SUPERFLEX",
@@ -66937,12 +66937,12 @@
     "week": 10,
     "my_team_id": "3",
     "opponent_team_id": "10",
-    "my_platform_projection": 126.6,
+    "my_platform_projection": 127.17,
     "opp_platform_projection": 126.61,
     "my_points": 0.0,
     "opp_points": 0.0
   },
-  "synced_at": "2026-11-11T09:49:41.872050+00:00",
+  "synced_at": "2026-11-11T10:13:55.973777+00:00",
   "extra": {
     "nfl_week": 10,
     "current_week": 10
