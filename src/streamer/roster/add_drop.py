@@ -95,7 +95,16 @@ def build(engine, report, n_drops: int = N_DROPS, n_sims: int = SIMS, seed: int 
         confirm = lu.sample_points(everyone, n_sims, rng)
         opp_sel = lu._totals([opt.opponent.starters], select, index)[0]
         opp_conf = lu._totals([opt.opponent.starters], confirm, index)[0]
-        base_tot = lu._totals([opt.best_win.starters], confirm, index)[0]
+        # The baseline is the same rebuild as every pair's (your roster as it
+        # stands, lineup chosen on the select draws), so a pickup with nothing
+        # to add this week -- a bye, say -- reads 0 instead of the gap between
+        # this rebuild and the recommended lineup.
+        base_lineups = lu._with_locks(roster, snap.starting_slots)
+        if base_lineups:
+            best0 = base_lineups[int(np.argmax(lu._win_rates(base_lineups, select, index, opp_sel)))]
+            base_tot = lu._totals([best0], confirm, index)[0]
+        else:
+            base_tot = lu._totals([opt.best_win.starters], confirm, index)[0]
         base_ind = (base_tot > opp_conf) + 0.5 * (base_tot == opp_conf)
         week = (index, select, confirm, opp_sel, opp_conf, base_ind)
 
