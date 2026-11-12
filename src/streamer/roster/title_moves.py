@@ -803,9 +803,9 @@ class TitleEngine:
     def _confirmed(self, moves: list[TitleMove]) -> list[TitleMove]:
         """``moves`` (chosen on this simulation) priced again on
         :meth:`confirmation`: the numbers and the verdict come from the fresh
-        seasons, the choice and the order from this one -- a move the second
-        run reads as no gain is still shown, as "wait", not swapped for one
-        the second run happens to like."""
+        seasons; the choice comes from this one -- a move the second run reads
+        as no gain is still shown, as "wait", not swapped for one the second
+        run happens to like. The caller orders the result by the fresh verdict."""
         check = self.confirmation()
         out = []
         for m in moves:
@@ -876,6 +876,10 @@ class TitleEngine:
             self.passed += [(m.add, m.gain_now, self.upside[m.add.player_id]) for m in out[n:]
                             if m.add.player_id in self.upside]
             out = self._confirmed(out[:n])
+            # The choice stays this run's (re-choosing on the second would
+            # pick whichever player it read high by luck); the order is the
+            # fresh seasons' verdict and edge, so the list reads as the numbers do.
+            order(out)
             return self._finish(out, n)
         return self._finish(out, n)
 

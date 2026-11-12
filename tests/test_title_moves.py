@@ -312,3 +312,29 @@ def test_the_chance_a_rival_adds_him_is_this_leagues_measured_rate(cfg, monkeypa
     assert 0.0 <= ahead <= anyone
     monkeypatch.setattr(title_moves, "pickup_fit", lambda _p: None)
     assert engine.claim_odds(miller)[0] > anyone                                     # the old guess, as a fallback
+
+
+
+def test_the_shown_order_follows_the_second_simulation_not_the_first(cfg, monkeypatch):
+    """The choice is made on the first simulation; the list is then ordered by
+    the fresh seasons' verdict and edge, so a move the second run rates higher
+    is not shown below one it rates lower."""
+    from types import SimpleNamespace as NS
+
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    snap.free_agents = [_fa("star", "RB", 24.0), _fa("rep1", "RB", 6.0), _fa("rep2", "WR", 6.0),
+                        _fa("rep3", "RB", 5.5), _fa("rep4", "WR", 5.5)]
+    for t in snap.teams:
+        t.acquisitions = 3
+    engine = TitleEngine(snap, cfg, n_sims=1500, candidates=8)
+    drop = snap.teams[0].roster[0]
+    weak = NS(add=_fa("weak", "WR", 6.0), drop=drop, verdict="lean", net=0.002, gain_now=0.002, how="", later=None,
+              p_now=0.1, p_wait=0.1, p_base=0.1, drop_options=[], reasons=[], block_value=0.0, rival_name="",
+              rival_share=0.0, priority_cost=0.0, noise=0.001, po_base=0.0, po_now=0.0)
+    strong = NS(add=_fa("strong", "RB", 6.0), drop=drop, verdict="claim", net=0.02, gain_now=0.02, how="", later=None,
+                p_now=0.1, p_wait=0.1, p_base=0.1, drop_options=[], reasons=[], block_value=0.0, rival_name="",
+                rival_share=0.0, priority_cost=0.0, noise=0.001, po_base=0.0, po_now=0.0)
+    # The second run hands back the lean move first; the list must still show the claim first.
+    monkeypatch.setattr(engine, "_confirmed", lambda ms: [weak, strong])
+    shown = engine.moves(5)
+    assert [m.add.player_id for m in shown] == ["strong", "weak"]
