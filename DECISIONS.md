@@ -5809,3 +5809,17 @@ The simulation's shortfall on hurt players (they out-scored it by 0.63 a game) c
 A book that expects a player out takes his lines down, so for a questionable or doubtful player whose game's props were pulled, whether *he* is still in them reads as the market's view of whether he plays (`roster/prop_presence.py`). A game that was not pulled says nothing -- props are bought on a credit pace, so an absent line is mostly an unpulled game: a game counts as pulled once 8 players have lines, and a player is "taken down" only against his own game's pull. Players tagged out have no chance to move and are not read.
 
 Not tested: the feeds keep no archive of props, and this season's log starts in week 9. So it follows the FantasyPros chance to play (`play_odds`): every run logs ours and whether he has lines (`results/prop_play_log.parquet`: names and counts only), each week is graded against who had a box score, and each group (has lines / taken down) moves his chance by a log-odds step fitted on those weeks, shrunk toward zero by 40 cases and not used at all below 30 graded cases in that group. Until then nothing about a chance changes (the step is 0 in both groups); the run logs the steps and case counts ("prop presence: steps ... on ... graded player-weeks"). Expect weeks to months: about a dozen tagged players a week have their game pulled.
+
+### Weather and skill players: tested, no
+Raised by a manager's read that rain favours running backs. `scripts/grade_weather_skill.py` (screening test, run on the runner for Open-Meteo): outdoor games 2022-2025, each QB/RB/WR/TE game predicted from his own trailing five-game average scaled by his team's implied total, then again with the game's rain (mm over the kickoff window, capped at 6), wind above 12 mph and cold below 40F as forecast; fitted on three seasons, scored on the fourth. If weather does not help against this base it cannot help the full model, which has all of it and more.
+
+486 of 736 outdoor games had an archived forecast (the rest timed out), 7.6% of them with more than 0.5 mm of rain. Rain games ran 1.2-1.7 points a player below dry ones at every position, runners included (RB -2.13 against -0.96 above trailing average; WR -2.85 against -1.12). Teams in the rain threw 28.5 times and ran 22.3, against 29.2 and 21.2 dry: a shift of about one carry, which did not reach the backs' points.
+
+| | MAE without -> with weather | seasons worse | rain effect per mm |
+|---|---|---|---|
+| QB | 6.609 -> 6.594 | 1 of 4 | -0.51 |
+| RB | 6.032 -> 6.031 | 2 of 4 | -0.33 |
+| WR | 6.084 -> 6.082 | 1 of 4 | -0.41 |
+| TE | 5.211 -> 5.210 | 3 of 4 | -0.32 |
+
+RB and TE fail the rule; QB and WR pass its letter by 0.002-0.015 points a game, which is nothing. Recorded wind and cold alone (every outdoor game, no forecast) moved nothing either (MAE within 0.01, RB and WR worse in 2-3 of 4 seasons). Weather stays out of the skill model; kickers keep wind (the existing result). Rain does lower scoring a little for everyone, but by less than a game's noise and not in the direction the run-game story predicts.
