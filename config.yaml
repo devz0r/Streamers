@@ -489,8 +489,9 @@ roster:
   # reserve list, a bye. Replaces the average absence length and the
   # reserve-list table in the season simulation; a reported or manual
   # timeline below still wins. Held out by season it beat those tables in
-  # 10 of 10 seasons. DECISIONS.md, "When a hurt player is back".
-  return_model: false   # off until the end-to-end replay is graded
+  # 10 of 10 seasons, and in the full replay (2022-2025) in 3 of 4.
+  # DECISIONS.md, "When a hurt player is back".
+  return_model: true
   # What the news parser cannot read ("at most three weeks", "expected to go
   # on IR"), by hand: name: [first week back, last week back], `season`, or
   # {back: week, chance: p} (back that week with that chance, else later).

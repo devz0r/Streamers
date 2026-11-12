@@ -5772,3 +5772,35 @@ The absence draw returned "no absence" for anyone on a bye, to stop a bye readin
 
 ### Week-by-week expected points on the player card
 Tapping a player shows his rest of the season by week (`roster/weekly.py`), read off the season simulation that prices title odds and trades: expected points counting his chance of playing (injury, bye, the man ahead of him), the opponent where the model reads one (QB, RB, D/ST, K; receivers and tight ends are matchup-neutral, since an opponent factor did not help them in held-out seasons), his chance of playing, and the 10th-90th range if he plays. This week's row is the full weekly projection, untouched; the future weeks are scaled together to total the season value times his expected games (the figure the rest of the page uses). On this week's data the unscaled sum was within 7% of that for nine players in ten, so the scale is small; it is held to 0.7-1.4. The simulation's own level calibration is therefore not shown through these rows.
+
+### When a hurt player is back
+
+The season simulation drew a hurt player's absence from two tables: how long absences last by position (given the games already missed), and for a reserve list a chance of being gone for the season by level with a measured wait. Neither read the injury report. `roster/return_model.py` does (`roster.return_model`, on).
+
+**The panel** (`scripts/fit_return_model.py`): every team game a QB/RB/WR/TE missed in 2016-2025 while on the injury report (out, doubtful, questionable) or a reserve list is a checkpoint; each later team game he had not yet returned for is a row -- did he play it? 98,581 rows from nflverse's injury reports, weekly rosters and player stats. A bye is not a game; the 2020-2021 COVID and opt-out lists are left out; 2015's roster statuses are incomplete, so it starts in 2016.
+
+**The fit**: a logistic on what is known at the checkpoint -- games missed in a row, how many games ahead, the injury's group (hamstring, ankle, knee, concussion...), his last practice (none, limited, full) and whether that is a week old, the report's status, a reserve list (with its own terms before 2020, when the rules let two players a team back), whether the same injury already cost him games this season, his level, position, the week, and a bye right after. L2 with C = 0.1; the reserve-list practice terms are penalised a quarter as much (rare and decisive: a reserve-list player back at practice played his next game 22% of the time against 3%, which the plain penalty flattened to 9%).
+
+**Held out by season** (each season predicted from the other nine), log loss on "does he play this game", against the tables in use:
+
+| value 6+ a game | rows | tables | model | seasons better | with a week-old practice |
+|---|---|---|---|---|---|
+| all | 23,373 | 0.320 | 0.272 | 10 of 10 | 0.274, 10 of 10 |
+| not on a reserve list | 5,660 | 0.692 | 0.569 | 10 of 10 | 0.572, 9 of 10 |
+| reserve list | 17,713 | 0.201 | 0.177 | 10 of 10 | 0.178, 10 of 10 |
+| the next game only | 5,595 | 0.389 | 0.341 | 10 of 10 | 0.346, 10 of 10 |
+
+The tables were fitted on 2022-2025, so those seasons flatter them. Their loss off a reserve list is inflated by a few absences longer than the table reaches; the first build, before spells were followed across a bye, read 0.638 against 0.608. Cumulative return curves (out one game, out three or more, questionable and sat, quarterbacks, reserve early and late) match what happened to within a few points at every horizon. What it learned that the tables could not: back after a bye 60% of the time against 39% without one; listed out 30% against questionable-and-sat 57%; limited practice 57% against none 31%.
+
+**In the simulation**: a player tagged out with a game this week misses it and the model is asked about the games after; one tagged out on his bye has no game to miss, so the first game back is in question with the bye's week of rest (this replaces the fix above for an out tag on a bye); a reserve list likewise; a questionable player who sits is drawn the same way. The report is read from nflverse's file for the season, nothing later than the week being priced. A confirmed return, a reported timeline and a manual one still override it. The card of a player who is out says what was read and the chance he plays his next games.
+
+**End to end** (`ros_backtest`, 24 checkpoints of 2022-2025, each season's model fitted without it), players who were hurt at the checkpoint and worth 6+ a game, rest-of-season points per team game and share of games played:
+
+| | n | points miss | share-of-games miss | seasons better |
+|---|---|---|---|---|
+| all hurt | 974 | 3.308 -> 3.251 | 0.227 -> 0.217 | 3 of 4 on both (2025: 3.06 -> 3.10, 0.243 -> 0.244) |
+| out | 216 | 3.311 -> 3.262 | 0.209 -> 0.201 | |
+| reserve list | 378 | 2.883 -> 2.815 | 0.259 -> 0.243 | |
+| questionable, doubtful | 380 | 3.728 -> 3.678 | 0.205 -> 0.199 | |
+
+The simulation's shortfall on hurt players (they out-scored it by 0.63 a game) closes to 0.47; healthy players do not move. Not read: the kind of reserve list (designated to return shows only through practice), news reports (they come through the timelines), and how severe an injury is beyond its group.
