@@ -109,6 +109,11 @@ class PlayerRow:
     #: His team's games in a row, up to now this season, that he has not
     #: played: how long an absence in progress has already run.
     games_missed: int = 0
+    #: What this season's injury reports say about him (``roster.return_model``:
+    #: the injury's group, his last practice, the report's status and week,
+    #: an earlier absence with the same injury). None: not read, and an
+    #: absence is drawn from the measured lengths.
+    injury_ctx: dict | None = None
     #: A photo of him (or his team's logo, for a D/ST) for the page; empty: none.
     photo: str = ""
     #: FantasyPros' chance he plays this week, for a questionable or doubtful

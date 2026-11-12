@@ -1191,6 +1191,37 @@ def _missed_in_a_row(team_weeks: list[int], played: set[int]) -> int:
     return n
 
 
+def _return_note(p: PlayerRow, week: int) -> str:
+    """What the return model reads for a player who is out, for his card:
+    the injury, his last practice, the games missed, and the chance he plays
+    each of his next games (byes after the next one are not counted here; the
+    season simulation counts them)."""
+    from . import return_model
+
+    try:
+        ahead = list(range(week + 1, 19)) if p.on_bye else list(range(week, 19))
+        c, targets, _certain = return_model.checkpoint(p, week, ahead)
+        if not targets:
+            return ""
+        by = return_model.back_by(c, targets[:4])
+    except Exception:  # noqa: BLE001 - a note; the simulation draws it regardless
+        return ""
+    what = [c["injury"]] if c["injury"] not in ("unknown", "other") else []
+    if c["practice"] != "none":
+        what.append({"dnp": "did not practise", "limited": "limited in practice", "full": "practised in full"}[c["practice"]]
+                    + (" last week" if c["stale"] else ""))
+    if c["reserve"]:
+        what.append("on a reserve list")
+    if c["again"]:
+        what.append("the same injury as earlier this season")
+    missed = int(p.games_missed or 0)
+    if missed:
+        what.append(f"{missed} game{'s' if missed != 1 else ''} missed")
+    later = f", {by[2]:.0%} by week {targets[2]}" if len(by) > 2 else ""
+    return (f"injury report ({', '.join(what) or 'tagged out'}): {by[0]:.0%} to play in week {targets[0]}{later}, "
+            "read off how players in his spot have returned since 2016")
+
+
 def _back_signal(row, ros: float) -> str:
     """A teammate back from an absence: his season value with the games that
     teammate missed read down, against without."""
@@ -1442,6 +1473,30 @@ def project_snapshot(
         if market_conf.get("cells") else {}
 
     fgb_conf = ((cfg.raw.get("roster") or {}).get("first_game_back")) or {}
+    # The injury reports behind the return model: when a player who is out
+    # plays again is read off his injury, practice and games missed
+    # (roster/return_model.py), not the average absence.
+    injury_ctxs: dict[str, dict] | None = None
+    if (cfg.raw.get("roster") or {}).get("return_model", True):
+        try:
+            from . import return_model
+
+            if return_model.load() is not None:
+                season = int(snapshot.season)
+                path = cfg.raw_dir / f"injuries_{season}.parquet"
+                if allow_network:
+                    from ..data.nflverse import load_injuries
+
+                    inj = load_injuries(season, cfg)
+                else:
+                    inj = pd.read_parquet(path) if path.exists() else None
+                from ..teams import normalize_team as _nt
+
+                teams = {str(matched.mapping[p.player_id]): _nt(p.team) for p in snapshot.all_players()
+                         if p.team and p.player_id in matched.mapping}
+                injury_ctxs = return_model.contexts(inj, team_weeks, played_weeks, int(snapshot.week), teams)
+        except Exception as exc:  # noqa: BLE001 - a refinement; absences are then drawn as before
+            log.warning("injury reports for the return model skipped: %s", exc)
     # Returns already confirmed (a suspension or exempt-list stint ending):
     # name -> the week he is back. Only while that week is still to come.
     from .players import normalize_name as _norm_name
@@ -1495,11 +1550,16 @@ def project_snapshot(
             from ..teams import normalize_team
 
             tw = team_weeks.get(normalize_team(p.team)) if p.team else None
+            p.injury_ctx = None if injury_ctxs is None else dict(injury_ctxs.get(str(nfl_id), {}))
             if tw and nfl_id is not None:
                 p.games_missed = _missed_in_a_row(tw, played_weeks.get(str(nfl_id), set()))
                 if p.return_week is not None:
                     p.signals.append(f"confirmed back in week {p.return_week} (after missing his team's last "
                                      f"{p.games_missed}): the simulation sits him until then, no longer")
+                elif p.injury_ctx is not None and (p.status in OUT_STATUSES) and not p.reported_note:
+                    note = _return_note(p, int(snapshot.week))
+                    if note:
+                        p.signals.append(note)
                 elif p.games_missed >= 2 and (platform_says_sits or p.is_out or p.is_long_term_out) \
                         and not p.on_bye:
                     p.signals.append(f"has missed his team's last {p.games_missed} games: an absence that has "

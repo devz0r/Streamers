@@ -483,6 +483,14 @@ roster:
   # which reads like a long injury) and does not read the absence as a sign
   # he will lose his season. Ignored once that week arrives.
   known_returns: {}
+  # When a player who is out plays again, from his injury report
+  # (roster/return_model.py, fitted on 2016-2025 by scripts/fit_return_model.py):
+  # the injury, his last practice, the report's status, games missed, a
+  # reserve list, a bye. Replaces the average absence length and the
+  # reserve-list table in the season simulation; a reported or manual
+  # timeline below still wins. Held out by season it beat those tables in
+  # 10 of 10 seasons. DECISIONS.md, "When a hurt player is back".
+  return_model: false   # off until the end-to-end replay is graded
   # What the news parser cannot read ("at most three weeks", "expected to go
   # on IR"), by hand: name: [first week back, last week back], `season`, or
   # {back: week, chance: p} (back that week with that chance, else later).

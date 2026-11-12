@@ -89,7 +89,7 @@ from scipy.special import ndtr
 
 from ..league.model import LONG_TERM_OUT_STATUSES, OUT_STATUSES, PlayerRow
 from ..teams import normalize_team
-from . import level_calibration, outcome
+from . import level_calibration, outcome, return_model
 
 SKILL = ("QB", "RB", "WR", "TE")
 
@@ -254,9 +254,25 @@ def ir_gone(ir: dict, level: float, missed: int) -> float:
     return float(ir["gone"][li][mi])
 
 
-def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict) -> np.ndarray:
+def _modelled(p: PlayerRow, n: int, rng: np.random.Generator, week: int | None, ahead: list[int] | None,
+              status: str | None = None) -> np.ndarray | None:
+    """Games still to miss, from the return model (:mod:`return_model`: the
+    injury report's own record of who came back when), for a skill player
+    whose report was read (``injury_ctx``). None: not available, and the
+    measured absence lengths are drawn as before."""
+    if getattr(p, "injury_ctx", None) is None or p.position not in SKILL or week is None or ahead is None \
+            or return_model.load() is None:
+        return None
+    c, targets, certain = return_model.checkpoint(p, week, ahead, status=status)
+    extra = return_model.draw(c, targets, n, rng)
+    return np.where(extra >= GONE, GONE, extra + certain)
+
+
+def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict, week: int | None = None,
+                     ahead: list[int] | None = None) -> np.ndarray:
     """Games still to miss from today's status, given how many of his team's
-    games in a row he has already missed."""
+    games in a row he has already missed. ``week`` and ``ahead`` (this week,
+    and his team's games from it on) let the return model answer where it can."""
     pos = p.position if p.position in SKILL else "WR"
     already = int(getattr(p, "games_missed", 0) or 0)
     odds = getattr(p, "signing_odds", None)
@@ -268,6 +284,9 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
         wait = int(getattr(p, "signing_wait", 0) or 0) + rng.choice(np.arange(len(pmf)), size=n, p=pmf / pmf.sum())
         return np.where(rng.random(n) < float(odds), np.maximum(wait, 1), GONE)
     if p.status in LONG_TERM_OUT_STATUSES:
+        got = _modelled(p, n, rng, week, ahead)
+        if got is not None:
+            return got
         ir = conf.get("ir")
         if ir:
             # Measured from every player on a reserve list at a checkpoint,
@@ -288,11 +307,13 @@ def _initial_absence(p: PlayerRow, n: int, rng: np.random.Generator, conf: dict)
         # still drawn, from the games he has already missed.
         return np.zeros(n, int)
     if p.is_out:
-        return _durations(pos, n, rng, conf, already)
+        got = _modelled(p, n, rng, week, ahead)
+        return got if got is not None else _durations(pos, n, rng, conf, already)
     q = p.play_probability if p.play_probability is not None else 1.0
     if q < 1.0:
         sits = rng.random(n) >= q
-        return np.where(sits, _durations(pos, n, rng, conf, already), 0)
+        got = _modelled(p, n, rng, week, ahead, status="D" if p.status in ("D", "DOUBTFUL") else "Q")
+        return np.where(sits, got if got is not None else _durations(pos, n, rng, conf, already), 0)
     return np.zeros(n, int)
 
 
@@ -526,7 +547,10 @@ def simulate(
     vis_share = np.array([float((conf.get("visibility") or {}).get(p.position, 1.0)) for p in players])[None, :]
     anchor = start.copy()
     shade = np.zeros((n_sims, n_p))
-    out_left = np.stack([_initial_absence(p, n_sims, rs[j]["absence"], conf) for j, p in enumerate(players)], axis=1) \
+    first = weeks[min(current, len(weeks) - 1)] if weeks else None
+    out_left = np.stack([_initial_absence(p, n_sims, rs[j]["absence"], conf, first,
+                                          [w for w in weeks[current:] if not (p.team and w in byes.get(p.team, set()))])
+                         for j, p in enumerate(players)], axis=1) \
         if players else np.zeros((n_sims, 0), int)
     # A return already confirmed (a suspension ending): he sits the weeks
     # before it, byes not counted, and nothing longer.
