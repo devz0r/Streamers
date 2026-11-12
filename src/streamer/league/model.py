@@ -114,6 +114,9 @@ class PlayerRow:
     #: an earlier absence with the same injury). None: not read, and an
     #: absence is drawn from the measured lengths.
     injury_ctx: dict | None = None
+    #: A questionable or doubtful player whose game's props were pulled: how
+    #: many lines a book posts on him (0: taken down). None: game not pulled.
+    prop_lines: int | None = None
     #: A photo of him (or his team's logo, for a D/ST) for the page; empty: none.
     photo: str = ""
     #: FantasyPros' chance he plays this week, for a questionable or doubtful

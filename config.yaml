@@ -492,6 +492,12 @@ roster:
   # 10 of 10 seasons, and in the full replay (2022-2025) in 3 of 4.
   # DECISIONS.md, "When a hurt player is back".
   return_model: true
+  # Whether a book still posts props on a questionable or doubtful player, as
+  # a read on whether he plays (roster/prop_presence.py). Logged every run and
+  # graded against who played; a group (has lines / none) moves his chance
+  # only once min_cases are graded, shrunk toward no move by prior_cases.
+  # No archive of props exists to test it on. DECISIONS.md, "Props as a read on who plays".
+  prop_presence: {prior_cases: 40, min_cases: 30}
   # What the news parser cannot read ("at most three weeks", "expected to go
   # on IR"), by hand: name: [first week back, last week back], `season`, or
   # {back: week, chance: p} (back that week with that chance, else later).

@@ -5804,3 +5804,8 @@ The tables were fitted on 2022-2025, so those seasons flatter them. Their loss o
 | questionable, doubtful | 380 | 3.728 -> 3.678 | 0.205 -> 0.199 | |
 
 The simulation's shortfall on hurt players (they out-scored it by 0.63 a game) closes to 0.47; healthy players do not move. Not read: the kind of reserve list (designated to return shows only through practice), news reports (they come through the timelines), and how severe an injury is beyond its group.
+
+### Props as a read on who plays
+A book that expects a player out takes his lines down, so for a questionable or doubtful player whose game's props were pulled, whether *he* is still in them reads as the market's view of whether he plays (`roster/prop_presence.py`). A game that was not pulled says nothing -- props are bought on a credit pace, so an absent line is mostly an unpulled game: a game counts as pulled once 8 players have lines, and a player is "taken down" only against his own game's pull. Players tagged out have no chance to move and are not read.
+
+Not tested: the feeds keep no archive of props, and this season's log starts in week 9. So it follows the FantasyPros chance to play (`play_odds`): every run logs ours and whether he has lines (`results/prop_play_log.parquet`: names and counts only), each week is graded against who had a box score, and each group (has lines / taken down) moves his chance by a log-odds step fitted on those weeks, shrunk toward zero by 40 cases and not used at all below 30 graded cases in that group. Until then nothing about a chance changes (the step is 0 in both groups); the run logs the steps and case counts ("prop presence: steps ... on ... graded player-weeks"). Expect weeks to months: about a dozen tagged players a week have their game pulled.

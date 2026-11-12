@@ -906,10 +906,12 @@ def _play_probability(player: PlayerRow, cfg: Config) -> float:
     (:mod:`.play_odds`)."""
     from . import play_odds
 
+    from . import prop_presence
+
     ours = tag_probability(player, cfg)
     if 0.0 < ours < 1.0 and player.fp_play is not None:
-        return play_odds.blend(ours, player.fp_play)
-    return ours
+        ours = play_odds.blend(ours, player.fp_play)
+    return prop_presence.adjust(ours, getattr(player, "prop_lines", None))
 
 
 def tag_probability(player: PlayerRow, cfg: Config) -> float:

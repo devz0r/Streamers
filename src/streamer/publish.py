@@ -982,6 +982,18 @@ def team_panels_for(
     except Exception as exc:  # noqa: BLE001 - a bonus input
         play_odds.WEIGHT = 0.0
         log.warning("FantasyPros chance-to-play weight skipped: %s", exc)
+    from .roster import prop_presence
+
+    try:
+        from .roster.projections import load_history as _hist
+
+        steps, counts = prop_presence.fit_steps(cfg.for_profile(loaded[0][0]), _hist(loaded[0][1])) \
+            if loaded else ({"has": 0.0, "none": 0.0}, {"has": 0, "none": 0})
+        prop_presence.STEP.update(steps)
+        log.info("prop presence: steps %s on %s graded player-weeks", {k: round(v, 2) for k, v in steps.items()}, counts)
+    except Exception as exc:  # noqa: BLE001 - a bonus input
+        prop_presence.STEP.update({"has": 0.0, "none": 0.0})
+        log.warning("prop-presence steps skipped: %s", exc)
     from .roster.lineup import use_profile
 
     for name, bound, snap, status, rankings in loaded:
@@ -992,6 +1004,11 @@ def team_panels_for(
                          play_odds.attach(snap, bound))
         except Exception as exc:  # noqa: BLE001
             log.warning("FantasyPros chance to play for %s skipped: %s", name, exc)
+        try:
+            if shared is not None:
+                log.info("%s: prop lines read for %d tagged players", name, prop_presence.attach(snap, shared.frame))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("prop presence for %s skipped: %s", name, exc)
         try:
             projected = project_snapshot(snap, bound, rankings, allow_network=allow_network)
             snap._platform_weight = (projected.platform_weight, projected.platform_games)
@@ -1030,6 +1047,10 @@ def team_panels_for(
                 play_odds.record(snap, bound)
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("chance-to-play log for %s skipped: %s", name, exc)
+            try:
+                prop_presence.record(snap, bound)
+            except Exception as exc:  # noqa: BLE001 - a log must never block the page
+                log.warning("prop-presence log for %s skipped: %s", name, exc)
             try:
                 from .roster import stat_projections
                 from .roster.vegas import log_projections
