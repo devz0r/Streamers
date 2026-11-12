@@ -426,5 +426,6 @@ td.tr-c { white-space: nowrap; }
 .gl-table th { color: var(--muted); font-weight: 600; font-size: .8em; text-transform: uppercase; letter-spacing: .03em; border-top: 0; }
 .gl-line { color: var(--muted); }
 .gl-off td { color: var(--faint); }
+.gl-now td { background: var(--hover, rgba(127,127,127,.12)); }
 .gl-table td, .gl-table th { white-space: normal; }
 .gl-table td.gl-line { min-width: 9em; }

@@ -127,6 +127,23 @@
       "each bar the share of draws that landed there): four games in five he scores " + d.p10.toFixed(1) + "&ndash;" + d.p90.toFixed(1) +
       " (10th&ndash;90th percentile); median " + d.p50.toFixed(1) + ", mean " + d.mean.toFixed(1) + ".</p>" + svg + "</div>";
   }
+  // The rest of the season, week by week, from the season simulation.
+  function weekly(f) {
+    if (!f || !f.w || !f.w.length) return "";
+    var rows = f.w.map(function (r, i) {
+      var now = i === f.now;
+      if (r.length <= 2) return '<tr class="gl-off"><td>' + r[0] + '</td><td colspan="4">Bye week</td></tr>';
+      var out = r[3] < 0.005;
+      return "<tr" + (now ? ' class="gl-now"' : "") + "><td>" + r[0] + (now ? " (now)" : "") + "</td><td>" + esc(r[1] || "") + "</td><td><b>" +
+        (out ? "&ndash;" : r[2].toFixed(1)) + "</b></td><td>" + (out ? "out" : Math.round(r[3] * 100) + "%") + "</td><td>" +
+        (out ? "&ndash;" : r[4].toFixed(0) + "&ndash;" + r[5].toFixed(0)) + "</td></tr>";
+    }).join("");
+    return '<div class="gl-dist"><p class="sub"><b>Rest of the season</b>: ' + f.tot.toFixed(1) + " points over " + f.gm.toFixed(1) +
+      ' expected games. Each week is what the model expects of him that week, counting the chance he misses it (injury, bye) and, for quarterbacks, backs, defences and kickers, the opponent; ' +
+      "the range is his 10th&ndash;90th percentile if he plays, wider the further out.</p>" +
+      '<div class="scroll"><table class="gl-table"><thead><tr><th>Wk</th><th>Opp</th><th>Expected</th><th>Plays</th><th>Range</th></tr></thead><tbody>' +
+      rows + "</tbody></table></div></div>";
+  }
   var M;
   try { M = JSON.parse((document.getElementById("matchup-dist") || {}).textContent || "null"); } catch (e) { M = null; }
   var matchSheet, matchLg = null, matchView = "scores";
@@ -291,7 +308,7 @@
     sheet.innerHTML = '<div class="gl-sheet" role="dialog" aria-modal="true" aria-label="' + esc(p.n) + ' game log">' +
       '<div class="gl-head"><div><strong>' + esc(p.n) + '</strong> <span class="opp">' + esc(p.p) + " " + esc(p.t) +
       '</span></div><button type="button" class="gl-x" aria-label="Close">&times;</button></div>' + v + sum +
-      (p.d ? playerChart(p.d) : "") + '<div class="gl-bars">' + bars + '</div><div class="scroll"><table class="gl-table"><thead><tr><th>Wk</th><th>Opp</th><th>Pts</th><th>Snaps</th>' +
+      (p.d ? playerChart(p.d) : "") + weekly(p.f) + '<div class="gl-bars">' + bars + '</div><div class="scroll"><table class="gl-table"><thead><tr><th>Wk</th><th>Opp</th><th>Pts</th><th>Snaps</th>' +
       '<th class="gl-line">Line</th></tr></thead><tbody>' + rows + "</tbody></table></div></div>";
     document.body.appendChild(sheet);
     document.documentElement.classList.add("gl-open");

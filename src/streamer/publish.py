@@ -1111,6 +1111,9 @@ def team_panels_for(
                 d = (panels[name].get("_pdists") or {}).get(rec.get("pid"))
                 if d:
                     rec["d"] = d
+                f = (getattr(snap, "_weekly", None) or {}).get(rec.get("pid"))
+                if f:
+                    rec["f"] = f
             views = _team_views(snap, bound, rankings, projected, shared=view_shared, game_day=game_day)
             if views:
                 panels[name]["_views"] = views
@@ -1258,6 +1261,12 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                 report.season = dataclasses.replace(odds, mine=odds.team_ids.index(snap.my_team.team_id))
             if primary:
                 snap._season_odds = report.season
+                try:
+                    from .roster import weekly
+
+                    snap._weekly = weekly.build(engine.model, snap, bound)
+                except Exception as exc:  # noqa: BLE001 - a card's extra; never block the page
+                    log.warning("weekly projections for %s skipped: %s", name, exc)
             if primary:
                 try:
                     from .roster import odds_log
