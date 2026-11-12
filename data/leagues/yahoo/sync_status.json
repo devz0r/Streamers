@@ -2,7 +2,7 @@
   "profile": "yahoo",
   "platform": "yahoo",
   "week": 10,
-  "ok": false,
-  "error": "HTTPSConnectionPool(host='football.fantasysports.yahoo.com', port=443): Read timed out. (read timeout=25)",
-  "at": "2026-11-12T10:15:43+00:00"
+  "ok": true,
+  "error": "",
+  "at": "2026-11-12T10:55:10+00:00"
 }
