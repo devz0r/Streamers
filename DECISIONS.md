@@ -5823,3 +5823,23 @@ Raised by a manager's read that rain favours running backs. `scripts/grade_weath
 | TE | 5.211 -> 5.210 | 3 of 4 | -0.32 |
 
 RB and TE fail the rule; QB and WR pass its letter by 0.002-0.015 points a game, which is nothing. Recorded wind and cold alone (every outdoor game, no forecast) moved nothing either (MAE within 0.01, RB and WR worse in 2-3 of 4 seasons). Weather stays out of the skill model; kickers keep wind (the existing result). Rain does lower scoring a little for everyone, but by less than a game's noise and not in the direction the run-game story predicts.
+
+### Breakout audit: who the waiver engine never looked at
+
+`scripts/audit_breakouts.py` replays weeks 2-12 of 2022-2025 through the production projections and asks, of each waiver-level player who was startable over his team's next five games (played three or more, at or above the 25th back or receiver, 10th tight end or quarterback over the same games), whether the engine's own selection would have priced him the week before. Nothing is fitted. "Waiver-level" has no archive behind it, so a player counts as rostered if he is in the top N at his position (10 teams: QB 15, RB 50, WR 55, TE 18) by our season value, last season's points a game, this season's so far, or is a rookie taken in the first 50 picks; the first cut, by our value alone, called Lamar Jackson and a returning Cooper Kupp waiver pickups.
+
+**How many were in front of the simulation**: 102 of 212 breakout player-weeks (48%); at the flex positions 64 of 147 (44%): backs 59%, receivers 39%, tight ends 38%. 86 different back, receiver and tight end seasons in four years, about 21 a season.
+
+**What the routes are worth** (flex positions; 0.8% of unpriced players broke out): the best few by value 7.5% (56 of the 64 caught); stepping in 3.7%; next in line 3.0%; IR stash 2.1%.
+
+**Two things wrong with who gets priced:**
+- *The upside classes go to quarterbacks.* The rookie and role-growing classes take the best three by season value across positions, and a backup quarterback's is the highest: 60 of 71 rookie slots and 72 of 76 role-growing slots were quarterbacks; stepping in was 71 quarterbacks and 72 tight ends to 9 backs and no receivers. At back and receiver the upside classes are, in practice, the handcuffs alone.
+- *The lists are short where breakouts are common.* Ranked by value plus spread, the top 3 tight ends held 31% of tight end breakouts and the top 10 held 73%, still at 8.6% a player -- above the 6.5% of the seven backs or receivers priced now. Receivers: top 7 38%, top 15 60% (4.8%). Backs: top 7 54%, top 10 62%, top 20 76%.
+
+**What did not hold up:**
+- *A fitted breakout score.* A boosted model on season value and its spread, the week's projection, recent and expected points, rookie and draft capital, the starter ahead being out, injury status and every sign we read, fitted on three seasons and choosing the same number to price in the fourth, caught 99 of 212 against the engine's 102: better at quarterback (50 against 38), worse at back (15 against 22) and receiver (14 against 22). Season value plus spread is already the better screen there.
+- *Widening on a sign alone.* Unpriced rookies broke out 0.8% of the time, role-growing 1.1%, new team 0.9%: the base rate. Expected points of 8+ over the last two games was the one read with lift (4%, 10 of the 83 missed).
+
+**The ceiling**: of the 83 missed at the flex positions, 31 showed nothing we read and 9 broke out because the starter ahead went down afterwards.
+
+**The simulation is honest about them**: for waiver-level players its chance of a startable rest of season averaged 1.13% against 1.40% that happened, within a point in every band above 2% (10-20%: said 13.8%, happened 13.7%), and it tells them apart (AUC 0.857, season value alone 0.820). So the gap is who is priced, not how.
