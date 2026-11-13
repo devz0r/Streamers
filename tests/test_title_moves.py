@@ -338,3 +338,24 @@ def test_the_shown_order_follows_the_second_simulation_not_the_first(cfg, monkey
     monkeypatch.setattr(engine, "_confirmed", lambda ms: [weak, strong])
     shown = engine.moves(5)
     assert [m.add.player_id for m in shown] == ["strong", "weak"]
+
+
+def test_upside_classes_take_their_best_at_each_position_so_a_backup_quarterback_cannot_take_them_all(cfg):
+    snap = _league([1.0, 1.1, 1.0, 1.05, 0.95, 1.0])
+    pool = []
+    for i in range(5):                                           # five rookie quarterbacks, all rated above every other rookie
+        q = _fa(f"qb{i}", "QB", 20.0 - i)
+        q.experience = 0
+        pool.append(q)
+    for i, pos in enumerate(("RB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "TE")):
+        r = _fa(f"{pos.lower()}{i}", pos, 8.0 - i * 0.1)
+        r.experience = 0
+        pool.append(r)
+    snap.free_agents = pool
+    got = TitleEngine._upside_candidates(snap, pool)
+    by_pos = {}
+    for pid, why in got.items():
+        if why.startswith("rookie"):
+            by_pos.setdefault(pid[:2].upper(), []).append(pid)
+    assert {k: len(v) for k, v in by_pos.items()} == {"QB": 1, "RB": 2, "WR": 2, "TE": 2}
+    assert "rb0" in got and "wr3" in got and "te6" in got          # each position's best rookie

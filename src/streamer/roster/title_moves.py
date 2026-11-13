@@ -82,6 +82,12 @@ TOSS_UP_SE = 2.0
 CONFIRM_SEED = 7919
 #: Upside plays priced on purpose, of each kind (handcuffs, rookies, rising roles).
 UPSIDE_EACH = 3
+#: Each upside class takes its best few *at each position* (a backup
+#: quarterback's value is always the highest, and 60 of 71 rookie slots and 72
+#: of 76 role-growing slots went to quarterbacks in 2022-2025). With these
+#: and the larger value quotas below, 64% of waiver breakouts were priced the
+#: week before, up from 48%; DECISIONS.md, "Breakout audit".
+UPSIDE_BY_POS = {"RB": 2, "WR": 2, "TE": 2, "QB": 1}
 #: Backups starting now because the man ahead of them is out, per position.
 STEPPING_EACH = 2
 #: Free agents on a reserve list priced as IR stashes, best season value first.
@@ -364,7 +370,7 @@ class TitleEngine:
         # Best free agents per position by their upside (per-game value plus
         # how far it could move), so backup quarterbacks cannot crowd out the
         # backs and receivers who usually matter.
-        quota = {"RB": 7, "WR": 7, "QB": 3, "TE": 3}
+        quota = {"RB": 10, "WR": 15, "QB": 3, "TE": 10}
         self.candidates = []
         for pos, n in quota.items():
             at = sorted((p for p in pool if p.position == pos),
@@ -531,12 +537,16 @@ class TitleEngine:
         for pid, lead, _gain in [c for c in cuffs if c[0] not in out][:UPSIDE_EACH]:
             out[pid] = f"next in line behind {lead.name}"
         by_value = sorted(pool, key=lambda p: -float(p.ros_value or 0.0))
-        for p in [q for q in by_value if q.experience == 0 and q.player_id not in out][:UPSIDE_EACH]:
-            out[p.player_id] = "rookie: roles grow, and his outlook moves more"
-        rising = [q for q in by_value if q.player_id not in out
-                  and any(s.startswith("opportunity up") for s in q.signals)]
-        for p in rising[:UPSIDE_EACH]:
-            out[p.player_id] = "his role is growing"
+
+        def take(picks: list[PlayerRow], text: str) -> None:
+            per: dict[str, int] = {}
+            for q in picks:
+                if q.player_id not in out and per.get(q.position, 0) < UPSIDE_BY_POS.get(q.position, 0):
+                    per[q.position] = per.get(q.position, 0) + 1
+                    out[q.player_id] = text
+
+        take([q for q in by_value if q.experience == 0], "rookie: roles grow, and his outlook moves more")
+        take([q for q in by_value if any(s.startswith("opportunity up") for s in q.signals)], "his role is growing")
         return out
 
     # -- building blocks -------------------------------------------------

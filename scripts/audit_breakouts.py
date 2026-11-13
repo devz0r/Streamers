@@ -53,7 +53,7 @@ WEEKS = tuple(range(2, 13))
 POS = ("QB", "RB", "WR", "TE")
 ROSTERED_10 = {"QB": 15, "RB": 50, "WR": 55, "TE": 18}
 STARTABLE_10 = {"QB": 10, "RB": 25, "WR": 25, "TE": 10}
-QUOTA = {"RB": 7, "WR": 7, "QB": 3, "TE": 3}
+QUOTA = {"RB": 10, "WR": 15, "QB": 3, "TE": 10}     # the engine's (title_moves.TitleEngine)
 WINDOW, MIN_PLAYED = 5, 3
 
 

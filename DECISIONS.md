@@ -5843,3 +5843,10 @@ RB and TE fail the rule; QB and WR pass its letter by 0.002-0.015 points a game,
 **The ceiling**: of the 83 missed at the flex positions, 31 showed nothing we read and 9 broke out because the starter ahead went down afterwards.
 
 **The simulation is honest about them**: for waiver-level players its chance of a startable rest of season averaged 1.13% against 1.40% that happened, within a point in every band above 2% (10-20%: said 13.8%, happened 13.7%), and it tells them apart (AUC 0.857, season value alone 0.820). So the gap is who is priced, not how.
+
+### Waiver candidates widened: who gets priced
+From the breakout audit above. `TitleEngine` now prices the best 10 tight ends, 15 receivers and 10 backs by value plus spread (was 3, 7 and 7; quarterbacks stay 3), and the rookie and role-growing classes take their best two at each of back, receiver and tight end and one quarterback (`UPSIDE_BY_POS`), where they had taken the best three across positions and so gone almost entirely to backup quarterbacks. Replayed on the same 2022-2025 weeks, the share of waiver-level breakouts priced the week before went from 48% to 64% (backs 59% to 70%, receivers 39% to 60%, tight ends 38% to 74%, quarterbacks 58% to 57%; flex positions 44% to 67%, better in all four seasons, 2024 30% to 50%). Almost all of it is the longer value lists (93 of the 99 flex breakouts priced came in by value); the two classes added 2 and 3.
+
+Tried and removed: a class for free agents whose last two games carried 8+ expected points a game. Before the lists were widened it had lift (4%, against 0.8% unpriced); after, the players it would add broke out 0-1% of the time and it brought in 1 of 136 breakouts, for four to six more players to simulate each week.
+
+Cost: the engine prices 57 candidates, not 36 (about a minute more on the page build; on the stored ESPN league 23 s to 37 s at 3,000 simulations). The confirming simulation is what the shown numbers come from, so a longer list does not raise the chance of showing a lucky pick. Not changed: stepping in and next in line (already per position), IR stashes, defences and kickers.
