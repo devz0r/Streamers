@@ -58,12 +58,16 @@ on:
         description: "NFL week to run (defaults to the auto-detected week)"
         required: false
         type: string
+      refs:
+        description: "golden job only: BASE and HEAD git refs to compare, e.g. 'origin/main origin/some-branch' (default: origin/main and the branch dispatched from)"
+        required: false
+        type: string
       job:
         description: "refresh = re-sync leagues and rebuild the page, spending no Odds API credits"
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, dstk-blend, dstk-grade, weather-skill, wind-fit, sleeper-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, dstk-blend, dstk-grade, weather-skill, golden, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -230,6 +234,18 @@ jobs:
 
       # Does rain, wind or cold move skill players' points, held out by season
       # (screening test; aggregates only; needs Open-Meteo, which the sandbox cannot reach).
+      # Build the page offline from two git refs on the same data and diff
+      # them (scripts/golden_page.py refs): proves a refactor or speed-up left
+      # the output identical. The "refs" input is "BASE HEAD" (default:
+      # origin/main and the branch dispatched from).
+      - name: Compare the page built from two refs
+        if: steps.mode.outputs.mode == 'golden'
+        run: |
+          git fetch -q origin main "${GITHUB_REF_NAME}" || true
+          read -r BASE HEAD_REF <<< "${{ inputs.refs }}"
+          BASE="${BASE:-origin/main}"; HEAD_REF="${HEAD_REF:-origin/${GITHUB_REF_NAME}}"
+          python scripts/golden_page.py refs "$BASE" "$HEAD_REF" --head-workers 4
+
       - name: Test weather against skill players' points
         if: steps.mode.outputs.mode == 'weather-skill'
         run: python scripts/grade_weather_skill.py

@@ -13,6 +13,12 @@ refuses to compare if it has moved (a ``git pull`` of a refresh, say) -- run
 ``baseline`` again then. A change meant to alter output (a new feature, a
 recalibration) shows exactly which files moved and by how much.
 
+``refs BASE HEAD`` compares two git refs on the same data (the workspace's own
+``data/``, ``results/`` and config under both), each built in a worktree of the
+ref; it is what the ``golden`` workflow job runs, where a build does not get
+killed with the sandbox. ``--head-workers N`` sets STREAMER_VIEW_WORKERS for the
+HEAD build only (the BASE is built with 1).
+
 Times and other values that differ on every build are masked before
 digesting (:data:`MASKS`). ``--twice`` builds the baseline twice and reports
 any difference between the two builds, which is how a new source of
@@ -63,16 +69,31 @@ def fingerprint() -> str:
     return h.hexdigest()[:16]
 
 
-def build(label: str) -> tuple[Path, float]:
-    """A copy of the working tree, the page built in it offline."""
+def build(label: str, src: Path = ROOT, overlay: Path | None = None, workers: str | None = None) -> tuple[Path, float]:
+    """A copy of ``src`` (the working tree unless told otherwise), the page
+    built in it offline. ``overlay``: replace its inputs (:data:`INPUTS`) with
+    that tree's, so two refs are built on the same data."""
     work = Path(tempfile.mkdtemp(prefix=f"golden_{label}_"))
     t = time.time()
-    for item in ROOT.iterdir():
+    for item in src.iterdir():
         if item.name in SKIP:
             continue
         dest = work / item.name
         shutil.copytree(item, dest, ignore=shutil.ignore_patterns(*SKIP)) if item.is_dir() else shutil.copy2(item, dest)
+    if overlay is not None:
+        for name in INPUTS:
+            theirs, mine = overlay / name, work / name
+            if mine.is_dir():
+                shutil.rmtree(mine)
+            elif mine.exists():
+                mine.unlink()
+            if theirs.is_dir():
+                shutil.copytree(theirs, mine, ignore=shutil.ignore_patterns(*SKIP))
+            elif theirs.exists():
+                shutil.copy2(theirs, mine)
     env = {**os.environ, "PYTHONPATH": str(work / "src"), "PYTHONHASHSEED": "0"}
+    if workers is not None:
+        env["STREAMER_VIEW_WORKERS"] = workers
     week = [a for a in sys.argv if a.startswith("--week=")]
     cmd = [sys.executable, "-m", "streamer.cli", "--offline", "publish"] + (["--week", week[0].split("=")[1]] if week else [])
     if "--week" not in cmd:
@@ -137,12 +158,49 @@ def compare(a: dict[str, str], b: dict[str, str], a_dir: Path | None = None, b_d
     return len(moved)
 
 
+def compare_refs(args) -> int:
+    """Build two git refs on the workspace's data and report what moved."""
+    if len(args.refs) != 2:
+        raise SystemExit("refs mode takes BASE and HEAD")
+    base_ref, head_ref = args.refs
+    trees, work = [], []
+    try:
+        for label, ref in (("base", base_ref), ("head", head_ref)):
+            tree = Path(tempfile.mkdtemp(prefix=f"golden_tree_{label}_"))
+            subprocess.run(["git", "worktree", "add", "--detach", "-f", str(tree), ref], cwd=ROOT, check=True,
+                           capture_output=True)
+            sha = subprocess.run(["git", "rev-parse", "--short", ref], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+            trees.append((label, ref, sha, tree))
+        print(f"inputs (the workspace's): {fingerprint()}", flush=True)
+        built = []
+        for (label, ref, sha, tree), workers in zip(trees, ("1", args.head_workers or "1")):
+            w, secs = build(label, src=tree, overlay=ROOT, workers=workers)
+            d = digests(w)
+            print(f"{label} {ref} ({sha}), {workers} view worker(s): built in {secs:.0f}s, {len(d)} files", flush=True)
+            built.append((w, d, secs))
+        n = compare(built[0][1], built[1][1], built[0][0], built[1][0])
+        print("IDENTICAL: nothing in the page, its data or the results moved between the two refs" if n == 0
+              else f"{n} files moved between the two refs")
+        print(f"build time: base {built[0][2]:.0f}s, head {built[1][2]:.0f}s")
+        for w, _d, _s in built:
+            shutil.rmtree(w, ignore_errors=True)
+        return 1 if n else 0
+    finally:
+        for _l, _r, _s, tree in trees:
+            subprocess.run(["git", "worktree", "remove", "--force", str(tree)], cwd=ROOT, capture_output=True)
+        subprocess.run(["git", "worktree", "prune"], cwd=ROOT, capture_output=True)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["baseline", "check"])
+    ap.add_argument("mode", choices=["baseline", "check", "refs"])
+    ap.add_argument("refs", nargs="*", help="refs mode: BASE HEAD (git refs)")
+    ap.add_argument("--head-workers", default=None)
     ap.add_argument("--twice", action="store_true", help="baseline: build twice and require the two to agree")
     ap.add_argument("--week", type=int, default=None)
     args, _ = ap.parse_known_args()
+    if args.mode == "refs":
+        return compare_refs(args)
     STATE.mkdir(exist_ok=True)
     state_file = STATE / "baseline.json"
     fp = fingerprint()
