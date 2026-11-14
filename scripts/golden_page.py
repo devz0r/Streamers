@@ -48,7 +48,10 @@ INPUTS = ("data", "results", "config.yaml", "odds_baseline.json", "reports")
 #: Values that differ on every build, masked before digesting.
 MASKS = [
     (re.compile(r'"generated_at":\s*"[^"]*"'), '"generated_at": "<time>"'),
-    (re.compile(r"\b20\d\d-\d\d-\d\d[T ]\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:?\d\d)?"), "<time>"),
+    # 2026-11-14T16:08+00:00, 2026-11-14T16:08:03.1Z, 2026-11-14 16:08 UTC (seconds optional)
+    (re.compile(r"\b20\d\d-\d\d-\d\d[T ]\d\d:\d\d(?::\d\d(?:\.\d+)?)?(?:Z|[+-]\d\d:?\d\d| UTC)?"), "<time>"),
+    # Sat 14 Nov 2026, 16:08 UTC (the page's "updated")
+    (re.compile(r"\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2} 20\d\d, \d\d:\d\d(?: UTC)?"), "<time>"),
     (re.compile(r"\b\d{1,2}:\d\d(?::\d\d)? ?(?:AM|PM|am|pm)? ?(?:ET|UTC|EST|EDT)?\b(?= updated| ago|\))"), "<clock>"),
     (re.compile(r"in \d+(?:\.\d+)?s\b"), "in <n>s"),
 ]
@@ -130,7 +133,20 @@ def digests(work: Path) -> dict[str, str]:
     return out
 
 
-def show_diff(a_dir: Path, b_dir: Path, name: str, limit: int = 14) -> None:
+def _where(a: str, b: str, width: int = 70, ops: int = 3) -> list[str]:
+    """The parts of two lines that differ, each with a little context."""
+    sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
+    out = []
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal":
+            continue
+        out.append(f"...{a[max(0, i1 - width):i1]}[-{a[i1:i2][:width * 2]}-]{{+{b[j1:j2][:width * 2]}+}}{a[i2:i2 + width]}...")
+        if len(out) >= ops:
+            break
+    return out
+
+
+def show_diff(a_dir: Path, b_dir: Path, name: str, limit: int = 4) -> None:
     pa, pb = a_dir / ("docs" if not name.startswith(("results/", "reports/")) else "") / name, \
         b_dir / ("docs" if not name.startswith(("results/", "reports/")) else "") / name
     if not (pa.exists() and pb.exists()):
@@ -138,10 +154,13 @@ def show_diff(a_dir: Path, b_dir: Path, name: str, limit: int = 14) -> None:
     la, lb = masked(pa.read_text(encoding="utf-8", errors="replace")).splitlines(), \
         masked(pb.read_text(encoding="utf-8", errors="replace")).splitlines()
     shown = 0
-    for line in difflib.unified_diff(la, lb, lineterm="", n=0):
-        if line.startswith(("+++", "---", "@@")):
+    for i in range(max(len(la), len(lb))):
+        x, y = la[i] if i < len(la) else "", lb[i] if i < len(lb) else ""
+        if x == y:
             continue
-        print("      " + (line[:220] + (" ..." if len(line) > 220 else "")))
+        print(f"      line {i + 1} ({len(x)} -> {len(y)} chars):")
+        for piece in _where(x, y):
+            print("        " + piece)
         shown += 1
         if shown >= limit:
             print("      ...")
@@ -171,7 +190,7 @@ def compare_refs(args) -> int:
                            capture_output=True)
             sha = subprocess.run(["git", "rev-parse", "--short", ref], cwd=ROOT, capture_output=True, text=True).stdout.strip()
             trees.append((label, ref, sha, tree))
-        print(f"inputs (the workspace's): {fingerprint()}", flush=True)
+        print(f"inputs (the workspace's): {fingerprint()}; {os.cpu_count()} cores here", flush=True)
         built = []
         for (label, ref, sha, tree), workers in zip(trees, ("1", args.head_workers or "1")):
             w, secs = build(label, src=tree, overlay=ROOT, workers=workers)

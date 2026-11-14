@@ -66,3 +66,14 @@ def test_building_overlays_the_inputs_of_another_tree(tmp_path, monkeypatch):
     work, _secs = gp.build("t", src=src, overlay=mine, workers="4")
     assert seen == {"data": "workspace", "config": "workspace", "code": "ref", "workers": "4"}   # the ref's code on the workspace's data
     gp.shutil.rmtree(work, ignore_errors=True)
+
+
+def test_every_time_format_the_page_writes_is_masked_and_the_diff_points_at_what_differs():
+    for a, b in (('updated Sat 14 Nov 2026, 16:08 UTC', 'updated Sat 14 Nov 2026, 16:16 UTC'),
+                 ('"built_at":"2026-11-14T16:08+00:00"', '"built_at":"2026-11-14T16:16+00:00"'),
+                 ('synced 2026-11-14 09:23 UTC', 'synced 2026-11-14 10:00 UTC'),
+                 ('at 2026-11-14T16:08:03.5Z', 'at 2026-11-14T17:00:00Z')):
+        assert gp.masked(a) == gp.masked(b), a
+    assert gp.masked("p 0.4321 Nov 28") != gp.masked("p 0.4322 Nov 28")                # a real number still shows
+    assert gp._where("a" * 200 + "X" + "b" * 200, "a" * 200 + "Y" + "b" * 200) == [
+        "..." + "a" * 70 + "[-X-]{+Y+}" + "b" * 70 + "..."]
