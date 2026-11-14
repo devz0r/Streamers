@@ -165,7 +165,7 @@ cp .env.example .env      # optional keys, never committed
 Verify:
 
 ```bash
-pytest                                             # the test suite, a few minutes
+pytest -n 4                                        # the test suite, about 45 s on 4 cores (plain `pytest`: about 100 s)
 streamer backtest --seasons 2023-2025 --estimator ridge   # ~1 min
 streamer rank --week 1
 ```
