@@ -54,6 +54,12 @@ MASKS = [
     (re.compile(r"\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2} 20\d\d, \d\d:\d\d(?: UTC)?"), "<time>"),
     (re.compile(r"\b\d{1,2}:\d\d(?::\d\d)? ?(?:AM|PM|am|pm)? ?(?:ET|UTC|EST|EDT)?\b(?= updated| ago|\))"), "<clock>"),
     (re.compile(r"in \d+(?:\.\d+)?s\b"), "in <n>s"),
+    # Text that is relative to the moment of the build: a news item's age, how old the prices are,
+    # days to a deadline, and when inactives are due (a clock time today, a day name before then).
+    (re.compile(r"\b\d+ ?(?:m|min|h|d) ago\b"), "<age> ago"),
+    (re.compile(r"\(\d+ ?(?:m|min|h|d) before this page was built\)"), "(<age> before this page was built)"),
+    (re.compile(r"\b[Cc]loses? in \d+ days?\b"), "close in <n> days"),
+    (re.compile(r"inactives about (?:(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day|\d{1,2}:\d\d [AP]M ET)"), "inactives about <when>"),
 ]
 
 
@@ -167,7 +173,8 @@ def show_diff(a_dir: Path, b_dir: Path, name: str, limit: int = 4) -> None:
         x, y = la[i] if i < len(la) else "", lb[i] if i < len(lb) else ""
         if x == y:
             continue
-        print(f"      line {i + 1} ({len(x)} -> {len(y)} chars):")
+        places = f", {sum(1 for c, d in zip(x, y) if c != d)} characters differ" if len(x) == len(y) else ""
+        print(f"      line {i + 1} ({len(x)} -> {len(y)} chars{places}):")
         for piece in _where(x, y):
             print("        " + piece)
         shown += 1

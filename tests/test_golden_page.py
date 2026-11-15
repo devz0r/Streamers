@@ -90,3 +90,13 @@ def test_the_diff_of_two_megabyte_lines_is_quick():
     t = time.time()
     got = gp._where(a, b)
     assert time.time() - t < 3 and got and "[-" in got[0]            # a full sequence match here took most of an hour
+
+
+def test_text_relative_to_the_moment_of_the_build_is_masked():
+    for a, b in (("yours &middot; 14h ago</span>", "yours &middot; 15h ago</span>"),
+                 ("read Sat 1:29 PM ET (10h before this page was built)", "read Sat 1:29 PM ET (11h before this page was built)"),
+                 ("<b>Trades close in 14 days (Nov 28).</b>", "<b>Trades close in 13 days (Nov 28).</b>"),
+                 ("trades close in 14 days (nov 28)", "trades close in 13 days (nov 28)"),
+                 ("(WR, 88% to play): inactives about Sunday", "(WR, 88% to play): inactives about 11:30 AM ET")):
+        assert gp.masked(a) == gp.masked(b), a
+    assert gp.masked("88% to play") != gp.masked("87% to play")
