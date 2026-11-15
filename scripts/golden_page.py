@@ -116,6 +116,9 @@ def build(label: str, src: Path = ROOT, overlay: Path | None = None, workers: st
     # Both builds run at the same frozen instant: the page reads the clock
     # (hours to kickoff, price ages), so builds minutes apart can differ.
     env["GOLDEN_NOW"] = FROZEN_NOW
+    # The whole build, whenever it is run: on a Sunday afternoon the page
+    # rebuilds only part of each other team's view.
+    env.setdefault("STREAMER_GAME_DAY", "0")
     cmd = [sys.executable, "-c", FROZEN_RUN, "--offline", "publish"] + (["--week", week[0].split("=")[1]] if week else [])
     if "--week" not in cmd:
         cmd += ["--week", str(newest_week())]

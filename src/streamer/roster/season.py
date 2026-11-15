@@ -317,8 +317,14 @@ class SeasonModel:
                                     takeover=roster_conf.get("next_man_up"),
                                     takeover_sd=roster_conf.get("next_man_up_spread"),
                                     kept=roster_conf.get("next_man_up_kept"), opponents=opponents)
-        self._lv_t = np.ascontiguousarray(self.futures.levels.transpose(0, 2, 1), dtype=np.float32)
-        self._sc_t = np.ascontiguousarray(self.futures.scores.transpose(0, 2, 1), dtype=np.float32)
+        # Players by (sims * weeks): a player's seasons in one contiguous row,
+        # which is how the lineups read them (one slot's players at a time).
+        n_all = len(self.players)
+        self._lv_p = np.ascontiguousarray(self.futures.levels.transpose(1, 0, 2), dtype=np.float32).reshape(n_all, -1)
+        self._sc_p = np.ascontiguousarray(self.futures.scores.transpose(1, 0, 2), dtype=np.float32).reshape(n_all, -1)
+        self._flat = np.arange(n_sims * len(self.weeks), dtype=np.intp)
+        self._slot_memo: dict[tuple, tuple] = {}
+        self._slot_memo_size = 0.0
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),
                       key=lambda kv: (len(SLOT_ELIGIBILITY.get(kv[0], (kv[0],))), kv[0]))]
         # Replacement level: what any team can pick up off the wire in a
@@ -453,72 +459,141 @@ class SeasonModel:
                 owner, list(roster_ids), dict(available_from or {}), dict(gone_from or {}))
         ids = [i for i in roster_ids if i in self.pid]
         n = self.n if _sims is None else len(_sims)
+        n_w = len(self.weeks)
         if not ids:
-            return np.zeros((n, len(self.weeks)))
-        cols = [self.pid[i] for i in ids]
-        # (sims, weeks, players): players on the last, contiguous axis, where
-        # the per-slot argmax runs -- several times faster than the middle.
+            return np.zeros((n, n_w))
+        cols = np.array([self.pid[i] for i in ids], dtype=np.intp)
+        players = [self.players[c] for c in cols]
+        # Worked flat: a player-week of a simulation is one index into the
+        # player's row (``_lv_p`` / ``_sc_p``: players by sims * weeks).
         if _sims is None:
-            lv = self._lv_t[:, :, cols]
-            sc = self._sc_t[:, :, cols]
+            m = self._flat
         else:
-            part = np.ix_(_sims, np.arange(len(self.weeks)), cols)
-            lv = self._lv_t[part]
-            sc = self._sc_t[part]
-        k_idx = np.arange(len(self.weeks))[None, :]
+            m = (np.asarray(_sims, dtype=np.intp)[:, None] * n_w + np.arange(n_w)[None, :]).reshape(-1)
+        here = np.arange(m.size, dtype=np.intp) if _sims is not None else m
+        # When each player is on the roster (weeks he joins / leaves): the
+        # masks to apply to his row, and the same as a key (None: per
+        # simulation, so not something to remember a result under).
+        k_idx = np.arange(n_w)[None, :]
+        masks: dict[int, list[np.ndarray]] = {}
+        marks: dict[int, tuple | None] = {}
         for table, joins in ((available_from, True), (gone_from, False)):
             for pid, when in (table or {}).items():
                 if pid not in ids:
                     continue
                 j = ids.index(pid)
                 when = np.asarray(when)
-                if when.ndim and _sims is not None:
+                per_sim = bool(when.ndim)
+                if per_sim and _sims is not None:
                     when = when[_sims]
-                w = when[:, None] if when.ndim else when
+                w = when[:, None] if per_sim else when
                 on_roster = (k_idx >= w) if joins else (k_idx < w)
-                lv[:, :, j] = np.where(on_roster, lv[:, :, j], -1.0)
-        players = [self.players[c] for c in cols]
-        total = np.zeros((n, len(self.weeks)))
-        # Each slot takes its best eligible player not yet used, week by week;
-        # a used player is marked -2 in place (``lv`` is this call's copy), so
-        # no slot rebuilds a mask the size of every player-week. Ties fall to
-        # the first player, as before.
+                masks.setdefault(j, []).append(np.broadcast_to(on_roster, (n, n_w)).reshape(-1))
+                marks[j] = None if per_sim or marks.get(j, ()) is None \
+                    else (*marks.get(j, ()), (joins, when.item()))
+        eligible = [np.array([j for j, p in enumerate(players) if _eligible(p, slot)], dtype=np.intp)
+                    for slot, _c in self.slots]
+        # Whether a later slot can still take one of this slot's players: if
+        # not, what the slot leaves behind is never read.
+        later, after = [], set()
+        for idx in reversed(eligible):
+            mine = set(idx.tolist())
+            later.append(bool(mine & after))
+            after |= mine
+        later.reverse()
+        # A slot's result depends on its own players alone until another slot
+        # has taken from them, so it is kept (``_slot_memo``) and a roster that
+        # differs by a player re-does only the slots he can fill.
+        keep = _sims is None and _holes is None
+        state: dict[int, np.ndarray] = {}                  # a player's row once a slot has used it
+        total = np.zeros(m.size)
         used = np.float32(-2.0)
-        for slot, count in self.slots:
-            idx = np.array([j for j, p in enumerate(players) if _eligible(p, slot)], dtype=np.intp)
+        for i, (slot, count) in enumerate(self.slots):
+            idx = eligible[i]
             rep = self._wire_level(slot, team, _compete)
             noise = self.rep_noise[slot]
             if _sims is not None:
                 noise = noise[_sims]
                 if np.ndim(rep):
                     rep = rep[_sims]
-            if np.ndim(rep):
-                rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * noise, 0.0), 0.0)
-                floor = np.maximum(rep, 0.0) + 1e-6
-            else:
-                rep_score = np.maximum(rep + REPLACEMENT_SD * noise, 0.0) if rep > 0 else 0.0
-                floor = max(rep, 0.0) + 1e-6                                  # beats the wire
-            if not self.stream_now and self.lag < len(self.weeks):
-                # This week only a hole is filled: any player who plays beats the wire.
-                floor = np.broadcast_to(np.asarray(floor, dtype=float), total.shape).copy()
-                floor[:, self.lag] = 1e-6
-            for _ in range(count):
-                if idx.size == 0:
+            if idx.size == 0:
+                rep_score, _floor = self._fill(rep, noise, (n, n_w))
+                for _ in range(count):
                     total += rep_score
                     if _holes is not None:
-                        _holes[slot] = _holes.get(slot, 0) + np.ones(total.shape, np.int16)
+                        _holes[slot] = _holes.get(slot, 0) + np.ones((n, n_w), np.int16)
+                continue
+            key = None
+            if keep and not any(int(j) in state for j in idx) and all(marks.get(int(j), ()) is not None for j in idx):
+                key = (slot, team, _compete, tuple((ids[j], marks.get(int(j), ())) for j in idx))
+                hit = self._slot_memo.pop(key, None)
+                if hit is not None:
+                    self._slot_memo[key] = hit                 # most recently used last
+                    for part in hit[0]:
+                        total += part
+                    if later[i]:
+                        for at, j in enumerate(idx):
+                            state[int(j)] = hit[1][at]
                     continue
-                sub = lv[:, :, idx] if idx.size < len(players) else lv
-                local = sub.argmax(axis=2)                                    # (n, k)
-                best = np.take_along_axis(sub, local[:, :, None], axis=2)[:, :, 0]
+            rep_score, floor = self._fill(rep, noise, (n, n_w))
+            # The slot's eligible players, each as he stands now.
+            sub = self._lv_p[cols[idx]] if _sims is None else self._lv_p[np.ix_(cols[idx], m)]
+            for at, j in enumerate(idx):
+                j = int(j)
+                if j in state:
+                    sub[at] = state[j]
+                else:
+                    for mask in masks.get(j, ()):
+                        sub[at] = np.where(mask, sub[at], -1.0)
+            parts = []
+            for _ in range(count):
+                # Each pick takes the best eligible player not yet used, week
+                # by week; a used player is marked -2. Ties fall to the first.
+                local = sub.argmax(axis=0)
+                best = sub[local, here]
                 ok = (best >= floor) & (best > -0.5)
                 if _holes is not None:
-                    _holes[slot] = _holes.get(slot, 0) + (~ok).astype(np.int16)
-                pick = idx[local][:, :, None]
-                total += np.where(ok, np.take_along_axis(sc, pick, axis=2)[:, :, 0], rep_score)
-                cur = np.take_along_axis(lv, pick, axis=2)
-                np.put_along_axis(lv, pick, np.where(ok[:, :, None], used, cur), axis=2)
-        return total
+                    _holes[slot] = _holes.get(slot, 0) + (~ok).reshape(n, n_w).astype(np.int16)
+                part = np.where(ok, self._sc_p[cols[idx[local]], m], rep_score)
+                total += part
+                parts.append(part)
+                sub[local, here] = np.where(ok, used, best)
+            if later[i]:
+                for at, j in enumerate(idx):
+                    state[int(j)] = sub[at]
+            if key is not None:
+                self._remember(key, parts, sub)
+        return total.reshape(n, n_w)
+
+    def _fill(self, rep, noise: np.ndarray, shape: tuple[int, int]):
+        """What a slot scores filled from the wire, and the level a rostered
+        player must reach to be started over it (both flat, or one number)."""
+        if np.ndim(rep):
+            rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * noise, 0.0), 0.0)
+            floor = np.maximum(rep, 0.0) + 1e-6
+        else:
+            rep_score = np.maximum(rep + REPLACEMENT_SD * noise, 0.0) if rep > 0 else 0.0
+            floor = max(rep, 0.0) + 1e-6                                  # beats the wire
+        if not self.stream_now and self.lag < len(self.weeks):
+            # This week only a hole is filled: any player who plays beats the wire.
+            floor = np.broadcast_to(np.asarray(floor, dtype=float), shape).copy()
+            floor[:, self.lag] = 1e-6
+        return (rep_score.reshape(-1) if np.ndim(rep_score) else rep_score,
+                floor.reshape(-1) if np.ndim(floor) else floor)
+
+    #: Memory the kept slot results may hold per simulation (bytes).
+    SLOT_MEMO_BYTES = 256e6
+
+    def _remember(self, key: tuple, parts: list[np.ndarray], sub: np.ndarray) -> None:
+        """Keep a slot's result, dropping the least recently used past the budget."""
+        size = sub.nbytes + sum(part.nbytes for part in parts)
+        if size > self.SLOT_MEMO_BYTES / 4:
+            return
+        self._slot_memo[key] = (parts, sub, size)
+        self._slot_memo_size += size
+        while self._slot_memo_size > self.SLOT_MEMO_BYTES:
+            oldest = next(iter(self._slot_memo))
+            self._slot_memo_size -= self._slot_memo.pop(oldest)[2]
 
     def _this_week_is_settled(self, owner: str, roster_ids: list[str], available_from: dict,
                               gone_from: dict) -> tuple[list[str], dict, dict]:

@@ -487,3 +487,24 @@ def test_a_kept_wire_level_is_the_one_computed(cfg):
     first = model._wire_level("TE", 0)
     model._wire_cache.clear()
     assert np.array_equal(model._wire_level("TE", 0), first) and model._wire_level("TE", 0) is model._wire_level("TE", 0)
+
+
+def test_a_kept_slot_result_is_the_one_computed(cfg):
+    snap = _league([1.0, 1.1, 0.9, 1.0])
+    snap.free_agents = [_fa("w1", "WR", 14.0, "KC"), _fa("r1", "RB", 13.0, "KC")]
+    model = SeasonModel(snap, cfg, n_sims=300)
+    ids = [p.player_id for p in snap.teams[0].roster]
+    rosters = [ids, ids[:-2] + ["w1"], [i for i in ids if "RB1" not in i] + ["r1"], ids,
+               ids[:3] + ids[4:] + ["w1", "r1"]]
+    late = {"w1": 2, "r1": np.where(np.arange(300) % 2 == 0, 1, 10_000)}
+
+    def run():
+        return [model.team_scores(r, owner="0") for r in rosters] + \
+               [model.team_scores(r, available_from=late, gone_from={ids[1]: 3}, owner="0") for r in rosters]
+
+    kept = run() + run()                       # the second pass reads what the first kept
+    assert model._slot_memo
+    model._slot_memo.clear()
+    model.SLOT_MEMO_BYTES = 0                  # nothing kept: every slot worked out afresh
+    fresh = run() + run()
+    assert not model._slot_memo and all(np.array_equal(a, b) for a, b in zip(kept, fresh))
