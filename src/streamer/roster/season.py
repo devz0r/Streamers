@@ -347,6 +347,8 @@ class SeasonModel:
         # (``roster.stream_this_week``; DECISIONS.md, "The season simulator,
         # piece by piece").
         self.stream_now = bool(roster_conf.get("stream_this_week", True))
+        self._wire_cache: dict[tuple, np.ndarray] = {}
+        self._wire_ready = False                # true once the holes below are counted
         self._rep_table: dict[str, np.ndarray] = {}
         self._holes: list[dict[str, np.ndarray]] = []
         self._demand: dict[str, np.ndarray] = {}
@@ -368,6 +370,7 @@ class SeasonModel:
             for slot, _c in self.slots:
                 self._demand[slot] = sum((h.get(slot, 0) for h in self._holes),
                                          np.zeros((n_sims, len(self.weeks)), np.int16))
+        self._wire_ready = True
         self.base_scores = np.stack([self.team_scores([p.player_id for p in t.roster], owner=None,
                                                       _team=i) for i, t in enumerate(self.teams)])
         # Rosters do not stay put: every manager claims, streams and trades,
@@ -432,26 +435,36 @@ class SeasonModel:
     # -- lineups ---------------------------------------------------------
     def team_scores(self, roster_ids: list[str], available_from: dict[str, int] | None = None,
                     gone_from: dict[str, int] | None = None, owner: str | None = None,
-                    _team: int | None = None, _holes: dict | None = None, _compete: bool = True) -> np.ndarray:
+                    _team: int | None = None, _holes: dict | None = None, _compete: bool = True,
+                    _sims: np.ndarray | None = None) -> np.ndarray:
         """``(n_sims, weeks)`` points from starting the best lineup each week.
 
         ``available_from`` / ``gone_from`` map a player to the week index he
         joins / leaves the roster, per simulation (arrays) or for all.
         ``owner``: whose roster this is (his settled week, his place in the
-        waiver order and his own holes are then known).
+        waiver order and his own holes are then known). ``_sims``: score
+        only these simulations (indices; the rows returned, in that order) --
+        each simulation is scored on its own, so the rows are the same ones
+        a full call returns.
         """
         team = _team if _team is not None else self.team_index.get(owner) if owner is not None else None
         if owner is not None:
             roster_ids, available_from, gone_from = self._this_week_is_settled(
                 owner, list(roster_ids), dict(available_from or {}), dict(gone_from or {}))
         ids = [i for i in roster_ids if i in self.pid]
+        n = self.n if _sims is None else len(_sims)
         if not ids:
-            return np.zeros((self.n, len(self.weeks)))
+            return np.zeros((n, len(self.weeks)))
         cols = [self.pid[i] for i in ids]
         # (sims, weeks, players): players on the last, contiguous axis, where
         # the per-slot argmax runs -- several times faster than the middle.
-        lv = self._lv_t[:, :, cols]
-        sc = self._sc_t[:, :, cols]
+        if _sims is None:
+            lv = self._lv_t[:, :, cols]
+            sc = self._sc_t[:, :, cols]
+        else:
+            part = np.ix_(_sims, np.arange(len(self.weeks)), cols)
+            lv = self._lv_t[part]
+            sc = self._sc_t[part]
         k_idx = np.arange(len(self.weeks))[None, :]
         for table, joins in ((available_from, True), (gone_from, False)):
             for pid, when in (table or {}).items():
@@ -459,11 +472,13 @@ class SeasonModel:
                     continue
                 j = ids.index(pid)
                 when = np.asarray(when)
+                if when.ndim and _sims is not None:
+                    when = when[_sims]
                 w = when[:, None] if when.ndim else when
                 on_roster = (k_idx >= w) if joins else (k_idx < w)
                 lv[:, :, j] = np.where(on_roster, lv[:, :, j], -1.0)
         players = [self.players[c] for c in cols]
-        total = np.zeros((self.n, len(self.weeks)))
+        total = np.zeros((n, len(self.weeks)))
         # Each slot takes its best eligible player not yet used, week by week;
         # a used player is marked -2 in place (``lv`` is this call's copy), so
         # no slot rebuilds a mask the size of every player-week. Ties fall to
@@ -472,15 +487,20 @@ class SeasonModel:
         for slot, count in self.slots:
             idx = np.array([j for j, p in enumerate(players) if _eligible(p, slot)], dtype=np.intp)
             rep = self._wire_level(slot, team, _compete)
+            noise = self.rep_noise[slot]
+            if _sims is not None:
+                noise = noise[_sims]
+                if np.ndim(rep):
+                    rep = rep[_sims]
             if np.ndim(rep):
-                rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0), 0.0)
+                rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * noise, 0.0), 0.0)
                 floor = np.maximum(rep, 0.0) + 1e-6
             else:
-                rep_score = np.maximum(rep + REPLACEMENT_SD * self.rep_noise[slot], 0.0) if rep > 0 else 0.0
+                rep_score = np.maximum(rep + REPLACEMENT_SD * noise, 0.0) if rep > 0 else 0.0
                 floor = max(rep, 0.0) + 1e-6                                  # beats the wire
             if not self.stream_now and self.lag < len(self.weeks):
                 # This week only a hole is filled: any player who plays beats the wire.
-                floor = np.broadcast_to(np.asarray(floor, dtype=float), (self.n, len(self.weeks))).copy()
+                floor = np.broadcast_to(np.asarray(floor, dtype=float), total.shape).copy()
                 floor[:, self.lag] = 1e-6
             for _ in range(count):
                 if idx.size == 0:
@@ -536,6 +556,11 @@ class SeasonModel:
             return self.slot_replacement(slot)
         if not compete or not self._demand or slot not in self._compete_slots:
             return np.broadcast_to(table[:, 0], (self.n, len(self.weeks)))
+        # Fixed once the simulation is built (the holes and the order are),
+        # and asked for on every lineup: kept, read-only.
+        key = (slot, team)
+        if self._wire_ready and key in self._wire_cache:
+            return self._wire_cache[key]
         demand = self._demand[slot].astype(float)
         n_w = len(self.weeks)
         share = np.full(n_w, 0.5)
@@ -546,7 +571,11 @@ class SeasonModel:
             n_t = max(len(self.teams), 1)
             others = demand * (n_t - 1) / n_t
         ahead = np.clip(np.rint(np.maximum(others, 0.0) * share[None, :]).astype(np.intp), 0, table.shape[1] - 1)
-        return table[np.arange(len(self.weeks))[None, :], ahead]
+        level = table[np.arange(len(self.weeks))[None, :], ahead]
+        if self._wire_ready:
+            level.setflags(write=False)
+            self._wire_cache[key] = level
+        return level
 
     def slot_replacement(self, slot: str) -> float:
         positions = SLOT_ELIGIBILITY.get(slot, (slot,))
@@ -576,6 +605,15 @@ class SeasonModel:
             power=all_play(scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]),
             pts_ahead=scores[:, :, [k for k, w in enumerate(self.weeks) if w <= self.reg_weeks]]
             .mean(axis=(1, 2)), pts_so_far=self._pts_so_far())
+
+    def champion(self, override: dict[str, np.ndarray] | None = None) -> np.ndarray | None:
+        """The champion (team index) of every simulated season -- what
+        :meth:`odds` reports as ``champion``, without the standings, power
+        and points summaries a caller pricing a title does not read."""
+        scores = self._scores(override)
+        wins, points, _results = self._regular_season(scores)
+        champ = self._playoffs(scores, wins, points)[2]
+        return np.asarray(champ) if champ is not None else None
 
     def _pts_so_far(self) -> np.ndarray:
         """Points a week each team has scored in the weeks the standings

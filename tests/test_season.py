@@ -453,3 +453,37 @@ def test_the_season_table_is_sortable_and_carries_raw_values():
     assert '<table class="sortable">' in html and html.count('class="fa-sort"') + html.count('fa-sort"') >= 8
     assert "data-v='0.8333'" in html and "data-v='-1'" in html              # record as a win share, power as -rank
     assert "data-v=''>" in html                                             # an unknown value sorts last
+
+
+def test_scoring_some_simulations_gives_the_rows_a_full_call_does(cfg):
+    snap = _league([1.0, 1.1, 0.9, 1.0])
+    snap.free_agents = [_fa(f"te{k}", "TE", 30.0 - 4 * k, "KC") for k in range(8)] + [_fa("w1", "WR", 14.0, "KC")]
+    model = SeasonModel(snap, cfg, n_sims=300)
+    rival = snap.teams[1]
+    ids = [p.player_id for p in rival.roster] + ["w1"]
+    joins = np.where(np.arange(300) % 3 == 0, 2, 10_000)
+    kw = dict(available_from={"w1": joins}, gone_from={rival.roster[-1].player_id: joins}, owner=rival.team_id)
+    full = model.team_scores(ids, **kw)
+    hit = np.flatnonzero(joins < 10_000)
+    assert np.array_equal(model.team_scores(ids, _sims=hit, **kw), full[hit])
+    # Where he never joins, the roster as it stands: what lets the rest be reused.
+    as_is = model.team_scores([p.player_id for p in rival.roster], owner=rival.team_id)
+    rest = np.flatnonzero(joins >= 10_000)
+    assert np.array_equal(full[rest], as_is[rest])
+
+
+def test_the_champion_alone_is_the_one_the_full_odds_report(cfg):
+    snap = _league([1.0, 1.3, 0.9, 0.8, 1.0, 0.95])
+    model = SeasonModel(snap, cfg, n_sims=400)
+    other = {"0": model.team_scores([p.player_id for p in snap.teams[1].roster])}
+    assert np.array_equal(model.champion(), model.odds().champion)
+    assert np.array_equal(model.champion(override=other), model.odds(override=other).champion)
+
+
+def test_a_kept_wire_level_is_the_one_computed(cfg):
+    snap = _league([1.0, 1.0, 1.0, 1.0])
+    snap.free_agents = [_fa(f"te{k}", "TE", 30.0 - 4 * k, "KC") for k in range(8)]
+    model = SeasonModel(snap, cfg, n_sims=300)
+    first = model._wire_level("TE", 0)
+    model._wire_cache.clear()
+    assert np.array_equal(model._wire_level("TE", 0), first) and model._wire_level("TE", 0) is model._wire_level("TE", 0)

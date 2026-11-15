@@ -575,7 +575,7 @@ class TitleEngine:
         if key is not None and key in cache:
             return cache[key]
         scores = self.model.team_scores(roster_ids, owner=self.me.team_id, **kw)
-        champ = self.model.odds(override={**(rivals or {}), self.me.team_id: scores}).champion
+        champ = self.model.champion(override={**(rivals or {}), self.me.team_id: scores})
         won = (champ == self.mine).astype(float)
         if key is not None:
             won.setflags(write=False)          # shared: a caller must not change it in place
@@ -621,9 +621,24 @@ class TitleEngine:
             bench = [p for p in skill if p.player_id not in starts] or [p for p in skill if p.position == add.position]
             worst = sorted(bench, key=lambda p: float(p.ros_value or 0.0))
             gone = {worst[0].player_id: joins} if worst else {}
-            out[team.team_id] = self.model.team_scores(ids, available_from={add.player_id: joins},
-                                                       gone_from=gone, owner=team.team_id)
+            # Only the seasons he lands there are scored again: in the rest
+            # the rival's roster is the one he has, scored once and kept.
+            hit = np.flatnonzero(joins < 10_000)
+            scores = self._rival_as_is(team).copy()
+            if hit.size:
+                scores[hit] = self.model.team_scores(ids, available_from={add.player_id: joins},
+                                                     gone_from=gone, owner=team.team_id, _sims=hit)
+            out[team.team_id] = scores
         return out
+
+    def _rival_as_is(self, team) -> np.ndarray:
+        """A team's weekly scores with the roster it has (read-only, shared)."""
+        cache = self.__dict__.setdefault("_as_is_cache", {})
+        if team.team_id not in cache:
+            scores = self.model.team_scores([p.player_id for p in team.roster], owner=team.team_id)
+            scores.setflags(write=False)
+            cache[team.team_id] = scores
+        return cache[team.team_id]
 
     def stand_pat(self, add: PlayerRow, drop: PlayerRow) -> np.ndarray:
         """Per season: you win the title if you pass on him, and a rival
@@ -634,7 +649,7 @@ class TitleEngine:
             breaks = k <= len(self.model.weeks)
             claimant = self._claimant(add)
             rivals = self._rival_scores(add, k + 1, breaks, claimant)
-            champ = self.model.odds(override=rivals).champion if rivals else self.model.odds().champion
+            champ = self.model.champion(override=rivals) if rivals else self.model.champion()
             self._stand_pat_cache[key] = (champ == self.mine).astype(float)
         return self._stand_pat_cache[key]
 
@@ -714,14 +729,28 @@ class TitleEngine:
         got = breaks & (rank < rival_rank)
         joins = np.where(got, k + 1, 10_000)
         rivals = self._rival_scores(add, k + 1, breaks & ~got, claimant)
-        won = self._won(roster + [add.player_id], rivals=rivals, available_from={add.player_id: joins},
-                        gone_from={drop.player_id: joins})
+        # Your own scores change only in the seasons you land him.
+        hit = np.flatnonzero(got)
+        scores = self._rival_as_is(self.me).copy()
+        if hit.size:
+            scores[hit] = self.model.team_scores(roster + [add.player_id], available_from={add.player_id: joins},
+                                                 gone_from={drop.player_id: joins}, owner=self.me.team_id,
+                                                 _sims=hit)
+        champ = self.model.champion(override={**rivals, self.me.team_id: scores})
+        won = (champ == self.mine).astype(float)
         return won if per_sim else float(won.mean())
 
     def value_now(self, add: PlayerRow, drop: PlayerRow, per_sim: bool = False):
-        roster = [p.player_id for p in self.me.roster if p.player_id != drop.player_id] + [add.player_id]
-        rivals = self._dropped_to_rival(drop)
-        won = self._won(roster, rivals=rivals) if rivals else self._won(roster)
+        # The same pair is priced by the waiver moves and the add/drop table.
+        cache = self.__dict__.setdefault("_now_cache", {})
+        key = (add.player_id, drop.player_id)
+        won = cache.get(key)
+        if won is None:
+            roster = [p.player_id for p in self.me.roster if p.player_id != drop.player_id] + [add.player_id]
+            rivals = self._dropped_to_rival(drop)
+            won = self._won(roster, rivals=rivals) if rivals else self._won(roster)
+            won.setflags(write=False)          # shared: a caller must not change it in place
+            cache[key] = won
         return won if per_sim else float(won.mean())
 
     def _dropped_to_rival(self, drop: PlayerRow) -> dict[str, np.ndarray]:

@@ -26,12 +26,15 @@ def drive_table(pbp: pd.DataFrame) -> pd.DataFrame:
         )
     plays["yardline_100"] = pd.to_numeric(plays["yardline_100"], errors="coerce")
     keys = ["season", "week", "game_id", "posteam", "fixed_drive"]
+    # Counted as a column and summed: a function called per drive took most
+    # of the time the weekly features need.
+    plays["_scrimmage"] = plays["play_type"].isin(SCRIMMAGE)
     grouped = plays.groupby(keys, dropna=False)
     out = pd.DataFrame(
         {
             "result": grouped["fixed_drive_result"].first(),
             "min_yardline": grouped["yardline_100"].min(),
-            "plays": grouped["play_type"].apply(lambda s: s.isin(SCRIMMAGE).sum()),
+            "plays": grouped["_scrimmage"].sum().astype("int64"),
         }
     ).reset_index()
     out["reached_rz"] = (out["min_yardline"] <= 20).astype(int)
