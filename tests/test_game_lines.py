@@ -1,12 +1,34 @@
 """Game lines: parsing the feed, pricing numbers on the margin distribution, sure bets, settling."""
 
+import numpy as np
 import pandas as pd
+import pytest
 
 from streamer.config import get_config
 from streamer.data import game_lines as G
 
 STARTS = "2026-11-09T18:00:00Z"
 NOW = pd.Timestamp("2026-11-08T12:00:00Z")
+
+
+@pytest.fixture(autouse=True)
+def _margin_history(monkeypatch):
+    """The games the margin model prices against, made here: ``data/raw/schedules.parquet`` is
+    not in git, so a clean checkout (or a parallel first run that has to fetch it) failed these tests."""
+    rng = np.random.default_rng(5)
+    n = 6000
+    spread = rng.uniform(-14, 14, n).round(1)
+    total_line = rng.normal(45, 4.5, n).round(1)
+    result = (spread + rng.normal(0, 13.2, n)).round()
+    for key, share in ((3, 1.2), (7, 0.5)):                  # football's key numbers: margins pile up on 3 and 7
+        pull = share * np.exp(-(((np.abs(result) - key) / 2.5) ** 2))
+        result = np.where(rng.random(n) < pull, np.sign(result) * key, result)
+    frame = pd.DataFrame({"season": rng.integers(2006, 2026, n), "spread_line": spread, "total_line": total_line,
+                          "result": result, "total": (total_line + rng.normal(0, 9.5, n)).round()})
+    monkeypatch.setattr(G, "_games", lambda raw_dir: frame)
+    G._dist.cache_clear()
+    yield
+    G._dist.cache_clear()
 
 
 def _event(books: dict) -> dict:
