@@ -220,6 +220,22 @@ def _eligible(p: PlayerRow, slot: str) -> bool:
     return p.position in SLOT_ELIGIBILITY.get(slot, ())
 
 
+def _first_best(sub: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Down each column of ``sub`` (players by simulated weeks, no NaN): the
+    row of the largest value, the first on a tie, and that value -- what
+    ``argmax(axis=0)`` gives, a row at a time, which for the handful of
+    players a slot has is several times quicker."""
+    best = sub[0].copy()
+    local = np.zeros(sub.shape[1], dtype=np.intp)
+    ahead = np.empty(sub.shape[1], dtype=bool)
+    for r in range(1, sub.shape[0]):
+        row = sub[r]
+        np.greater(row, best, out=ahead)
+        np.maximum(best, row, out=best)
+        np.putmask(local, ahead, r)
+    return local, best
+
+
 def all_play(scores: np.ndarray) -> np.ndarray:
     """Each team's share of the other teams' scores it beats (ties half), over
     every simulated week: ``scores`` is ``(teams, sims, weeks)``. A team that
@@ -323,6 +339,8 @@ class SeasonModel:
         self._lv_p = np.ascontiguousarray(self.futures.levels.transpose(1, 0, 2), dtype=np.float32).reshape(n_all, -1)
         self._sc_p = np.ascontiguousarray(self.futures.scores.transpose(1, 0, 2), dtype=np.float32).reshape(n_all, -1)
         self._flat = np.arange(n_sims * len(self.weeks), dtype=np.intp)
+        self._lv_plain = not bool(np.isnan(self._lv_p).any())     # no NaN: the quick pick is argmax
+        self._fill_cache: dict[tuple, tuple] = {}
         self._slot_memo: dict[tuple, tuple] = {}
         self._slot_memo_size = 0.0
         self.slots = [(s, c) for s, c in sorted(snapshot.starting_slots.items(),
@@ -511,14 +529,8 @@ class SeasonModel:
         used = np.float32(-2.0)
         for i, (slot, count) in enumerate(self.slots):
             idx = eligible[i]
-            rep = self._wire_level(slot, team, _compete)
-            noise = self.rep_noise[slot]
-            if _sims is not None:
-                noise = noise[_sims]
-                if np.ndim(rep):
-                    rep = rep[_sims]
             if idx.size == 0:
-                rep_score, _floor = self._fill(rep, noise, (n, n_w))
+                rep_score, _floor = self._fill(slot, team, _compete, _sims)
                 for _ in range(count):
                     total += rep_score
                     if _holes is not None:
@@ -536,7 +548,7 @@ class SeasonModel:
                         for at, j in enumerate(idx):
                             state[int(j)] = hit[1][at]
                     continue
-            rep_score, floor = self._fill(rep, noise, (n, n_w))
+            rep_score, floor = self._fill(slot, team, _compete, _sims)
             # The slot's eligible players, each as he stands now.
             sub = self._lv_p[cols[idx]] if _sims is None else self._lv_p[np.ix_(cols[idx], m)]
             for at, j in enumerate(idx):
@@ -550,8 +562,11 @@ class SeasonModel:
             for _ in range(count):
                 # Each pick takes the best eligible player not yet used, week
                 # by week; a used player is marked -2. Ties fall to the first.
-                local = sub.argmax(axis=0)
-                best = sub[local, here]
+                if self._lv_plain:
+                    local, best = _first_best(sub)
+                else:
+                    local = sub.argmax(axis=0)
+                    best = sub[local, here]
                 ok = (best >= floor) & (best > -0.5)
                 if _holes is not None:
                     _holes[slot] = _holes.get(slot, 0) + (~ok).reshape(n, n_w).astype(np.int16)
@@ -566,21 +581,32 @@ class SeasonModel:
                 self._remember(key, parts, sub)
         return total.reshape(n, n_w)
 
-    def _fill(self, rep, noise: np.ndarray, shape: tuple[int, int]):
-        """What a slot scores filled from the wire, and the level a rostered
-        player must reach to be started over it (both flat, or one number)."""
-        if np.ndim(rep):
-            rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * noise, 0.0), 0.0)
-            floor = np.maximum(rep, 0.0) + 1e-6
-        else:
-            rep_score = np.maximum(rep + REPLACEMENT_SD * noise, 0.0) if rep > 0 else 0.0
-            floor = max(rep, 0.0) + 1e-6                                  # beats the wire
-        if not self.stream_now and self.lag < len(self.weeks):
-            # This week only a hole is filled: any player who plays beats the wire.
-            floor = np.broadcast_to(np.asarray(floor, dtype=float), shape).copy()
-            floor[:, self.lag] = 1e-6
-        return (rep_score.reshape(-1) if np.ndim(rep_score) else rep_score,
-                floor.reshape(-1) if np.ndim(floor) else floor)
+    def _fill(self, slot: str, team: int | None, compete: bool, sims: np.ndarray | None):
+        """What ``slot`` scores filled from the wire, and the level a rostered
+        player must reach to be started over it (each flat over the
+        simulations asked for, or one number). Worked out once per slot and
+        team on every simulation, then read for the ones wanted."""
+        key = (slot, team, compete)
+        full = self._fill_cache.get(key) if self._wire_ready else None
+        if full is None:
+            rep = self._wire_level(slot, team, compete)
+            noise = self.rep_noise[slot]
+            if np.ndim(rep):
+                rep_score = np.where(rep > 0, np.maximum(rep + REPLACEMENT_SD * noise, 0.0), 0.0)
+                floor = np.maximum(rep, 0.0) + 1e-6
+            else:
+                rep_score = np.maximum(rep + REPLACEMENT_SD * noise, 0.0) if rep > 0 else 0.0
+                floor = max(rep, 0.0) + 1e-6                                  # beats the wire
+            if not self.stream_now and self.lag < len(self.weeks):
+                # This week only a hole is filled: any player who plays beats the wire.
+                floor = np.broadcast_to(np.asarray(floor, dtype=float), (self.n, len(self.weeks))).copy()
+                floor[:, self.lag] = 1e-6
+            full = (rep_score, floor)
+            if self._wire_ready:
+                self._fill_cache[key] = full
+        if sims is None:
+            return tuple(x.reshape(-1) if np.ndim(x) else x for x in full)
+        return tuple(x[sims].reshape(-1) if np.ndim(x) else x for x in full)
 
     #: Memory the kept slot results may hold per simulation (bytes).
     SLOT_MEMO_BYTES = 256e6

@@ -517,3 +517,16 @@ def test_a_kept_slot_result_is_the_one_computed(cfg):
     model.SLOT_MEMO_BYTES = 0                  # nothing kept: every slot worked out afresh
     fresh = run() + run()
     assert not model._slot_memo and all(np.array_equal(a, b) for a, b in zip(kept, fresh))
+
+
+def test_the_quick_pick_is_argmax_with_ties_to_the_first():
+    from streamer.roster.season import _first_best
+
+    rng = np.random.default_rng(3)
+    for rows in (1, 2, 3, 7, 12):
+        sub = rng.random((rows, 500)).astype(np.float32)
+        sub[rng.random(sub.shape) < 0.3] = 0.0              # ties: players not playing
+        sub[rng.random(sub.shape) < 0.1] = -2.0             # and ones already used
+        local, best = _first_best(sub)
+        assert np.array_equal(local, sub.argmax(axis=0))
+        assert np.array_equal(best, sub[sub.argmax(axis=0), np.arange(500)])
