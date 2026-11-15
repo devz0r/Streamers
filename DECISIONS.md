@@ -5850,3 +5850,16 @@ From the breakout audit above. `TitleEngine` now prices the best 10 tight ends, 
 Tried and removed: a class for free agents whose last two games carried 8+ expected points a game. Before the lists were widened it had lift (4%, against 0.8% unpriced); after, the players it would add broke out 0-1% of the time and it brought in 1 of 136 breakouts, for four to six more players to simulate each week.
 
 Cost: the engine prices 57 candidates, not 36 (about a minute more on the page build; on the stored ESPN league 23 s to 37 s at 3,000 simulations). The confirming simulation is what the shown numbers come from, so a longer list does not raise the chance of showing a lucky pick. Not changed: stepping in and next in line (already per position), IR stashes, defences and kickers.
+
+### Build time halved, output unchanged (611 s to 298 s on the runner)
+Profiled the offline page build: half of it was `SeasonModel.team_scores` (the best lineup per simulated week), called 33,000 times, mostly pricing waiver moves. What changed, each proved identical with the golden check (`scripts/golden_page.py refs`, both builds at one frozen instant):
+
+- A rival who lands a player in some simulated seasons is re-scored in those seasons only (`_sims`); the rest reuse his scores as they stand. The same for your own roster on a wait-and-claim.
+- A title is read from `SeasonModel.champion`, not the full `odds()` with its standings and power summaries.
+- An add/drop pair priced for the waiver moves is reused by the add/drop table; the wire level per slot and team is kept.
+- `drive_table` counts scrimmage plays as a column sum, not a function call per drive (1.5 s to 0.2 s, six calls a build).
+- `futures.simulate` works `(players, sims)` in memory, since nearly every step is one player at a time (24,000 seasons: ESPN 13.9 s to 9.2 s, Yahoo 22.7 s to 12.9 s); the result is handed back in the old shape.
+
+Tried and dropped: rewriting the lineup loop with flat indexing. The roster copy is laid out players-first in memory, not as the code assumed, so the first version changed results; done correctly it saved about a quarter of one function.
+
+What is left, by the second profile: pricing each add/drop pair on every simulated season (about a quarter of the build), the confirming 24,000-season simulations, the trade search (about a tenth).
