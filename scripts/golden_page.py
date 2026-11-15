@@ -134,16 +134,25 @@ def digests(work: Path) -> dict[str, str]:
 
 
 def _where(a: str, b: str, width: int = 70, ops: int = 3) -> list[str]:
-    """The parts of two lines that differ, each with a little context."""
-    sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
-    out = []
-    for tag, i1, i2, j1, j2 in sm.get_opcodes():
-        if tag == "equal":
-            continue
-        out.append(f"...{a[max(0, i1 - width):i1]}[-{a[i1:i2][:width * 2]}-]{{+{b[j1:j2][:width * 2]}+}}{a[i2:i2 + width]}...")
-        if len(out) >= ops:
-            break
-    return out
+    """Where two lines differ: the first and the last differing stretch, each
+    with a little context. Linear in the line's length -- a view file is one
+    line of a megabyte, and a full sequence match of two of them (quadratic)
+    ran for the best part of an hour and looked like a hung build."""
+    n = min(len(a), len(b))
+    i = next((k for k in range(n) if a[k] != b[k]), n)
+    if i == n and len(a) == len(b):
+        return []
+    j = 0
+    while j < n - i and a[len(a) - 1 - j] == b[len(b) - 1 - j]:
+        j += 1
+    ea, eb = len(a) - j, len(b) - j
+    cut = width * 2
+    out = [f"...{a[max(0, i - width):i]}[-{a[i:min(ea, i + cut)]}-]{{+{b[i:min(eb, i + cut)]}+}}"
+           f"{a[min(ea, i + cut):min(ea, i + cut) + width]}..."]
+    if max(ea, eb) - i > cut:                       # a long differing stretch: show its end as well
+        out.append(f"   ... to ...{a[max(i, ea - cut):ea]}[-|+]{b[max(i, eb - cut):eb]}{a[ea:ea + width]}... "
+                   f"({ea - i} -> {eb - i} chars between the first and last difference)")
+    return out[:ops]
 
 
 def show_diff(a_dir: Path, b_dir: Path, name: str, limit: int = 4) -> None:

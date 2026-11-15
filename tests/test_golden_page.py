@@ -77,3 +77,16 @@ def test_every_time_format_the_page_writes_is_masked_and_the_diff_points_at_what
     assert gp.masked("p 0.4321 Nov 28") != gp.masked("p 0.4322 Nov 28")                # a real number still shows
     assert gp._where("a" * 200 + "X" + "b" * 200, "a" * 200 + "Y" + "b" * 200) == [
         "..." + "a" * 70 + "[-X-]{+Y+}" + "b" * 70 + "..."]
+    assert gp._where("same", "same") == []
+
+
+def test_the_diff_of_two_megabyte_lines_is_quick():
+    import random
+    import time
+
+    rng = random.Random(1)
+    a = "".join(rng.choice('abcdefgh <>"=/') for _ in range(1_000_000))
+    b = a[:400_000] + "X" + a[400_001:900_000] + "YY" + a[900_000:]
+    t = time.time()
+    got = gp._where(a, b)
+    assert time.time() - t < 3 and got and "[-" in got[0]            # a full sequence match here took most of an hour
