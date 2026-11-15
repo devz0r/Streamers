@@ -5863,3 +5863,15 @@ Profiled the offline page build: half of it was `SeasonModel.team_scores` (the b
 Tried and dropped: rewriting the lineup loop with flat indexing. The roster copy is laid out players-first in memory, not as the code assumed, so the first version changed results; done correctly it saved about a quarter of one function.
 
 What is left, by the second profile: pricing each add/drop pair on every simulated season (about a quarter of the build), the confirming 24,000-season simulations, the trade search (about a tenth).
+
+### Build time, second round: 351 s to 228 s on the same runner, output unchanged
+Same method as above (profile, change, prove identical with the golden check; both builds in one run, so the same machine). The first figure is main after the first round on this run's runner; the earlier 298 s was another runner.
+
+- A lineup slot's result is kept (`SeasonModel._slot_memo`, 256 MB a simulation, least recently used out first): a roster that differs by one player re-does only the slots he can fill. The per-pick arrays are kept and added in the same order, so the sum is the same to the last bit.
+- Lineups read `(players, sims * weeks)` arrays: a player's seasons are one row.
+- A slot's best player is found a row at a time (`_first_best`): 1.3 to 3.6 times quicker than `argmax` down the columns for the handful of players a slot has, the same pick, ties to the first. Used only when the levels hold no NaN.
+- `SeasonModel.champion` replays the overridden teams' games and points on the regular season already played (wins are halves, so a result taken out and put back is exact); a median-game league still replays everything.
+- What a slot scores from the wire is worked out once per slot and team; the weekly player history is read once while its files are unchanged (it was read about 30 times a build).
+- The golden check sets `STREAMER_GAME_DAY=0`: run on a Sunday afternoon it was comparing the part-build the page does then.
+
+Looked at and left: `futures.simulate` is now the largest single cost, flat across random draws, interpolation and the correlated game draws -- nothing to skip without changing what is drawn. The add/drop table's this-week win odds are one matrix multiply per pair; summing only the starters' columns could differ in the last digit. The trade search is hand-tuned already and stops at the deadline.
