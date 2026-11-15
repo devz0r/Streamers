@@ -78,6 +78,15 @@ def fingerprint() -> str:
     return h.hexdigest()[:16]
 
 
+FROZEN_NOW = os.environ.get("GOLDEN_NOW") or time.strftime("%Y-%m-%dT%H:%M:00+00:00", time.gmtime())
+FROZEN_RUN = (
+    "import os, sys, runpy, datetime, time_machine\n"
+    "sys.argv[0] = 'streamer.cli'\n"
+    "with time_machine.travel(datetime.datetime.fromisoformat(os.environ['GOLDEN_NOW']), tick=False):\n"
+    "    runpy.run_module('streamer.cli', run_name='__main__')\n"
+)
+
+
 def build(label: str, src: Path = ROOT, overlay: Path | None = None, workers: str | None = None) -> tuple[Path, float]:
     """A copy of ``src`` (the working tree unless told otherwise), the page
     built in it offline. ``overlay``: replace its inputs (:data:`INPUTS`) with
@@ -104,7 +113,10 @@ def build(label: str, src: Path = ROOT, overlay: Path | None = None, workers: st
     if workers is not None:
         env["STREAMER_VIEW_WORKERS"] = workers
     week = [a for a in sys.argv if a.startswith("--week=")]
-    cmd = [sys.executable, "-m", "streamer.cli", "--offline", "publish"] + (["--week", week[0].split("=")[1]] if week else [])
+    # Both builds run at the same frozen instant: the page reads the clock
+    # (hours to kickoff, price ages), so builds minutes apart can differ.
+    env["GOLDEN_NOW"] = FROZEN_NOW
+    cmd = [sys.executable, "-c", FROZEN_RUN, "--offline", "publish"] + (["--week", week[0].split("=")[1]] if week else [])
     if "--week" not in cmd:
         cmd += ["--week", str(newest_week())]
     r = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True)

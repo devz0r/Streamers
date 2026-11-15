@@ -244,6 +244,7 @@ jobs:
           git fetch -q origin main "${GITHUB_REF_NAME}" || true
           read -r BASE HEAD_REF <<< "${{ inputs.refs }}"
           BASE="${BASE:-origin/main}"; HEAD_REF="${HEAD_REF:-origin/${GITHUB_REF_NAME}}"
+          pip install -q time-machine
           python scripts/golden_page.py refs "$BASE" "$HEAD_REF" --head-workers 4
 
       - name: Test weather against skill players' points
