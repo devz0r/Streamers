@@ -156,3 +156,53 @@ def _no_nfl_schedule(monkeypatch):
     import streamer.roster.season as season_mod
 
     monkeypatch.setattr(season_mod, "nfl_opponents", lambda *a, **k: {})
+
+
+def _toy_schedule() -> pd.DataFrame:
+    """Every current team, seasons 2025 and 2026, 18 weeks: a rotating round
+    robin with four teams on bye in each of weeks 5-12, home side
+    alternating, a game total of 44 and a spread of up to a touchdown. Weeks
+    before the season's ninth are played (scores set), the rest not."""
+    from streamer.teams import CURRENT_TEAMS
+
+    teams = list(CURRENT_TEAMS)
+    rows = []
+    for season in (2025, 2026):
+        for week in range(1, 19):
+            k = (week - 1) % (len(teams) - 1)
+            ring = teams[:1] + teams[1:][k:] + teams[1:][:k]
+            pairs = [(ring[i], ring[-1 - i]) for i in range(len(ring) // 2)]
+            if 5 <= week <= 12:
+                pairs = [p for i, p in enumerate(pairs) if i not in ((week * 2) % 16, (week * 2 + 1) % 16)]
+            for i, (a, b) in enumerate(pairs):
+                home, away = (a, b) if (week + i) % 2 else (b, a)
+                played = season == 2025 or week < 9
+                spread = float((i % 8) - 3.5)
+                rows.append({
+                    "game_id": f"{season}_{week:02d}_{away}_{home}", "season": season, "week": week,
+                    "game_type": "REG", "gameday": f"{season}-09-{min(7 + week, 28):02d}", "gametime": "13:00",
+                    "home_team": home, "away_team": away,
+                    "home_score": 24.0 + (i % 5) if played else float("nan"),
+                    "away_score": 20.0 + (i % 7) if played else float("nan"),
+                    "spread_line": spread, "total_line": 44.0, "roof": "outdoors", "surface": "grass",
+                    "temp": 60.0, "wind": 5.0, "stadium": f"{home} Field", "div_game": 0,
+                    "home_rest": 7, "away_rest": 7})
+    return pd.DataFrame(rows)
+
+
+@pytest.fixture(autouse=True)
+def _offline_nflverse(monkeypatch):
+    """No test downloads: nflverse is unreachable, and the NFL schedule is
+    :func:`_toy_schedule` (not the cached file, which only some checkouts
+    have). A test that needs real games hands in its own."""
+    import streamer.data.nflverse as nflverse
+
+    def offline():
+        raise RuntimeError("tests run offline: nflverse is not reachable from the test suite")
+
+    monkeypatch.setattr(nflverse, "_nflreadpy", offline)
+    sched = _toy_schedule()
+    monkeypatch.setattr(nflverse, "load_schedules", lambda *a, **k: sched.copy())
+    nflverse.cached_games_frame.cache_clear()
+    yield
+    nflverse.cached_games_frame.cache_clear()
