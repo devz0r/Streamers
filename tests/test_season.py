@@ -478,6 +478,15 @@ def test_the_champion_alone_is_the_one_the_full_odds_report(cfg):
     other = {"0": model.team_scores([p.player_id for p in snap.teams[1].roster])}
     assert np.array_equal(model.champion(), model.odds().champion)
     assert np.array_equal(model.champion(override=other), model.odds(override=other).champion)
+    # Several teams at once, then none: the season already played is left as it was.
+    both = {**other, "2": model.team_scores([p.player_id for p in snap.teams[3].roster]),
+            "4": model.team_scores([p.player_id for p in snap.teams[1].roster][:5])}
+    assert np.array_equal(model.champion(override=both), model.odds(override=both).champion)
+    assert np.array_equal(model.champion(), model.odds().champion)
+    for t in snap.teams:                                   # records and points already banked
+        t.wins, t.losses, t.ties, t.points_for = 1, 0, 1, 180.5 + int(t.team_id)
+    banked = SeasonModel(snap, cfg, n_sims=400)
+    assert np.array_equal(banked.champion(override=both), banked.odds(override=both).champion)
 
 
 def test_a_kept_wire_level_is_the_one_computed(cfg):

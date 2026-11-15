@@ -386,6 +386,7 @@ class SeasonModel:
         # override, so what a move adds passes through whole.
         self.retention = float(roster_conf.get("strength_fade", 1.0))
         self._fades: dict[float, np.ndarray] = {}
+        self._base_season: dict | None = None
 
     def _fade(self, retention: float) -> np.ndarray:
         """``(teams, 1, weeks)`` points taken off each team's weekly score:
@@ -684,11 +685,61 @@ class SeasonModel:
     def champion(self, override: dict[str, np.ndarray] | None = None) -> np.ndarray | None:
         """The champion (team index) of every simulated season -- what
         :meth:`odds` reports as ``champion``, without the standings, power
-        and points summaries a caller pricing a title does not read."""
-        scores = self._scores(override)
-        wins, points, _results = self._regular_season(scores)
-        champ = self._playoffs(scores, wins, points)[2]
-        return np.asarray(champ) if champ is not None else None
+        and points summaries a caller pricing a title does not read. Only
+        the overridden teams' games and points are played again; the rest of
+        the regular season is the one already played on today's rosters."""
+        if self.median:
+            # A median game's result moves with every team's score.
+            scores = self._scores(override)
+            wins, points, _results = self._regular_season(scores)
+            champ = self._playoffs(scores, wins, points)[2]
+            return np.asarray(champ) if champ is not None else None
+        base = self._played()
+        scores, fade = base["scores"], base["fade"]
+        rows = {self.team_index[tid]: arr for tid, arr in (override or {}).items()}
+        kept = {t: scores[t].copy() for t in rows}
+        try:
+            for t, arr in rows.items():
+                scores[t] = arr if fade is None else arr - fade[t]
+            wins, points = base["wins"].copy(), base["points"].copy()
+            for t in rows:
+                points[t] = float(self.teams[t].points_for)
+                for k in base["weeks"]:
+                    points[t] += scores[t, :, k]
+            for k, ia, ib, was in base["games"]:
+                if ia in rows or ib in rows:
+                    wk = scores[:, :, k]
+                    # Wins are halves, so taking a result out and putting the
+                    # new one in is exact.
+                    change = ((wk[ia] > wk[ib]) + 0.5 * (wk[ia] == wk[ib])) - was
+                    wins[ia] += change
+                    wins[ib] -= change
+            champ = self._playoffs(scores, wins, points)[2]
+            return np.asarray(champ) if champ is not None else None
+        finally:
+            for t, row in kept.items():
+                scores[t] = row
+
+    def _played(self) -> dict:
+        """The regular season on today's rosters, played once: the scores
+        (faded as :meth:`_scores` does), the standings and each game's
+        result. Played again if the teams are replaced (another view)."""
+        if self._base_season is None or self._base_season["teams"] is not self.teams:
+            scores = self._scores(None)
+            wins, points, results = self._regular_season(scores)
+            reg = []
+            for k, week in enumerate(self.weeks):
+                if week > self.reg_weeks:
+                    break                          # as the regular season stops
+                reg.append((k, week))
+            games = [(k, self.team_index[a], self.team_index[b], results[(week, self.team_index[a], self.team_index[b])])
+                     for k, week in reg for w, a, b in self.schedule
+                     if w == week and a in self.team_index and b in self.team_index]
+            self._base_season = {
+                "teams": self.teams, "scores": scores, "wins": wins, "points": points, "games": games,
+                "weeks": [k for k, _week in reg],
+                "fade": self._fade(self.retention) if self.retention < 1.0 else None}
+        return self._base_season
 
     def _pts_so_far(self) -> np.ndarray:
         """Points a week each team has scored in the weeks the standings

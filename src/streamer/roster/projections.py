@@ -100,6 +100,50 @@ def load_history(cfg: Config | None = None) -> pd.DataFrame:
     cfg = cfg or get_config()
     seasons = sorted(set(cfg.train_seasons) | {cfg.current_season})
     newest = latest_available_season(cfg)
+    # Asked for dozens of times a build (every team's view, the lottery, the
+    # comparables), always the same files: read once while they are unchanged.
+    key = _history_key(cfg, seasons, newest)
+    if key is not None and key in _HISTORY:
+        return _HISTORY[key].copy()
+    out = _read_history(cfg, seasons, newest)
+    key = _history_key(cfg, seasons, newest)               # the files as they now stand
+    if key is not None:
+        _HISTORY.clear()                                   # one league at a time is asked for
+        _HISTORY[key] = out.copy()
+    return out
+
+
+#: The last history read, under the files and scoring sheet it came from.
+_HISTORY: dict[tuple, pd.DataFrame] = {}
+
+
+def _history_key(cfg: Config, seasons: list[int], newest: int) -> tuple | None:
+    """What a history read depends on -- each season's two files as they are
+    on disk and the league's scoring sheet -- or None when a read would do
+    more than read: a file missing, due a re-fetch, or a refresh asked for."""
+    import json
+
+    from ..data.cache import is_stale, refresh_requested
+
+    if refresh_requested():
+        return None
+    files = []
+    for season in seasons:
+        stats_path = cfg.raw_dir / f"player_stats_{season}.parquet"
+        opp_path = cfg.raw_dir / f"ff_opportunity_{season}.parquet"
+        if season > newest and not stats_path.exists():
+            continue
+        ttl = live_max_age(season, cfg)
+        for path in (stats_path, opp_path):
+            if not path.exists() or is_stale(path, ttl):
+                return None
+            stat = path.stat()
+            files.append((str(path), stat.st_mtime_ns, stat.st_size))
+    sheet = json.dumps(cfg._profile.get("offense_scoring"), sort_keys=True, default=str)
+    return (tuple(seasons), int(newest), sheet, tuple(files))
+
+
+def _read_history(cfg: Config, seasons: list[int], newest: int) -> pd.DataFrame:
     frames = []
     for season in seasons:
         stats_path = cfg.raw_dir / f"player_stats_{season}.parquet"
