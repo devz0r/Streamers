@@ -487,9 +487,12 @@ def simulate(
     conf = _params()
     rs = [_streams(seed, p.player_id) for p in players]
     n_p, n_w = len(players), len(weeks)
-    scores = np.zeros((n_sims, n_p, n_w))
-    levels = np.zeros((n_sims, n_p, n_w))
-    played = np.zeros((n_sims, n_p, n_w), bool)
+    # Worked players first -- ``(players, sims)``, a player's seasons side by
+    # side in memory -- since nearly every step is one player at a time; the
+    # result is handed back as ``(sims, players, weeks)``.
+    scores = np.zeros((n_w, n_p, n_sims))
+    levels = np.zeros((n_w, n_p, n_sims))
+    played = np.zeros((n_w, n_p, n_sims), bool)
     c = float(conf.get("persistent_error", 1.5))
     step_sd = conf.get("step", {})
 
@@ -519,21 +522,21 @@ def simulate(
     shift = _by_level(conf.get("level_offset"), [p.position for p in players], base)
     cs = c * _scale_by_level(conf.get("error_scale"), base, [p.position for p in players])
     start = np.maximum(base + shift, 0.0)
-    walk = np.repeat(start[None, :], n_sims, axis=0)
-    z = np.stack([r["level"].standard_normal(n_sims) for r in rs], axis=1) if n_p else np.zeros((n_sims, 0))
+    walk = np.repeat(start[:, None], n_sims, axis=1)
+    z = np.stack([r["level"].standard_normal(n_sims) for r in rs], axis=0) if n_p else np.zeros((0, n_sims))
     if conf.get("error_shape") == "lognormal":
         # Multiplicative, mean-preserving: a level cannot go below zero, so a
         # normal error floored at zero would raise a low player's mean.
         rel = cs / np.sqrt(np.maximum(base, 0.25))
-        sig = np.sqrt(np.log1p(rel ** 2))[None, :]
-        err = start[None, :] * (np.exp(sig * z - 0.5 * sig ** 2) - 1.0)
+        sig = np.sqrt(np.log1p(rel ** 2))[:, None]
+        err = start[:, None] * (np.exp(sig * z - 0.5 * sig ** 2) - 1.0)
     else:
-        err = (cs * np.sqrt(base))[None, :] * z
+        err = (cs * np.sqrt(base))[:, None] * z
     for j, p in enumerate(players):
         if p.position not in SKILL:
-            err[:, j] = 0.0                             # D/ST and K are streamed, not held
-    seen = np.zeros((n_sims, n_p))
-    luck = np.zeros((n_sims, n_p))          # summed game-to-game noise in what was seen
+            err[j] = 0.0                                # D/ST and K are streamed, not held
+    seen = np.zeros((n_p, n_sims))
+    luck = np.zeros((n_p, n_sims))          # summed game-to-game noise in what was seen
     # The projection's own noise: what a manager sees moves by more than the
     # player does (fitted per position on how much of a real projection move
     # held up; scripts/fit_ros.py). Zero at the start: today's projection is
@@ -544,20 +547,20 @@ def simulate(
     # projection is slow and partial, so only this share of where he has
     # really moved (drift, and what games revealed) shows (fitted per
     # position, 1 where not).
-    vis_share = np.array([float((conf.get("visibility") or {}).get(p.position, 1.0)) for p in players])[None, :]
-    anchor = start.copy()
-    shade = np.zeros((n_sims, n_p))
+    vis_share = np.array([float((conf.get("visibility") or {}).get(p.position, 1.0)) for p in players])[:, None]
+    anchor = start.copy()[:, None]
+    shade = np.zeros((n_p, n_sims))
     first = weeks[min(current, len(weeks) - 1)] if weeks else None
     out_left = np.stack([_initial_absence(p, n_sims, rs[j]["absence"], conf, first,
                                           [w for w in weeks[current:] if not (p.team and w in byes.get(p.team, set()))])
-                         for j, p in enumerate(players)], axis=1) \
-        if players else np.zeros((n_sims, 0), int)
+                         for j, p in enumerate(players)], axis=0) \
+        if players else np.zeros((0, n_sims), int)
     # A return already confirmed (a suspension ending): he sits the weeks
     # before it, byes not counted, and nothing longer.
     for j, p in enumerate(players):
         back = getattr(p, "return_week", None)
         if back is not None:
-            out_left[:, j] = sum(1 for w in weeks if w < int(back)
+            out_left[j] = sum(1 for w in weeks if w < int(back)
                                  and not (p.team and w in byes.get(p.team, set())))
     # A reported timeline ("expected to miss 6-10 weeks", ``reported_back``):
     # he is back in a week drawn evenly from the range, or not at all for a
@@ -572,14 +575,14 @@ def simulate(
         games_before = np.concatenate([[0], np.cumsum(playable)])          # games before the k-th week
         back = rs[j]["absence"].integers(lo, hi + 1, size=n_sims)
         k = np.searchsorted(np.asarray(weeks), back, side="left")        # weeks before his return week
-        out_left[:, j] = np.where(back > weeks[-1], GONE, games_before[np.minimum(k, len(weeks))])
+        out_left[j] = np.where(back > weeks[-1], GONE, games_before[np.minimum(k, len(weeks))])
         ch = getattr(p, "return_chance", None)
         if ch is not None:
             # Set by hand with a chance: short of it, he misses more games, drawn as any absence is.
             miss = rs[j]["absence"].random(n_sims) >= float(ch)
             pos = p.position if p.position in SKILL else "WR"
             extra = _durations(pos, n_sims, rs[j]["absence"], conf)
-            out_left[:, j] = np.where(miss & (out_left[:, j] < GONE), out_left[:, j] + extra, out_left[:, j])
+            out_left[j] = np.where(miss & (out_left[j] < GONE), out_left[j] + extra, out_left[j])
     # A role that holds: in each simulated season a player keeps a lasting
     # tilt toward playing or sitting (``role_spread`` by position, a
     # mean-one lognormal on his absence hazard), tied by ``role_corr`` to how
@@ -587,20 +590,20 @@ def simulate(
     # his number is the one who earns the snaps.
     spread = conf.get("role_spread") or {}
     rho = float(conf.get("role_corr", 0.0))
-    tilt = np.ones((n_sims, n_p))
+    tilt = np.ones((n_p, n_sims))
     if spread:
-        sig_r = np.array([float(spread.get(p.position, 0.0)) for p in players])[None, :]
-        own = np.stack([r["role"].standard_normal(n_sims) for r in rs], axis=1) if n_p else np.zeros((n_sims, 0))
+        sig_r = np.array([float(spread.get(p.position, 0.0)) for p in players])[:, None]
+        own = np.stack([r["role"].standard_normal(n_sims) for r in rs], axis=0) if n_p else np.zeros((0, n_sims))
         u = -rho * z + np.sqrt(max(1.0 - rho ** 2, 0.0)) * own
         # ``role_scale`` puts back the games the spread adds: a spread hazard
         # leaves more players playing every week than it sidelines.
-        scale_r = np.array([float((conf.get("role_scale") or {}).get(p.position, 1.0)) for p in players])[None, :]
+        scale_r = np.array([float((conf.get("role_scale") or {}).get(p.position, 1.0)) for p in players])[:, None]
         tilt = scale_r * np.exp(sig_r * u - 0.5 * sig_r ** 2)
     # A record of missed games: his own multiplier on the odds of a new
     # absence (1 without one).
     risk = np.array([float(getattr(p, "hazard_mult", None) or 1.0) for p in players])
-    share = np.zeros((n_sims, n_p))          # the heir's share of this absence
-    was_out = np.zeros((n_sims, n_p), bool)
+    share = np.zeros((n_p, n_sims))          # the heir's share of this absence
+    was_out = np.zeros((n_p, n_sims), bool)
     # Against the calibrated start, so the week in progress still plays at
     # this week's projection (validated on its own) and the offset is about
     # the weeks after it.
@@ -620,12 +623,12 @@ def simulate(
         # A lead back from an absence: the heir keeps part of his takeover,
         # and the lead has lost it.
         for h, lead in heir_of.items():
-            back = was_out[:, lead] & (out_left[:, lead] == 0)
+            back = was_out[lead] & (out_left[lead] == 0)
             if back.any():
-                moved = np.where(back, keep * np.maximum(share[:, h], 0.0)
-                                 * np.maximum(walk[:, lead] - walk[:, h], 0.0), 0.0)
-                walk[:, h] += moved
-                walk[:, lead] -= moved
+                moved = np.where(back, keep * np.maximum(share[h], 0.0)
+                                 * np.maximum(walk[lead] - walk[h], 0.0), 0.0)
+                walk[h] += moved
+                walk[lead] -= moved
         # New absences (not on bye, not already out).
         level = np.maximum(walk + err, 0.0)
         shown = err + luck / np.maximum(seen, 1.0)
@@ -637,12 +640,12 @@ def simulate(
             # The hazard was measured against projections, so it reads the
             # projection (where it has drifted to), not the hidden truth: a
             # star simulated to be worse than his number is not a backup.
-            risk_at = np.maximum(walk[:, j], 0.0) if conf.get("hazard_on") == "projection" else level[:, j]
-            h = np.minimum(_hazard(p.position, risk_at, conf) * tilt[:, j], 1.0)
+            risk_at = np.maximum(walk[j], 0.0) if conf.get("hazard_on") == "projection" else level[j]
+            h = np.minimum(_hazard(p.position, risk_at, conf) * tilt[j], 1.0)
             if risk[j] != 1.0:
                 h = h * risk[j] / (1.0 - h + h * risk[j])      # on the odds, as fitted
             ra = rs[j]["absence"]
-            fresh = (out_left[:, j] == 0) & (ra.random(n_sims) < h)
+            fresh = (out_left[j] == 0) & (ra.random(n_sims) < h)
             if fresh.any():
                 # Drawn for every season and picked where he got hurt, so
                 # the draws a season gets do not depend on how many others did.
@@ -654,21 +657,21 @@ def simulate(
                     else float((conf.get("season_loss") or {}).get("base", 0.0))
                 if lost > 0:
                     dur = np.where(ra.random(n_sims) < lost, GONE, dur)
-                out_left[fresh, j] = dur[fresh]
-        playing = (out_left == 0) & ~on_bye[None, :]
+                out_left[j, fresh] = dur[fresh]
+        playing = (out_left == 0) & ~on_bye[:, None]
         out_now = out_left > 0
         eff, eff_vis = level.copy(), visible.copy()
         for h, lead in heir_of.items():
             pos = players[h].position
-            start = out_now[:, lead] & ~was_out[:, lead]
-            if start.any():
+            began = out_now[lead] & ~was_out[lead]
+            if began.any():
                 draw = rs[h]["takeover"].normal(_takeover(players[h], take), take_sd.get(pos, 0.0), size=n_sims)
-                share[start, h] = np.clip(draw[start], *SHARE_RANGE)
-            lead_out = out_now[:, lead]
-            eff[:, h] = np.where(lead_out, level[:, h] + share[:, h] * np.maximum(level[:, lead] - level[:, h], 0.0),
-                                 level[:, h])
-            eff_vis[:, h] = np.where(lead_out, visible[:, h] + share[:, h]
-                                     * np.maximum(visible[:, lead] - visible[:, h], 0.0), visible[:, h])
+                share[h, began] = np.clip(draw[began], *SHARE_RANGE)
+            lead_out = out_now[lead]
+            eff[h] = np.where(lead_out, level[h] + share[h] * np.maximum(level[lead] - level[h], 0.0),
+                              level[h])
+            eff_vis[h] = np.where(lead_out, visible[h] + share[h]
+                                  * np.maximum(visible[lead] - visible[h], 0.0), visible[h])
         was_out = out_now
         # Who he faces this week (``schedule``: quarterbacks, backs, defences, kickers).
         for j, p in enumerate(players):
@@ -676,45 +679,46 @@ def simulate(
             if sched and k != current:
                 f = sched.get(week, sched.get(str(week)))
                 if f:
-                    eff[:, j] = eff[:, j] * float(f)
-                    eff_vis[:, j] = eff_vis[:, j] * float(f)
+                    eff[j] = eff[j] * float(f)
+                    eff_vis[j] = eff_vis[j] * float(f)
         if k == current:
             # The week in progress at this week's projection, not the season's.
-            eff = np.maximum(eff + week_delta[None, :], 0.0)
-            eff_vis = np.maximum(eff_vis + week_delta[None, :], 0.0)
-        levels[:, :, k] = np.where(playing, eff_vis, 0.0)
-        played[:, :, k] = playing
+            eff = np.maximum(eff + week_delta[:, None], 0.0)
+            eff_vis = np.maximum(eff_vis + week_delta[:, None], 0.0)
+        levels[k] = np.where(playing, eff_vis, 0.0)
+        played[k] = playing
         finals = [j for j, p in enumerate(players) if k == current and p.actual_points is not None]
         # Each player's own luck this week, then one correlated draw per
         # game (from the game's own stream) for those in one.
-        luck_u = np.stack([r["score"].random(n_sims) for r in rs], axis=1) if n_p else np.zeros((n_sims, 0))
+        luck_u = np.stack([r["score"].random(n_sims) for r in rs], axis=0) if n_p else np.zeros((0, n_sims))
         if opponents:
             for idx, chol in game_groups(players, week, opponents):
                 g = _game_rng(seed, week, [players[i].player_id for i in idx])
-                luck_u[:, idx] = ndtr(g.standard_normal((n_sims, len(idx))) @ chol.T)
+                luck_u[idx] = ndtr(g.standard_normal((n_sims, len(idx))) @ chol.T).T
         for j, p in enumerate(players):
             probs, zq = outcome.shape(p.position, float(base[j]))
-            sd = sd0[j] * np.sqrt(np.maximum(eff[:, j], 1.0) / max(base[j], 1.0))
-            u = luck_u[:, j]
-            s = eff[:, j] + sd * np.interp(u, probs, zq)
+            sd = sd0[j] * np.sqrt(np.maximum(eff[j], 1.0) / max(base[j], 1.0))
+            u = luck_u[j]
+            s = eff[j] + sd * np.interp(u, probs, zq)
             if p.position in SKILL:
                 s = np.maximum(s, 0.0)
-            scores[:, j, k] = np.where(playing[:, j], s, 0.0)
+            scores[k, j] = np.where(playing[j], s, 0.0)
         for j in finals:
             # This week's game is over: his score is a fact.
-            scores[:, j, k] = float(players[j].actual_points)
+            scores[k, j] = float(players[j].actual_points)
         # What each game showed beyond his level is read as part of it.
-        luck += np.where(playing, scores[:, :, k] - eff, 0.0)
+        luck += np.where(playing, scores[k] - eff, 0.0)
         # A game passes: absences tick down (a bye does not use one up), and
         # the true level drifts.
-        out_left = np.where(on_bye[None, :], out_left, np.maximum(out_left - 1, 0))
+        out_left = np.where(on_bye[:, None], out_left, np.maximum(out_left - 1, 0))
         seen += playing
         for j, p in enumerate(players):
             if p.position in SKILL:
-                walk[:, j] = walk[:, j] + float(step_sd.get(p.position, 0.95)) * walk_scale[j] \
+                walk[j] = walk[j] + float(step_sd.get(p.position, 0.95)) * walk_scale[j] \
                     * rs[j]["walk"].standard_normal(n_sims)
         if noise_sd.any():
-            shade = PROJECTION_NOISE_PERSIST * shade + (noise_sd * walk_scale)[None, :] \
-                * np.stack([r["shade"].standard_normal(n_sims) for r in rs], axis=1)
-    return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks), scores=scores, levels=levels,
-                   played=played)
+            shade = PROJECTION_NOISE_PERSIST * shade + (noise_sd * walk_scale)[:, None] \
+                * np.stack([r["shade"].standard_normal(n_sims) for r in rs], axis=0)
+    return Futures(player_ids=[p.player_id for p in players], weeks=list(weeks),
+                   scores=scores.transpose(2, 1, 0), levels=levels.transpose(2, 1, 0),
+                   played=played.transpose(2, 1, 0))
