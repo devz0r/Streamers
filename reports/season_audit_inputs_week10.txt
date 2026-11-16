@@ -1,0 +1,120 @@
+
+===== espn: weeks 3-10 graded, 2649 player-weeks (history through week 10)
+pos   n  ours_mae  bias  platform_mae  ours_sameplatform  platform_n  props_mae  ours_sameprops  props_n  sleeper_mae  ours_samesleeper  sleeper_n  model_mae  ours_samemodel  model_n
+ QB 189      6.04  0.41          6.02               6.04         189       6.13            6.07      183         6.21              6.26        119       6.07            6.04      189
+ RB 384      5.69  0.11          5.80               5.69         382       5.65            5.68      355         5.81              5.69        233       5.80            5.69      384
+ TE 192      5.33  0.82          5.34               5.33         192       5.39            5.21      180         5.07              5.05        119       5.18            5.33      192
+ WR 480      5.87 -0.00          5.97               5.87         480       5.87            5.89      445         5.93              5.84        297       5.93            5.87      480
+bias by week (ours - actual, likely starters): {3: 0.43, 4: -0.35, 5: -0.3, 6: 0.66, 7: -0.03, 8: 0.4, 9: 1.43, 10: -0.47}
+by injury tag (played = had a box score):
+                 n  played  proj    act
+status                                 
+DAY_TO_DAY       1    1.00  8.88  20.10
+OUT              1    1.00  0.00   4.70
+QUESTIONABLE    55    0.71  4.20   4.79
+none          2592    0.91  7.16   7.15
+your starters graded: 53; ours total 826 vs scored 786 (bias +0.77/player-week); platform 836
+biggest misses on your starters:
+ week          name position     status  blended_projection  platform_projection  actual   err
+   10    Drake Maye       QB                           21.6                 22.0     3.0 -18.6
+    5    Puka Nacua       WR                           21.9                 21.7    37.7  15.8
+    8  Drake London       WR                           16.9                 18.1     1.8 -15.1
+    9   Josh Jacobs       RB                           15.2                 16.5     0.5 -14.8
+    5    Mike Evans       WR                           11.8                 12.8    26.3  14.5
+    3    Drake Maye       QB                           18.0                 18.6     3.8 -14.3
+    6 Derrick Henry       RB                           17.8                 18.3     5.0 -12.8
+    7 Derrick Henry       RB                           18.4                 18.0     5.9 -12.5
+    9    Puka Nacua       WR                           23.7                 24.2    35.0  11.3
+    7   Josh Jacobs       RB DAY_TO_DAY                 8.9                 12.6    20.1  11.2
+your players, season so far (started weeks):
+                 wks   proj    act   gap
+name                                    
+Derrick Henry      7  120.9   89.3 -31.7
+Drake London       7  117.5   95.7 -21.8
+Drake Maye         7  139.6  124.9 -14.7
+Dalton Schultz     1   10.3    2.9  -7.4
+Xavier Worthy      1   10.4    4.0  -6.4
+T.J. Hockenson     3   31.0   24.8  -6.2
+Pat Freiermuth     1    9.4    4.0  -5.4
+Breece Hall        2   28.2   23.3  -4.9
+Jakobi Meyers      1   10.4    6.3  -4.1
+Brenton Strange    2   19.7   18.3  -1.4
+DK Metcalf         1   12.3   15.4   3.1
+Josh Jacobs        3   40.0   43.8   3.8
+Rachaad White      1   11.0   15.7   4.7
+Jacoby Brissett    1   18.6   25.3   6.7
+Ollie Gordon II    6   73.1   79.9   6.8
+Mike Evans         3   41.1   51.1  10.0
+Puka Nacua         6  132.9  161.2  28.3
+DST: 272 unit-weeks, ours MAE 5.47 bias +1.22; baseline MAE 5.55; top-12 by us: ours bias +1.10, rank corr ours 0.328 vs baseline 0.304
+K: 263 unit-weeks, ours MAE 3.86 bias -0.16; baseline MAE 3.85; top-12 by us: ours bias +0.23, rank corr ours 0.045 vs baseline 0.024
+scorecard (runner, scope=played):
+   Our final number pairs 0.757 miss 4.37 | ours on same 0.757 4.37
+   Our model alone pairs 0.748 miss 4.5 | ours on same 0.757 4.39
+   ESPN's projection pairs 0.75 miss 4.49 | ours on same 0.753 4.44
+   Betting props pairs 0.765 miss 4.26 | ours on same 0.767 4.18
+   FantasyPros projections pairs 0.763 miss 4.29 | ours on same 0.763 4.24
+   Sleeper's projection pairs 0.753 miss 4.34 | ours on same 0.757 4.29
+   FantasyPros rankings pairs 0.765 miss None | ours on same 0.765 4.23
+ROS benchmark: [{'season': 2026, 'week': 4, 'weeks_since': 7, 'players': 273, 'ours': 0.654, 'consensus': 0.714}, {'season': 2026, 'week': 5, 'weeks_since': 6, 'players': 265, 'ours': 0.662, 'consensus': 0.737}, {'season': 2026, 'week': 6, 'weeks_since': 5, 'players': 253, 'ours': 0.619, 'consensus': 0.711}, {'season': 2026, 'week': 7, 'weeks_since': 4, 'players': 228, 'ours': 0.642, 'consensus': 0.694}, {'season': 2026, 'week': 8, 'weeks_since': 3, 'players': 128, 'ours': 0.607, 'consensus': 0.703}]
+
+===== yahoo: weeks 3-10 graded, 2015 player-weeks (history through week 10)
+pos   n  ours_mae  bias  platform_mae  ours_sameplatform  platform_n  props_mae  ours_sameprops  props_n  sleeper_mae  ours_samesleeper  sleeper_n  model_mae  ours_samemodel  model_n
+ QB 181      7.43 -2.16          7.69               7.71         147       7.52            7.38      176         7.82              7.77        119       7.69            7.44      180
+ RB 361      5.62 -0.20          5.82               5.80         330       5.69            5.66      342         5.85              5.71        229       5.80            5.62      361
+ TE 185      5.32  0.82          5.48               5.42         164       5.42            5.26      178         5.17              5.17        119       5.15            5.32      185
+ WR 467      5.78 -0.05          5.95               5.94         405       5.77            5.82      440         5.78              5.74        297       5.86            5.78      467
+bias by week (ours - actual, likely starters): {3: -1.06, 4: -0.96, 5: -0.71, 6: -0.02, 7: -0.4, 8: 0.13, 9: 1.05, 10: -0.54}
+by injury tag (played = had a box score):
+           n  played  proj    act
+status                           
+D          3    0.00  0.15   0.00
+IR-R       1    1.00  0.00  15.60
+NA         1    1.00  0.00   5.60
+OUT        1    1.00  0.00  20.40
+Q         96    0.57  5.10   5.23
+none    1913    0.92  8.87   9.09
+your starters graded: 63; ours total 886 vs scored 845 (bias +0.65/player-week); platform 925
+biggest misses on your starters:
+ week                name position status  blended_projection  platform_projection  actual   err
+   10 Christian McCaffrey       RB                       22.0                 21.1    46.3  24.3
+    5        Bucky Irving       RB                       12.8                 14.0    31.5  18.7
+    8        Drake London       WR                       16.5                 16.2     1.8 -14.7
+    4         Rashee Rice       WR                       14.6                 15.2     0.0 -14.6
+    8     Jacoby Brissett       QB                       19.0                 22.9     4.5 -14.5
+    5    Matthew Stafford       QB                       20.6                 24.0    33.3  12.8
+    9        Bucky Irving       RB                       16.1                 16.3    28.5  12.4
+   10        Tyler Shough       QB                       22.8                 23.1    13.0  -9.9
+    6 Christian McCaffrey       RB                       21.4                 20.4    30.7   9.3
+    3    Matthew Stafford       QB                       18.1                 19.6    26.9   8.8
+your players, season so far (started weeks):
+                     wks   proj    act   gap
+name                                        
+Drake London           7  118.6   95.7 -22.9
+Tyler Higbee           3   27.8   10.0 -17.8
+Jacoby Brissett        1   19.0    4.5 -14.5
+Travis Kelce           7   81.4   69.1 -12.2
+Tyler Shough           1   22.8   13.0  -9.9
+Courtland Sutton       4   37.8   28.0  -9.8
+Zach Charbonnet        3   33.0   24.9  -8.1
+Rashee Rice            5   65.2   57.2  -8.0
+Oronde Gadsden         1    7.5    0.0  -7.5
+Xavier Worthy          1   10.4    4.0  -6.4
+Darren Waller          1    8.4    4.4  -4.0
+Jakobi Meyers          1   10.4    6.4  -4.0
+Emeka Egbuka           5   50.5   56.4   5.9
+J.K. Dobbins           3   28.7   37.3   8.6
+Matthew Stafford       6  119.3  131.5  12.2
+Bucky Irving           7  101.4  125.8  24.4
+Christian McCaffrey    7  143.5  176.6  33.1
+DST: 272 unit-weeks, ours MAE 4.24 bias +0.29; baseline MAE 4.27; top-12 by us: ours bias +0.20, rank corr ours 0.302 vs baseline 0.283
+K: 263 unit-weeks, ours MAE 3.75 bias -0.18; baseline MAE 3.74; top-12 by us: ours bias +0.29, rank corr ours 0.049 vs baseline 0.026
+scorecard (runner, scope=played):
+   Our final number pairs 0.719 miss 5.01 | ours on same 0.719 5.01
+   Our model alone pairs 0.71 miss 5.12 | ours on same 0.718 5.03
+   Yahoo's projection pairs 0.664 miss 5.94 | ours on same 0.66 5.93
+   Betting props pairs 0.718 miss 5.11 | ours on same 0.715 5.07
+   FantasyPros projections pairs 0.721 miss 4.98 | ours on same 0.718 5.01
+   Sleeper's projection pairs 0.728 miss 4.81 | ours on same 0.729 4.78
+   FantasyPros rankings pairs 0.721 miss None | ours on same 0.717 5.01
+ROS benchmark: [{'season': 2026, 'week': 4, 'weeks_since': 7, 'players': 273, 'ours': 0.662, 'consensus': 0.722}, {'season': 2026, 'week': 5, 'weeks_since': 6, 'players': 265, 'ours': 0.667, 'consensus': 0.747}, {'season': 2026, 'week': 6, 'weeks_since': 5, 'players': 253, 'ours': 0.624, 'consensus': 0.72}, {'season': 2026, 'week': 7, 'weeks_since': 4, 'players': 228, 'ours': 0.67, 'consensus': 0.717}, {'season': 2026, 'week': 8, 'weeks_since': 3, 'players': 128, 'ours': 0.602, 'consensus': 0.697}]
