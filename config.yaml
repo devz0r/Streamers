@@ -465,6 +465,10 @@ roster:
   views:
     enabled: true
     full: ["Let Kevin Cook"]
+    # Build only the teams named in `full`: the light views carry no trade
+    # tools, so they only showed a team's own tabs, and were a quarter of
+    # the build. False builds every team.
+    only_full: true
     budget_minutes: 20
   # Count games a skill player had offensive snaps but no stat line as zero-point
   # games (roster/idle.py): the trailing averages otherwise skip them and run

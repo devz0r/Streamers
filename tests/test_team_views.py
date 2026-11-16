@@ -82,3 +82,27 @@ def test_a_view_reuses_the_season_simulation_and_reads_its_own_odds(cfg):
     assert reused.model.base_scores is mine.model.base_scores          # shared, not re-simulated
     assert mine.model.snapshot is snap                                  # the original is untouched
     assert all(c.player_id in mine.model.pid for c in reused.candidates)
+
+
+def test_only_full_builds_just_the_named_teams(cfg, monkeypatch):
+    import copy
+
+    from streamer import publish
+    from streamer.config import Config
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+
+    teams = [TeamRow(team_id=str(i), name=n, roster=[PlayerRow(player_id=f"p{i}", name=f"P{i}", position="RB", team="KC")],
+                     is_mine=(i == 0)) for i, n in enumerate(["Me", "Kevin", "Other", "Third"])]
+    snap = LeagueSnapshot(platform="espn", profile="espn", league_id="1", league_name="t", season=2026, week=3,
+                          slots={"RB": 1}, bench_size=0, teams=teams, free_agents=[], matchup=None, synced_at="")
+    built = []
+    monkeypatch.setattr(publish, "view_as", lambda s, tid: built.append(tid) or s)
+    monkeypatch.setattr(publish, "_team_panel", lambda *a, **k: {"hub": "<p>x</p>", "kpis": "k"})
+    raw = copy.deepcopy(cfg.raw)
+    raw["roster"]["views"] = {"enabled": True, "full": ["kevin"], "only_full": True}
+    bound = Config(raw=raw, root=cfg.root, profile="espn")
+    out = publish._team_views(snap, bound, None, None, shared={}, game_day=False)
+    assert list(out) == ["1"] and built == ["1"] and out["1"]["full"] and out["1"]["tabs"]
+    raw["roster"]["views"]["only_full"] = False
+    out = publish._team_views(snap, bound, None, None, shared={}, game_day=False)
+    assert sorted(out) == ["1", "2", "3"]

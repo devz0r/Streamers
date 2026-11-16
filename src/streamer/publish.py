@@ -1460,7 +1460,8 @@ def _team_views(snap, bound: Config, rankings, projected, shared: dict | None = 
     """Every other team's tabs (team id -> {name, full, tabs, note}). Teams
     named in ``roster.views.full`` get the full simulations; the rest the
     lighter settings, priced on one lighter season simulation shared by all
-    of them; every team's title and playoff odds come from yours. On game
+    of them; every team's title and playoff odds come from yours (with
+    ``roster.views.only_full``, only the ``full`` teams are built). On game
     day only the lineup, this week's win odds and the summary are rebuilt;
     the other tabs are kept from the last full build. Stops starting new
     views past ``roster.views.budget_minutes``; a team left out says so."""
@@ -1490,6 +1491,8 @@ def _team_views(snap, bound: Config, rankings, projected, shared: dict | None = 
     me = snap.my_team.team_id
     others = sorted((t for t in snap.teams if t.team_id != me),
                     key=lambda t: (t.name.strip().lower() not in full, t.name.lower()))
+    if conf.get("only_full"):
+        others = [t for t in others if t.name.strip().lower() in full]       # the rest are not built at all
     odds = shared.get("odds")
     out: dict[str, dict] = {}
     t0 = time.monotonic()
