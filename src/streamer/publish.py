@@ -1120,6 +1120,15 @@ def team_panels_for(
                 log.info("%s: game logs for %d players", name, len(snap._game_log))
             except Exception as exc:  # noqa: BLE001 - the sheet is a bonus
                 log.warning("game logs for %s skipped: %s", name, exc)
+            try:
+                from .roster import league_trades
+
+                # Kept only on a live run: an offline build (tests, the golden
+                # check) reads the log and leaves the rosters as they were.
+                snap._league_trades = (league_trades.record(bound, snap) if allow_network
+                                       else league_trades.logged(bound, snap.season))
+            except Exception as exc:  # noqa: BLE001 - a card's extra; never block the page
+                log.warning("trades made in %s skipped: %s", name, exc)
             game_day = is_game_day()
             # (Not ``shared``: that is the sportsbook props pulled for every league.)
             view_shared = {"cache": read_me_cache(bound) if game_day else {}}
@@ -1367,6 +1376,11 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
 
                     report.trade_eval = trade_eval.export(snap, engine.model, finder, getattr(finder, "priced", []))
                     log.info("trade evaluator for %s: %s", name, report.trade_eval.get("check"))
+                    if primary:
+                        from .roster import league_trades
+
+                        report.league_trades = [(t, league_trades.price(report.trade_eval, t))
+                                                for t in getattr(snap, "_league_trades", None) or []]
                 except Exception as exc:  # noqa: BLE001 - a bonus section
                     log.warning("trade evaluator for %s skipped: %s", name, exc)
     report.notes.extend(n for n in projected.notes if "not playing" in n)

@@ -51,6 +51,8 @@ class MatchupReport:
     #: has not been read).
     trades: object | None = None
     trade_eval: dict | None = None
+    #: Trades made in the league (``league_trades``): (trade, its price or None).
+    league_trades: list | None = None
     #: The "Try a pickup" table (:mod:`streamer.roster.add_drop`).
     add_drop: dict | None = None
     #: Every team's best lineup this week (:mod:`streamer.roster.all_lineups`).

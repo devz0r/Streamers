@@ -265,7 +265,7 @@ def team_sections(
     out["waivers"] = "".join(waivers)
 
     # -- trades ------------------------------------------------------------
-    trades = _trades(report) + _trade_evaluator(report)
+    trades = _trades(report) + _league_trades(report) + _trade_evaluator(report)
     if trades:
         out["trades"] = trades
 
@@ -1165,6 +1165,35 @@ def _try_pickup(report: MatchupReport) -> str:
         f"<script>{_PICKUP_JS}('{uid}');</script>"
         "</details>"
     )
+
+
+def _league_trades(report: MatchupReport) -> str:
+    """Trades made in the league this season, newest first, each with what it
+    did to both teams' title odds (and yours) on today's rosters."""
+    rows = getattr(report, "league_trades", None) or []
+    if not rows:
+        return ""
+
+    def pct(pair) -> str:
+        return f"{pair[0] * 100:.1f}% \u2192 {pair[1] * 100:.1f}% ({(pair[1] - pair[0]) * 100:+.1f})"
+
+    items = []
+    for t, p in sorted(rows, key=lambda tp: tp[0].get("seen", ""), reverse=True):
+        head = (f"<strong>{_e(t['a_name'])}</strong> gets {_e(', '.join(t['a_got_names']))}; "
+                f"<strong>{_e(t['b_name'])}</strong> gets {_e(', '.join(t['b_got_names']))}")
+        if p is None:
+            meta = '<span>no longer on the same rosters: not priced</span>'
+        else:
+            bits = [f"{_e(t['a_name'])} title {pct(p['a_title'])}", f"{_e(t['b_name'])} title {pct(p['b_title'])}",
+                    f"{_e(t['a_name'])} {p['a_points']:+.1f} pts/wk", f"{_e(t['b_name'])} {p['b_points']:+.1f} pts/wk"]
+            if "you_title" in p:
+                bits.append(f"your title {pct(p['you_title'])}")
+            meta = "".join(f"<span>{b}</span>" for b in bits)
+        items.append(f'<div class="row"><div class="rank">\u21c4</div><div><span class="name">{head}</span> '
+                     f'<span class="opp">seen {_e(t.get("seen", ""))}</span></div></div><div class="meta">{meta}</div>')
+    return ('<div class="card"><strong>Trades made in the league</strong>'
+            '<p class="sub">Found when players swap rosters between refreshes. Each is priced on today\'s rosters '
+            'and simulation: title odds without the trade (undone) and with it.</p>' + "".join(items) + "</div>")
 
 
 def _trade_evaluator(report: MatchupReport) -> str:
