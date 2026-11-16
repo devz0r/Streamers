@@ -174,10 +174,13 @@
   function set(list) { var o = {}; list.forEach(function (x) { o[x] = 1; }); return o; }
 
   // -- the evaluation -------------------------------------------------------
-  function evaluate(D, partner, give, get, myDrops, sim) {
+  function evaluate(D, partner, give, get, myDrops, sim, side) {
     sim = sim || new Sim(D);
     var P = D.players, me_i = -1, th_i = -1;
-    D.teams.forEach(function (t, i) { if (t.me) me_i = i; if (t.id === partner) th_i = i; });
+    D.teams.forEach(function (t, i) {
+      if (side != null ? t.id === side : t.me) me_i = i;
+      if (t.id === partner) th_i = i;
+    });
     var me = D.teams[me_i], th = D.teams[th_i];
     var ours = function (pid) { return P[pid].o; };
     var his = function (pid) { return pid in th.own ? th.own[pid] : P[pid].v; };
@@ -220,11 +223,11 @@
       playoffs_me: odds('playoffs', me_i), playoffs_them: odds('playoffs', th_i),
       legal: keepsMinimums(D, myNew, me.r) && keepsMinimums(D, theirNew, th.r)
     };
-    var why = reasons(D, out, th, give, get, theirNew, his);
+    var why = reasons(D, out, th, give, get, theirNew, his, me.me ? null : me.n);
     out.why_you = why[0]; out.why_them = why[1];
     var g2 = give.slice().sort(), t2 = get.slice().sort();
     out.exact = null;
-    if (!(myDrops && myDrops.length)) {
+    if (me.me && !(myDrops && myDrops.length)) {
       D.exact.forEach(function (e) {
         if (e[0] === partner && e[1].join('|') === g2.join('|') && e[2].join('|') === t2.join('|')) out.exact = e.slice(3);
       });
@@ -232,9 +235,9 @@
     return out;
   }
 
-  function reasons(D, out, th, give, get, theirNew, his) {
+  function reasons(D, out, th, give, get, theirNew, his, sideName) {
     var P = D.players, gap = D.params.gap_note;
-    var you = ['your lineup ' + sign1(out.lineup_me) + ' a game on our projections, ' + sign1(out.shift_me) +
+    var you = [(sideName ? sideName + '\'s' : 'your') + ' lineup ' + sign1(out.lineup_me) + ' a game on our projections, ' + sign1(out.shift_me) +
                ' a week once byes and injuries play out'];
     give.forEach(function (pid) {
       var p = P[pid];
@@ -245,7 +248,7 @@
       if (p.o - p.v >= gap) you.push('buy low: we project ' + p.n + ' at ' + p.o.toFixed(1) + ', the market sees ' + p.v.toFixed(1));
       if (p.sig) you.push(p.n + ': ' + p.sig);
     });
-    if (out.my_drops.length) you.push('you would drop ' + out.my_drops.map(function (pid) { return P[pid].n; }).join(' and ') + ' to make room');
+    if (out.my_drops.length) you.push((sideName || 'you') + ' would drop ' + out.my_drops.map(function (pid) { return P[pid].n; }).join(' and ') + ' to make room');
     else if (get.length < give.length) you.push('opens a roster spot for a pickup');
 
     var them = ['as he would see it, his roster ' + sign1(out.seen) + ' a game'];
@@ -299,14 +302,40 @@
     if (!root) return;
     var D = JSON.parse(root.querySelector('.te-data').textContent), sim = new Sim(D), P = D.players;
     var me = D.teams.filter(function (t) { return t.me; })[0];
+    // The giving team: you by default, or any other (a trade between two
+    // other managers, read for both of them).
+    var sideSel = root.querySelector('.te-side');
     var partnerSel = root.querySelector('.te-partner'), giveBox = root.querySelector('.te-give'),
         getBox = root.querySelector('.te-get'), dropLine = root.querySelector('.te-dropline'),
         out = root.querySelector('.te-out'), sum = root.querySelector('.te-sum');
     var tradeable = function (pid) { return SKILL[P[pid].pos]; };
-    D.teams.forEach(function (t) {
-      if (t.me) return;
-      var o = el('option', null, t.n); o.value = t.id; partnerSel.appendChild(o);
-    });
+    function team(id) { return D.teams.filter(function (t) { return t.id === id; })[0]; }
+    function giver() { return sideSel && sideSel.value ? team(sideSel.value) : me; }
+    if (sideSel) {
+      var you = el('option', null, 'You'); you.value = ''; sideSel.appendChild(you);
+      D.teams.forEach(function (t) {
+        if (t.me) return;
+        var o = el('option', null, t.n); o.value = t.id; sideSel.appendChild(o);
+      });
+    }
+    function partners() {
+      var keep = partnerSel.value, g = giver();
+      partnerSel.textContent = '';
+      D.teams.forEach(function (t) {
+        // A trade with you is read from your side (the giving team "You").
+        if (t.id === g.id || (t.me && !g.me)) return;
+        var o = el('option', null, t.n); o.value = t.id; partnerSel.appendChild(o);
+      });
+      if (keep && keep !== g.id) partnerSel.value = keep;
+      if (!partnerSel.value && partnerSel.options.length) partnerSel.selectedIndex = 0;
+    }
+    function legends() {
+      var g = giver(), lg = root.querySelectorAll('.te-cols legend');
+      if (lg.length === 2) {
+        lg[0].textContent = g.me ? 'You give' : g.n + ' gives';
+        lg[1].textContent = g.me ? 'You get' : g.n + ' gets';
+      }
+    }
     var dropSel = null;
     function boxes(host, ids) {
       host.textContent = '';
@@ -335,14 +364,15 @@
         return;
       }
       var myDrop = dropSel && dropSel.value ? [dropSel.value] : null;
-      var t0 = Date.now(), r = evaluate(D, partnerSel.value, give, get, myDrop, sim), extra = r.my_more;
+      var g = giver(), side = g.me ? null : g.id;
+      var t0 = Date.now(), r = evaluate(D, partnerSel.value, give, get, myDrop, sim, side), extra = r.my_more;
       if (extra <= 0) { dropLine.textContent = ''; dropSel = null; }
       if (extra > 0 && !dropSel) {
-        dropLine.textContent = 'You would have to drop: ';
+        dropLine.textContent = (g.me ? 'You' : g.n) + ' would have to drop: ';
         dropSel = el('select');
         var auto = el('option', null, 'the lowest-value player (' + r.my_drops.map(function (pid) { return P[pid].n; }).join(', ') + ')');
         auto.value = ''; dropSel.appendChild(auto);
-        me.r.filter(function (pid) { return give.indexOf(pid) < 0 && !P[pid].ir; }).forEach(function (pid) {
+        g.r.filter(function (pid) { return give.indexOf(pid) < 0 && !P[pid].ir; }).forEach(function (pid) {
           var o = el('option', null, P[pid].n + ' ' + P[pid].pos); o.value = pid; dropSel.appendChild(o);
         });
         dropSel.addEventListener('change', calc);
@@ -351,28 +381,35 @@
       var yes = r.p_accept, word = yes >= 0.5 ? 'likely' : yes >= 0.25 ? 'possible' : 'long shot';
       var mine = (r.title_me[1] - r.title_me[0]) * 100, his = (r.title_them[1] - r.title_them[0]) * 100;
       var partnerName = partnerSel.options[partnerSel.selectedIndex].textContent;
-      sum.textContent = 'Your title odds ' + sign1(mine) + ' \u00b7 his ' + sign1(his) +
-        ' \u00b7 chance of a yes ~' + Math.round(yes * 100) + '%';
+      var gName = g.me ? 'Your' : g.n + '\u2019s', pMe = team(partnerSel.value).me;
+      var pName = pMe ? 'your' : partnerName + '\u2019s';
+      sum.textContent = gName + ' title odds ' + sign1(mine) + ' \u00b7 ' + pName + ' ' + sign1(his) +
+        (g.me ? ' \u00b7 chance of a yes ~' + Math.round(yes * 100) + '%' : '');
       var card = el('div', 'card');
       var head = el('div', 'row');
       head.appendChild(el('div', 'rank', '\u21c4'));
       var nm = el('div');
       nm.appendChild(el('span', 'name', 'Get ' + names(get)));
       nm.appendChild(document.createTextNode(' '));
-      nm.appendChild(el('span', 'opp', 'from ' + partnerName + ' \u00b7 give ' + names(give)));
+      nm.appendChild(el('span', 'opp', (g.me ? '' : g.n + ' ') + 'from ' + partnerName + ' \u00b7 give ' + names(give)));
       head.appendChild(nm);
       head.appendChild(el('div', 'pts', sign1(mine)));
       card.appendChild(head);
       var meta = el('div', 'meta');
-      ['title ' + change(r.title_me), 'playoffs ' + change(r.playoffs_me),
-       'yes: ' + word + ' (~' + Math.round(yes * 100) + '%)',
-       'his title ' + change(r.title_them) + ' (' + sign1(his) + ')', 'his playoffs ' + change(r.playoffs_them)]
+      (g.me ? ['title ' + change(r.title_me), 'playoffs ' + change(r.playoffs_me),
+               'yes: ' + word + ' (~' + Math.round(yes * 100) + '%)',
+               'his title ' + change(r.title_them) + ' (' + sign1(his) + ')', 'his playoffs ' + change(r.playoffs_them)]
+            : [g.n + ' title ' + change(r.title_me), g.n + ' playoffs ' + change(r.playoffs_me),
+               (pMe ? 'your' : partnerName) + ' title ' + change(r.title_them) + ' (' + sign1(his) + ')',
+               (pMe ? 'your' : partnerName) + ' playoffs ' + change(r.playoffs_them)])
         .forEach(function (x) { meta.appendChild(el('span', null, x)); });
       card.appendChild(meta);
       var why = el('div', 'why');
-      why.appendChild(el('b', null, 'For you: ')); why.appendChild(document.createTextNode(r.why_you.join('; ') + '.'));
+      why.appendChild(el('b', null, g.me ? 'For you: ' : 'For ' + g.n + ': '));
+      why.appendChild(document.createTextNode(r.why_you.join('; ') + '.'));
       why.appendChild(el('br'));
-      why.appendChild(el('b', null, 'For him: ')); why.appendChild(document.createTextNode(r.why_them.join('; ') + '.'));
+      why.appendChild(el('b', null, g.me ? 'For him: ' : pMe ? 'For you: ' : 'For ' + partnerName + ': '));
+      why.appendChild(document.createTextNode(r.why_them.join('; ') + '.'));
       if (r.exact) {
         why.appendChild(el('br'));
         why.appendChild(document.createTextNode('The full simulation priced this exact trade this run: ' +
@@ -391,10 +428,15 @@
       out.appendChild(line('sub', 'Estimated in ' + (Date.now() - t0) + ' ms from ' + D.ns.toLocaleString() +
         ' simulated seasons of weekly points, read against each team\u2019s title odds on the full simulation.' + acc));
     }
-    partnerSel.addEventListener('change', function () { boxes(getBox, D.teams.filter(function (t) { return t.id === partnerSel.value; })[0].r); dropSel = null; calc(); });
-    boxes(giveBox, me.r);
-    boxes(getBox, D.teams.filter(function (t) { return t.id === partnerSel.value; })[0].r);
-    calc();
+    function reset() {
+      partners(); legends();
+      boxes(giveBox, giver().r);
+      boxes(getBox, team(partnerSel.value).r);
+      dropSel = null; calc();
+    }
+    partnerSel.addEventListener('change', function () { boxes(getBox, team(partnerSel.value).r); dropSel = null; calc(); });
+    if (sideSel) sideSel.addEventListener('change', reset);
+    reset();
   }
 
   g.StreamerTrade = { evaluate: evaluate, Sim: Sim, mount: mount, fnv1a: fnv1a, u01: u01 };

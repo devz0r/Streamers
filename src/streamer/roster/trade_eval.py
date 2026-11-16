@@ -354,13 +354,15 @@ def _read(data: dict, curve: str, team: int, shift: float, who: int) -> float:
 
 
 def evaluate(data: dict, partner: str, give: list[str], get: list[str],
-             my_drops: list[str] | None = None, sim: Sim | None = None) -> dict:
+             my_drops: list[str] | None = None, sim: Sim | None = None, side: str | None = None) -> dict:
     """Both teams' view of a trade: title and playoff odds, weekly points,
-    lineups, forced drops, and his chance of saying yes."""
+    lineups, forced drops, and his chance of saying yes. ``side``: the team
+    giving ``give`` (default yours) -- any two teams, to read a trade two
+    other managers made or might make."""
     sim = sim or Sim(data)
     P = data["players"]
     ti = {t["id"]: i for i, t in enumerate(data["teams"])}
-    me_i = next(i for i, t in enumerate(data["teams"]) if t["me"])
+    me_i = ti[side] if side is not None else next(i for i, t in enumerate(data["teams"]) if t["me"])
     th_i = ti[partner]
     me, th = data["teams"][me_i], data["teams"][th_i]
     ours = lambda pid: P[pid]["o"]                                           # noqa: E731
@@ -408,15 +410,19 @@ def evaluate(data: dict, partner: str, give: list[str], get: list[str],
         "playoffs_me": odds("playoffs", me_i), "playoffs_them": odds("playoffs", th_i),
         "legal": keeps_minimums(data, my_new, me["r"]) and keeps_minimums(data, their_new, th["r"]),
     }
-    out["why_you"], out["why_them"] = _reasons(data, out, th, give, get, my_new, their_new, his)
+    out["why_you"], out["why_them"] = _reasons(data, out, th, give, get, my_new, their_new, his,
+                                                None if me["me"] else me["n"])
     key = [partner, sorted(give), sorted(get)]
-    out["exact"] = next((e[3:] for e in data["exact"] if e[:3] == key and not my_drops), None)
+    out["exact"] = next((e[3:] for e in data["exact"] if e[:3] == key and not my_drops), None) if me["me"] else None
     return out
 
 
-def _reasons(data, out, th, give, get, my_new, their_new, his) -> tuple[list[str], list[str]]:
+def _reasons(data, out, th, give, get, my_new, their_new, his, side_name=None) -> tuple[list[str], list[str]]:
+    """``side_name``: the giving team's name when it is not yours (the
+    first list is then about that team, not you)."""
     P, gap = data["players"], data["params"]["gap_note"]
-    you = [f"your lineup {out['lineup_me']:+.1f} a game on our projections, "
+    whose = f"{side_name}'s" if side_name else "your"
+    you = [f"{whose} lineup {out['lineup_me']:+.1f} a game on our projections, "
            f"{out['shift_me']:+.1f} a week once byes and injuries play out"]
     for pid in give:
         p = P[pid]
@@ -429,7 +435,8 @@ def _reasons(data, out, th, give, get, my_new, their_new, his) -> tuple[list[str
         if p["sig"]:
             you.append(f"{p['n']}: {p['sig']}")
     if out["my_drops"]:
-        you.append("you would drop " + " and ".join(P[pid]["n"] for pid in out["my_drops"]) + " to make room")
+        you.append(f"{side_name or 'you'} would drop " + " and ".join(P[pid]["n"] for pid in out["my_drops"])
+                   + " to make room")
     elif len(get) < len(give):
         you.append("opens a roster spot for a pickup")
 

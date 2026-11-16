@@ -94,7 +94,7 @@ const ST = require(process.argv[2]);
 const D = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
 const cases = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'));
 const sim = new ST.Sim(D);
-process.stdout.write(JSON.stringify(cases.map(c => ST.evaluate(D, c.partner, c.give, c.get, c.drops, sim))));
+process.stdout.write(JSON.stringify(cases.map(c => ST.evaluate(D, c.partner, c.give, c.get, c.drops, sim, c.side))));
 """
 
 
@@ -110,6 +110,13 @@ def test_the_page_script_computes_exactly_what_python_does(league, tmp_path):
         cases.append({"partner": t["id"], "give": skill(me["r"])[:2], "get": skill(t["r"])[1:3], "drops": None})
         cases.append({"partner": t["id"], "give": skill(me["r"])[3:4], "get": skill(t["r"])[:3],
                       "drops": [skill(me["r"])[-1]]})
+    # Two other managers trading, both ways round, with and without a forced drop.
+    others = [t for t in data["teams"] if not t["me"]]
+    for a, b in zip(others, others[1:]):
+        cases.append({"side": a["id"], "partner": b["id"], "give": skill(a["r"])[:1], "get": skill(b["r"])[:2],
+                      "drops": None})
+        cases.append({"side": b["id"], "partner": a["id"], "give": skill(b["r"])[1:3], "get": skill(a["r"])[2:3],
+                      "drops": None})
     (tmp_path / "data.json").write_text(json.dumps(data))
     (tmp_path / "cases.json").write_text(json.dumps(cases))
     (tmp_path / "parity.js").write_text(_PARITY)
@@ -118,7 +125,7 @@ def test_the_page_script_computes_exactly_what_python_does(league, tmp_path):
                          capture_output=True, text=True, timeout=120, check=True)
     sim = trade_eval.Sim(data)
     for c, js in zip(cases, json.loads(run.stdout)):
-        py = trade_eval.evaluate(data, c["partner"], c["give"], c["get"], c["drops"], sim=sim)
+        py = trade_eval.evaluate(data, c["partner"], c["give"], c["get"], c["drops"], sim=sim, side=c.get("side"))
         for k in ("shift_me", "shift_them", "lineup_me", "seen", "consolidation", "p_accept"):
             assert js[k] == pytest.approx(py[k], abs=1e-9), k
         for k in ("title_me", "title_them", "playoffs_me", "playoffs_them"):
@@ -193,3 +200,20 @@ def test_the_page_script_agrees_on_ir_trades(league, tmp_path):
         assert js["my_more"] == py["my_more"]
         assert js["my_drops"] == py["my_drops"] and js["their_drops"] == py["their_drops"]
         assert js["title_me"] == pytest.approx(list(py["title_me"]), abs=1e-9)
+
+
+def test_a_trade_between_two_other_teams_reads_the_same_from_either_side(league):
+    _snap, _finder, data = league
+    skill = lambda ids: [i for i in ids if data["players"][i]["pos"] in ("QB", "RB", "WR", "TE")]  # noqa: E731
+    a, b = [t for t in data["teams"] if not t["me"]][:2]
+    give, get = skill(a["r"])[:1], skill(b["r"])[:1]                     # one for one: nobody drops anyone
+    one = trade_eval.evaluate(data, b["id"], give, get, side=a["id"])
+    other = trade_eval.evaluate(data, a["id"], get, give, side=b["id"])
+    assert one["title_me"] == pytest.approx(other["title_them"]) and one["title_them"] == pytest.approx(other["title_me"])
+    assert one["shift_me"] == pytest.approx(other["shift_them"])
+    assert one["why_you"][0].startswith(f"{a['n']}'s lineup") and one["exact"] is None
+    # Your own trades read as before.
+    me = next(t for t in data["teams"] if t["me"])
+    mine = trade_eval.evaluate(data, b["id"], skill(me["r"])[:1], get)
+    assert mine == trade_eval.evaluate(data, b["id"], skill(me["r"])[:1], get, side=me["id"])
+    assert mine["why_you"][0].startswith("your lineup")

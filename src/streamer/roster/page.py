@@ -1184,9 +1184,10 @@ def _trade_evaluator(report: MatchupReport) -> str:
     script = SCRIPT.read_text(encoding="utf-8").replace("</", "<\\/")
     return (
         f'<details class="card" id="{uid}"><summary><strong>Evaluate a trade</strong> '
-        '<span class="opp">any players with any team: both sides\' title odds, lineups and his answer</span>'
+        '<span class="opp">any players between any two teams: both sides\' title odds, lineups and his answer</span>'
         "</summary>"
-        '<p class="sub">Trade with <select class="te-partner"></select></p>'
+        '<p class="sub"><select class="te-side" aria-label="Giving team"></select> trades with '
+        '<select class="te-partner" aria-label="Other team"></select></p>'
         '<div class="te-cols"><fieldset><legend>You give</legend><div class="te-give"></div></fieldset>'
         '<fieldset><legend>You get</legend><div class="te-get"></div></fieldset></div>'
         '<p class="te-sum"></p><p class="sub te-dropline"></p><div class="te-out"></div>'
