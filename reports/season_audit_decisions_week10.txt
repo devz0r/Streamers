@@ -1,0 +1,116 @@
+
+===== espn: lineups, weeks 3-10 (points scored by the best lineup on each source's projections)
+ week  played  ours  platform  props  sleeper  hindsight  followed  unknown
+    3    95.5  69.1      69.3   69.1     69.1       95.9     False        3
+    4   133.6 133.6     139.9  139.9    133.6      148.7      True        0
+    5   181.6 181.6     181.6  195.8    181.6      207.9      True        0
+    6   105.5 105.5      99.2  105.5    105.5      105.5      True        0
+    7   129.1 115.7     129.1  111.8    129.1      141.7     False        0
+    8   134.7 134.7     134.7  134.7    134.7      149.3      True        0
+    9   109.8 109.8     109.8  109.8    109.8      137.5      True        0
+   10    74.5  74.5      70.8   74.5     74.5       86.2      True        0
+totals: {'played': 964.3, 'ours': 924.5, 'platform': 934.4, 'props': 941.0, 'sleeper': 937.9, 'hindsight': 1072.6} | weeks matching ours: 6 of 8
+   week 3 started Drake London; started Kyle Pitts Sr. | ours: Terrance Ferguson, Khalil Shakir
+   week 7 started Josh Jacobs | ours: Chris Godwin Jr.
+
+===== yahoo: lineups, weeks 3-10 (points scored by the best lineup on each source's projections)
+ week  played  ours  platform  props  sleeper  hindsight  followed  unknown
+    3   144.6 123.8     123.8  121.9    123.8      155.0     False        1
+    4    69.6  69.6      75.3   73.5     69.6       88.8      True        0
+    5   158.3 171.6     142.9  171.6    171.6      171.6     False        0
+    6   125.6 125.6     115.9  125.6    125.6      129.4      True        0
+    7   128.7 128.7     128.7  120.4    128.7      137.3      True        0
+    8   102.9 102.9     102.9  102.9     94.9      118.4      True        0
+    9   149.9 149.9     149.9  149.9    149.9      166.0      True        0
+   10   114.6 114.6     114.6  114.6    114.6      128.4      True        0
+totals: {'played': 994.1, 'ours': 986.6, 'platform': 954.0, 'props': 980.3, 'sleeper': 978.6, 'hindsight': 1094.9} | weeks matching ours: 6 of 8
+   week 3 started Drake London | ours: Courtland Sutton
+   week 5 started Oronde Gadsden | ours: Tyler Higbee
+
+================ espn ================
+games (your points, opponent's): {1: (0, 0), 2: (0, 0), 3: (95.5, 126.0), 4: (119.0, 107.2), 5: (174.4, 112.4), 6: (88.9, 134.1), 7: (129.1, 115.4), 8: (134.7, 139.5), 9: (111.8, 112.2), 10: (93.5, 157.0)}
+moves seen between week-end rosters (weeks 1-10): 45 adds (28 skill, 17 K/DST), 45 drops
+skill adds: started at least once: 10 of 28 | total points while starting: 215.7 | per start: 11.4
+  adds that started:
+ week            name pos  held  starts  pts_started
+    4 Ollie Gordon II  RB   7.0     6.0         79.9
+    4 Jacoby Brissett  QB   3.0     1.0         25.3
+    5  T.J. Hockenson  TE   4.0     3.0         24.8
+    8  T.J. Hockenson  TE   3.0     2.0         23.1
+    5 Brenton Strange  TE   6.0     2.0         18.3
+    5   Rachaad White  RB   3.0     1.0         15.7
+   10      DK Metcalf  WR   1.0     1.0         15.4
+    4   Jakobi Meyers  WR   2.0     1.0          6.3
+    6  Pat Freiermuth  TE   2.0     1.0          4.0
+    4  Dalton Schultz  TE   1.0     1.0          2.9
+  skill drops, what they did afterwards (through week 10):
+ week           name pos  games_after  pts_after  best_after
+    4 Kyle Pitts Sr.  TE          7.0       74.0        23.0
+    6  KC Concepcion  WR          5.0       68.3        23.2
+    4  Khalil Shakir  WR          6.0       66.3        13.4
+    2   Justice Hill  RB          8.0       57.3        18.2
+    4  Xavier Worthy  WR          5.0       44.5        14.3
+    5 Kenny Gainwell  RB          5.0       42.6        14.0
+    7  Darren Waller  TE          4.0       41.5        23.0
+    4   Kaelon Black  RB          6.0       40.1        14.6
+    6  Dylan Sampson  RB          4.0       39.1        12.9
+    5 Dalton Schultz  TE          5.0       37.1         9.5
+    6 T.J. Hockenson  TE          3.0       36.6        15.8
+    5   Tyler Higbee  TE          6.0       36.3        13.3
+  drops who then averaged 10+ a game over 2+ games: ['Kyle Pitts Sr.', 'KC Concepcion', 'Khalil Shakir', 'Darren Waller', 'T.J. Hockenson', 'Pat Freiermuth']
+your moves since the week-3 roster: what you scored against that roster left alone (lineup by our numbers)
+ week  played  frozen  gain  skill_only    my   opp   won  frozen_wins
+    4   133.6   133.0   0.6       False 119.0 107.2  True         True
+    5   145.6   164.3 -18.7        True 174.4 112.4  True         True
+    6    92.5    93.8  -1.3        True  88.9 134.1 False        False
+    7   129.1   117.1  12.0       False 129.1 115.4  True         True
+    8   134.7   112.0  22.7       False 134.7 139.5 False        False
+    9   109.8   108.6   1.2       False 111.8 112.2 False        False
+   10    74.5    56.9  17.6        True  93.5 157.0 False        False
+  total gain 34.1 over 7 weeks (4.9 a week); record 3-4, frozen roster 3-4
+K you started, 9 weeks: you 9.6 a week; all units 8.3; platform's top 12 8.2; our top 12 8.5; our top 3 8.5
+DST you started, 9 weeks: you 9.8 a week; all units 8.5; platform's top 12 10.7; our top 12 11.1; our top 3 11.6
+
+================ yahoo ================
+games (your points, opponent's): {3: (0, 0), 4: (0, 0), 5: (0, 0), 6: (0, 0), 7: (0, 0), 8: (0, 0), 9: (0, 0), 10: (0, 0)}
+moves seen between week-end rosters (weeks 3-10): 28 adds (19 skill, 9 K/DST), 29 drops
+skill adds: started at least once: 8 of 19 | total points while starting: 79.9 | per start: 6.7
+  adds that started:
+ week            name pos  held  starts  pts_started
+    4    J.K. Dobbins  RB   6.0     3.0         37.3
+    9    Tyler Shough  QB   2.0     1.0         13.0
+    5    Tyler Higbee  TE   4.0     3.0         10.0
+   10   Jakobi Meyers  WR   1.0     1.0          6.4
+    4 Jacoby Brissett  QB   5.0     1.0          4.5
+    7   Darren Waller  TE   2.0     1.0          4.4
+   10   Darren Waller  TE   1.0     1.0          4.4
+    5  Oronde Gadsden  TE   1.0     1.0          0.0
+  skill drops, what they did afterwards (through week 10):
+ week             name pos  games_after  pts_after  best_after
+    4    Xavier Worthy  WR          5.0       44.5        14.3
+    5        AJ Barner  TE          6.0       42.4        15.0
+    8    Darren Waller  TE          3.0       29.5        23.0
+    7 Antonio Williams  WR          3.0       28.1        12.2
+    4   Rashod Bateman  WR          5.0       27.9        11.2
+    4       Pat Bryant  WR          2.0       23.3        15.6
+    5       Sione Vaki  RB          5.0       19.2         8.0
+    6   Oronde Gadsden  TE          3.0       18.6        10.2
+    5       Cade Otton  TE          3.0       13.4         6.5
+    8    Tyler Goodson  RB          2.0       13.0         7.7
+    9     Tyler Higbee  TE          2.0       13.0        10.7
+    7       Ty Johnson  RB          3.0       12.4         5.7
+  drops who then averaged 10+ a game over 2+ games: ['Pat Bryant']
+your moves since the week-3 roster: what you scored against that roster left alone (lineup by our numbers)
+ week  played  frozen  gain  skill_only  my  opp   won  frozen_wins
+    4    69.6    77.6  -8.0       False 0.0  0.0 False         True
+    5   143.3   139.1   4.2        True 0.0  0.0 False        False
+    6   125.6   130.0  -4.4       False 0.0  0.0 False         True
+    7   128.7   121.4   7.3       False 0.0  0.0 False        False
+    8    74.9    83.6  -8.7        True 0.0  0.0 False         True
+    9   149.9   140.9   9.0       False 0.0  0.0 False        False
+   10   114.6   117.6  -3.0        True 0.0  0.0 False         True
+  total gain -3.6 over 7 weeks (-0.5 a week); record 0-7, frozen roster 4-3
+K you started, 7 weeks: you 8.7 a week; all units 8.8; platform's top 12 8.7; our top 12 9.1; our top 3 10.0
+DST you started, 7 weeks: you 8.6 a week; all units 6.6; platform's top 12 8.0; our top 12 8.5; our top 3 10.3
+T.J. Hockenson by week: {1: 13.6, 2: 5.9, 3: 3.1, 4: 24.9, 5: 1.7, 7: 13.5, 8: 15.8, 9: 7.3}
+Rachaad White by week: {1: 4.7, 2: 14.3, 3: 11.1, 5: 3.0, 6: 15.7, 8: 14.0, 9: 8.9, 10: 6.2}
