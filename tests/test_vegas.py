@@ -100,3 +100,22 @@ def test_an_unposted_market_is_filled_from_his_own_games_not_counted_as_zero(cfg
     assert sorted(back.vegas_filled) == ["receiving_yards", "receptions"]          # posted lines kept
     assert back.vegas_stats["rushing_yards"] == 70.0
     assert back.vegas_points == pytest.approx(70 * 0.1 + 0.6 * 6 + 3 * 1 + 22 * 0.1)
+
+
+def test_the_number_before_the_platform_step_is_logged(tmp_cfg):
+    import pandas as pd
+
+    from streamer.league.model import LeagueSnapshot, PlayerRow, TeamRow
+    from streamer.roster.vegas import blend_market, log_projections
+
+    p = PlayerRow(player_id="a", name="a", position="WR", team="KC", projection=10.0, ros_value=10.0,
+                  platform_projection=14.0, vegas_points=12.0, vegas_books=3)
+    snap = LeagueSnapshot(
+        platform="yahoo", profile="yahoo", league_id="1", league_name="L", season=2026, week=5, slots={},
+        bench_size=0, teams=[TeamRow(team_id="0", name="T", is_mine=True, roster=[p])], free_agents=[],
+        matchup=None, synced_at="")
+    blend_market(snap, tmp_cfg, weight=0.5, sleeper_weight=0.0, platform_weight=0.5)
+    log_projections(snap, tmp_cfg)
+    row = pd.read_parquet(tmp_cfg.results_dir / "skill_log.parquet").iloc[0]
+    assert row["pre_platform_projection"] == 11.0 and row["blended_projection"] == 12.5
+    assert row["platform_catch_up"] == 0.5

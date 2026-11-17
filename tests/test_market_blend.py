@@ -181,3 +181,56 @@ def test_sleeper_weight_comes_from_config_and_missing_values_are_ignored(cfg):
     blend_market(snap, cfg, weight=0.4)
     w = float(cfg.raw["roster"]["sleeper_projection"]["weight"])
     assert w > 0 and a.projection == round(14.0 + w * 6.0, 2) and b.sleeper_weight == 0.0
+
+
+def test_the_platform_step_comes_last_and_only_for_untagged_players(cfg):
+    snap = snapshot(week=3)
+    a = snap.my_team.roster[4]                                   # WR 14.0, no injury tag
+    a.vegas_points, a.vegas_books, a.sleeper_projection, a.platform_projection = 20.0, 3, 10.0, 18.0
+    q = PlayerRow(player_id="q", name="q", position="WR", projection=7.5, play_probability=0.75, status="QUESTIONABLE",
+                  vegas_points=14.0, vegas_books=3, platform_projection=16.0)
+    snap.free_agents = [q]
+    blend_market(snap, cfg, weight=0.4, sleeper_weight=0.25, platform_weight=0.5)
+    after_sleeper = 14.0 + 0.4 * 6.0 + 0.25 * (10.0 - (14.0 + 0.4 * 6.0))
+    assert a.pre_platform_projection == round(after_sleeper, 2) and a.platform_catch_up == 0.5
+    assert a.projection == round(after_sleeper + 0.5 * (18.0 - after_sleeper), 2)
+    # A tagged player's number already counts his chance to play; the platform's step leaves him be.
+    assert q.platform_catch_up == 0.0 and q.projection == round(0.75 * (0.6 * 10.0 + 0.4 * 14.0), 2)
+
+
+def test_no_platform_step_without_its_weight_or_the_platforms_number(cfg):
+    snap = snapshot(week=3)
+    a, b = snap.my_team.roster[4], snap.my_team.roster[5]       # WR 14.0, WR 11.0
+    a.platform_projection = 18.0
+    b.platform_projection = 0.0                                  # the platform projects nothing
+    blend_market(snap, cfg, weight=0.4, sleeper_weight=0.0)
+    assert a.projection == 14.0 and a.platform_catch_up == 0.0
+    blend_market(snap, cfg, weight=0.4, sleeper_weight=0.0, platform_weight=0.5)
+    assert a.projection == 16.0 and b.projection == 11.0 and b.platform_catch_up == 0.0
+
+
+def test_the_platform_step_is_fitted_on_the_number_before_it(tmp_cfg):
+    from streamer.roster.vegas import fit_platform_catch_up
+
+    rng = np.random.default_rng(1)
+    n = 900
+    truth = rng.uniform(4, 20, n)
+    before = truth + rng.normal(0, 3, n)
+    plat = truth + rng.normal(0, 3, n)                          # as sharp as ours, its own errors: half way
+    log_ = pd.DataFrame({
+        "season": 2026, "week": np.repeat(np.arange(1, 10), 100), "player_id": [f"p{i}" for i in range(n)],
+        "nfl_id": [f"n{i}" for i in range(n)], "status": "", "pre_platform_projection": before,
+        "blended_projection": before + 0.5 * (plat - before),     # what was shown, after a step already taken
+        "platform_projection": plat})
+    yahoo = tmp_cfg.for_profile("yahoo")
+    path = yahoo.results_dir / "skill_log.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log_.to_parquet(path)
+    hist = pd.DataFrame({"player_id": log_["nfl_id"], "season": 2026, "week": log_["week"],
+                         "fantasy_points_ppr": truth + rng.normal(0, 0.5, n)})
+    w, used = fit_platform_catch_up(yahoo, hist)
+    kept = int(((before > 0) & (plat > 0.5)).sum())                # a number of 0 or less says nothing
+    assert used == kept and abs(w - 0.5 * kept / (kept + 300)) < 0.08   # about half way, shrunk toward the prior 0
+    assert fit_platform_catch_up(tmp_cfg.for_profile("espn"), hist) == (0.0, 0)   # no step in that profile
+    w_few, used_few = fit_platform_catch_up(yahoo, hist.head(100))
+    assert used_few < 150 and w_few == 0.0                        # too few graded games: the prior

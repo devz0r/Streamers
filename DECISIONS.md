@@ -5891,3 +5891,22 @@ The one structural bias is the optimizer's curse documented in "Grading the odds
 **Not gradable yet.** The odds log has carried each team's expected points only since week 7, logged at each week's end, so this season gives one or two weeks of scores after each forecast; P(playoffs) and P(title) are graded when the season ends (`odds_log.grade`).
 
 **Next, in order:** (1) a discount for the selection bias where it starts -- a chosen player's edge over the ones passed over -- graded on the replayed leagues under the validation rule; (2) log each team's simulated points for each week ahead and each game's P(win), so forecasts can be graded mid-season; (3) grade the post-blend season values in the rest-of-season benchmark beside our own; (4) the tight-end over-projection.
+
+### Yahoo's own projection, as a last step (and the selection discount that was not needed)
+
+Step 1 after the week-10 audit was to discount a chosen player's edge over the ones passed over, the fix "Grading the odds on replayed leagues" left for the optimizer's curse. Working it through:
+
+- **The population form of the curse is already taken out at the source.** "The top of the weekly number" found the numbers bend at the top (a projected point among starter-calibre players worth about three quarters of one) and fixed it; the ESPN simulator reads season values through that line. Yahoo's simulator does not (the line failed a 32-league Yahoo-format replay). On this week's snapshots turning it on for Yahoo moves your title odds 13.98% -> 13.95% and ESPN's 0.73% -> 0.72%, so it was not re-tested.
+- **Choosing on a calibrated number cannot bias it; what is left is what rivals know that our number does not.** Rivals start and claim on the platform's projection. On 2026 weeks 3-10, points scored on our final number and (the platform's number - ours): ESPN +0.17 (95% -0.08 to +0.41, 2,207 player-weeks) -- ESPN's number adds nothing; Yahoo +0.68 (+0.28 to +1.17, 1,113), starter-calibre +0.84 (+0.42 to +1.31). No row was logged after its player's kickoff, so this is not the platform seeing the game.
+- **It does not explain your starters' shortfall.** Your Yahoo starters and everyone else's sat the same distance below Yahoo's number (+0.62 and +0.58 a start), so its extra knowledge accounts for -0.02 of the 1.18 a start by which rivals' starters beat our number more than yours; in ESPN, -0.00 of 0.67. The own-team gap in the audit reads as luck, and no discount for your roster is applied -- the replay, where every manager picks on our numbers, could not have validated one anyway.
+
+**The fix, where the information is lost.** Yahoo's number does go into our model (`fit_platform_weight`), but the market's and the experts' numbers are blended on top and know nothing of it, which thins it to about an eighth of the final number. A last step after the blend, `c` of the way from the final number to the platform's, fitted on the other weeks (least squares, shrunk toward 0 by 300 games), held out week by week:
+
+| Yahoo, 2026 weeks 3-10 | RMSE before -> after | weeks better | `c` by fold |
+|---|---|---|---|
+| every player who played (1,113) | 7.568 -> 7.509 | 8 of 8 | 0.49-0.55 |
+| starter-calibre | 7.912 -> 7.836 | 8 of 8 | |
+| backs, receivers, tight ends only (no quarterback-sheet confound) | 7.180 -> 7.150 | 8 of 8 | 0.45-0.51 |
+| ESPN, every player (2,207) | 6.059 -> 6.062 | 4 of 8 | 0.06-0.24 |
+
+One season, so held out by week, as the other in-season blend weights are. In production (`vegas.fit_platform_catch_up`, `blend_market(platform_weight=...)`) the weight is fitted each run on the number *before* the step (`pre_platform_projection`, now logged, so the fit does not chase its own output), for players with no injury tag and a platform number, and only where the profile asks (`platform_catch_up: {prior: 0.0}`, Yahoo). First run: 0.54 on 1,072 graded player-weeks; 124 of 329 logged Yahoo players moved, by up to 0.85 points. It changes this week's numbers (lineups, P(win), the week under way in the season simulation), not season values: Yahoo's season-long projections are not read.

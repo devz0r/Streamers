@@ -459,16 +459,65 @@ def fit_market_weight(cfg: Config, history=None) -> tuple[float, int]:
     return w.market, w.market_games
 
 
+def fit_platform_catch_up(cfg: Config, history: pd.DataFrame | None) -> tuple[float, int]:
+    """How far this week's final number moves toward the platform's own
+    projection as a last step (``platform_catch_up`` in the profile; 0 where
+    the profile does not have it).
+
+    The platform's number already goes into our model's (``fit_platform_weight``),
+    but the market's and the experts' numbers blended after it know nothing of
+    what the platform knows, so in the final number its share is thinned. This
+    is fitted on that final number: least squares of what healthy players
+    scored, less our number before the step, on the platform's less ours, from
+    this league's log; shrunk toward the profile's ``prior`` by
+    ``platform_weight_prior_games`` of evidence, the prior alone below
+    ``platform_weight_min_games``; held to 0-1. Returns (weight, graded
+    player-weeks). DECISIONS.md, "Yahoo's own projection, as a last step"."""
+    conf = cfg._profile.get("platform_catch_up")
+    if conf is None:
+        return 0.0, 0
+    roster = cfg.raw.get("roster") or {}
+    prior = float((conf or {}).get("prior", 0.0))
+    k = float(roster.get("platform_weight_prior_games", 300))
+    need = int(roster.get("platform_weight_min_games", 150))
+    path = cfg.results_dir / "skill_log.parquet"
+    if history is None or history.empty or not path.exists():
+        return prior, 0
+    log_ = pd.read_parquet(path)
+    if not {"blended_projection", "platform_projection", "nfl_id"} <= set(log_.columns):
+        return prior, 0
+    base = log_["blended_projection"]
+    if "pre_platform_projection" in log_.columns:
+        base = log_["pre_platform_projection"].fillna(base)
+    log_ = log_.assign(_base=pd.to_numeric(base, errors="coerce"),
+                       _plat=pd.to_numeric(log_["platform_projection"], errors="coerce"))
+    log_ = log_[(log_["status"].fillna("") == "") & (log_["_plat"] > NO_PROJECTION) & (log_["_base"] > 0)
+                & log_["nfl_id"].notna()]
+    actual = history[["player_id", "season", "week", "fantasy_points_ppr"]].rename(columns={"player_id": "nfl_id"})
+    j = log_.merge(actual, on=["nfl_id", "season", "week"], how="inner")
+    n = len(j)
+    if n < need:
+        return prior, n
+    b, p, y = j["_base"].to_numpy(float), j["_plat"].to_numpy(float), j["fantasy_points_ppr"].to_numpy(float)
+    den = float(((p - b) ** 2).sum())
+    if den <= 0:
+        return prior, n
+    fit = float(((y - b) * (p - b)).sum()) / den
+    return min(max((n * fit + k * prior) / (n + k), 0.0), 1.0), n
+
+
 def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = None,
                  consensus_weight: float = 0.0,
                  by_position: dict[str, tuple[float, float]] | None = None,
-                 sleeper_weight: float | None = None) -> float:
+                 sleeper_weight: float | None = None, platform_weight: float = 0.0) -> float:
     """Blend the second forecasts into every player's projection for this
     week: sportsbook-implied points by ``weight`` (less where few books
     priced him) and the FantasyPros consensus projection by
     ``consensus_weight``, each where the player has one; then Sleeper's
     projection as a last step, ``sleeper_weight`` of the way from the
-    blended number to Sleeper's (config ``roster.sleeper_projection``).
+    blended number to Sleeper's (config ``roster.sleeper_projection``); and
+    after it, for a player with no injury tag, ``platform_weight`` of the way
+    to the platform's own projection (:func:`fit_platform_catch_up`).
 
     Both assume the player suits up, so the blend is done on the
     if-he-plays number and the injury discount re-applied. Players already
@@ -484,6 +533,8 @@ def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = N
         p.market_weight = 0.0
         p.consensus_weight = 0.0
         p.sleeper_weight = 0.0
+        p.pre_platform_projection = None
+        p.platform_catch_up = 0.0
         if (p.projection is None or p.locked or p.is_out
                 or p.play_probability <= 0 or "sits" in (p.projection_source or "")):
             continue
@@ -491,7 +542,9 @@ def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = N
         wm = w_mkt * BOOK_DEPTH.get(int(p.vegas_books or 0), 1.0) if p.vegas_points is not None else 0.0
         wc = w_con if p.fp_projection is not None and p.fp_projection > NO_PROJECTION else 0.0
         ws = sleeper_weight if p.sleeper_projection is not None and p.sleeper_projection > NO_PROJECTION else 0.0
-        if wm <= 0 and wc <= 0 and ws <= 0:
+        wp = (platform_weight if platform_weight > 0 and not p.status and p.platform_projection is not None
+              and p.platform_projection > NO_PROJECTION else 0.0)
+        if wm <= 0 and wc <= 0 and ws <= 0 and wp <= 0:
             continue
         q = p.play_probability if p.play_probability else 1.0
         if_plays = float(p.projection) / q
@@ -502,10 +555,14 @@ def blend_market(snapshot: LeagueSnapshot, cfg: Config, weight: float | None = N
             blended += wc * (float(p.fp_projection) - if_plays)
         if ws > 0:
             blended += ws * (float(p.sleeper_projection) - blended)
+        p.pre_platform_projection = round(q * blended, 2)
+        if wp > 0:
+            blended += wp * (float(p.platform_projection) - blended)
         p.projection = round(q * blended, 2)
         p.market_weight = round(wm, 3)
         p.consensus_weight = round(wc, 3)
         p.sleeper_weight = round(ws, 3)
+        p.platform_catch_up = round(wp, 3)
     return weight
 
 
@@ -562,6 +619,9 @@ def log_projections(snapshot: LeagueSnapshot, cfg: Config) -> int:
             "blended_projection": p.projection, "market_weight": p.market_weight,
             "consensus_weight": p.consensus_weight,
             "sleeper_projection": p.sleeper_projection, "sleeper_weight": p.sleeper_weight,
+            "pre_platform_projection": (p.pre_platform_projection if p.pre_platform_projection is not None
+                                        else p.projection),
+            "platform_catch_up": p.platform_catch_up,
             "model_projection": p.model_projection,
             "platform_projection": p.platform_projection, "vegas_points": p.vegas_points,
             "vegas_books": p.vegas_books, "logged_at": stamp,

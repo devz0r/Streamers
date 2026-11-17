@@ -223,6 +223,11 @@ class PlayerRow:
     #: gave it (attached at publish time; logged for grading).
     sleeper_projection: float | None = None
     sleeper_weight: float = 0.0
+    #: This week's number before the last step toward the platform's own
+    #: projection (``platform_catch_up`` in the profile), and that step's
+    #: weight: logged, so the step is fitted on the number it is applied to.
+    pre_platform_projection: float | None = None
+    platform_catch_up: float = 0.0
     #: This week's kickoff, UTC ISO (set with the locks; None when unknown).
     kickoff: str | None = None
     #: An unowned player: True on waivers (a claim, processed in priority

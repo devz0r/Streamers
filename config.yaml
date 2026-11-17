@@ -137,6 +137,14 @@ profiles:
     # calibration's season line did not hold on Yahoo-format replays
     # (roster/level_calibration.py).
     season_levels: false
+    # Yahoo's own projection knows something our final number does not: held
+    # out week by week on 2026 (weeks 3-10, 1,113 player-weeks), moving the
+    # final number about half way to it was better in all eight weeks (RMSE
+    # 7.568 -> 7.509; backs, receivers and tight ends alone, also eight of
+    # eight). ESPN's showed nothing (4 of 8), so it has no such step. The weight
+    # is fitted each run from this prior (vegas.fit_platform_catch_up);
+    # DECISIONS.md, "Yahoo's own projection, as a last step".
+    platform_catch_up: {prior: 0.0}
     league_sync:
       platform: yahoo
     league:

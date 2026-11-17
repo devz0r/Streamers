@@ -1037,9 +1037,21 @@ def team_panels_for(
             try:
                 from .roster.vegas import blend_market
 
+                from .roster.vegas import fit_platform_catch_up
+
+                catch_up = 0.0
+                if bound._profile.get("platform_catch_up") is not None:
+                    try:
+                        from .roster.projections import load_history as _hist
+
+                        catch_up, graded = fit_platform_catch_up(bound, _hist(bound))
+                        log.info("%s: a last step toward the platform's own projection, %.2f of the way "
+                                 "(%d graded player-weeks)", name, catch_up, graded)
+                    except Exception as exc:  # noqa: BLE001 - a bonus step; never block the page
+                        log.warning("platform catch-up for %s skipped: %s", name, exc)
                 blend_market(snap, bound, weight=week_w.market if week_w else None,
                              consensus_weight=week_w.consensus if week_w else 0.0,
-                             by_position=week_w.by_position if week_w else None)
+                             by_position=week_w.by_position if week_w else None, platform_weight=catch_up)
                 snap._week_weights = week_w
             except Exception as exc:  # noqa: BLE001 - the second forecasts are bonus inputs
                 log.warning("this week's blend for %s skipped: %s", name, exc)
