@@ -5939,3 +5939,6 @@ The rest-of-season benchmark now grades the blended season value (`used`, read f
 | Yahoo, week 8 | 0.622 | 0.682 | 0.696 | 81% |
 
 The value used is above our own in every row and at or near the consensus in three of four: most of the gap the audit's benchmark showed does not reach decisions. Two weeks, overlapping players, so this is a reading, not a test of the 0.55 weight; it fills in as weeks are added.
+
+### Grading the weekly forecast logs
+`scripts/grade_forecasts.py` (`odds_log.week_scores`, `odds_log.grade_weeks`) scores `team_weeks_log` and `game_odds_log` against real results, by how many weeks ahead each forecast was made. A team's score for week w is its points-for in the snapshot taken in week w+1 less the one taken in week w. It prints, per lead: the miss of each team's mean (average and absolute) and the standard deviation of miss/sd (1 when the spread is right), and for each game the log loss and Brier score against a coin flip, favourites' stated chance against how often they won, and calibration buckets. Aggregates only. The logs began in week 11 and no logged week has been played, so it prints nothing yet; it fills in as weeks pass (a team's week needs the next week's snapshot).

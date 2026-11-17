@@ -146,3 +146,60 @@ def grade(cfg: Config, snapshot: LeagueSnapshot) -> dict | None:
             buckets.append({"range": f"{lo:.0%}-{min(hi, 1):.0%}", "n": int(len(g)),
                             "said": float(g["p_playoffs"].mean()), "happened": float(g["made"].mean())})
     return {"season": int(snapshot.season), "by_week": by_week, "buckets": buckets, "brier_league_rate": base}
+
+
+def week_scores(points_by_snapshot: dict[int, dict[str, float]]) -> dict[int, dict[str, float]]:
+    """Each team's score for each week, from the season points-for the
+    snapshots carry: the snapshot taken in week w+1 counts week w, so week w's
+    score is its points-for less the previous snapshot's. Only weeks with both
+    snapshots are returned."""
+    return {w: {t: pts - points_by_snapshot[w].get(t, np.nan) for t, pts in points_by_snapshot[w + 1].items()
+                if t in points_by_snapshot[w]}
+            for w in sorted(points_by_snapshot) if w + 1 in points_by_snapshot}
+
+
+def grade_weeks(cfg: Config, scores: dict[int, dict[str, float]], season: int) -> dict | None:
+    """Score the weekly forecasts against real scores: for every forecast of a
+    week already played, how far the team's mean was off (and whether the
+    spread was right: z = miss / sd should have a standard deviation of 1),
+    and for every game, the log loss and Brier score of the win chance given,
+    with calibration buckets. Grouped by how many weeks ahead the forecast was
+    (0 = made in that week). None when nothing logged has been played."""
+    wpath, gpath = cfg.results_dir / WEEKS_LOG, cfg.results_dir / GAMES_LOG
+    out: dict = {"season": season, "teams": [], "games": [], "buckets": []}
+    if wpath.exists():
+        w = pd.read_parquet(wpath)
+        w = w[w["season"] == season].copy()
+        w["real"] = [scores.get(int(f), {}).get(str(t), np.nan) for f, t in zip(w["for_week"], w["team_id"])]
+        w = w.dropna(subset=["real"])
+        w["ahead"] = w["for_week"] - w["week"]
+        for ahead, g in w.groupby("ahead"):
+            miss = g["mean"] - g["real"]
+            z = miss / g["sd"].where(g["sd"] > 0)
+            out["teams"].append({"ahead": int(ahead), "n": int(len(g)), "bias": float(miss.mean()),
+                                 "mae": float(miss.abs().mean()), "z_sd": float(z.std()) if len(g) > 2 else None})
+    if gpath.exists():
+        g = pd.read_parquet(gpath)
+        g = g[g["season"] == season].copy()
+        sa = [scores.get(int(f), {}).get(str(a), np.nan) for f, a in zip(g["for_week"], g["a"])]
+        sb = [scores.get(int(f), {}).get(str(b), np.nan) for f, b in zip(g["for_week"], g["b"])]
+        g["won"] = np.where(np.isnan(sa) | np.isnan(sb), np.nan, np.where(np.array(sa) > np.array(sb), 1.0, 0.0))
+        g = g.dropna(subset=["won"])
+        g["ahead"] = g["for_week"] - g["week"]
+        p = g["p_a_wins"].clip(1e-4, 1 - 1e-4)
+        g["ll"] = -(g["won"] * np.log(p) + (1 - g["won"]) * np.log(1 - p))
+        g["brier"] = (g["p_a_wins"] - g["won"]) ** 2
+        # The chance for the team that was the favourite, so 50% is the floor.
+        fav = np.where(g["p_a_wins"] >= 0.5, g["p_a_wins"], 1 - g["p_a_wins"])
+        hit = np.where(g["p_a_wins"] >= 0.5, g["won"], 1 - g["won"])
+        g = g.assign(fav=fav, hit=hit)
+        for ahead, h in g.groupby("ahead"):
+            out["games"].append({"ahead": int(ahead), "n": int(len(h)), "log_loss": float(h["ll"].mean()),
+                                 "brier": float(h["brier"].mean()), "favourite_said": float(h["fav"].mean()),
+                                 "favourite_won": float(h["hit"].mean())})
+        for lo, hi in ((0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 1.01)):
+            h = g[(g["fav"] >= lo) & (g["fav"] < hi)]
+            if len(h):
+                out["buckets"].append({"range": f"{lo:.0%}-{min(hi, 1):.0%}", "n": int(len(h)),
+                                       "said": float(h["fav"].mean()), "happened": float(h["hit"].mean())})
+    return out if out["teams"] or out["games"] else None

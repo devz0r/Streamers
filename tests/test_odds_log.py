@@ -76,3 +76,26 @@ def test_each_weeks_scores_and_each_games_chance_are_logged_from_the_simulation(
     assert abs(t[(t.team_id == "0") & (t.for_week == 3)]["mean"].iloc[0] - 120) < 1 and t[t.team_id == "0"].mine.all()
     strong = g[(g.a == "0") & (g.b == "1")].iloc[0]
     assert 0.88 < strong.p_a_wins < 0.95 and abs(strong.mean_margin - 20) < 1.5 and strong.for_week == 3
+
+
+def test_week_scores_and_forecast_grade(tmp_cfg):
+    import pandas as pd
+
+    pts = {3: {"0": 100.0, "1": 90.0}, 4: {"0": 220.0, "1": 180.0}, 5: {"0": 300.0, "1": 290.0}}
+    s = odds_log.week_scores(pts)
+    assert s == {3: {"0": 120.0, "1": 90.0}, 4: {"0": 80.0, "1": 110.0}}
+    cfg = tmp_cfg
+    cfg.results_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([{"season": 2026, "week": 3, "for_week": f, "team_id": t, "logged_at": "x", "mean": m, "sd": 10.0, "mine": False}
+                  for f, t, m in ((3, "0", 110.0), (3, "1", 100.0), (4, "0", 90.0), (4, "1", 100.0), (6, "0", 1.0))]
+                 ).to_parquet(cfg.results_dir / odds_log.WEEKS_LOG)
+    pd.DataFrame([{"season": 2026, "week": 3, "for_week": f, "a": "0", "b": "1", "logged_at": "x", "p_a_wins": p,
+                   "mean_margin": 0.0, "sd_margin": 10.0} for f, p in ((3, 0.8), (4, 0.8))]
+                 ).to_parquet(cfg.results_dir / odds_log.GAMES_LOG)
+    g = odds_log.grade_weeks(cfg, s, 2026)
+    by = {t["ahead"]: t for t in g["teams"]}
+    assert set(by) == {0, 1}                                  # week 6 not played: dropped
+    assert by[0]["bias"] == __import__("pytest").approx(0.0)   # 110-120 and 100-90
+    assert by[1]["mae"] == __import__("pytest").approx(10.0)   # 90-80 and 100-110
+    games = {x["ahead"]: x for x in g["games"]}
+    assert games[0]["favourite_won"] == 1.0 and games[1]["favourite_won"] == 0.0   # a lost week 4
