@@ -6,6 +6,7 @@
    "28188": "Chris Boswell",
    "29369": "Dak Prescott",
    "30259": "George Kittle",
+   "32704": "Michael Pittman Jr.",
    "33394": "Jaylen Waddle",
    "33989": "Christian Watson",
    "33991": "Breece Hall",
@@ -17,11 +18,10 @@
    "41969": "Ollie Gordon II",
    "42386": "Corey Kiner",
    "42630": "Jordyn Tyson",
-   "42730": "Jonah Coleman",
-   "42791": "Reggie Virgil"
+   "42730": "Jonah Coleman"
   },
   "10": {
-   "100002": "Bills",
+   "100002": "Buffalo",
    "31019": "Dallas Goedert",
    "31896": "DK Metcalf",
    "33100": "Rico Dowdle",
@@ -93,6 +93,7 @@
    "29792": "Ka'imi Fairbairn",
    "30977": "Josh Allen",
    "31960": "Tony Pollard",
+   "32725": "J.K. Dobbins",
    "33393": "Ja'Marr Chase",
    "34320": "Jordan Mason",
    "34357": "Bam Knight",
@@ -102,9 +103,8 @@
    "41823": "TreVeyon Henderson",
    "41860": "Pat Bryant",
    "42697": "Caleb Douglas",
-   "42712": "Kaelon Black",
-   "42819": "CJ Daniels",
-   "42876": "Deion Burks"
+   "42702": "Ja'Kobi Lane",
+   "42712": "Kaelon Black"
   },
   "2": {
    "100008": "Lions",
@@ -120,9 +120,9 @@
    "40042": "Jordan Addison",
    "40877": "Xavier Worthy",
    "40908": "Ladd McConkey",
+   "41052": "Kimani Vidal",
    "41877": "Harold Fannin Jr.",
-   "41881": "Kaleb Johnson",
-   "41903": "Chimere Dike"
+   "41881": "Kaleb Johnson"
   },
   "3": {
    "100014": "Rams",
