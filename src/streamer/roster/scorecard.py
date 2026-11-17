@@ -193,13 +193,24 @@ def build(cfg: Config, history: pd.DataFrame, platform: str) -> Scorecard:
 
 def ros_benchmark(cfg: Config, history: pd.DataFrame) -> list[dict]:
     """Our season values and the consensus ranks against points per game
-    since, by rank correlation within position (players with 3+ games)."""
+    since, by rank correlation within position (players with 3+ games).
+    ``ours`` is our own value before the consensus is blended in; ``used`` is
+    the final value the page decides on (logged beside the weekly projection),
+    where it was logged for that week."""
     from ..data import fantasypros as fp
 
     path = fp.cache_dir(cfg) / "log.parquet"
     if not path.exists():
         return []
     c = pd.read_parquet(path).dropna(subset=["ecr_ros_pos_rank", "our_ros"])
+    used = None
+    sk = cfg.results_dir / "skill_log.parquet"
+    if sk.exists():
+        u = pd.read_parquet(sk)
+        if {"ros_value", "nfl_id"} <= set(u.columns):
+            used = (u.dropna(subset=["nfl_id", "ros_value"]).sort_values("logged_at")
+                    .drop_duplicates(["season", "week", "nfl_id"], keep="last")[["season", "week", "nfl_id", "ros_value"]]
+                    .rename(columns={"ros_value": "used_ros"}))
     out = []
     for (season, week), w in c.groupby(["season", "week"]):
         later = history[(history.season == season) & (history.week >= week)]
@@ -209,16 +220,24 @@ def ros_benchmark(cfg: Config, history: pd.DataFrame) -> list[dict]:
         if weeks_since < MIN_ROS_GAMES:
             continue
         j = w.merge(ppg, left_on="nfl_id", right_index=True)
-        ours, theirs = [], []
+        has_used = used is not None and ((used.season == season) & (used.week == week)).any()
+        if has_used:
+            j = j.merge(used[(used.season == season) & (used.week == week)][["nfl_id", "used_ros"]], on="nfl_id", how="left")
+        ours, theirs, final = [], [], []
         for _pos, g in j.groupby("position"):
             if len(g) < 8:
                 continue
             ours.append(g.our_ros.corr(g["mean"], method="spearman"))
             theirs.append((-g.ecr_ros_pos_rank).corr(g["mean"], method="spearman"))
+            if has_used:
+                final.append(g.used_ros.corr(g["mean"], method="spearman"))
         if ours:
-            out.append({"season": int(season), "week": int(week), "weeks_since": weeks_since,
-                        "players": int(len(j)), "ours": round(float(np.mean(ours)), 3),
-                        "consensus": round(float(np.mean(theirs)), 3)})
+            row = {"season": int(season), "week": int(week), "weeks_since": weeks_since,
+                   "players": int(len(j)), "ours": round(float(np.mean(ours)), 3),
+                   "consensus": round(float(np.mean(theirs)), 3)}
+            if final:
+                row["used"] = round(float(np.nanmean(final)), 3)
+            out.append(row)
     return out
 
 
