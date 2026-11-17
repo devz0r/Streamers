@@ -1,0 +1,268 @@
+Season audit, part 3: is P(title) calculated correctly, and are its inputs? (data through week 10, run 2026-11-17)
+
+######## scripts/season_audit/title_curse.py
+
+================ espn (box scores complete through week 10)
+season value vs points a game since (players worth 4+, 2+ games after; checkpoints weeks 3-8)
+  yours          22 player-checkpoints,   15 players: realized minus value -1.41 a game (95% -3.13 to +0.67)
+  other team    189 player-checkpoints,  112 players: realized minus value +0.29 a game (95% -0.76 to +1.32)
+  free agent    158 player-checkpoints,  104 players: realized minus value +0.35 a game (95% -0.49 to +1.17)
+  yours       (top 60% of each roster's values): -1.99 a game (95% -4.23 to +0.91)
+  other team  (top 60% of each roster's values): +0.79 a game (95% -0.78 to +2.38)
+  your players (mean over checkpoints):
+                     checks  value  since  gap
+name                                          
+Drake Maye                2   19.8   12.6 -7.2
+Chris Godwin Jr.          1    8.7    2.4 -6.3
+Mike Washington Jr.       1    7.0    1.7 -5.3
+Drake London              2   16.2   12.3 -3.9
+Derrick Henry             2   16.3   12.6 -3.8
+Brenton Strange           2   10.0    6.7 -3.2
+Ollie Gordon II           2   11.6   10.7 -1.0
+Darius Cooper             1    4.4    4.2 -0.2
+Josh Jacobs               1   12.0   11.8 -0.2
+Breece Hall               2   12.9   13.2  0.3
+Rachaad White             1    9.1    9.7  0.6
+Malik Washington          2    9.0    9.8  0.8
+Pat Freiermuth            1    8.4   11.6  3.2
+KC Concepcion             1   10.5   15.2  4.8
+Puka Nacua                1   21.7   30.0  8.3
+every team's starters, weeks 3-10: scored minus projected, a start
+                  team  mine  starts  ours  platform
+        Let Kevin Cook False      56 -1.32     -1.69
+     Drakes on a Plane  True      54 -0.70     -0.92
+          H-CO Hefties False      55 -0.51     -0.40
+            team tegan False      56 -0.25     -0.19
+    The Fighting Amish False      56  0.00      0.06
+       Farm Club Bybee False      56  0.05     -0.11
+            Cheesehead False      56  0.08     -0.19
+         Pulled Hammys False      56  0.27     -0.39
+St Francis Fightin Fat False      55  0.33      0.23
+           Team Morris False      56  1.12      0.74
+  yours     : ours -0.70 (95% -2.33 to +1.34); platform's -0.92 (95% -2.57 to +1.20), 54 starts
+  the others: ours -0.02 (95% -0.75 to +0.71); platform's -0.22 (95% -0.94 to +0.49), 502 starts
+
+================ yahoo (box scores complete through week 10)
+season value vs points a game since (players worth 4+, 2+ games after; checkpoints weeks 3-8)
+  yours          20 player-checkpoints,   14 players: realized minus value +0.88 a game (95% -2.17 to +4.70)
+  other team    242 player-checkpoints,  146 players: realized minus value +0.95 a game (95% -0.02 to +1.99)
+  free agent     77 player-checkpoints,   63 players: realized minus value +0.50 a game (95% -0.36 to +1.45)
+  yours       (top 60% of each roster's values): +2.23 a game (95% -2.44 to +8.06)
+  other team  (top 60% of each roster's values): +1.33 a game (95% -0.16 to +2.82)
+  your players (mean over checkpoints):
+                     checks  value  since   gap
+name                                           
+J.K. Dobbins              1    9.1    2.2  -6.9
+Jacoby Brissett           1   15.4    8.6  -6.7
+Zach Charbonnet           1   12.5    8.3  -4.2
+Drake London              2   16.2   12.3  -3.9
+Mason Taylor              1    7.5    4.0  -3.4
+Mike Washington Jr.       1    6.8    3.9  -2.9
+Tyler Higbee              2    7.7    5.8  -1.9
+Rashee Rice               2   12.2   12.7   0.5
+Travis Kelce              2   10.2   11.2   1.0
+Matthew Stafford          2   17.8   19.0   1.1
+Darren Waller             1    7.6    9.8   2.3
+Courtland Sutton          1    8.0   12.4   4.4
+Bucky Irving              1   13.6   24.8  11.1
+Christian McCaffrey       2   19.4   34.5  15.2
+every team's starters, weeks 3-10: scored minus projected, a start
+                  team  mine  starts  ours  platform
+                CMoney False      60 -0.95     -1.63
+     Drakes on a Plane  True      63 -0.65     -1.27
+              Punisher False      58 -0.38     -1.02
+               PaceCar False      58 -0.21     -1.04
+ Garrett's Girthy Gams False      60 -0.13     -0.73
+         Logan's  Team False      64 -0.11     -0.76
+   Violence Wingleader False      57  0.16     -0.44
+       Bend The Knee!! False      58  0.24     -2.00
+ Dak Around & Find Out False      60  1.18      0.34
+Near Ja'marr Wherever  False      58  1.28      0.80
+                  CMOM False      60  1.32      0.91
+                 Macky False      61  1.38      0.56
+       Bryce Young MVP False      56  1.47      0.87
+       The Ray FInkles False      61  2.14      1.86
+  yours     : ours -0.65 (95% -2.75 to +1.14); platform's -1.27 (95% -3.48 to +0.60), 63 starts
+  the others: ours +0.57 (95% +0.04 to +1.14); platform's -0.17 (95% -0.75 to +0.40), 771 starts
+
+######## scripts/season_audit/title_strength_log.py
+
+================ espn: weekly scores rebuilt for weeks 1-9
+  a team's week, spread around its own average: sd 20.2; average 124.6
+  20 team-logs without a forecast or a score left out: logs [np.int64(5), np.int64(6)]
+  level: model's expected a week 122.6, realized 127.2 (all teams, logs [np.int64(7), np.int64(8)])
+  model : teams told apart (realized gap on forecast gap, 1 = right) 1.34; correlation 0.36; miss 15.3 a week
+  naive : teams told apart (realized gap on forecast gap, 1 = right) 1.07; correlation 0.49; miss 15.1 a week
+  realized on both: model 0.25, points so far 0.98
+  your team, against the league's level that week:
+ log  model_rel  naive_rel  realized_rel  weeks_after
+   7        1.2       -3.1          -3.7            2
+   8        0.3       -1.7         -15.5            1
+  your team, mean: forecast +0.8, points-so-far -2.4, realized -9.6 a week vs the league
+
+================ yahoo: weekly scores rebuilt for weeks 3-9
+  a team's week, spread around its own average: sd 23.0; average 127.1
+  28 team-logs without a forecast or a score left out: logs [np.int64(5), np.int64(6)]
+  level: model's expected a week 117.2, realized 126.7 (all teams, logs [np.int64(7), np.int64(8)])
+  model : teams told apart (realized gap on forecast gap, 1 = right) 0.28; correlation 0.12; miss 15.2 a week
+  naive : teams told apart (realized gap on forecast gap, 1 = right) 0.38; correlation 0.24; miss 14.0 a week
+  realized on both: model 0.04, points so far 0.37
+  your team, against the league's level that week:
+ log  model_rel  naive_rel  realized_rel  weeks_after
+   7        0.9       -0.1          -1.1            2
+   8        3.3       -3.3          24.0            1
+  your team, mean: forecast +2.1, points-so-far -1.7, realized +11.5 a week vs the league
+
+######## scripts/season_audit/title_values_vs_form.py
+
+================ espn: 354 player-checkpoints (weeks 4-8), 209 players
+  QB  n=  50  rank corr: value 0.556, points so far 0.541 | miss: value 5.39, points so far 5.61, best blend 0.9 value -> 5.39
+  RB  n=  92  rank corr: value 0.656, points so far 0.584 | miss: value 4.09, points so far 4.45, best blend 1.0 value -> 4.09
+  WR  n= 140  rank corr: value 0.642, points so far 0.610 | miss: value 3.43, points so far 3.75, best blend 1.0 value -> 3.43
+  TE  n=  72  rank corr: value 0.548, points so far 0.493 | miss: value 3.09, points so far 3.42, best blend 1.0 value -> 3.09
+  all n= 354  rank corr: value 0.676, points so far 0.634 | miss: value 3.81, points so far 4.13, best blend 1.0 value -> 3.81
+  miss by checkpoint:
+   value  so_far      n
+w                      
+7   3.80    4.07  201.0
+8   3.83    4.20  153.0
+
+================ yahoo: 332 player-checkpoints (weeks 4-8), 207 players
+  QB  n=  47  rank corr: value 0.556, points so far 0.515 | miss: value 6.62, points so far 6.51, best blend 0.6 value -> 6.29
+  RB  n=  86  rank corr: value 0.595, points so far 0.558 | miss: value 4.31, points so far 4.60, best blend 0.9 value -> 4.30
+  WR  n= 131  rank corr: value 0.670, points so far 0.619 | miss: value 3.45, points so far 3.78, best blend 1.0 value -> 3.45
+  TE  n=  68  rank corr: value 0.491, points so far 0.445 | miss: value 3.18, points so far 3.52, best blend 1.0 value -> 3.18
+  all n= 332  rank corr: value 0.704, points so far 0.669 | miss: value 4.07, points so far 4.33, best blend 0.8 value -> 4.05
+  miss by checkpoint:
+   value  so_far      n
+w                      
+7   4.09    4.36  190.0
+8   4.04    4.28  142.0
+
+######## scripts/season_audit/title_values_generosity.py
+
+================ espn: production season values (week 11 log), current rosters, healthy players
+                  team  mine  by_value  by_ppg   gap
+           Team Morris False     110.8   124.6 -13.8
+            Cheesehead False     103.6   116.7 -13.1
+    The Fighting Amish False     118.5   131.4 -12.9
+St Francis Fightin Fat False     106.5   116.4  -9.9
+       Farm Club Bybee False     104.4   113.4  -9.0
+     Drakes on a Plane  True      86.1    94.6  -8.5
+            team tegan False     102.9   111.3  -8.4
+         Pulled Hammys False     108.6   114.4  -5.7
+        Let Kevin Cook False      96.1   101.8  -5.7
+          H-CO Hefties False     103.6   108.2  -4.6
+  your lineup: values minus 2026 points a game -8.5, the others -9.2 (sd 3.5); yours is +0.7 a week more generous, +0.2 sd, rank 5 of 10 most generous
+  player level (worth 6+, 3+ games): yours -0.46 a game (n=12), others -0.83 (n=113)
+
+================ yahoo: production season values (week 10 log), current rosters, healthy players
+                  team  mine  by_value  by_ppg   gap
+                CMoney False      99.4   117.2 -17.8
+              Punisher False     111.2   127.3 -16.1
+   Violence Wingleader False     105.2   121.0 -15.9
+       Bend The Knee!! False     116.4   132.0 -15.6
+       Bryce Young MVP False     107.9   121.4 -13.5
+ Garrett's Girthy Gams False      96.8   109.3 -12.5
+         Logan's  Team False     105.2   116.6 -11.4
+                 Macky False     106.3   114.9  -8.6
+       The Ray FInkles False     104.1   111.8  -7.7
+Near Ja'marr Wherever  False     113.0   119.3  -6.3
+     Drakes on a Plane  True     115.4   121.7  -6.2
+ Dak Around & Find Out False     110.5   116.4  -5.9
+                  CMOM False      95.1   100.8  -5.7
+               PaceCar False      93.7    99.3  -5.6
+  your lineup: values minus 2026 points a game -6.2, the others -11.0 (sd 4.6); yours is +4.7 a week more generous, +1.0 sd, rank 4 of 14 most generous
+  player level (worth 6+, 3+ games): yours -0.06 a game (n=13), others -1.04 (n=135)
+
+######## scripts/season_audit/title_sim.py (offline page build in a scratch copy, --week=11; local build: no FantasyPros consensus in the season values)
+
+================ espn: snapshot week 11, simulated weeks 10-17 (regular season to 14, 6 playoff teams, 3 rounds of 1 week, byes 2, reseed False, division winners first True, playoff tie -> higher seed, median game False, standings lag 1, 6000 seasons)
+  regular-season games left per team (from the platform's schedule): [5]
+  sums: P(playoffs) 6.000, P(title) 1.000, byes 2.000
+                  team  rec  pts/wk so far  sim pts/wk ahead  PO model  PO pts  PO coin  title model  title pts  title coin
+    The Fighting Amish  7-2          138.3             129.1      100%    100%     100%        24.6%      33.2%       22.8%
+            Cheesehead  6-3          141.4             122.7       97%    100%      97%        20.7%      39.3%       22.7%
+           Team Morris  5-4          134.3             125.7       94%     99%      89%        13.1%      16.2%       12.3%
+  St Francis Fightin F  4-5          125.3             125.4       64%     73%      58%        10.0%       4.6%        8.6%
+          H-CO Hefties  4-5          120.8             123.7       57%     58%      53%         8.9%       2.3%        6.9%
+            team tegan  5-4          116.7             119.8       64%     55%      72%         8.3%       1.3%        9.8%
+       Farm Club Bybee  4-5          116.7             119.8       46%     39%      49%         4.9%       0.8%        6.8%
+         Pulled Hammys  3-6          119.3             125.0       32%     29%      26%         4.9%       1.0%        3.4%
+        Let Kevin Cook  4-5          112.1             118.1       33%     18%      36%         3.0%       0.2%        4.3%
+   Drakes on a Plane *  3-6          121.4             113.1       14%     30%      20%         1.7%       1.0%        2.4%
+  your team weaker than simulated by this many points a week, from next week:
+  pts/wk  P(playoffs)  P(title)  exp wins
+      -0        13.7%     1.73%      4.99
+    -2.5        11.2%     1.32%      4.86
+      -5         9.1%     0.87%      4.75
+    -7.5         7.3%     0.68%      4.63
+     -10         5.8%     0.48%      4.52
+  your title chance if you make the playoffs: 12.7% (league average 16.7%)
+
+================ yahoo: snapshot week 10, simulated weeks 10-17 (regular season to 14, 6 playoff teams, 3 rounds of 1 week, byes 2, reseed True, division winners first False, playoff tie -> higher seed, median game False, standings lag 0, 6000 seasons)
+  regular-season games left per team (from the platform's schedule): [5]
+  sums: P(playoffs) 6.000, P(title) 1.000, byes 2.000
+                  team  rec  pts/wk so far  sim pts/wk ahead  PO model  PO pts  PO coin  title model  title pts  title coin
+  Near Ja'marr Whereve  8-1          134.8             126.1      100%    100%     100%        20.9%      22.1%       23.6%
+   Drakes on a Plane *  6-3          126.3             130.5       81%     59%      68%        15.3%       3.4%       10.0%
+         Logan's  Team  7-2          132.9             122.2       96%     94%      94%        14.6%      12.0%       15.6%
+       The Ray FInkles  6-3          137.0             123.5       93%     97%      95%        13.2%      17.2%       16.5%
+  Dak Around & Find Ou  6-3          144.1             118.1       82%     97%      90%        11.7%      30.3%       14.4%
+       Bryce Young MVP  4-5          133.0             125.3       58%     50%      53%        11.0%       4.9%        7.1%
+                 Macky  5-4          136.3             117.6       38%     70%      44%         5.9%       9.0%        5.2%
+              Punisher  4-5          124.4             118.7       12%      4%       9%         2.3%       0.0%        1.3%
+                CMoney  4-5          125.2             110.2       25%     28%      35%         2.2%       1.1%        4.6%
+       Bend The Knee!!  2-7          122.7             133.1        8%      0%       2%         1.8%       0.0%        0.3%
+                  CMOM  4-5          115.4             109.1        4%      1%      10%         0.6%       0.0%        1.2%
+   Violence Wingleader  2-7          119.9             123.0        3%      1%       2%         0.5%       0.0%        0.2%
+  Garrett's Girthy Gam  2-7          112.2             113.7        0%      0%       0%         0.0%       0.0%        0.0%
+               PaceCar  3-6          108.1             115.0        0%      0%       0%         0.0%       0.0%        0.0%
+  your team weaker than simulated by this many points a week, from next week:
+  pts/wk  P(playoffs)  P(title)  exp wins
+      -0        81.1%    15.32%      8.43
+    -2.5        78.2%    12.68%      8.32
+      -5        74.8%    10.52%      8.22
+    -7.5        71.1%     8.57%      8.11
+     -10        67.2%     7.18%      8.01
+  your title chance if you make the playoffs: 18.9% (league average 16.7%)
+
+================ espn
+                  team  mine  so_far  sim_ahead  lineup_by_value  lineup_by_2026_ppg
+            Cheesehead False   141.4      122.7            120.8               133.8
+    The Fighting Amish False   138.3      129.1            135.5               149.5
+           Team Morris False   134.3      125.7            130.8               142.4
+St Francis Fightin Fat False   125.3      125.4            125.2               134.1
+     Drakes on a Plane  True   121.4      113.1            105.2               111.5
+          H-CO Hefties False   120.8      123.7            124.2               125.7
+         Pulled Hammys False   119.3      125.0            125.4               130.6
+            team tegan False   116.7      119.8            121.0               127.2
+       Farm Club Bybee False   116.7      119.8            121.8               130.8
+        Let Kevin Cook False   112.1      118.1            109.5               119.4
+  correlation with points so far: sim ahead 0.57, lineup by our values 0.55, lineup by 2026 points a game 0.70
+  sim ahead against lineup by our values: correlation 0.95
+  rostered players worth 6+ with 4+ games: season value minus 2026 points a game, by position:
+    {'mean': {'QB': -1.17, 'RB': -0.67, 'TE': -0.54, 'WR': -0.93}, 'count': {'QB': 18, 'RB': 44, 'TE': 20, 'WR': 54}}
+  value on 2026 points a game, slope (1 = values follow this season fully): 0.81
+
+================ yahoo
+                  team  mine  so_far  sim_ahead  lineup_by_value  lineup_by_2026_ppg
+ Dak Around & Find Out False   144.1      118.1            121.4               132.0
+       The Ray FInkles False   137.0      123.5            124.4               127.8
+                 Macky False   136.3      117.6            122.9               129.7
+Near Ja'marr Wherever  False   134.8      126.1            128.7               135.8
+       Bryce Young MVP False   133.0      125.3            125.2               137.5
+         Logan's  Team False   132.9      122.2            121.3               132.7
+     Drakes on a Plane  True   126.3      130.5            133.3               138.0
+                CMoney False   125.2      110.2            119.1               133.7
+              Punisher False   124.4      118.7            126.8               142.4
+       Bend The Knee!! False   122.7      133.1            131.8               146.1
+   Violence Wingleader False   119.9      123.0            119.1               137.1
+                  CMOM False   115.4      109.1            110.6               117.5
+ Garrett's Girthy Gams False   112.2      113.7            112.3               123.6
+               PaceCar False   108.1      115.0            111.2               113.8
+  correlation with points so far: sim ahead 0.34, lineup by our values 0.55, lineup by 2026 points a game 0.42
+  sim ahead against lineup by our values: correlation 0.85
+  rostered players worth 6+ with 4+ games: season value minus 2026 points a game, by position:
+    {'mean': {'QB': -1.76, 'RB': -0.74, 'TE': -0.68, 'WR': -0.96}, 'count': {'QB': 22, 'RB': 54, 'TE': 25, 'WR': 64}}
+  value on 2026 points a game, slope (1 = values follow this season fully): 0.79
