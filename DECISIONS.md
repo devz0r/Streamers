@@ -5913,3 +5913,17 @@ One season, so held out by week, as the other in-season blend weights are. In pr
 
 ### Weekly forecasts are logged, so the season model can be graded mid-season
 The season odds (P(playoffs), P(title)) can only be graded when the season ends, and the odds log carries each team's rest-of-season expected points only as one sum. Each run now also writes, read off the same simulated scores the odds come from (`odds_log.record_weeks`): `results/<profile>/team_weeks_log.parquet` (every team's mean score and spread for every week ahead) and `game_odds_log.parquet` (every regular-season game's win chance for the team listed first, with the mean and spread of the margin). The last run of a week replaces earlier ones. Both are gradable a week later against real scores (a team's week is its points-for after it less before it, from the saved snapshots) and results; nothing reads them yet. Check of the first run on the real snapshots: ESPN 70 team-weeks and 20 games, Yahoo 98 and 28.
+
+### The tight-end over-projection: noise, not a fix (left as it is)
+Step 4 after the week-10 audit. On 2026 weeks 3-10 tight ends who played were not over-projected overall (final number minus points: ESPN -0.22, Yahoo -0.08; slope of points on the final number 0.87 and 0.85). The excess sat in the 8-12 point band (ESPN +1.0 and +1.6, Yahoo +1.0 and +0.8) and in the top 12 a week (+0.71 and +0.77, of which the market, expert and Sleeper blend adds about 0.15 over the model's +0.57 and +0.54). By week the top-12 error swings from -2.3 to +3.1, and it is about one standard error on 96 tight-end starts.
+
+**The history does not show the same shape, so a line fitted on it would not fix this one.** On the 2022-2025 walk-forward (2,766 untagged tight-end weeks projected 3+), the bias by band is 3-6 +0.08, 6-8 -0.90, 8-10 +0.04, 10-12 -0.50, 12+ +0.95: the misses are at the very top and are under-projections in the 8-12 band, the opposite of 2026. Each line was fitted without each season in turn and scored on that season:
+
+| tight-end line | RMSE, held-out seasons better | top 12 a week better | size of the change |
+|---|---|---|---|
+| a + b x | 2 of 4 | 3 of 4 | at most 0.004 |
+| a + b x, half way | 3 of 4 | 3 of 4 | at most 0.002 |
+| knot at 12 | 3 of 4 (2022 worse by 0.03) | 2 of 4 (2022 worse by 0.10) | |
+| knot at 12, half way | 3 of 4 | 3 of 4 | at most 0.02, and the top-12 over-projection *grows* in three seasons |
+
+The top-12 slope by season is 0.98, 0.88, 0.49 and 0.80 (it was 0.99, 0.81, 0.53 and 0.81 when the calibration was first fitted): one bad season, not a steady bend. Nothing meets the validation rule by a margin worth a change, so tight ends stay off the calibration and no per-position blend weight is added (the market and Sleeper share is 0.15 a start). The cost the audit found from tight-end churn is a decision problem (swaps on small projected edges), not a projection one.
