@@ -133,10 +133,10 @@ profiles:
     # ESPN's pull toward 50% (0.91) only hurt. lineup.use_profile; DECISIONS.md,
     # "The season simulator, piece by piece".
     win_shrink: 1.0
-    # The season simulator reads season values as they are here: the level
-    # calibration's season line did not hold on Yahoo-format replays
-    # (roster/level_calibration.py).
-    season_levels: false
+    # The season simulator reads backs' and receivers' season values as they
+    # are here: their season line did not hold on Yahoo-format replays. The
+    # tight-end line held in both formats (roster/level_calibration.py).
+    season_levels: [TE]
     # Yahoo's own projection knows something our final number does not: held
     # out week by week on 2026 (weeks 3-10, 1,113 player-weeks), moving the
     # final number about half way to it was better in all eight weeks (RMSE

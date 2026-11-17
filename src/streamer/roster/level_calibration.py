@@ -33,6 +33,14 @@ kind of line fitted on season values (``season``): on replayed leagues that
 took P(playoffs) and P(title) closer to what happened. Only the simulator
 reads it; the season value shown, and what trades and claims are priced on,
 is unchanged. DECISIONS.md, "The top of the weekly number".
+
+Tight ends get a season line of their own, in both leagues, with no knot: a
+straight pull toward about 9 a game (``1.35 + 0.85 x``). Over the rest of the
+season, absences and lost roles included, a tight end valued a point above
+another out-scored him by about two thirds of a point (backs and receivers
+about nine tenths); fed through the simulator, the line was better on
+three of four held-out seasons in both formats. Pulling down only the top
+was not. DECISIONS.md, "Tight-end season values pulled together".
 """
 
 from __future__ import annotations
@@ -48,17 +56,24 @@ FLOOR = 3.0
 #: season value) as it is before this step.
 OFF = False
 SEASON_OFF = False
-#: The league being worked on reads season values through the line
-#: (``season_levels`` in its profile, default on): set by :func:`use_profile`.
-#: Replayed in Yahoo's format it did not hold (P(playoffs) Brier 0.18093 ->
-#: 0.18129, better in 2 of 4 seasons), so Yahoo's is off.
-_SEASON_ON = True
+#: The positions whose season values the league being worked on reads
+#: through the line (``season_levels`` in its profile: true for all, false for
+#: none, or a list of positions; default all): set by :func:`use_profile`.
+#: Replayed in Yahoo's format the back and receiver lines did not hold
+#: (P(playoffs) Brier 0.18093 -> 0.18129, better in 2 of 4 seasons), so Yahoo
+#: reads only the tight-end line, which held in both formats.
+_SEASON_ON: bool | frozenset = True
 
 
 def use_profile(cfg) -> None:
     global _SEASON_ON
     prof = (getattr(cfg, "profiles", None) or {}).get(getattr(cfg, "profile", None)) or {}
-    _SEASON_ON = bool(prof.get("season_levels", True))
+    on = prof.get("season_levels", True)
+    _SEASON_ON = frozenset(on) if isinstance(on, (list, tuple, set, frozenset)) else bool(on)
+
+
+def _season_on(position: str) -> bool:
+    return position in _SEASON_ON if isinstance(_SEASON_ON, frozenset) else bool(_SEASON_ON)
 
 
 @functools.lru_cache(maxsize=1)
@@ -70,6 +85,8 @@ def load() -> dict:
 
 
 def line(coef: dict, knot: float, x: float) -> float:
+    """``coef`` may carry its own ``knot`` (the tight-end season line does)."""
+    knot = float(coef.get("knot", knot))
     return float(coef["a"]) + float(coef["b"]) * x + float(coef["c"]) * max(x - knot, 0.0)
 
 
@@ -95,7 +112,7 @@ def _mapped(coef: dict | None, knot: float, value: float) -> float:
 
 def season(position: str, value: float, conf: dict | None = None) -> float:
     """A season value as the season simulator reads it."""
-    if value is None or (conf is None and (SEASON_OFF or not _SEASON_ON)):
+    if value is None or (conf is None and (SEASON_OFF or not _season_on(position))):
         return value
     conf = load() if conf is None else conf
     return _mapped((conf.get("season") or {}).get(position), float(conf.get("knot", 12.0)), float(value))

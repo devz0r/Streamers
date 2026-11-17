@@ -22,7 +22,12 @@
    "a": -0.95,
    "b": 1.138,
    "c": -0.36
+  },
+  "TE": {
+   "a": 1.35,
+   "b": 0.85,
+   "c": 0.0
   }
  },
- "evidence": "scripts/fit_level_calibration.py: 2022-2025 walk-forward, untagged players projected 3+, RB n=4219, WR n=6531"
+ "evidence": "scripts/fit_level_calibration.py: 2022-2025 walk-forward, untagged players projected 3+, RB n=4219, WR n=6531; season TE: scripts/fit_te_season_line.py, simulated rest of season against real, held out by season"
 }

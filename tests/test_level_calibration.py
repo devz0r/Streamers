@@ -76,3 +76,21 @@ def test_yahoo_reads_season_values_as_they_are():
         assert lc.season_level(p) < 22.0
     finally:
         lineup.use_profile(get_config().for_profile("espn"))
+
+
+def test_tight_end_season_values_are_pulled_together_in_both_leagues():
+    from streamer.config import get_config
+    from streamer.league.model import PlayerRow
+    from streamer.roster import lineup
+
+    top = PlayerRow(player_id="1", name="A", position="TE", team="KC", ros_value=14.0, projection=13.0)
+    low = PlayerRow(player_id="2", name="B", position="TE", team="KC", ros_value=6.0, projection=6.0)
+    wr = PlayerRow(player_id="3", name="C", position="WR", team="KC", ros_value=22.0, projection=20.0)
+    try:
+        for prof in ("espn", "yahoo"):
+            lineup.use_profile(get_config().for_profile(prof))
+            assert lc.season_level(top) == __import__("pytest").approx(1.35 + 0.85 * 14.0)
+            assert lc.season_level(low) == __import__("pytest").approx(1.35 + 0.85 * 6.0)
+        assert lc.season_level(wr) == 22.0                     # Yahoo: backs and receivers as they are
+    finally:
+        lineup.use_profile(get_config().for_profile("espn"))

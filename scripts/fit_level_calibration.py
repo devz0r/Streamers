@@ -323,7 +323,8 @@ def main() -> int:
         print("--write is for the shipped (ESPN-fitted) line; not written for", args.profile)
     elif args.write:
         out = {"knot": KNOT, "positions": {p: {k: c[k] for k in ("a", "b", "c")} for p, c in full.items()},
-               "season": {p: {k: c[k] for k in ("a", "b", "c")} for p, c in full_season.items()},
+               "season": {p: {k: c[k] for k in ("a", "b", "c")} for p, c in full_season.items()}
+                          | {p: c for p, c in (lc.load().get("season") or {}).items() if p not in FIT},
                "evidence": "scripts/fit_level_calibration.py: 2022-2025 walk-forward, untagged players projected 3+, "
                            + ", ".join(f"{p} n={c['n']}" for p, c in full.items())}
         lc.MODEL_PATH.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
