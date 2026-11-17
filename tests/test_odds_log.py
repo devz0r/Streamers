@@ -50,3 +50,29 @@ def test_expected_points_are_logged_and_graded_against_what_teams_scored(tmp_cfg
         t.points_for += extra
     g = odds_log.grade(cfg, end)
     assert g["by_week"][0]["strength_slope"] == __import__("pytest").approx(0.5)
+
+
+def test_each_weeks_scores_and_each_games_chance_are_logged_from_the_simulation(tmp_cfg):
+    import pandas as pd
+
+    class M:
+        weeks = [3, 4]
+        schedule = [(3, "0", "1"), (4, "0", "2"), (4, "9", "1")]            # the last names a team not in the league
+        team_index = {"0": 0, "1": 1, "2": 2}
+        teams = [TeamRow(team_id=str(i), name=f"T{i}", is_mine=(i == 0)) for i in range(3)]
+
+        def _scores(self, override):
+            rng = np.random.default_rng(0)
+            s = rng.normal(100, 10, (3, 4000, 2))
+            s[0] += 20                                                          # team 0 is the strong one
+            return s
+
+    snap = _snap(3, [1, 1, 1])
+    assert odds_log.record_weeks(tmp_cfg, snap, M()) == (6, 2)
+    assert odds_log.record_weeks(tmp_cfg, snap, M()) == (6, 2)                  # same week: replaced, not doubled
+    t = pd.read_parquet(tmp_cfg.results_dir / odds_log.WEEKS_LOG)
+    g = pd.read_parquet(tmp_cfg.results_dir / odds_log.GAMES_LOG)
+    assert len(t) == 6 and len(g) == 2
+    assert abs(t[(t.team_id == "0") & (t.for_week == 3)]["mean"].iloc[0] - 120) < 1 and t[t.team_id == "0"].mine.all()
+    strong = g[(g.a == "0") & (g.b == "1")].iloc[0]
+    assert 0.88 < strong.p_a_wins < 0.95 and abs(strong.mean_margin - 20) < 1.5 and strong.for_week == 3

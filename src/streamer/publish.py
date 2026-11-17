@@ -1314,6 +1314,7 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                     from .roster import odds_log
 
                     odds_log.record(bound, snap, report.season)
+                    odds_log.record_weeks(bound, snap, engine.model)
                     graded = odds_log.grade(bound, snap)
                     if graded:
                         log.info("%s: season odds graded: %s", name, graded["by_week"])

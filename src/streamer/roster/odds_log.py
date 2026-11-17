@@ -26,6 +26,11 @@ from .season import SeasonOdds
 log = logging.getLogger(__name__)
 
 LOG = "odds_log.parquet"
+#: Each team's simulated score for every week ahead, and each game's win chance
+#: on the same simulation, as logged each run: the season odds above can only
+#: be graded when the season ends, these are gradable a week later.
+WEEKS_LOG = "team_weeks_log.parquet"
+GAMES_LOG = "game_odds_log.parquet"
 
 
 def record(cfg: Config, snapshot: LeagueSnapshot, odds: SeasonOdds, now: datetime | None = None) -> int:
@@ -45,6 +50,41 @@ def record(cfg: Config, snapshot: LeagueSnapshot, odds: SeasonOdds, now: datetim
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_parquet(path, index=False)
     return len(rows)
+
+
+def record_weeks(cfg: Config, snapshot: LeagueSnapshot, model, now: datetime | None = None) -> tuple[int, int]:
+    """Append what the season simulation says about each week ahead: every
+    team's mean score and spread (``team_weeks_log``) and every regular-season
+    game's win chance for the team listed first (``game_odds_log``), read off
+    the same simulated scores the title odds come from. The last run of a
+    (season, week) replaces earlier ones. Returns (team-week rows, game rows)."""
+    stamp = (now or datetime.now(UTC)).isoformat()
+    scores = model._scores(None)                           # teams x sims x weeks, as the odds read them
+    teams = [str(t.team_id) for t in model.teams]
+    season, week = int(snapshot.season), int(snapshot.week)
+    t_rows, g_rows = [], []
+    for k, w in enumerate(model.weeks):
+        for i, tid in enumerate(teams):
+            col = scores[i, :, k]
+            t_rows.append({"season": season, "week": week, "for_week": int(w), "team_id": tid, "logged_at": stamp,
+                           "mean": float(col.mean()), "sd": float(col.std()), "mine": bool(model.teams[i].is_mine)})
+    for w, a, b in model.schedule:
+        if a not in model.team_index or b not in model.team_index or w not in model.weeks:
+            continue
+        k = model.weeks.index(w)
+        sa, sb = scores[model.team_index[a], :, k], scores[model.team_index[b], :, k]
+        g_rows.append({"season": season, "week": week, "for_week": int(w), "a": a, "b": b, "logged_at": stamp,
+                       "p_a_wins": float((sa > sb).mean() + 0.5 * (sa == sb).mean()),
+                       "mean_margin": float((sa - sb).mean()), "sd_margin": float((sa - sb).std())})
+    for name, rows, key in ((WEEKS_LOG, t_rows, ["season", "week", "for_week", "team_id"]),
+                            (GAMES_LOG, g_rows, ["season", "week", "for_week", "a", "b"])):
+        path = cfg.results_dir / name
+        old = pd.read_parquet(path) if path.exists() else pd.DataFrame()
+        out = pd.concat([old, pd.DataFrame(rows)], ignore_index=True)
+        out = out.sort_values("logged_at").drop_duplicates(key, keep="last")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        out.to_parquet(path, index=False)
+    return len(t_rows), len(g_rows)
 
 
 def final_field(snapshot: LeagueSnapshot) -> tuple[set[str], dict[str, float]] | None:
