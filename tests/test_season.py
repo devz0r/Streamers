@@ -225,9 +225,12 @@ def test_a_free_agent_on_bye_fills_nothing_that_week(cfg, monkeypatch):
     monkeypatch.setattr(season_mod, "nfl_byes", lambda *a, **k: {"BUF": {5}})
     model = SeasonModel(snap, cfg, n_sims=200)
     te = model._rep_table["TE"]
-    assert te[model.weeks.index(4), 0] == 8.0          # the second best, as before
-    assert te[model.weeks.index(5), 0] == 4.0          # both BUF tight ends on bye
-    assert model.slot_replacement("TE") == 8.0
+    from streamer.roster import level_calibration
+
+    # Tight-end season values are read through the tight-end line.
+    assert te[model.weeks.index(4), 0] == pytest.approx(level_calibration.season("TE", 8.0))   # the second best, as before
+    assert te[model.weeks.index(5), 0] == pytest.approx(level_calibration.season("TE", 4.0))   # both BUF tight ends on bye
+    assert model.slot_replacement("TE") == pytest.approx(level_calibration.season("TE", 8.0))
 
 
 def test_the_flex_level_without_competition_is_the_old_one(cfg):
@@ -259,7 +262,10 @@ def test_thinning_off_is_the_old_flat_level(cfg):
     try:
         cfg.raw["roster"]["wire_thinning"] = False
         model = SeasonModel(snap, cfg, n_sims=200)
-        assert not model._rep_table and model._wire_level("TE", 0) == model.slot_replacement("TE") == 8.0
+        from streamer.roster import level_calibration
+
+        assert not model._rep_table
+        assert model._wire_level("TE", 0) == model.slot_replacement("TE") == pytest.approx(level_calibration.season("TE", 8.0))
     finally:
         cfg.raw["roster"].clear()
         cfg.raw["roster"].update(saved)

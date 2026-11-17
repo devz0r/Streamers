@@ -5942,3 +5942,20 @@ The value used is above our own in every row and at or near the consensus in thr
 
 ### Grading the weekly forecast logs
 `scripts/grade_forecasts.py` (`odds_log.week_scores`, `odds_log.grade_weeks`) scores `team_weeks_log` and `game_odds_log` against real results, by how many weeks ahead each forecast was made. A team's score for week w is its points-for in the snapshot taken in week w+1 less the one taken in week w. It prints, per lead: the miss of each team's mean (average and absolute) and the standard deviation of miss/sd (1 when the spread is right), and for each game the log loss and Brier score against a coin flip, favourites' stated chance against how often they won, and calibration buckets. Aggregates only. The logs began in week 11 and no logged week has been played, so it prints nothing yet; it fills in as weeks pass (a team's week needs the next week's snapshot).
+
+### Tight-end season values pulled together (instead of a minimum edge for tight-end swaps)
+The audit found tight-end churn cost points. The proposed fix was a minimum projected edge before a tight-end swap is recommended. Tested on the 2022-2025 walk-forward, it is the wrong fix: small edges are real. Among the tight ends a swap chooses between (ranks 6-25 a week by season value), a projected edge under 1 point a game was followed by a real edge in all four seasons, over the rest of the season (+0.23 to +0.70 on 0.48 projected), the next four weeks and this week alike. A minimum edge would throw those away.
+
+What is wrong is the size of every tight-end edge. Over the rest of the season a tight end valued a point above another out-scored him by **0.68** of a point (0.52, 0.90, 0.58, 0.70 by season; this week's number: 0.85). Backs and receivers: 0.97 and 1.07. Against weekly points *in the games he plays* the season value is calibrated (slope 0.98-1.03, no line helps). The gap is in what holding him yields: absences, lost roles, touchdown luck that does not last. The season simulator draws absences and role changes, but its expected points still separate tight ends too much. Real gaps over simulated gaps: tight ends 0.68 (0.54-0.84 by season), backs 0.91, receivers 0.87. On 2026 the blended values used show the same (ESPN 0.59, Yahoo 0.55, weeks 7-9, realized through week 10).
+
+**The fix** is a season line for tight ends, read by the season simulator (which prices title moves, trades and the odds): `1.35 + 0.85 x`, a pull toward 9 a game. Fitted by playing the top 40 tight ends a week forward through the simulator's own futures, each season held out in turn (`scripts/fit_te_season_line.py`), RMSE of simulated against real points a game over the rest of the season:
+
+| | held out, mean | better | fits by fold (pivot, factor) |
+|---|---|---|---|
+| ESPN scoring | 3.366 -> 3.329 | 3 of 4 (2025 3.409 -> 3.439) | (11, 0.85), (9, 0.85), (8, 0.85), (10, 0.8) |
+| Yahoo scoring | 3.365 -> 3.315 (grid to 9) | 3 of 4 | the same picks |
+| pulling down only the top (knot 5-10) | 3.366 -> 3.375 | 1 of 4 | rejected |
+
+It is on in both leagues: ESPN reads every season line, and Yahoo, which kept backs' and receivers' season values as they are, now reads the tight-end line only (`season_levels: [TE]`, a list of positions). Weekly numbers are unchanged; the tight-end weekly line still fails (above).
+
+On this week's real leagues (offline builds of the week-11 page, with and without the line): your title odds ESPN 2.32% -> 2.52%, Yahoo 14.58% -> 14.75%. ESPN's recommended moves go from none to one watch-only quarterback add (net -0.06 points); Yahoo's tight-end claim (Okonkwo for Washington) goes from "claim" (+0.41%) to "lean" (+0.28%). No clear claim became a bad one. The Yahoo grid in the table above stopped at a 9-a-game pivot; ESPN's, which went to 11, picked the same line on all four seasons' average.
