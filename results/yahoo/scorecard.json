@@ -37,7 +37,7 @@
       "pairs": 0.7175328708057561,
       "miss": 5.09963785046729,
       "ours_pairs": 0.7149297174499503,
-      "ours_miss": 5.063206775700934,
+      "ours_miss": 5.063206775700935,
       "scope": "played"
     },
     {
@@ -115,7 +115,7 @@
       "players": 1898,
       "weeks": 7,
       "pairs": 0.7426722183287299,
-      "miss": 4.7586406743940985,
+      "miss": 4.758640674394099,
       "ours_pairs": 0.7395541261201826,
       "ours_miss": 4.810142255005268,
       "scope": "all"
@@ -195,7 +195,7 @@
       "players": 387,
       "weeks": 5,
       "pairs": 0.6105698977106673,
-      "miss": 6.997881136950905,
+      "miss": 6.997881136950904,
       "ours_pairs": 0.6023890784982935,
       "ours_miss": 6.989870801033591,
       "scope": "starters"
@@ -328,7 +328,8 @@
       "weeks_since": 4,
       "players": 237,
       "ours": 0.669,
-      "consensus": 0.735
+      "consensus": 0.735,
+      "used": 0.684
     },
     {
       "season": 2026,
@@ -336,7 +337,8 @@
       "weeks_since": 3,
       "players": 143,
       "ours": 0.622,
-      "consensus": 0.696
+      "consensus": 0.696,
+      "used": 0.682
     }
   ],
   "season_weight": {

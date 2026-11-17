@@ -328,7 +328,8 @@
       "weeks_since": 4,
       "players": 237,
       "ours": 0.641,
-      "consensus": 0.712
+      "consensus": 0.712,
+      "used": 0.695
     },
     {
       "season": 2026,
@@ -336,7 +337,8 @@
       "weeks_since": 3,
       "players": 143,
       "ours": 0.626,
-      "consensus": 0.702
+      "consensus": 0.702,
+      "used": 0.704
     }
   ],
   "season_weight": {
