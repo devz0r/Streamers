@@ -5927,3 +5927,15 @@ Step 4 after the week-10 audit. On 2026 weeks 3-10 tight ends who played were no
 | knot at 12, half way | 3 of 4 | 3 of 4 | at most 0.02, and the top-12 over-projection *grows* in three seasons |
 
 The top-12 slope by season is 0.98, 0.88, 0.49 and 0.80 (it was 0.99, 0.81, 0.53 and 0.81 when the calibration was first fitted): one bad season, not a steady bend. Nothing meets the validation rule by a margin worth a change, so tight ends stay off the calibration and no per-position blend weight is added (the market and Sleeper share is 0.15 a start). The cost the audit found from tight-end churn is a decision problem (swaps on small projected edges), not a projection one.
+
+### The season values decisions use, graded (step 3)
+The rest-of-season benchmark now grades the blended season value (`used`, read from the skill log, logged from week 7) beside our own and the consensus: rank correlation within position with points per game since, players with 3+ games. First refresh after the change (Nov 17):
+
+| league, value as of | ours | used | consensus | share of the gap closed |
+|---|---|---|---|---|
+| ESPN, week 7 (237 players, 4 weeks since) | 0.641 | 0.695 | 0.712 | 76% |
+| ESPN, week 8 (143, 3 weeks since) | 0.626 | 0.704 | 0.702 | 103% |
+| Yahoo, week 7 | 0.669 | 0.684 | 0.735 | 23% |
+| Yahoo, week 8 | 0.622 | 0.682 | 0.696 | 81% |
+
+The value used is above our own in every row and at or near the consensus in three of four: most of the gap the audit's benchmark showed does not reach decisions. Two weeks, overlapping players, so this is a reading, not a test of the 0.55 weight; it fills in as weeks are added.
