@@ -93,6 +93,36 @@ def _nflreadpy():
 PLATFORM_MAX = {"QB": 50.0, "RB": 45.0, "WR": 45.0, "TE": 40.0, "K": 25.0, "DST": 30.0}
 
 
+def _initial_last(name: object) -> str:
+    """'H.Butker' and 'Harrison Butker' alike: 'h butker'."""
+    import re
+
+    t = re.sub(r"[^a-z. ]", "", str(name or "").lower()).replace(".", " ").split()
+    return f"{t[0][0]} {t[-1]}" if len(t) >= 2 else " ".join(t)
+
+
+def _backup_kickers(players: list[PlayerRow], k_rows: dict) -> dict[str, str]:
+    """Player id -> the kicker kicking for his team, for each kicker the
+    platform lists on a team whose kicker kicking is listed there too, healthy."""
+    kickers: dict[str, list[PlayerRow]] = {}
+    for p in players:
+        if p.position == "K" and p.team in k_rows:
+            kickers.setdefault(p.team, []).append(p)
+    out: dict[str, str] = {}
+    for team, listed in kickers.items():
+        name = getattr(k_rows[team], "player_name", None)
+        if not name or len(listed) < 2:
+            continue
+        key = _initial_last(name)
+        starter = [p for p in listed if _initial_last(p.name) == key and p.status not in OUT_STATUSES and not p.in_ir_slot]
+        if not starter:
+            continue
+        for p in listed:
+            if p not in starter:
+                out[p.player_id] = starter[0].name
+    return out
+
+
 def load_history(cfg: Config | None = None) -> pd.DataFrame:
     """Weekly fantasy points and opportunity-expected points, all training
     seasons, on the league's own scoring sheet (``offense_scoring``; the
@@ -1402,6 +1432,13 @@ def project_snapshot(
             dst_rows = {r.team: r for r in rankings.dst.itertuples()}
         if rankings.kicker is not None and not rankings.kicker.empty:
             k_rows = {r.team: r for r in rankings.kicker.itertuples()}
+    # A team's kicking line belongs to the kicker who has been kicking for it.
+    # The platform can list a second kicker on the team (ESPN listed Justin
+    # Tucker on the Chiefs behind Harrison Butker), who would otherwise be
+    # handed Butker's line. Only where the kicker kicking is himself listed on
+    # that team and not out: a team that has replaced him (released, or hurt)
+    # keeps the line for whoever it lists.
+    k_backups = _backup_kickers(players, k_rows)
     # Units on bye this week are not in this week's rankings: their season
     # value comes from next week's (``rankings.*_next``).
     # A D/ST's or kicker's season level: this week's line blended with his
@@ -1760,6 +1797,10 @@ def project_snapshot(
             sd = max((float(r.ceiling) - float(r.floor)) / 2.07, 1.0)
             ros = unit_level.level("DST", p.team, float(getattr(r, "baseline_points", mean) or mean), unit_pts, unit_conf)
             source = "stream/hold" if bool(getattr(r, "two_week_hold", False)) else "stream"
+
+        elif p.position == "K" and p.player_id in k_backups:
+            mean, sd, ros, source = 0.0, 1.0, 0.0, "backup kicker"
+            p.signals.append(f"not {p.team}'s kicker: {k_backups[p.player_id]} has been kicking for them")
 
         elif p.position == "K" and p.team in k_rows:
             r = k_rows[p.team]
