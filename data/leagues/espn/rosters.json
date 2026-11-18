@@ -22,6 +22,7 @@
    "5081397": "Dylan Sampson"
   },
   "10": {
+   "-16007": "Broncos D/ST",
    "-16026": "Seahawks D/ST",
    "15818": "Keenan Allen",
    "2971573": "Ka'imi Fairbairn",
@@ -41,9 +42,9 @@
   },
   "11": {
    "-16014": "Rams D/ST",
+   "-16020": "Jets D/ST",
    "14880": "Kirk Cousins",
    "16800": "Davante Adams",
-   "2576925": "Darren Waller",
    "3042519": "Aaron Jones Sr.",
    "3116406": "Tyreek Hill",
    "3117251": "Christian McCaffrey",
@@ -62,6 +63,7 @@
   "12": {
    "-16019": "Giants D/ST",
    "3046439": "Hunter Henry",
+   "3150744": "Chase McLaughlin",
    "4040761": "Devin Singletary",
    "4361741": "Brock Purdy",
    "4362628": "Ja'Marr Chase",
@@ -75,8 +77,7 @@
    "4832800": "Denzel Boston",
    "4870795": "Makai Lemon",
    "4870808": "Jeremiyah Love",
-   "4890973": "Ashton Jeanty",
-   "5082424": "Dominic Zvada"
+   "4890973": "Ashton Jeanty"
   },
   "2": {
    "-16002": "Bills D/ST",
@@ -97,7 +98,7 @@
    "5081432": "Antonio Williams"
   },
   "3": {
-   "-16033": "Ravens D/ST",
+   "-16008": "Lions D/ST",
    "16737": "Mike Evans",
    "3043078": "Derrick Henry",
    "4036133": "T.J. Hockenson",
@@ -109,15 +110,15 @@
    "4427366": "Breece Hall",
    "4430539": "Brenton Strange",
    "4431452": "Drake Maye",
-   "4569587": "Wan'Dale Robinson",
    "4686361": "Cam Little",
-   "4686658": "Mike Washington Jr.",
+   "4688380": "Cam Ward",
    "4711533": "Ollie Gordon II",
    "4869645": "Caleb Douglas",
-   "4870653": "KC Concepcion"
+   "4870653": "KC Concepcion",
+   "5083754": "Ryan Flournoy"
   },
   "4": {
-   "-16001": "Falcons D/ST",
+   "-16012": "Chiefs D/ST",
    "15847": "Travis Kelce",
    "3126486": "Deebo Samuel Sr.",
    "3953687": "Brandon Aubrey",
@@ -161,7 +162,6 @@
    "4036378": "Jordan Love",
    "4239993": "Tee Higgins",
    "4361307": "Trey McBride",
-   "4366031": "Tank Dell",
    "4373678": "Khalil Shakir",
    "4426385": "Zach Charbonnet",
    "4429795": "Jahmyr Gibbs",
@@ -170,6 +170,7 @@
    "4571557": "Spencer Shrader",
    "4612826": "Ladd McConkey",
    "4685720": "Bryce Young",
+   "4686422": "Xavier Hutchinson",
    "4871023": "Carnell Tate"
   },
   "9": {
