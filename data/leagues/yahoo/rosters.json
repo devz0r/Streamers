@@ -2,7 +2,7 @@
  "season": 2026,
  "teams": {
   "1": {
-   "100034": "Houston",
+   "100034": "Texans",
    "28188": "Chris Boswell",
    "29369": "Dak Prescott",
    "30259": "George Kittle",
@@ -70,7 +70,7 @@
    "42796": "Emmett Johnson"
   },
   "13": {
-   "100026": "Seattle",
+   "100026": "Seahawks",
    "29344": "Tyler Higbee",
    "31840": "T.J. Hockenson",
    "31977": "Matt Gay",
@@ -125,18 +125,18 @@
    "41881": "Kaleb Johnson"
   },
   "3": {
-   "100014": "Los Angeles",
-   "28378": "Jason Myers",
-   "29399": "Tyreek Hill",
+   "100014": "Rams",
+   "100025": "49ers",
+   "28227": "Cairo Santos",
    "29631": "Kalif Raymond",
    "30994": "DJ Moore",
    "32671": "Joe Burrow",
    "32695": "Brandon Aiyuk",
    "32711": "Jonathan Taylor",
-   "33445": "Tutu Atwell",
    "34008": "Alec Pierce",
    "34010": "Trey McBride",
    "40039": "Zay Flowers",
+   "40430": "Emari Demercado",
    "40926": "Jonathon Brooks",
    "41902": "Woody Marks",
    "42638": "Kenyon Sadiq",
