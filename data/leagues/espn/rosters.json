@@ -2,9 +2,11 @@
  "season": 2026,
  "teams": {
   "1": {
+   "-16027": "Buccaneers D/ST",
    "-16030": "Jaguars D/ST",
    "2976212": "Stefon Diggs",
    "3046779": "Jared Goff",
+   "3916387": "Lamar Jackson",
    "4241478": "DeVonta Smith",
    "4262921": "Justin Jefferson",
    "4360635": "Chig Okonkwo",
@@ -14,12 +16,10 @@
    "4569987": "Jaylen Warren",
    "4575131": "Jacory Croskey-Merritt",
    "4608686": "Kyle Monangai",
-   "4685261": "Germie Bernard",
    "4685512": "Jadarian Price",
-   "4697815": "Rachaad White",
    "4702555": "Jonah Coleman",
-   "4880281": "Jordyn Tyson",
-   "5081397": "Dylan Sampson"
+   "4837248": "Fernando Mendoza",
+   "4880281": "Jordyn Tyson"
   },
   "10": {
    "-16007": "Broncos D/ST",
