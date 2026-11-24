@@ -5974,3 +5974,15 @@ For a team whose playoff odds are low (under 35%) the page now shows its way in 
 
 ### This week's win chance in "Try a pickup"
 Title odds barely separate moves for a team far from the title (ESPN, 0.4%), while this week's game is what such a team plays for. The pickup evaluator now also shows this week's P(win) with the move: the change in your expected starting points this week (the browser simulation's lineup for that week alone, before and after), read through this week's matchup -- the recommended lineup's P(win) and the spread of the margin (both lineups' spreads as independent), `trade_eval.week_context` -- as a shift of the margin's normal score (`shifted_win`; the same normal CDF in Python and the script, which a test requires to agree). A newcomer whose game has kicked off adds nothing this week. ESPN week 12: adding Deshaun Watson (18.5 projected this week, against 13.5 and 12.3 for Rodgers and Ward) takes this week from 36.9% to 41.4% (+3.9 points) whoever is dropped, while title odds move between 0.37% and 0.43% depending on the drop.
+
+### Ranking moves by playoff odds when the title is out of reach: not adopted
+The idea: for a team with tiny title odds (ESPN: 0.4%, about 24 titles in 6,000 seasons), rank moves by playoff odds or this week's win chance, which rest on more seasons, instead of title odds. Tested on week 12's projected snapshots, every team in both leagues taking a turn as "you" (24 teams): 12 pickups each (a top free agent for the team's weakest player), ranked by each objective on one 6,000-season simulation, and each pick scored by its title odds on six independent ones (36,000 seasons). Regret is the true title odds lost against the best of the 12, in points:
+
+| teams | ranked by title odds (today) | by playoff odds | by this week's win chance | true spread of the 12 moves |
+|---|---|---|---|---|
+| all 24 | 0.035 | 0.169 | 0.207 | 0.359 |
+| playoff odds under 10% (7) | 0.008 | 0.010 | 0.005 | 0.028 |
+| 10-50% (6) | 0.085 | 0.007 | 0.131 | 0.194 |
+| 50% and up (11) | 0.026 | 0.358 | 0.378 | 0.659 |
+
+For a Hail Mary team the objective does not matter: the 12 moves differ by 0.03 points of true title odds, and all three rankings land within 0.01 of the best. The 10-50% band's gain from playoff odds is two ESPN teams in one week (Farm Club Bybee 0.34 of it); switching below 50% was better in ESPN and worse in Yahoo on one week's 24 teams, too thin to change the engine on. Title odds stay the objective. What a team in a must-win week needs to see is shown instead: this week's win chance for any pickup, and the playoff path card. `scripts/mustwin_objective.py`.
