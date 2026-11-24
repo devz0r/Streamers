@@ -1003,7 +1003,9 @@ def stream_options(
         mine = mine + [current]
     pool = [current] + [c for c in candidates
                         if c.player_id != current.player_id and not c.locked and not c.is_out
-                        and c.position == position and c.projection is not None]
+                        and c.position == position and c.projection is not None
+                        # A unit projected nothing (a team's backup kicker) is no option.
+                        and float(c.projection) > 0]
     everyone = mine + theirs + [c for c in pool if c.player_id != current.player_id]
     index = {p.player_id: i for i, p in enumerate(everyone)}
     rng = np.random.default_rng(seed)

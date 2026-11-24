@@ -96,3 +96,16 @@ def test_an_empty_defence_slot_still_gets_stream_options():
     assert len(empty) == 1 and empty[0].player.name == "(empty slot)"
     real = [o for o in opts if not o.current]
     assert len(real) == 2 and all(o.win_probability > empty[0].win_probability for o in real)
+
+
+
+def test_a_unit_projected_nothing_is_not_an_option():
+    """A team's backup kicker is projected 0: priced as an option he showed
+    the win chance of a kicker who scores nothing, under his team's name."""
+    roster = my_roster()
+    opt = lineup.optimise(roster, SLOTS, opponent_roster(), n_sims=2000)
+    backup = _dst("bk", "NYG", "TEN")
+    backup.projection = 0.0
+    ids = {o.player.player_id for o in lineup.stream_options(opt, "DST", [backup, _dst("x2", "DAL", "TEN")],
+                                                             n_sims=2000)}
+    assert "bk" not in ids and "x2" in ids

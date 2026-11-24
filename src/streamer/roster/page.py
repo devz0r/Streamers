@@ -1403,8 +1403,13 @@ def unit_pwin(report: MatchupReport) -> dict[str, dict[str, dict]]:
                 elif rw < rp and not why:
                     why.append("projects a little lower, but his points come more often in the weeks that decide "
                                "your game")
+            # One unit per team: if two share it, the one projected higher.
+            prev = rows.get(str(o.player.team))
+            if prev is not None and float(prev.get("proj", 0.0)) >= float(o.player.projection or 0.0):
+                continue
             rows[str(o.player.team)] = {"pw": o.win_probability, "d": d, "mine": bool(o.current),
-                                        "name": o.player.name, "why": "; ".join(why)}
+                                        "name": o.player.name, "why": "; ".join(why),
+                                        "proj": float(o.player.projection or 0.0)}
         out[pos] = rows
     return out
 

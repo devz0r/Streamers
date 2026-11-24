@@ -43,3 +43,14 @@ def test_each_unit_gets_its_p_win_and_why_it_differs_from_the_projection():
     assert "wider range" in out["NO"]["why"] and "costs a favourite" in out["NO"]["why"]
     assert "Jalen Hurts" in out["PHI"]["why"]
     assert round(out["NO"]["d"], 1) == -0.6
+
+
+def test_two_kickers_on_one_team_show_the_starters_p_win():
+    from streamer.roster.page import unit_pwin
+
+    mine = StreamOption(_k("m", "Cam Little", "JAX", 9.1), 0.314, True, low=4, high=14, noise=0.0)
+    starter = StreamOption(_k("z", "Dominic Zvada", "NYG", 9.5), 0.318, False, low=5, high=15, noise=0.002)
+    backup = StreamOption(_k("s", "Ben Sauls", "NYG", 0.0), 0.231, False, low=0, high=0, noise=0.002)
+    for order in ([mine, starter, backup], [mine, backup, starter]):
+        out = unit_pwin(NS(streams={"K": order}))["K"]
+        assert out["NYG"]["name"] == "Dominic Zvada" and out["NYG"]["pw"] == 0.318
