@@ -324,9 +324,11 @@ class Sim:
                 self._draws[pid] = np.where(u < np.asarray(p["a"])[None, :], lv, 0.0)
         return self._draws[pid]
 
-    def mean(self, ids: list[str], windows: dict[str, tuple[int, int]] | None = None) -> float:
+    def mean(self, ids: list[str], windows: dict[str, tuple[int, int]] | None = None,
+             week: int | None = None) -> float:
         """``windows``: player -> (first week index, week index he leaves) on
-        this roster; outside it he is not there."""
+        this roster; outside it he is not there. ``week``: that week (index)
+        alone, not the average over all of them."""
         ids = [pid for pid in ids if self.data["players"][pid]["pos"] in SKILL]
         if not ids:
             return 0.0
@@ -348,7 +350,7 @@ class Sim:
                 ok = (best >= max(rep, 0.0) + 1e-6) & (best > -0.5)
                 total += np.where(ok, best, rep)
                 used |= (slot_ix == pick[:, :, None]) & ok[:, :, None]
-        return float(total.mean())
+        return float(total[:, week].mean() if week is not None else total.mean())
 
 
 def _windows(data: dict, original: list[str], new: list[str]) -> tuple[list[str], dict]:
@@ -460,9 +462,55 @@ def evaluate_pickup(data: dict, add: str, drop: str, sim: Sim | None = None) -> 
         a = lineup(data, ids_, lambda pid: P[pid]["o"])
         return sum(P[pid]["o"] for pid in ids_ if pid in a)
 
-    return {"shift_me": d, "lineup_me": lineup_total(new) - lineup_total(me["r"]),
-            "title_me": odds("title"), "playoffs_me": odds("playoffs"),
-            "legal": keeps_minimums(data, new, me["r"])}
+    out = {"shift_me": d, "lineup_me": lineup_total(new) - lineup_total(me["r"]),
+           "title_me": odds("title"), "playoffs_me": odds("playoffs"),
+           "legal": keeps_minimums(data, new, me["r"])}
+    wk = data.get("week")
+    if wk:
+        # This week: the change in your expected starting points, read through
+        # this week's matchup (its P(win) and the spread of the margin).
+        k = int(wk["k"])
+        dw = sim.mean(ids, win, week=k) - sim.mean(me["r"], week=k)
+        out["week_points"] = dw
+        out["win_me"] = (float(wk["p"]), shifted_win(float(wk["p"]), dw, float(wk["sd"])))
+    return out
+
+
+def week_context(report, model: SeasonModel, snapshot: LeagueSnapshot) -> dict | None:
+    """This week's matchup for the pickup evaluator: your P(win) with the
+    recommended lineup, the spread of the margin (both lineups' spreads, as
+    independent), and the week's index in the simulation. None when there
+    is no matchup this week (a bye, or the regular season over)."""
+    opt = getattr(report, "optimisation", None)
+    if opt is None or opt.opponent is None or int(snapshot.week) not in model.weeks:
+        return None
+    sd = math.sqrt(float(opt.best_win.sd) ** 2 + float(opt.opponent.sd) ** 2)
+    return {"p": round(float(opt.best_win.win_probability), 4), "sd": round(sd, 2),
+            "k": model.weeks.index(int(snapshot.week))}
+
+
+def norm_cdf(x: float) -> float:
+    """The standard normal CDF (Abramowitz and Stegun 7.1.26, error under
+    1.5e-7), computed the same way by the page's script."""
+    z = abs(x) / math.sqrt(2.0)
+    t = 1.0 / (1.0 + 0.3275911 * z)
+    y = 1.0 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t
+               + 0.254829592) * t * math.exp(-z * z)
+    return 0.5 * (1.0 + (y if x >= 0 else -y))
+
+
+def shifted_win(p: float, points: float, sd: float) -> float:
+    """P(win) after adding ``points`` to your expected score, a margin with
+    spread ``sd`` and P(win) ``p`` now (its normal-score inverted by bisection)."""
+    p = min(max(p, 1e-4), 1 - 1e-4)
+    lo, hi = -8.0, 8.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        if norm_cdf(mid) < p:
+            lo = mid
+        else:
+            hi = mid
+    return norm_cdf(0.5 * (lo + hi) + points / max(sd, 1e-6))
 
 
 def _reasons(data, out, th, give, get, my_new, their_new, his, side_name=None) -> tuple[list[str], list[str]]:

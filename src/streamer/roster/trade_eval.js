@@ -41,7 +41,7 @@
     this.cache[pid] = out;
     return out;
   };
-  Sim.prototype.mean = function (ids, windows) {
+  Sim.prototype.mean = function (ids, windows, week) {
     var D = this.data, n = this.n, k = this.k;
     ids = ids.filter(function (pid) { return SKILL[D.players[pid].pos]; });
     if (!ids.length) return 0;
@@ -50,8 +50,9 @@
       return ids.map(function (pid) { return D.players[pid].el.indexOf(sl[0]) >= 0; });
     });
     var used = new Uint8Array(m), cur = new Float64Array(m);
+    var w0 = week == null ? 0 : week, w1 = week == null ? k : week + 1;
     for (var s = 0; s < n; s++) {
-      for (var w = 0; w < k; w++) {
+      for (var w = w0; w < w1; w++) {
         for (var j = 0; j < m; j++) {
           var win = windows && windows[ids[j]];
           cur[j] = (win && (w < win[0] || w >= win[1])) ? -1 : lv[j][s * k + w];
@@ -71,7 +72,7 @@
         }
       }
     }
-    return total / (n * k);
+    return total / (n * (w1 - w0));
   };
 
   // -- lineups and rosters --------------------------------------------------
@@ -255,8 +256,29 @@
       ids.forEach(function (pid) { if (a[pid]) t += ours(pid); });
       return t;
     }
-    return { shift_me: d, lineup_me: lineupTotal(now) - lineupTotal(me.r),
-             title_me: odds('title'), playoffs_me: odds('playoffs'), legal: keepsMinimums(D, now, me.r) };
+    var out = { shift_me: d, lineup_me: lineupTotal(now) - lineupTotal(me.r),
+                title_me: odds('title'), playoffs_me: odds('playoffs'), legal: keepsMinimums(D, now, me.r) };
+    if (D.week) {
+      var dw = sim.mean(w[0], w[1], D.week.k) - sim.mean(me.r, null, D.week.k);
+      out.week_points = dw;
+      out.win_me = [D.week.p, shiftedWin(D.week.p, dw, D.week.sd)];
+    }
+    return out;
+  }
+  function normCdf(x) {
+    var z = Math.abs(x) / Math.sqrt(2), t = 1 / (1 + 0.3275911 * z);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t
+                 + 0.254829592) * t * Math.exp(-z * z);
+    return 0.5 * (1 + (x >= 0 ? y : -y));
+  }
+  function shiftedWin(p, points, sd) {
+    p = Math.min(Math.max(p, 1e-4), 1 - 1e-4);
+    var lo = -8, hi = 8;
+    for (var i = 0; i < 60; i++) {
+      var mid = 0.5 * (lo + hi);
+      if (normCdf(mid) < p) lo = mid; else hi = mid;
+    }
+    return normCdf(0.5 * (lo + hi) + points / Math.max(sd, 1e-6));
   }
 
   function reasons(D, out, th, give, get, theirNew, his, sideName) {
@@ -475,6 +497,10 @@
         if (!addSel.value || !dropPick.value) return;
         var r = evaluatePickup(D, addSel.value, dropPick.value, sim);
         var mine = (r.title_me[1] - r.title_me[0]) * 100;
+        if (r.win_me) {
+          pickOut.appendChild(el('b', null, 'This week ' + change(r.win_me) + ' (' + sign1(r.week_points) + ' points)'));
+          pickOut.appendChild(document.createTextNode(' \u00b7 '));
+        }
         pickOut.appendChild(el('b', null, 'Title ' + change(r.title_me) + ' (' + sign1(mine) + ')'));
         pickOut.appendChild(document.createTextNode(' \u00b7 playoffs ' + change(r.playoffs_me) +
           ' \u00b7 ' + sign1(r.shift_me) + ' points a week over the rest of the season' +

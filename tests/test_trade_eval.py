@@ -301,3 +301,32 @@ def test_after_the_deadline_the_evaluator_prices_pickups_only(pickup_league):
     shut = _trade_evaluator(SimpleNamespace(trade_eval=dict(data, closed=True), snapshot=snap))
     assert 'class="te-add"' in open_ and 'class="te-trade">' in open_
     assert "Evaluate a pickup</strong>" in shut and 'class="te-trade" hidden>' in shut
+
+
+def test_this_weeks_win_chance_moves_with_the_pickup_and_matches_the_script(pickup_league, tmp_path):
+    from scipy.stats import norm
+
+    _snap, data = pickup_league
+    d = dict(data, week={"p": 0.3, "sd": 25.0, "k": 0})
+    me = next(t for t in d["teams"] if t["me"])
+    P = d["players"]
+    assert trade_eval.shifted_win(0.3, 0.0, 25.0) == pytest.approx(0.3, abs=1e-6)
+    assert trade_eval.shifted_win(0.3, 5.0, 25.0) == pytest.approx(norm.cdf(norm.ppf(0.3) + 0.2), abs=1e-6)
+    best = d["fa"][0]
+    mine = sorted((pid for pid in me["r"] if P[pid]["pos"] in trade_eval.SKILL), key=lambda pid: P[pid]["o"])
+    r = trade_eval.evaluate_pickup(d, best, mine[-1])
+    assert r["win_me"][0] == 0.3 and (r["win_me"][1] < 0.3) == (r["week_points"] < 0)
+    cases = [{"add": a, "drop": x} for a in d["fa"][:3] for x in mine[:3]]
+    (tmp_path / "data.json").write_text(json.dumps(d))
+    (tmp_path / "cases.json").write_text(json.dumps(cases))
+    (tmp_path / "parity.js").write_text(_PICKUP_PARITY)
+    if shutil.which("node") is None:
+        pytest.skip("node is not installed")
+    run = subprocess.run(["node", str(tmp_path / "parity.js"), str(trade_eval.SCRIPT),
+                          str(tmp_path / "data.json"), str(tmp_path / "cases.json")],
+                         capture_output=True, text=True, timeout=120, check=True)
+    sim = trade_eval.Sim(d)
+    for c, js in zip(cases, json.loads(run.stdout)):
+        py = trade_eval.evaluate_pickup(d, c["add"], c["drop"], sim=sim)
+        assert js["week_points"] == pytest.approx(py["week_points"], abs=1e-9)
+        assert js["win_me"] == pytest.approx(list(py["win_me"]), abs=1e-9)

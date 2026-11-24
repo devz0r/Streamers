@@ -1398,6 +1398,7 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
 
                     report.trade_eval = trade_eval.export(snap, engine.model, finder, getattr(finder, "priced", []))
                     report.trade_eval["closed"] = trading_closed
+                    report.trade_eval["week"] = trade_eval.week_context(report, engine.model, snap)
                     log.info("trade evaluator for %s: %s", name, report.trade_eval.get("check"))
                     if primary:
                         from .roster import league_trades
