@@ -87,6 +87,27 @@ class GameStakes:
 
 
 @dataclass
+class Rooting:
+    """One other game, read in the seasons where the team wins out."""
+
+    week: int
+    winner: str          # the team whose win helps most
+    loser: str
+    gain: float          # P(playoffs) if the winner wins, less if the loser does
+
+
+@dataclass
+class PlayoffPath:
+    """What it takes for one team to make the playoffs."""
+
+    p_now: float
+    p_win_out: float
+    games_left: int
+    rooting: list[Rooting]
+    n_sims: int
+
+
+@dataclass
 class Stakes:
     """What each remaining game is worth to one team."""
 
@@ -893,6 +914,49 @@ class SeasonModel:
                    for k in np.unique(final)}
         return Stakes(games=games, by_wins=by_wins, p_playoffs=float(made0[i].mean()),
                       exp_wins=float(wins[i].mean()), n_sims=self.n)
+
+    def path(self, team_id: str, top: int = 6, min_gain: float = 0.02) -> PlayoffPath | None:
+        """The way into the playoffs for a team that needs one: P(playoffs)
+        if it wins every game it has left, and, in those seasons, which other
+        games it most needs to go which way (each flipped with everything
+        else held as it fell). Points scored are as simulated, so a team that
+        wins out is credited with the wins and not the extra points."""
+        scores = self._scores(None)
+        i = self.team_index[team_id]
+        wins, points, results = self._regular_season(scores)
+        made0 = self._playoffs(scores, wins, points)[0]
+        first = int(self.snapshot.week)
+        w = wins.copy()
+        left = 0
+        for (week, ia, ib), res in results.items():
+            if i in (ia, ib) and week >= first:
+                mine = res if ia == i else 1.0 - res
+                opp = ib if ia == i else ia
+                w[i] += 1.0 - mine
+                w[opp] -= 1.0 - mine
+                left += 1
+        if not left:
+            return None
+        p_out = float(self._playoffs(scores, w, points)[0][i].mean())
+        base = p_out
+        rooting = []
+        for (week, ia, ib), res in sorted(results.items()):
+            if i in (ia, ib) or week < first:
+                continue
+            outs = []
+            for a_wins in (1.0, 0.0):
+                x = w.copy()
+                x[ia] += a_wins - res
+                x[ib] -= a_wins - res
+                outs.append(float(self._playoffs(scores, x, points)[0][i].mean()))
+            gain = outs[0] - outs[1]
+            if abs(gain) >= min_gain:
+                a, b = self.teams[ia].name, self.teams[ib].name
+                rooting.append(Rooting(week=week, winner=a if gain > 0 else b, loser=b if gain > 0 else a,
+                                       gain=abs(gain)))
+        rooting.sort(key=lambda r: -r.gain)
+        return PlayoffPath(p_now=float(made0[i].mean()), p_win_out=base, games_left=left,
+                           rooting=rooting[:top], n_sims=self.n)
 
     def _reseeded(self, alive: list, seed_of: list) -> tuple[list, list]:
         """Survivors re-paired by seed in every simulation: best left against

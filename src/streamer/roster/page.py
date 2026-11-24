@@ -280,7 +280,7 @@ def team_sections(
     out["streams"] = streams
 
     # -- season ------------------------------------------------------------
-    season = _season(report) + _stakes(report)
+    season = _season(report) + _path(report) + _stakes(report)
     if season:
         out["season"] = season
 
@@ -1237,6 +1237,26 @@ def _trade_evaluator(report: MatchupReport) -> str:
         f"<script>{script}\nStreamerTrade.mount('{uid}');</script>"
         "</details>"
     )
+
+
+def _path(report: MatchupReport) -> str:
+    """The way into the playoffs, for a team that needs one: its odds if it
+    wins out, and which other results it needs, in those seasons."""
+    pa = getattr(report, "path", None)
+    if pa is None or pa.p_now >= 0.35 or pa.games_left < 1:
+        return ""
+    games = "your last game" if pa.games_left == 1 else f"all {pa.games_left} of your games"
+    rows = "".join(
+        f"<li>Week {r.week}: <b>{_e(r.winner)}</b> over {_e(r.loser)} <span class='opp'>({r.gain * 100:+.0f} points of "
+        f"playoff odds)</span></li>" for r in pa.rooting)
+    root = (f"<p class='sub'>In those seasons, root for:</p><ul class='sub'>{rows}</ul>" if rows else
+            "<p class='sub'>No single other result moves it by more than a couple of points.</p>")
+    return (
+        "<details open><summary>Your path to the playoffs</summary>"
+        f'<p class="sub">Playoff odds now <b>{pa.p_now:.1%}</b>. Win {games} and they are <b>{pa.p_win_out:.1%}</b>.'
+        f" That is a floor: the seasons are simulated with the points you really scored, so winning out is credited"
+        f" with the wins but not the extra points that win the tiebreak (total points break ties here).</p>"
+        + root + "</details>")
 
 
 def _stakes(report: MatchupReport) -> str:

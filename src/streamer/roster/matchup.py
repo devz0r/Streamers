@@ -42,6 +42,7 @@ class MatchupReport:
     #: What each remaining game is worth (a :class:`Stakes`; None when the
     #: league structure has not been read).
     stakes: object | None = None
+    path: object | None = None          # season.PlayoffPath, for a team that needs one
     #: How the projections have done, graded on results (a Scorecard).
     scorecard: object | None = None
     #: Waiver plans -- several moves priced together (None when the league

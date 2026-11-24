@@ -1325,6 +1325,10 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
             report.waiver_rank = engine.rank
             report.stakes = engine.model.stakes(snap.my_team.team_id)
             try:
+                report.path = engine.model.path(snap.my_team.team_id)
+            except Exception as exc:  # noqa: BLE001 - a bonus card
+                log.warning("playoff path for %s skipped: %s", name, exc)
+            try:
                 from .roster.matchup import price_pickups
 
                 price_pickups(report, engine)

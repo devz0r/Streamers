@@ -536,3 +536,26 @@ def test_the_quick_pick_is_argmax_with_ties_to_the_first():
         local, best = _first_best(sub)
         assert np.array_equal(local, sub.argmax(axis=0))
         assert np.array_equal(best, sub[sub.argmax(axis=0), np.arange(500)])
+
+
+def test_the_playoff_path_is_better_winning_out_and_names_other_games(cfg):
+    from types import SimpleNamespace
+
+    from streamer.roster.page import _path
+
+    snap = _league([0.8, 1.2, 1.1, 1.0, 0.9, 0.85])
+    model = SeasonModel(snap, cfg, n_sims=2000)
+    p = model.path("0")
+    assert p is not None and p.games_left == 8
+    assert p.p_win_out > p.p_now
+    assert all(r.gain >= 0.02 for r in p.rooting)
+    assert [r.gain for r in p.rooting] == sorted((r.gain for r in p.rooting), reverse=True)
+    # A team already in has no card; one that needs a way in does.
+    assert _path(SimpleNamespace(path=SimpleNamespace(p_now=0.8, p_win_out=0.99, games_left=3, rooting=[]))) == ""
+    from streamer.roster.season import PlayoffPath, Rooting
+
+    need = PlayoffPath(p_now=0.03, p_win_out=0.167, games_left=3, n_sims=1000,
+                       rooting=[Rooting(week=13, winner="Amish", loser="Hammys", gain=0.132)])
+    html = _path(SimpleNamespace(path=need))
+    assert "Your path to the playoffs" in html and "16.7%" in html and "all 3 of your games" in html
+    assert "<b>Amish</b> over Hammys" in html and "+13 points" in html
