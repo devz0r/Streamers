@@ -137,6 +137,29 @@ def export(snapshot: LeagueSnapshot, model: SeasonModel, finder, priced=()) -> d
                     row.update(wk)
             players[p.player_id] = row
 
+    # Free agents in the simulation (the title engine's candidates), so any
+    # pickup can be tried with any drop (:func:`evaluate_pickup`).
+    fa = []
+    for p in snapshot.free_agents:
+        if p.position not in SKILL or p.player_id in players or p.player_id not in model.pid:
+            continue
+        wk = _weekly(model, p)
+        if not wk:
+            continue
+        try:
+            v = round(finder.theirs(p), 2)
+        except Exception:  # noqa: BLE001 - the market's view is a label only here
+            v = round(_ros(p), 2)
+        players[p.player_id] = {
+            "n": p.name, "pos": p.position, "tm": p.team or "", "slot": "",
+            "el": [slot for slot in slot_names if _eligible(p, slot)],
+            "ir": False, "ire": p.status in IR_ELIGIBLE_STATUSES, "out": p.is_out, "q": p.is_questionable,
+            "un": p.unsigned, "st": p.status or "", "o": round(_ros(p), 2), "sd": round(float(p.ros_sd or 0.0), 2),
+            "v": v, "sig": p.signals[0] if p.signals else "", "pl": bool(p.locked or p.actual_points is not None),
+            "w": p.on_waivers is not False, **wk}
+        fa.append(p.player_id)
+    fa.sort(key=lambda pid: -players[pid]["o"])
+
     teams = []
     for t in snapshot.teams:
         own, over = finder.own.get(t.team_id, ({}, {}))
@@ -170,7 +193,7 @@ def export(snapshot: LeagueSnapshot, model: SeasonModel, finder, priced=()) -> d
         "title": title, "playoffs": playoffs,
         "base": {"title": [round(float(x), 4) for x in base.p_title],
                  "playoffs": [round(float(x), 4) for x in base.p_playoffs]},
-        "teams": teams, "players": players,
+        "teams": teams, "players": players, "fa": fa,
         "exact": [[t.partner.team_id, sorted(p.player_id for p in t.give), sorted(p.player_id for p in t.get),
                    round(t.gain, 4), round(t.their_gain, 4)] for t in priced if getattr(t, "my_add", None) is None],
     }
@@ -415,6 +438,31 @@ def evaluate(data: dict, partner: str, give: list[str], get: list[str],
     key = [partner, sorted(give), sorted(get)]
     out["exact"] = next((e[3:] for e in data["exact"] if e[:3] == key and not my_drops), None) if me["me"] else None
     return out
+
+
+def evaluate_pickup(data: dict, add: str, drop: str, sim: Sim | None = None) -> dict:
+    """Your title and playoff odds with ``add`` picked up and ``drop`` let go,
+    any free agent in the simulation with any player of yours: the trade
+    evaluator's reading, with nobody on the other side."""
+    sim = sim or Sim(data)
+    P = data["players"]
+    me_i = next(i for i, t in enumerate(data["teams"]) if t["me"])
+    me = data["teams"][me_i]
+    new = [pid for pid in me["r"] if pid != drop] + [add]
+    ids, win = _windows(data, me["r"], new)
+    d = sim.mean(ids, win) - sim.mean(me["r"])
+
+    def odds(curve: str) -> tuple[float, float]:
+        b = data["base"][curve][me_i]
+        return b, min(max(_read(data, curve, me_i, d, me_i), 0.0), 1.0)
+
+    def lineup_total(ids_) -> float:
+        a = lineup(data, ids_, lambda pid: P[pid]["o"])
+        return sum(P[pid]["o"] for pid in ids_ if pid in a)
+
+    return {"shift_me": d, "lineup_me": lineup_total(new) - lineup_total(me["r"]),
+            "title_me": odds("title"), "playoffs_me": odds("playoffs"),
+            "legal": keeps_minimums(data, new, me["r"])}
 
 
 def _reasons(data, out, th, give, get, my_new, their_new, his, side_name=None) -> tuple[list[str], list[str]]:

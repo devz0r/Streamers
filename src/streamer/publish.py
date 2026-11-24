@@ -1367,12 +1367,17 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                 except Exception as exc:  # noqa: BLE001
                     log.warning("waiver plans for %s skipped: %s", name, exc)
             finder = None
+            trading_closed = False
             try:
                 from .roster.trades import TradeFinder, days_to_deadline
 
                 left = days_to_deadline(snap)
                 if left is not None and left < 0:
                     log.info("%s: trading has closed; no trades searched", name)
+                    if not game_day and not light:
+                        # Kept for the evaluator's pickups (its trade half is hidden).
+                        finder = TradeFinder(snap, engine.model, seen=seen)
+                        trading_closed = True
                 elif game_day:
                     log.info("%s: game day: trades kept from the last full build", name)
                 elif light:
@@ -1388,6 +1393,7 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
                     from .roster import trade_eval
 
                     report.trade_eval = trade_eval.export(snap, engine.model, finder, getattr(finder, "priced", []))
+                    report.trade_eval["closed"] = trading_closed
                     log.info("trade evaluator for %s: %s", name, report.trade_eval.get("check"))
                     if primary:
                         from .roster import league_trades

@@ -262,10 +262,14 @@ def team_sections(
         if watch:
             waivers.append('<p class="sub">Drop watch: '
                            + ", ".join(f"{_e(p.name)} ({(p.projection or 0):.1f})" for p in watch) + "</p>")
+    # Once trading has closed the evaluator only prices pickups: it sits here.
+    closed = bool((getattr(report, "trade_eval", None) or {}).get("closed"))
+    if closed:
+        waivers.append(_trade_evaluator(report))
     out["waivers"] = "".join(waivers)
 
     # -- trades ------------------------------------------------------------
-    trades = _trades(report) + _league_trades(report) + _trade_evaluator(report)
+    trades = _trades(report) + _league_trades(report) + ("" if closed else _trade_evaluator(report))
     if trades:
         out["trades"] = trades
 
@@ -1209,17 +1213,26 @@ def _trade_evaluator(report: MatchupReport) -> str:
     if not data:
         return ""
     uid = f"te-{_e(report.snapshot.profile)}"
+    closed = bool(data.get("closed"))
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     script = SCRIPT.read_text(encoding="utf-8").replace("</", "<\\/")
     return (
-        f'<details class="card" id="{uid}"><summary><strong>Evaluate a trade</strong> '
-        '<span class="opp">any players between any two teams: both sides\' title odds, lineups and his answer</span>'
-        "</summary>"
+        f'<details class="card" id="{uid}"><summary><strong>'
+        + ("Evaluate a pickup" if closed else "Evaluate a trade or a pickup") + "</strong> "
+        + ('<span class="opp">any free agent for any of your players: title and playoff odds '
+           "(trading has closed)</span>" if closed else
+           '<span class="opp">any players between any two teams, or any free agent for any of yours: '
+           "title odds, lineups and his answer</span>")
+        + "</summary>"
+        '<p class="sub"><b>Try a pickup:</b> add <select class="te-add" aria-label="Free agent to add"></select> '
+        'and drop <select class="te-drop" aria-label="Your player to drop"></select></p>'
+        '<p class="sub te-pick-out"></p>'
+        f'<div class="te-trade"{" hidden" if closed else ""}>'
         '<p class="sub"><select class="te-side" aria-label="Giving team"></select> trades with '
         '<select class="te-partner" aria-label="Other team"></select></p>'
         '<div class="te-cols"><fieldset><legend>You give</legend><div class="te-give"></div></fieldset>'
         '<fieldset><legend>You get</legend><div class="te-get"></div></fieldset></div>'
-        '<p class="te-sum"></p><p class="sub te-dropline"></p><div class="te-out"></div>'
+        '<p class="te-sum"></p><p class="sub te-dropline"></p><div class="te-out"></div></div>'
         f'<script type="application/json" class="te-data">{payload}</script>'
         f"<script>{script}\nStreamerTrade.mount('{uid}');</script>"
         "</details>"

@@ -235,6 +235,30 @@
     return out;
   }
 
+  // A pickup: any free agent in the simulation for any player of yours,
+  // priced like a trade with nobody on the other side (evaluate_pickup).
+  function evaluatePickup(D, add, drop, sim) {
+    sim = sim || new Sim(D);
+    var P = D.players, meI = 0;
+    D.teams.forEach(function (t, i) { if (t.me) meI = i; });
+    var me = D.teams[meI];
+    var now = me.r.filter(function (pid) { return pid !== drop; }).concat([add]);
+    var w = windowsFor(D, me.r, now);
+    var d = sim.mean(w[0], w[1]) - sim.mean(me.r);
+    function odds(curve) {
+      var b = D.base[curve][meI];
+      return [b, Math.min(Math.max(read(D, curve, meI, d, meI), 0), 1)];
+    }
+    var ours = function (pid) { return P[pid].o; };
+    function lineupTotal(ids) {
+      var a = lineup(D, ids, ours), t = 0;
+      ids.forEach(function (pid) { if (a[pid]) t += ours(pid); });
+      return t;
+    }
+    return { shift_me: d, lineup_me: lineupTotal(now) - lineupTotal(me.r),
+             title_me: odds('title'), playoffs_me: odds('playoffs'), legal: keepsMinimums(D, now, me.r) };
+  }
+
   function reasons(D, out, th, give, get, theirNew, his, sideName) {
     var P = D.players, gap = D.params.gap_note;
     var you = [(sideName ? sideName + '\'s' : 'your') + ' lineup ' + sign1(out.lineup_me) + ' a game on our projections, ' + sign1(out.shift_me) +
@@ -434,11 +458,38 @@
       boxes(getBox, team(partnerSel.value).r);
       dropSel = null; calc();
     }
+    // Try a pickup: any simulated free agent for any player of yours.
+    var addSel = root.querySelector('.te-add'), dropPick = root.querySelector('.te-drop'),
+        pickOut = root.querySelector('.te-pick-out');
+    if (addSel && dropPick && pickOut && D.fa && D.fa.length) {
+      var none = el('option', null, 'choose a free agent'); none.value = ''; addSel.appendChild(none);
+      D.fa.forEach(function (pid) {
+        var o = el('option', null, label(P[pid]) + (P[pid].w ? ' · waivers' : '')); o.value = pid; addSel.appendChild(o);
+      });
+      me.r.filter(tradeable).slice().sort(function (a, b) { return P[a].o - P[b].o; }).forEach(function (pid) {
+        var o = el('option', null, label(P[pid]) + (P[pid].ir ? ' · IR' : '') + (P[pid].pl ? ' · played this week' : ''));
+        o.value = pid; dropPick.appendChild(o);
+      });
+      var pick = function () {
+        pickOut.textContent = '';
+        if (!addSel.value || !dropPick.value) return;
+        var r = evaluatePickup(D, addSel.value, dropPick.value, sim);
+        var mine = (r.title_me[1] - r.title_me[0]) * 100;
+        pickOut.appendChild(el('b', null, 'Title ' + change(r.title_me) + ' (' + sign1(mine) + ')'));
+        pickOut.appendChild(document.createTextNode(' \u00b7 playoffs ' + change(r.playoffs_me) +
+          ' \u00b7 ' + sign1(r.shift_me) + ' points a week over the rest of the season' +
+          (r.legal ? '' : ' \u00b7 this leaves you short at a position you must fill') + '.'));
+      };
+      addSel.addEventListener('change', pick);
+      dropPick.addEventListener('change', pick);
+    } else if (addSel) {
+      addSel.parentNode.style.display = 'none';
+    }
     partnerSel.addEventListener('change', function () { boxes(getBox, team(partnerSel.value).r); dropSel = null; calc(); });
     if (sideSel) sideSel.addEventListener('change', reset);
     reset();
   }
 
-  g.StreamerTrade = { evaluate: evaluate, Sim: Sim, mount: mount, fnv1a: fnv1a, u01: u01 };
+  g.StreamerTrade = { evaluate: evaluate, evaluatePickup: evaluatePickup, Sim: Sim, mount: mount, fnv1a: fnv1a, u01: u01 };
 })(typeof window !== 'undefined' ? window : globalThis);
 if (typeof module !== 'undefined') module.exports = globalThis.StreamerTrade;

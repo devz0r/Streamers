@@ -217,3 +217,87 @@ def test_a_trade_between_two_other_teams_reads_the_same_from_either_side(league)
     mine = trade_eval.evaluate(data, b["id"], skill(me["r"])[:1], get)
     assert mine == trade_eval.evaluate(data, b["id"], skill(me["r"])[:1], get, side=me["id"])
     assert mine["why_you"][0].startswith("your lineup")
+
+
+@pytest.fixture(scope="module")
+def pickup_league():
+    from streamer.config import get_config
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(season_mod, "nfl_byes", lambda *a, **k: {})
+    snap = _league()
+    model = SeasonModel(snap, get_config(), n_sims=1500, extra_players=list(snap.free_agents))
+    finder = TradeFinder(snap, model)
+    data = trade_eval.export(snap, model, finder)
+    mp.undo()
+    return snap, data
+
+
+def test_free_agents_in_the_simulation_are_exported_for_pickups(pickup_league):
+    snap, data = pickup_league
+    skill = {p.player_id for p in snap.free_agents if p.position in trade_eval.SKILL}
+    assert data["fa"] and set(data["fa"]) <= skill
+    assert [data["players"][pid]["o"] for pid in data["fa"]] == sorted(
+        (data["players"][pid]["o"] for pid in data["fa"]), reverse=True)
+    assert all("a" in data["players"][pid] for pid in data["fa"])
+
+
+def test_a_pickup_for_your_weakest_player_helps_and_for_a_starter_hurts(pickup_league):
+    _snap, data = pickup_league
+    me = next(t for t in data["teams"] if t["me"])
+    P = data["players"]
+    best = data["fa"][0]
+    pos = P[best]["pos"]
+    mine = [pid for pid in me["r"] if P[pid]["pos"] == pos]
+    weakest, starter = min(mine, key=lambda pid: P[pid]["o"]), max(mine, key=lambda pid: P[pid]["o"])
+    up = trade_eval.evaluate_pickup(data, best, weakest)
+    if P[best]["o"] > P[weakest]["o"]:
+        assert up["shift_me"] >= 0 and up["title_me"][1] >= up["title_me"][0]
+    worst_fa = data["fa"][-1]
+    down = trade_eval.evaluate_pickup(data, worst_fa, starter)
+    if P[starter]["o"] > P[worst_fa]["o"] + 3:
+        assert down["shift_me"] < 0 and down["title_me"][1] <= down["title_me"][0]
+
+
+_PICKUP_PARITY = r"""
+const fs = require('fs');
+const ST = require(process.argv[2]);
+const D = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+const cases = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'));
+const sim = new ST.Sim(D);
+process.stdout.write(JSON.stringify(cases.map(c => ST.evaluatePickup(D, c.add, c.drop, sim))));
+"""
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_the_page_script_prices_a_pickup_exactly_as_python_does(pickup_league, tmp_path):
+    _snap, data = pickup_league
+    me = next(t for t in data["teams"] if t["me"])
+    mine = [pid for pid in me["r"] if data["players"][pid]["pos"] in trade_eval.SKILL]
+    cases = [{"add": a, "drop": d} for a in data["fa"][:4] for d in mine[:4]]
+    (tmp_path / "data.json").write_text(json.dumps(data))
+    (tmp_path / "cases.json").write_text(json.dumps(cases))
+    (tmp_path / "parity.js").write_text(_PICKUP_PARITY)
+    run = subprocess.run(["node", str(tmp_path / "parity.js"), str(trade_eval.SCRIPT),
+                          str(tmp_path / "data.json"), str(tmp_path / "cases.json")],
+                         capture_output=True, text=True, timeout=120, check=True)
+    sim = trade_eval.Sim(data)
+    for c, js in zip(cases, json.loads(run.stdout)):
+        py = trade_eval.evaluate_pickup(data, c["add"], c["drop"], sim=sim)
+        for k in ("shift_me", "lineup_me"):
+            assert js[k] == pytest.approx(py[k], abs=1e-9), k
+        for k in ("title_me", "playoffs_me"):
+            assert js[k] == pytest.approx(list(py[k]), abs=1e-9), k
+        assert js["legal"] == py["legal"]
+
+
+def test_after_the_deadline_the_evaluator_prices_pickups_only(pickup_league):
+    from types import SimpleNamespace
+
+    from streamer.roster.page import _trade_evaluator
+
+    snap, data = pickup_league
+    open_ = _trade_evaluator(SimpleNamespace(trade_eval=dict(data, closed=False), snapshot=snap))
+    shut = _trade_evaluator(SimpleNamespace(trade_eval=dict(data, closed=True), snapshot=snap))
+    assert 'class="te-add"' in open_ and 'class="te-trade">' in open_
+    assert "Evaluate a pickup</strong>" in shut and 'class="te-trade" hidden>' in shut
