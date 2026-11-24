@@ -12,7 +12,7 @@ from ..config import Config
 STAT = {"passing_yards": "passing yards", "passing_tds": "passing TDs", "passing_interceptions": "interceptions",
         "rushing_yards": "rushing yards", "receiving_yards": "receiving yards", "receptions": "receptions"}
 BOOK = {"fanduel": "FanDuel", "draftkings": "DraftKings", "betmgm": "BetMGM", "caesars": "Caesars",
-        "espnbet": "ESPN Bet", "bovada": "Bovada", "pinnacle": "Pinnacle", "williamhill_us": "Caesars"}
+        "espnbet": "theScore Bet (formerly ESPN Bet)", "bovada": "Bovada", "pinnacle": "Pinnacle", "williamhill_us": "Caesars"}
 
 
 def _e(v: object) -> str:
