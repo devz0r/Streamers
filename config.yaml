@@ -521,6 +521,7 @@ roster:
     DeVonta Smith: {back: 11, chance: 0.45}    # hamstring, out since week 7, no practice; no word he is expected back
     Josh Jacobs: [11, 13]      # out at most three weeks
     Puka Nacua: [14, 18]       # IR expected: at least four games, 18 = after the fantasy playoffs
+    Drake Maye: [17, 19]       # fractured ankle (Schefter, Nov 16), out indefinitely, possible season-ending surgery; 19 = after the fantasy playoffs
   # Rest-of-season comparisons (roster/comps.py): the season value moves this
   # share of the way to how the k players most like him at the same point of
   # past seasons finished. Weeks 3-10, players without an out/IR tag.
