@@ -134,6 +134,16 @@ def trend(p: object) -> str:
 RANGE_SCALE = 35.0
 
 
+def _ceiling(opt, p) -> str:
+    """The chance of a big week under a player's range: what an underdog is buying on a close call."""
+    from .lineup import BIG_WEEK
+
+    c = (getattr(opt, "ceilings", None) or {}).get(p.player_id)
+    if c is None or p.actual_points is not None:
+        return ""
+    return f"<div class='opp'>{c:.0%} for {BIG_WEEK:.0f}+</div>"
+
+
 def range_bar(lo: float | None, hi: float | None) -> str:
     """A floor-to-ceiling bar beside a range's numbers, on a fixed scale so
     ranges compare down a table."""
@@ -319,6 +329,7 @@ def _lineup_core(snapshot: LeagueSnapshot, report: MatchupReport, has_vegas: boo
         lo, hi = opt.ranges.get(p.player_id, (None, None))
         spread = (f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}" if lo is not None
                   else f"&plusmn;{(p.projection_sd or 0):.0f}")
+        spread += _ceiling(opt, p)
         if p.actual_points is not None:
             spread = "scored"
         rows.append(
@@ -1770,7 +1781,7 @@ def _bench(snapshot: LeagueSnapshot, opt, has_vegas: bool) -> str:
                      else '<td class="opp">--</td>')
         lo, hi = opt.ranges.get(p.player_id, (None, None))
         spread = ("scored" if p.actual_points is not None
-                  else f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}" if lo is not None else "--")
+                  else f"{lo:.0f}&ndash;{hi:.0f}{range_bar(lo, hi)}{_ceiling(opt, p)}" if lo is not None else "--")
         why = _bench_reason(p, opt)
         rows.append(
             f"<tr><td class='unit'>{face(p)}{_e(p.name)}{tag}</td><td>{pos_chip(p.position)}</td>"

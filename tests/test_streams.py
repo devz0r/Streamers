@@ -109,3 +109,17 @@ def test_a_unit_projected_nothing_is_not_an_option():
     ids = {o.player.player_id for o in lineup.stream_options(opt, "DST", [backup, _dst("x2", "DAL", "TEN")],
                                                              n_sims=2000)}
     assert "bk" not in ids and "x2" in ids
+
+
+def test_each_player_gets_a_big_week_chance_the_page_shows():
+    from types import SimpleNamespace
+
+    from streamer.roster.page import _ceiling
+
+    opt = lineup.optimise(my_roster(), SLOTS, opponent_roster(), n_sims=3000)
+    assert opt.ceilings and all(0.0 <= c <= 1.0 for c in opt.ceilings.values())
+    qb = next(p for p in my_roster() if p.position == "QB")
+    assert opt.ceilings[qb.player_id] > 0
+    assert "for 20+" in _ceiling(opt, qb)
+    done = SimpleNamespace(player_id=qb.player_id, actual_points=18.0)
+    assert _ceiling(opt, done) == ""

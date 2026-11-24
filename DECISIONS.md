@@ -5986,3 +5986,6 @@ The idea: for a team with tiny title odds (ESPN: 0.4%, about 24 titles in 6,000 
 | 50% and up (11) | 0.026 | 0.358 | 0.378 | 0.659 |
 
 For a Hail Mary team the objective does not matter: the 12 moves differ by 0.03 points of true title odds, and all three rankings land within 0.01 of the best. The 10-50% band's gain from playoff odds is two ESPN teams in one week (Farm Club Bybee 0.34 of it); switching below 50% was better in ESPN and worse in Yahoo on one week's 24 teams, too thin to change the engine on. Title odds stay the objective. What a team in a must-win week needs to see is shown instead: this week's win chance for any pickup, and the playoff path card. `scripts/mustwin_objective.py`.
+
+### A big-week chance under each player's range
+For a close start/sit call an underdog is choosing a spread, and the range alone (15th to 85th percentile) hides how much of it is a big game. Each player in the recommended lineup and on the bench now shows his chance of 20 or more points ("12% for 20+"), counted in the same simulated draws as the range and the win chance (`Optimisation.ceilings`, `page._ceiling`). Not shown once he has scored. The 20-point bar is one number for all positions, a display threshold and not a fitted one; the lottery tickets keep their own position-specific bars.

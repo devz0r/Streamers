@@ -107,6 +107,10 @@ EDITOR_SIMS = 5000
 NOTABLE_CORR = 0.15
 
 
+#: A big week for the ceiling shown beside each player's range.
+BIG_WEEK = 20.0
+
+
 @dataclass
 class LineupResult:
     """One evaluated lineup."""
@@ -161,6 +165,8 @@ class Optimisation:
     reasons: list[str] = field(default_factory=list)
     #: Player id -> (15th, 85th percentile) of his simulated score.
     ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
+    #: Player id -> chance of a big week (:data:`BIG_WEEK` points or more) in the same draws.
+    ceilings: dict[str, float] = field(default_factory=dict)
     #: A slice of the confirmation draws, for trying lineups by hand on the
     #: page: my non-IR players' scores (columns in ``sample_ids`` order) and
     #: the opponent's total, draw by draw.
@@ -778,6 +784,7 @@ def optimise(
     ranges = {p.player_id: (float(np.percentile(confirm[:, index[p.player_id]], 15)),
                             float(np.percentile(confirm[:, index[p.player_id]], 85)))
               for p in everyone}
+    ceilings = {p.player_id: float((confirm[:, index[p.player_id]] >= BIG_WEEK).mean()) for p in everyone}
     bench_reasons: dict[str, str] = {}
     reasons = explain(best_win, best_ev, opp_lineup, confirm, index, opp_total, ranges, bench_reasons,
                       sits=sits, roster=roster, wire=wire)
@@ -796,7 +803,7 @@ def optimise(
     return Optimisation(
         best_win=best_win, best_ev=best_ev, current=current, opponent=opponent,
         changes=diff_lineups(current.starters if current else None, best_win.starters),
-        n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges, bench_reasons=bench_reasons,
+        n_lineups=len(mine), n_sims=n_sims, reasons=reasons, ranges=ranges, ceilings=ceilings, bench_reasons=bench_reasons,
         sample_ids=ids, samples=confirm[:keep, [index[i] for i in ids]],
         opp_samples=opp_total[:keep], fallbacks=fallbacks,
         opp_ids=opp_ids, opp_player_samples=confirm[:keep, [index[i] for i in opp_ids]] if opp_ids else None,
