@@ -42,7 +42,6 @@
   },
   "11": {
    "-16014": "Rams D/ST",
-   "-16020": "Jets D/ST",
    "14880": "Kirk Cousins",
    "16800": "Davante Adams",
    "3042519": "Aaron Jones Sr.",
@@ -53,6 +52,7 @@
    "3916433": "Jakobi Meyers",
    "3917232": "Tyler Bass",
    "4241389": "CeeDee Lamb",
+   "4361411": "Pat Freiermuth",
    "4372016": "Jaylen Waddle",
    "4427095": "DeMario Douglas",
    "4428331": "Rashee Rice",
@@ -101,6 +101,7 @@
    "-16024": "Chargers D/ST",
    "16737": "Mike Evans",
    "3043078": "Derrick Henry",
+   "3122840": "Deshaun Watson",
    "4036133": "T.J. Hockenson",
    "4047365": "Josh Jacobs",
    "4047650": "DK Metcalf",
@@ -113,12 +114,12 @@
    "4711533": "Ollie Gordon II",
    "4869645": "Caleb Douglas",
    "4870653": "KC Concepcion",
-   "5083754": "Ryan Flournoy",
    "8439": "Aaron Rodgers"
   },
   "4": {
    "-16012": "Chiefs D/ST",
    "15847": "Travis Kelce",
+   "3116389": "Samaje Perine",
    "3126486": "Deebo Samuel Sr.",
    "3953687": "Brandon Aubrey",
    "4047646": "A.J. Brown",
@@ -129,9 +130,10 @@
    "4426338": "Bo Nix",
    "4428557": "Tyjae Spears",
    "4569618": "Garrett Wilson",
-   "4576297": "AJ Barner",
    "4683062": "Xavier Worthy",
+   "4710855": "Konata Mumpfield",
    "4882093": "Bhayshul Tuten",
+   "5081397": "Dylan Sampson",
    "5083076": "Harold Fannin Jr."
   },
   "5": {
