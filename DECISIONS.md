@@ -5998,3 +5998,13 @@ Testing a higher consensus weight for Yahoo's season values (its blended values 
 
 ### This week's absences for players with no tag
 Healthy quarterbacks showed about an 87% chance of playing this week (Ward, Rodgers, Watson; untagged starters 95-96%). The season simulation drew new absences in the week in progress at the same weekly rate as weeks ahead, on top of the injury tag that already decides who plays this week. Measured, 2022-2025: players who played a week and were not listed Out, Doubtful or Questionable on the next game's final injury report (20,486 cases) missed that game 13% of the time overall -- the hazard is about right for fringe players (a quarterback at 6-10 a game: 20.3% missed, 20.5% drawn; benchings), and 2-4 times too high for starters (10+ a game: 2.3% missed, 5.6% drawn; backs at 14+: 0.9% against 4.0%). A table by position and level, fitted on three seasons, lost to the model's smooth hazard in all four held-out seasons, so the hazard stays; instead, for the week in progress only, it is scaled by 0.4 for players at 10+ a game (`futures.this_week` in outcome_model.json; 0.35-0.45 by fold), better in 4 of 4 held-out seasons (log loss 0.33315 -> 0.32915; starters alone, 4 of 4). A 16-a-game receiver with no tag now plays 97.8% of this week's simulated games (98.4% measured), 94% a week later. `scripts/fit_this_week_absence.py`. The level is his trailing four-game points in the fit and his projection in the simulation, which the weekly hazard was itself fitted on. Early in a week, before the final injury report, some untagged players will still be tagged; the table measures game-day tags, so Tuesday's numbers lean slightly optimistic.
+
+### Out indefinitely: longer, but too few to act on (not adopted)
+The news reader skips "out indefinitely" (no time in it) and hedged reports ("fear", "could"), so such a player is drawn an ordinary absence -- Drake Maye, fractured ankle, came out at 15.9 a game for the rest of the season. `scripts/indefinite_probe.py` (runner job `indefinite-probe`, Nov 25) read ESPN's news for every skill player listed Out in 2025-2026 (266 players) and counted the team games each then missed:
+
+| | absences | missed 4+ | missed 6+ | came back that season | median games missed |
+|---|---|---|---|---|---|
+| first Out designation (what the simulation draws from) | 409 | 27% | 14% | 67% | 2 |
+| reported out indefinitely | 5 | 60% | 40% | 20% | 5 |
+
+Longer, as expected, but five absences, all 2026 (ESPN keeps 50 items a player, which does not reach 2025), so it cannot be held out by season. The reader is unchanged; such a player is set by hand in `roster.manual_timelines` (Maye: weeks 17-19). Worth re-running after the season and next season, when the cases have built up.
