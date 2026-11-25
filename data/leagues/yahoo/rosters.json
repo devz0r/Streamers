@@ -21,7 +21,7 @@
    "42730": "Jonah Coleman"
   },
   "10": {
-   "100002": "Buffalo",
+   "100002": "Bills",
    "31019": "Dallas Goedert",
    "31896": "DK Metcalf",
    "33100": "Rico Dowdle",
@@ -70,7 +70,7 @@
    "42796": "Emmett Johnson"
   },
   "13": {
-   "100030": "Jaguars",
+   "100030": "Jacksonville",
    "29344": "Tyler Higbee",
    "31840": "T.J. Hockenson",
    "31977": "Matt Gay",
@@ -181,8 +181,8 @@
    "26699": "Keenan Allen",
    "27535": "Mike Evans",
    "28534": "Stefon Diggs",
+   "28592": "Darren Waller",
    "30295": "Aaron Jones Sr.",
-   "33113": "Juwan Johnson",
    "33413": "Travis Etienne Jr.",
    "33500": "Amon-Ra St. Brown",
    "33537": "Evan McPherson",
@@ -195,6 +195,7 @@
   },
   "7": {
    "100020": "Jets",
+   "30125": "Deshaun Watson",
    "30423": "Austin Ekeler",
    "30972": "Saquon Barkley",
    "31012": "Mike Gesicki",
@@ -212,6 +213,7 @@
   },
   "8": {
    "100012": "Chiefs",
+   "100017": "Patriots",
    "29235": "Jared Goff",
    "29269": "Hunter Henry",
    "31482": "Eddy Pineiro",
@@ -220,7 +222,6 @@
    "34095": "Isaiah Likely",
    "34107": "Tyler Allgeier",
    "40041": "Jaxon Smith-Njigba",
-   "40094": "Darnell Washington",
    "40097": "Tank Dell",
    "40234": "Parker Washington",
    "41821": "Quinshon Judkins",
@@ -229,7 +230,7 @@
    "42626": "Carnell Tate"
   },
   "9": {
-   "100011": "Indianapolis",
+   "100011": "Colts",
    "30197": "Chris Godwin Jr.",
    "31838": "Daniel Jones",
    "31856": "Josh Jacobs",
