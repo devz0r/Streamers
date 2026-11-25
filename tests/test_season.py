@@ -559,3 +559,16 @@ def test_the_playoff_path_is_better_winning_out_and_names_other_games(cfg):
     html = _path(SimpleNamespace(path=need))
     assert "Your path to the playoffs" in html and "16.7%" in html and "all 3 of your games" in html
     assert "<b>Amish</b> over Hammys" in html and "+13 points" in html
+
+
+def test_an_untagged_starter_misses_this_week_less_often_than_a_later_week():
+    from streamer.league.model import PlayerRow
+    from streamer.roster import futures as fut
+
+    star = PlayerRow(player_id="s", name="Star", position="WR", team="KC", projection=16.0, ros_value=16.0)
+    fringe = PlayerRow(player_id="f", name="Fringe", position="WR", team="KC", projection=5.0, ros_value=5.0)
+    f = fut.simulate([star, fringe], [12, 13, 14, 15, 16], {}, n_sims=20000, seed=3)
+    star_now, star_later = f.played[:, 0, 0].mean(), f.played[:, 0, 1].mean()
+    assert star_now > 0.97                                  # this week: the scaled hazard (98.4% measured)
+    assert star_now - star_later > 0.01                     # next week: the full weekly rate on top
+    assert f.played[:, 1, 0].mean() < 0.85                  # a fringe player keeps the full rate this week

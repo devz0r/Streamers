@@ -642,6 +642,14 @@ def simulate(
             # star simulated to be worse than his number is not a backup.
             risk_at = np.maximum(walk[j], 0.0) if conf.get("hazard_on") == "projection" else level[j]
             h = np.minimum(_hazard(p.position, risk_at, conf) * tilt[j], 1.0)
+            tw = conf.get("this_week")
+            if k == current and tw:
+                # The week in progress: his tag already says whether he plays,
+                # so an untagged starter-level player misses far less often
+                # than the weekly rate says (2.3% against 5.6%, 2022-2025);
+                # fringe players keep it (benchings). DECISIONS.md,
+                # "This week's absences for players with no tag".
+                h = np.where(risk_at >= float(tw["from_level"]), h * float(tw["scale"]), h)
             if risk[j] != 1.0:
                 h = h * risk[j] / (1.0 - h + h * risk[j])      # on the odds, as fitted
             ra = rs[j]["absence"]

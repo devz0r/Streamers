@@ -1829,6 +1829,11 @@
      2025
     ]
    }
+  },
+  "this_week": {
+   "from_level": 10.0,
+   "scale": 0.4,
+   "evidence": "scripts/fit_this_week_absence.py: 2022-2025, players untagged on the final injury report who played the week before; scaling the weekly hazard by 0.4 (0.35-0.45 by fold) for players at 10+ a game was better in 4 of 4 held-out seasons (log loss 0.33315 -> 0.32915)"
   }
  },
  "player_spread": {
