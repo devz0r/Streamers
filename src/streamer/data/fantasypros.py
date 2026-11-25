@@ -54,6 +54,24 @@ def cache_dir(cfg: Config) -> Path:
     return d
 
 
+def log_path(cfg: Config) -> Path:
+    """The consensus log of one league: its own season values and projections
+    beside the consensus, graded on its own scoring. One file per league --
+    a shared one let each league's run overwrite the other's rows for the
+    same players, so both leagues' weights were fitted on a mix."""
+    prof = getattr(cfg, "profile", None)
+    path = cache_dir(cfg) / (f"log_{prof}.parquet" if prof else "log.parquet")
+    legacy = cache_dir(cfg) / "log.parquet"
+    if prof and not path.exists() and legacy.exists():
+        # Start from the shared log, its rows marked: the league's own runs
+        # replace them week by week, and consensus.log_week drops what is
+        # left once the league has two weeks of its own.
+        import pandas as pd
+
+        pd.read_parquet(legacy).assign(legacy=True).to_parquet(path, index=False)
+    return path
+
+
 def _get(path: str, params: dict[str, Any], cfg: Config, timeout: float = 20.0,
          hours: float | None = None) -> dict | None:
     """One API call through the cache. None when there is no key or it fails."""

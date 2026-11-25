@@ -212,7 +212,7 @@ def season_weight(cfg: Config, history: pd.DataFrame | None = None) -> tuple[flo
     prior = float(conf.get("season_weight_prior", 0.3))
     k = float(conf.get("season_prior_games", 300))
     need = int(conf.get("season_min_games", 150))
-    path = fp.cache_dir(cfg) / "log.parquet"
+    path = fp.log_path(cfg)
     if not path.exists():
         return prior, 0
     c = pd.read_parquet(path).dropna(subset=["ecr_ros_pos_rank", "our_ros"])
@@ -279,7 +279,7 @@ def log_week(snapshot: LeagueSnapshot, cfg: Config) -> int:
                      "our_ros": _ros(p), "clean": _clean(p), "logged_at": stamp})
     if not rows:
         return 0
-    path = fp.cache_dir(cfg) / "log.parquet"
+    path = fp.log_path(cfg)
     new = pd.DataFrame(rows)
     if path.exists():
         old = pd.read_parquet(path)
@@ -287,5 +287,9 @@ def log_week(snapshot: LeagueSnapshot, cfg: Config) -> int:
         old = old.merge(new[key], on=key, how="left", indicator=True)
         old = old[old["_merge"] == "left_only"].drop(columns="_merge")
         new = pd.concat([old, new], ignore_index=True)
+        if "legacy" in new:
+            legacy = new["legacy"].fillna(False).astype(bool)
+            if new.loc[~legacy, ["season", "week"]].drop_duplicates().shape[0] >= 2:
+                new = new[~legacy].drop(columns="legacy")
     new.to_parquet(path, index=False)
     return len(rows)

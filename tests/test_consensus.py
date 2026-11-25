@@ -126,7 +126,7 @@ def _season_log(tmp_cfg, n, consensus_knows):
     ids = [f"n{i}" for i in range(n)]
     pd.DataFrame({"season": 2026, "week": 3, "nfl_id": ids, "position": "WR", "fp_projection": np.nan,
                   "ecr_week_pos_rank": np.nan, "ecr_ros_pos_rank": ranks, "our_ros": ours, "clean": True,
-                  "logged_at": "2026-09-27T16:00:00Z"}).to_parquet(fp.cache_dir(tmp_cfg) / "log.parquet")
+                  "logged_at": "2026-09-27T16:00:00Z"}).to_parquet(fp.log_path(tmp_cfg))
     return pd.DataFrame({"player_id": ids, "season": 2026, "week": 3,
                          "fantasy_points_ppr": talent + rng.normal(0, 6, n)})
 
@@ -197,3 +197,34 @@ def test_the_scorecard_also_counts_projected_players_who_did_not_play_and_the_li
     # A week still being played (no later week in the history) never counts anyone as inactive.
     card = scorecard.build(cfg, box, "ESPN")
     assert card.inactive == 0
+
+
+def test_each_league_keeps_its_own_consensus_log(tmp_cfg):
+    from streamer.config import get_config
+
+    espn, yahoo = get_config().for_profile("espn"), get_config().for_profile("yahoo")
+    assert fp.log_path(espn) != fp.log_path(yahoo)
+    assert fp.log_path(espn).name == "log_espn.parquet" and fp.log_path(yahoo).name == "log_yahoo.parquet"
+
+
+def test_a_league_log_starts_from_the_shared_one_and_drops_it_after_two_weeks_of_its_own(tmp_cfg):
+    import pandas as pd
+
+    from streamer.league.model import PlayerRow
+
+    legacy = fp.cache_dir(tmp_cfg) / "log.parquet"
+    pd.DataFrame({"season": [2026], "week": [9], "nfl_id": ["x"], "position": ["WR"], "fp_projection": [10.0],
+                  "ecr_week_pos_rank": [5], "ecr_ros_pos_rank": [5], "our_ros": [11.0], "clean": [True],
+                  "logged_at": ["2026-11-01T00:00:00Z"]}).to_parquet(legacy)
+    path = fp.log_path(tmp_cfg)
+    assert path.name != "log.parquet" and pd.read_parquet(path)["legacy"].all()
+
+    def snap(week):
+        p = PlayerRow(player_id="1", name="A", position="WR", team="KC", projection=9.0, ros_value=10.0)
+        p.nfl_id, p.fp_projection, p.ecr_week_pos_rank, p.ecr_ros_pos_rank = "y", 9.5, 4, 4
+        return type("S", (), {"season": 2026, "week": week, "all_players": lambda self, p=p: [p]})()
+
+    consensus.log_week(snap(12), tmp_cfg)
+    assert pd.read_parquet(path)["legacy"].fillna(False).any()        # one week of its own: kept
+    consensus.log_week(snap(13), tmp_cfg)
+    assert "legacy" not in pd.read_parquet(path) and set(pd.read_parquet(path).week) == {12, 13}

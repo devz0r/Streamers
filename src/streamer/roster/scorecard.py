@@ -118,7 +118,7 @@ def graded_log(cfg: Config, history: pd.DataFrame, include_inactive: bool = Fals
     d = d.sort_values("logged_at").drop_duplicates(["season", "week", "nfl_id"], keep="last")
     from ..data import fantasypros as fp
 
-    fplog = fp.cache_dir(cfg) / "log.parquet"
+    fplog = fp.log_path(cfg)
     if fplog.exists():
         c = pd.read_parquet(fplog).drop_duplicates(["season", "week", "nfl_id"], keep="last")
         d = d.merge(c[["season", "week", "nfl_id", "fp_projection", "ecr_week_pos_rank"]],
@@ -199,7 +199,7 @@ def ros_benchmark(cfg: Config, history: pd.DataFrame) -> list[dict]:
     where it was logged for that week."""
     from ..data import fantasypros as fp
 
-    path = fp.cache_dir(cfg) / "log.parquet"
+    path = fp.log_path(cfg)
     if not path.exists():
         return []
     c = pd.read_parquet(path).dropna(subset=["ecr_ros_pos_rank", "our_ros"])

@@ -104,7 +104,7 @@ def test_both_weights_are_fitted_together_from_the_logs(tmp_cfg):
     path.parent.mkdir(parents=True, exist_ok=True)
     log_.to_parquet(path)
     pd.DataFrame({"season": 2026, "week": week, "nfl_id": ids,
-                  "fp_projection": truth + rng.normal(0, 1, n)}).to_parquet(fp.cache_dir(tmp_cfg) / "log.parquet")
+                  "fp_projection": truth + rng.normal(0, 1, n)}).to_parquet(fp.log_path(tmp_cfg))
     hist = pd.DataFrame({"player_id": ids, "season": 2026, "week": week,
                          "fantasy_points_ppr": truth + rng.normal(0, 0.5, n)})
     w = fit_week_weights(tmp_cfg, history=hist)

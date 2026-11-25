@@ -419,7 +419,7 @@ def fit_week_weights(cfg: Config, history=None) -> WeekWeights:
     old_build = log_["vegas_version"].fillna(0) < VEGAS_VERSION if "vegas_version" in log_ \
         else pd.Series(True, index=log_.index)
     log_.loc[old_build, "vegas_points"] = np.nan
-    cpath = fp.cache_dir(cfg) / "log.parquet"
+    cpath = fp.log_path(cfg)
     if cpath.exists():
         c = pd.read_parquet(cpath)
         if "fp_projection" in c:

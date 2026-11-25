@@ -19,7 +19,7 @@ def test_the_benchmark_grades_the_blended_value_beside_ours_and_the_consensus(tm
     cons_rank = (-(truth + rng.normal(0, 1, n))).argsort().argsort() + 1      # a sharp one
     log_ = pd.DataFrame({"season": 2026, "week": 3, "nfl_id": ids, "position": pos, "our_ros": ours,
                          "ecr_ros_pos_rank": cons_rank})
-    log_.to_parquet(fp.cache_dir(tmp_cfg) / "log.parquet")
+    log_.to_parquet(fp.log_path(tmp_cfg))
     blended = 0.5 * ours + 0.5 * truth                    # halfway: better than ours, not as good as theirs
     sk = pd.DataFrame({"season": 2026, "week": 3, "nfl_id": ids, "ros_value": blended, "logged_at": "2026-10-01"})
     tmp_cfg.results_dir.mkdir(parents=True, exist_ok=True)
