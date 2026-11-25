@@ -1572,6 +1572,9 @@ def _weak_starters(report: MatchupReport) -> str:
 
 def _streams(report: MatchupReport) -> str:
     """D/ST and kickers ranked by what they do to *this* week's P(win)."""
+    from . import unit_drift
+    from ..teams import normalize_team
+
     blocks = []
     for pos, label in (("DST", "Defence"), ("K", "Kicker")):
         opts = report.streams.get(pos) or []
@@ -1583,17 +1586,23 @@ def _streams(report: MatchupReport) -> str:
         for o in shown:
             delta = (o.win_probability - mine.win_probability) * 100 if mine else 0.0
             vs = "yours" if o.current else ("&asymp; same" if abs(delta) < 0.5 else f"{delta:+.1f}")
-            links = f"<tr><td class='why' colspan='6'>&#8627; {_e('; '.join(o.links[:2]))}</td></tr>" if o.links else ""
+            links = f"<tr><td class='why' colspan='7'>&#8627; {_e('; '.join(o.links[:2]))}</td></tr>" if o.links else ""
             span = (f"{max(o.low, 0):.0f}&ndash;{o.high:.0f}{range_bar(o.low, o.high)}"
                     if o.low is not None and o.high is not None else "--")
+            # Worth a swap only for a point of projection: smaller gaps reshuffle all week with nothing changed.
+            gap = float(o.player.projection or 0.0) - float(mine.player.projection or 0.0) if mine else 0.0
+            move = ("&ndash;" if o.current else f"+{gap:.1f}: worth it" if gap >= unit_drift.MOVE_POINTS else "same tier")
+            moved = unit_drift.note((getattr(report, "unit_drift", None) or {}).get(
+                f"{pos}:{normalize_team(o.player.team or '')}"), pos)
+            why = (f"<tr><td class='why' colspan='7'>&#8627; {_e(moved)}</td></tr>" if moved else "")
             rows.append(
                 f"<tr><td class='unit'>{face(o.player)}{_e(o.player.name)}</td><td>{_e(o.player.nfl_opponent or '')}</td>"
                 f"<td>{(o.player.projection or 0):.1f}</td><td>{span}</td>"
-                f"<td>{o.win_probability:.1%}</td><td>{vs}</td></tr>{links}")
+                f"<td>{o.win_probability:.1%}</td><td>{vs}</td><td>{move}</td></tr>{why}{links}")
         blocks.append(
             f"<p class='sub'><strong>{label}</strong></p>"
             '<div class="scroll"><table><thead><tr><th class="unit">Unit</th><th>Opp</th><th>Proj</th>'
-            f"<th>Range</th><th>P(win)</th><th>vs yours</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
+            f"<th>Range</th><th>P(win)</th><th>vs yours</th><th>Move?</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>")
     if not blocks:
         return ""
     return ("<h3>Best D/ST and K for this matchup</h3>"
@@ -1602,7 +1611,9 @@ def _streams(report: MatchupReport) -> str:
             "quarterback hedges him: that steadies your score, which helps when you are favoured and "
             "hurts when you are not. Gaps under half a point are noise. Range is the 15th to 85th "
             "percentile of the unit's simulated score: a defence's floor is often a point or two, so a "
-            "high ceiling with a low floor is a boom-or-bust pick.</p>"
+            "high ceiling with a low floor is a boom-or-bust pick. <b>Move?</b> A swap is worth it only for a full "
+            "point of projection: the top units sit within a point of each other and reshuffle with every refresh "
+            "as the game lines move, so a smaller gap is the same tier, and a drop can be claimed by someone else.</p>"
             + "".join(blocks))
 
 

@@ -43,6 +43,7 @@ class MatchupReport:
     #: league structure has not been read).
     stakes: object | None = None
     path: object | None = None          # season.PlayoffPath, for a team that needs one
+    unit_drift: dict | None = None      # unit_drift.load: each D/ST's and kicker's first and latest reading of the week
     #: How the projections have done, graded on results (a Scorecard).
     scorecard: object | None = None
     #: Waiver plans -- several moves priced together (None when the league

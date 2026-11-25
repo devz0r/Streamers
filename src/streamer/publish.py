@@ -1084,8 +1084,9 @@ def team_panels_for(
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
                 log.warning("lottery ticket log for %s skipped: %s", name, exc)
             try:
-                from .roster import unit_props
+                from .roster import unit_drift, unit_props
 
+                unit_drift.record(bound, snap, rankings)
                 log.info("%s: kicker and defence lines: %d logged, %d on cards", name,
                          unit_props.log_week(snap, bound, rankings), unit_props.annotate(snap, rankings))
             except Exception as exc:  # noqa: BLE001 - a log must never block the page
@@ -1324,6 +1325,12 @@ def _team_panel(snap, bound: Config, rankings, projected, status, primary: bool 
             report.passed = engine.passed
             report.waiver_rank = engine.rank
             report.stakes = engine.model.stakes(snap.my_team.team_id)
+            try:
+                from .roster import unit_drift as _ud
+
+                report.unit_drift = _ud.load(bound, int(snap.season), int(snap.week))
+            except Exception as exc:  # noqa: BLE001 - a bonus note
+                log.warning("unit drift for %s skipped: %s", name, exc)
             try:
                 report.path = engine.model.path(snap.my_team.team_id)
             except Exception as exc:  # noqa: BLE001 - a bonus card
