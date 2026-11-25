@@ -67,7 +67,7 @@ on:
         required: false
         default: refresh
         type: choice
-        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, dstk-blend, dstk-grade, weather-skill, golden, wind-fit, sleeper-fit]
+        options: [refresh, both, update, publish, yahoo-probe, fantasypros-probe, sleeper-probe, sgo-probe, news-probe, live-probe, live-check, timeline-probe, indefinite-probe, dstk-blend, dstk-grade, weather-skill, golden, wind-fit, sleeper-fit]
 
 permissions:
   contents: write
@@ -214,6 +214,12 @@ jobs:
       - name: Probe injury timelines
         if: steps.mode.outputs.mode == 'timeline-probe'
         run: python scripts/timeline_probe.py
+
+      # How long "out indefinitely" lasts against an ordinary Out designation
+      # (public news text; prints counts and distributions only).
+      - name: Probe out-indefinitely absences
+        if: steps.mode.outputs.mode == 'indefinite-probe'
+        run: python scripts/indefinite_probe.py
 
       # The page's live scoring (static/live.js) against a finished week:
       # agreement only, never a name or a score.
