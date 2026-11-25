@@ -56,20 +56,24 @@ def record_weeks(cfg: Config, snapshot: LeagueSnapshot, model, now: datetime | N
     """Append what the season simulation says about each week ahead: every
     team's mean score and spread (``team_weeks_log``) and every regular-season
     game's win chance for the team listed first (``game_odds_log``), read off
-    the same simulated scores the title odds come from. The last run of a
-    (season, week) replaces earlier ones. Returns (team-week rows, game rows)."""
+    the same simulated scores the title odds come from. Every run is kept
+    (a week is graded on the last forecast made before its first kickoff,
+    :func:`grade_weeks`, and only the runs themselves know which that was);
+    weeks already past are not logged. Returns (team-week rows, game rows)."""
     stamp = (now or datetime.now(UTC)).isoformat()
     scores = model._scores(None)                           # teams x sims x weeks, as the odds read them
     teams = [str(t.team_id) for t in model.teams]
     season, week = int(snapshot.season), int(snapshot.week)
     t_rows, g_rows = [], []
     for k, w in enumerate(model.weeks):
+        if w < week:
+            continue                  # a week already begun has nothing left to forecast
         for i, tid in enumerate(teams):
             col = scores[i, :, k]
             t_rows.append({"season": season, "week": week, "for_week": int(w), "team_id": tid, "logged_at": stamp,
                            "mean": float(col.mean()), "sd": float(col.std()), "mine": bool(model.teams[i].is_mine)})
     for w, a, b in model.schedule:
-        if a not in model.team_index or b not in model.team_index or w not in model.weeks:
+        if a not in model.team_index or b not in model.team_index or w not in model.weeks or w < week:
             continue
         k = model.weeks.index(w)
         sa, sb = scores[model.team_index[a], :, k], scores[model.team_index[b], :, k]
@@ -81,7 +85,7 @@ def record_weeks(cfg: Config, snapshot: LeagueSnapshot, model, now: datetime | N
         path = cfg.results_dir / name
         old = pd.read_parquet(path) if path.exists() else pd.DataFrame()
         out = pd.concat([old, pd.DataFrame(rows)], ignore_index=True)
-        out = out.sort_values("logged_at").drop_duplicates(key, keep="last")
+        out = out.sort_values("logged_at").drop_duplicates([*key, "logged_at"], keep="last")
         path.parent.mkdir(parents=True, exist_ok=True)
         out.to_parquet(path, index=False)
     return len(t_rows), len(g_rows)
@@ -158,18 +162,59 @@ def week_scores(points_by_snapshot: dict[int, dict[str, float]]) -> dict[int, di
             for w in sorted(points_by_snapshot) if w + 1 in points_by_snapshot}
 
 
-def grade_weeks(cfg: Config, scores: dict[int, dict[str, float]], season: int) -> dict | None:
+def first_kickoffs(cfg: Config, season: int) -> dict[int, datetime]:
+    """Each NFL week's first kickoff (UTC), from the schedule (kickoff times are Eastern)."""
+    from zoneinfo import ZoneInfo
+
+    path = cfg.raw_dir / "schedules.parquet"
+    if not path.exists():
+        return {}
+    sch = pd.read_parquet(path)
+    sch = sch[(sch["season"] == season) & sch["gameday"].notna()]
+    et = ZoneInfo("America/New_York")
+    out: dict[int, datetime] = {}
+    for w, g in sch.groupby("week"):
+        times = []
+        for day, clock in zip(g["gameday"], g.get("gametime", pd.Series([None] * len(g), index=g.index))):
+            try:
+                hh, mm = (str(clock) if clock else "13:00").split(":")[:2]
+                d = datetime.fromisoformat(str(day)[:10]).replace(hour=int(hh), minute=int(mm), tzinfo=et)
+                times.append(d.astimezone(UTC))
+            except (ValueError, TypeError):
+                continue
+        if times:
+            out[int(w)] = min(times)
+    return out
+
+
+def before_kickoff(df: pd.DataFrame, kickoffs: dict[int, datetime], key: list[str]) -> pd.DataFrame:
+    """The last forecast of each ``key`` made before its week's first kickoff;
+    a week with no known kickoff keeps its last forecast."""
+    if df.empty:
+        return df
+    stamp = pd.to_datetime(df["logged_at"], utc=True)
+    cut = df["for_week"].map(lambda w: kickoffs.get(int(w)))
+    ok = pd.Series([c is None or t < pd.Timestamp(c) for t, c in zip(stamp, cut)], index=df.index)
+    return df[ok].assign(_t=stamp[ok]).sort_values("_t").drop_duplicates(key, keep="last").drop(columns="_t")
+
+
+def grade_weeks(cfg: Config, scores: dict[int, dict[str, float]], season: int,
+                kickoffs: dict[int, datetime] | None = None) -> dict | None:
     """Score the weekly forecasts against real scores: for every forecast of a
     week already played, how far the team's mean was off (and whether the
     spread was right: z = miss / sd should have a standard deviation of 1),
     and for every game, the log loss and Brier score of the win chance given,
     with calibration buckets. Grouped by how many weeks ahead the forecast was
-    (0 = made in that week). None when nothing logged has been played."""
+    (0 = made in that week). With ``kickoffs`` (:func:`first_kickoffs`) only the
+    last forecast made before each week's first kickoff counts, so a forecast
+    made after games were played is never graded. None when nothing logged has
+    been played."""
     wpath, gpath = cfg.results_dir / WEEKS_LOG, cfg.results_dir / GAMES_LOG
     out: dict = {"season": season, "teams": [], "games": [], "buckets": []}
     if wpath.exists():
         w = pd.read_parquet(wpath)
         w = w[w["season"] == season].copy()
+        w = before_kickoff(w, kickoffs or {}, ["for_week", "team_id"])
         w["real"] = [scores.get(int(f), {}).get(str(t), np.nan) for f, t in zip(w["for_week"], w["team_id"])]
         w = w.dropna(subset=["real"])
         w["ahead"] = w["for_week"] - w["week"]
@@ -181,6 +226,7 @@ def grade_weeks(cfg: Config, scores: dict[int, dict[str, float]], season: int) -
     if gpath.exists():
         g = pd.read_parquet(gpath)
         g = g[g["season"] == season].copy()
+        g = before_kickoff(g, kickoffs or {}, ["for_week", "a", "b"])
         sa = [scores.get(int(f), {}).get(str(a), np.nan) for f, a in zip(g["for_week"], g["a"])]
         sb = [scores.get(int(f), {}).get(str(b), np.nan) for f, b in zip(g["for_week"], g["b"])]
         g["won"] = np.where(np.isnan(sa) | np.isnan(sb), np.nan, np.where(np.array(sa) > np.array(sb), 1.0, 0.0))

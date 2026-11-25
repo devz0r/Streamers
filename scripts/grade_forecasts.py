@@ -2,7 +2,8 @@
 
     python scripts/grade_forecasts.py [--profile espn|yahoo|both]
 
-A team's score for week w is its season points-for in the snapshot taken in
+Only the last forecast made before each week's first kickoff is graded (every run is kept
+in the logs). A team's score for week w is its season points-for in the snapshot taken in
 week w+1 less the one taken in week w. Prints, by how many weeks ahead the
 forecast was made, the miss of each team's mean (and the spread of
 miss / sd, 1 when the spread is right) and each game's log loss, Brier score
@@ -40,7 +41,7 @@ def main() -> int:
             s = load_snapshot(cfg, w)
             if s.season == season:
                 pts[w] = {str(t.team_id): float(t.points_for) for t in s.teams}
-        g = odds_log.grade_weeks(cfg, odds_log.week_scores(pts), int(season))
+        g = odds_log.grade_weeks(cfg, odds_log.week_scores(pts), int(season), odds_log.first_kickoffs(cfg, int(season)))
         if g is None:
             print(f"{prof}: nothing logged has been played yet (needs the snapshot after a forecast's week)")
             continue
