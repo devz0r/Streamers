@@ -8,6 +8,7 @@ import json
 import pandas as pd
 
 from ..config import Config
+from . import betting
 
 STAT = {"passing_yards": "passing yards", "passing_tds": "passing TDs", "passing_interceptions": "interceptions",
         "rushing_yards": "rushing yards", "receiving_yards": "receiving yards", "receptions": "receptions"}
@@ -85,6 +86,26 @@ def _games_html(cfg: Config) -> str:
             + record)
 
 
+def _strong_block(data: dict, strong: list[dict], table) -> str:
+    """Strong leans (our chance 15+ points above the books') on trial: graded only on bets flagged
+    from betting.FORWARD_FROM, since the 15-point cut was found on the first three weeks."""
+    k = (data.get("by_kind") or {}).get("strong_forward") or {}
+    all_ = (data.get("by_kind") or {}).get("strong") or {}
+    done = int(k.get("settled", 0))
+    rec = (f"{done} of {betting.STRONG_NEEDED} settled so far, {k.get('wins', 0)}-{k.get('losses', 0)}, "
+           f"{k.get('profit', 0):+.1f} units" if done else f"none settled yet (need {betting.STRONG_NEEDED})")
+    early = (f" On the first three weeks, where the 15-point cut was found, they were {all_.get('wins', 0)}-"
+             f"{all_.get('losses', 0)}, {all_.get('profit', 0):+.1f} units: picked after looking, so not evidence."
+             if all_.get("settled") else "")
+    return ("<h3>Strong leans: on trial</h3><p class='sub'>Where our chance is 15 or more points above the books'. "
+            "Across the first three weeks our numbers were overconfident everywhere else (the books' read with a "
+            "fifth of ours fitted best), but these big disagreements did better than the books. Not a "
+            "recommendation until the bets flagged from "
+            f"{betting.FORWARD_FROM} on settle profitable with the market moving toward them: {rec}.{early} "
+            "Rushing-yard leans are not shown: 41% on 128.</p>"
+            + table(strong, "None right now.", verb="Strong lean"))
+
+
 def render(cfg: Config) -> str:
     path = cfg.path("results") / "betting_board.json"
     if not path.exists():
@@ -100,12 +121,18 @@ def render(cfg: Config) -> str:
             ours = "&ndash;" if r.get("p_ours") is None else f"{r['p_ours']:.0%}"
             mean = "" if r.get("ours_mean") is None else f" <span class='opp'>(ours {r['ours_mean']:.1f})</span>"
             tag = " <span class='hold-tag'>way off</span>" if r.get("way_off") else ""
+            mix = ""
+            if verb in ("Lean", "Strong lean") and r.get("p_ours") is not None:
+                # The books' read with a fifth of ours: what the record supports (betting.OURS_SHARE).
+                dec = (r["price"] / 100 + 1) if r["price"] > 0 else (100 / -r["price"] + 1)
+                p_mix = r["p_market"] + betting.OURS_SHARE * (r["p_ours"] - r["p_market"])
+                mix = f"<br><span class='opp'>{p_mix * dec - 1:+.1%} on 80% the books' read</span>"
             body.append(
                 f"<tr><td class='unit'>{_e(r['player'])}{tag}</td><td>{_e(STAT.get(r['stat'], r['stat']))}</td>"
                 f"<td><b>{verb} {_e(r['side']).upper()} {r['line']:g}</b> <span class='opp'>(books {r['consensus']:.1f})</span>{mean}</td>"
                 f"<td>{_price(r['price'])} {_e(BOOK.get(r['book'], r['book']))}</td>"
                 f"<td>{r['p_market']:.0%}</td><td><b>{r['ev_market']:+.1%}</b></td><td>{ours}</td>"
-                f"<td>{r['ev']:+.1%}</td><td>{r['books']}</td><td>{age:.1f}h</td></tr>")
+                f"<td>{r['ev']:+.1%}{mix}</td><td>{r['books']}</td><td>{age:.1f}h</td></tr>")
         if not body:
             return f"<p class='sub'>{empty}</p>"
         return ("<div class='scroll'><table><thead><tr><th class='unit'>Player</th><th>Stat</th><th>Bet</th><th>Price</th>"
@@ -115,7 +142,8 @@ def render(cfg: Config) -> str:
     # A recommendation only where the price is expected to earn over time: on the books' own read, and on
     # the combined one. Where only our projection says so, it is a lean, not a recommendation, until proven.
     market = [r for r in rows if r.get("kind") in ("way off", "market") and r["ev_market"] > 0 and r["ev"] > 0]
-    model = [r for r in rows if r.get("kind") == "model"]
+    model = [r for r in rows if r.get("kind") == "model" and not r.get("strong")]
+    strong = [r for r in rows if r.get("strong")]
     tables = ("<h3>Recommended: prices the other books say are wrong</h3><p class='sub'>Each one pays more than "
               "the other books' read says it should, and more than the combined read does: positive expected "
               "profit <i>if</i> the other books are right and the price is still there. Whether that has held is "
@@ -128,7 +156,8 @@ def render(cfg: Config) -> str:
                 "other here and our per-stat projection does not; on the books' read these lose money, so they are leans, "
                 "not bets. Unproven: our edge over the market has three weeks behind it, so "
                 "these are graded separately below before they mean anything.</p>"
-              + table(model, "None.", verb="Lean"))
+              + table(model, "None.", verb="Lean")
+              + _strong_block(data, strong, table))
     def close(k: dict) -> str:
         bits = []
         if k.get("clv_hit") is not None:
@@ -148,7 +177,8 @@ def render(cfg: Config) -> str:
                   "not, and the market moves toward it."
                   f"{' Overall: ' + close(rec) + '.' if close(rec) else ''}</p>")
     by_kind = ""
-    for kind, label in (("way off", "Way off"), ("market", "Books' read"), ("model", "Our projection only")):
+    for kind, label in (("way off", "Way off"), ("market", "Books' read"), ("model", "Our projection only"),
+                        ("strong", "Strong leans, every week"), ("strong_forward", "Strong leans, trial (from Nov 25)")):
         k = (data.get("by_kind") or {}).get(kind)
         if k and k.get("flagged"):
             by_kind += (f"<li><b>{label}</b>: {k['flagged']} flagged, {k.get('wins', 0)}-{k.get('losses', 0)}, "

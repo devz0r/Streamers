@@ -37,6 +37,18 @@ STALE_MINUTES = 90      # a quote older than this behind the newest for its play
 ARB_MINUTES = 30        # a sure bet needs both prices read this close together: one stale leg is no arb
 MAX_AGE_HOURS = 8       # a price read longer ago than this is not offered as a bet (the second feed is re-read every 6)
 KEY = ["season", "week", "event_id", "stat", "player"]
+#: Leans (only our projection disagrees) are shown with the books' read at this share of the chance: weeks 9-11
+#: (970 settled bets) fitted our weight at 0.2 and it beat the books alone in 1 of 3 weeks held out.
+OURS_SHARE = 0.2
+#: A "strong lean": our chance this far above the books'. On weeks 9-11 these won 58.9% against the books' 50.1%
+#: (168 bets, +16%), found after looking at several splits, so graded only on bets flagged from FORWARD_FROM on.
+STRONG_GAP = 0.15
+FORWARD_FROM = "2026-11-25"
+#: A strong lean is promoted to a recommendation only after this many settled forward bets, and only if
+#: profitable with the market moving toward more of them than away.
+STRONG_NEEDED = 150
+#: Stats whose leans are not shown (still logged): rushing yards won 41% of 128 leans, overs and unders alike.
+NO_LEANS = ("rushing_yards",)
 #: nflverse player_stats column a stat settles on.
 SETTLE = {"passing_yards": "passing_yards", "passing_tds": "passing_tds", "passing_interceptions": "passing_interceptions",
           "rushing_yards": "rushing_yards", "receiving_yards": "receiving_yards", "receptions": "receptions"}
@@ -472,10 +484,25 @@ def first_flags(bets: pd.DataFrame) -> pd.DataFrame:
             .reset_index(drop=True))
 
 
+def is_strong(df: pd.DataFrame) -> pd.Series:
+    """Leans whose chance on our side is :data:`STRONG_GAP` or more above the books', on a stat we show."""
+    if df.empty or "p_ours" not in df:
+        return pd.Series(False, index=df.index)
+    gap = pd.to_numeric(df["p_ours"], errors="coerce") - pd.to_numeric(df["p_market"], errors="coerce")
+    return (df["kind"] == "model") & (gap >= STRONG_GAP) & ~df["stat"].isin(NO_LEANS)
+
+
 def summary_by_kind(bets: pd.DataFrame) -> dict:
     if bets is None or bets.empty or "kind" not in bets:
         return {}
-    return {k: summary(g, unique=False) for k, g in first_flags(bets).groupby("kind")}
+    first = first_flags(bets)
+    out = {k: summary(g, unique=False) for k, g in first.groupby("kind")}
+    strong = first[is_strong(first)]
+    if not strong.empty:
+        out["strong"] = summary(strong, unique=False)                                # every week, for reference
+        fwd = strong[pd.to_datetime(strong["logged_at"], utc=True) >= pd.Timestamp(FORWARD_FROM, tz="UTC")]
+        out["strong_forward"] = summary(fwd, unique=False) if len(fwd) else {"flagged": 0, "settled": 0}
+    return out
 
 
 def summary(bets: pd.DataFrame, unique: bool = True) -> dict:
@@ -517,8 +544,12 @@ def build(cfg: Config, lines: pd.DataFrame, started: set[str] | None = None, now
     record = summary(graded)
     by_kind = summary_by_kind(graded)
     par = parlays(flagged)
+    leans = flagged[(flagged["kind"] == "model") & (flagged["ev"] > 0) & ~flagged["stat"].isin(NO_LEANS)] \
+        if len(flagged) else flagged
+    strong = leans[is_strong(leans)].sort_values("p_ours", ascending=False).head(15) if len(flagged) else flagged
     rows = pd.concat([flagged[flagged["kind"] != "model"].head(30),
-                      flagged[(flagged["kind"] == "model") & (flagged["ev"] > 0)].head(20)]) if len(flagged) else flagged
+                      leans[~leans.index.isin(strong.index)].head(20),
+                      strong.assign(strong=True)]) if len(flagged) else flagged
     hedge = hedges(lines, exclude=started, now=stamp)
     out = {"hedges": {"arbs": hedge["arbs"][:15], "middles": hedge["middles"][:15], "checked": hedge["checked"],
                       "n_arbs": len(hedge["arbs"]), "n_middles": len(hedge["middles"])},

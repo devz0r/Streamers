@@ -172,3 +172,53 @@ def test_a_newly_recommended_price_is_written_for_the_alert_once(tmp_path, monke
     assert len(first["new"]) == len(rec)
     betting.flag(b, cfg)
     assert betting.new_recommended(b, cfg, "2026-11-08T12:35:00+00:00")["new"] == []        # logged: not new again
+
+
+def _lean(player, stat, p_ours, p_market, at="2026-11-26T12:00:00+00:00", result="win", price=-110.0):
+    return {"season": 2026, "week": 12, "event_id": "e1", "stat": stat, "player": player, "side": "over", "line": 4.5,
+            "book": "fanduel", "price": price, "fair": p_market, "ev": 0.05, "p_ours": p_ours, "p_market": p_market,
+            "logged_at": at, "kind": "model", "result": result, "clv": 0.01, "move": 0.0}
+
+
+def test_strong_leans_are_graded_apart_and_only_from_the_forward_date():
+    rows = [_lean("A", "receptions", 0.66, 0.50, at="2026-11-12T12:00:00+00:00", result="win"),      # before: reference only
+            _lean("B", "receptions", 0.66, 0.50, result="win"), _lean("C", "receptions", 0.66, 0.50, result="loss"),
+            _lean("D", "receptions", 0.58, 0.50),                                                       # gap 8: not strong
+            _lean("E", "rushing_yards", 0.70, 0.50)]                                                    # not shown
+    by = betting.summary_by_kind(pd.DataFrame(rows))
+    assert by["model"]["flagged"] == 5
+    assert by["strong"]["flagged"] == 3 and by["strong_forward"]["flagged"] == 2
+    assert (by["strong_forward"]["wins"], by["strong_forward"]["losses"]) == (1, 1)
+
+
+def test_a_new_lean_has_a_strong_tier_and_rushing_leans_are_dropped_from_the_board(tmp_path, monkeypatch):
+    cfg = get_config()
+    monkeypatch.setattr(betting, "path", lambda _c: tmp_path / "bet_log.parquet")
+    lines = pd.DataFrame([_q(b, o, u) for b, o, u in (("fanduel", -110, -110), ("draftkings", -110, -110),
+                                                      ("caesars", -110, -110), ("betmgm", -110, -110))])
+    out = betting.board(lines, ours={"wide out": {"rec_yards": 80.0}})
+    assert not out.empty and (out["kind"] == "model").any() and betting.is_strong(out).any()
+    strong = betting.is_strong(out)
+    assert (out[strong].p_ours - out[strong].p_market >= betting.STRONG_GAP).all()
+    rush = out.assign(stat="rushing_yards")
+    assert not betting.is_strong(rush).any()
+
+
+def test_the_page_shows_a_lean_on_the_books_read_and_strong_leans_on_trial(tmp_cfg):
+    import json
+
+    from streamer.data import betting_page
+
+    cfg, tmp_path = tmp_cfg, tmp_cfg.path("results")
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    r = {"player": "Wide Out", "stat": "receptions", "side": "over", "line": 4.5, "consensus": 4.5, "book": "fanduel",
+         "price": 100.0, "p_market": 0.50, "ev_market": -0.01, "p_ours": 0.70, "ev": 0.40, "books": 4,
+         "logged_at": "2026-11-26T12:00:00+00:00", "kind": "model", "ours_mean": 6.0, "way_off": False}
+    data = {"built_at": "2026-11-26T13:00:00+00:00", "rows": [dict(r), dict(r, strong=True, player="Big Gap")],
+            "record": {}, "by_kind": {"strong_forward": {"flagged": 3, "settled": 2, "wins": 1, "losses": 1, "profit": 0.0},
+                                      "strong": {"flagged": 5, "settled": 4, "wins": 3, "losses": 1, "profit": 1.5}},
+            "sides": 10, "hedges": {}, "parlays": []}
+    (tmp_path / "betting_board.json").write_text(json.dumps(data))
+    html = betting_page.render(cfg)
+    assert "on 80% the books' read" in html and "+8.0%" in html             # 0.5 + 0.2 * 0.2 = 0.54 chance at 2.0 -> +8%
+    assert "Strong leans: on trial" in html and "2 of 150 settled so far" in html and "Big Gap" in html
