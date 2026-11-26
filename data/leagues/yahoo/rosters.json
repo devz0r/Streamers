@@ -106,6 +106,7 @@
    "42712": "Kaelon Black"
   },
   "2": {
+   "100005": "Browns",
    "100026": "Seahawks",
    "29279": "Derrick Henry",
    "31107": "Dalton Schultz",
@@ -119,8 +120,7 @@
    "40042": "Jordan Addison",
    "40232": "Xavier Hutchinson",
    "40908": "Ladd McConkey",
-   "41877": "Harold Fannin Jr.",
-   "41881": "Kaleb Johnson"
+   "41877": "Harold Fannin Jr."
   },
   "3": {
    "100014": "Rams",
@@ -142,8 +142,8 @@
    "42652": "Omar Cooper Jr."
   },
   "4": {
-   "100003": "Chicago",
-   "100033": "Baltimore",
+   "100003": "Bears",
+   "100033": "Ravens",
    "25812": "Kirk Cousins",
    "30227": "Samaje Perine",
    "32705": "D'Andre Swift",
