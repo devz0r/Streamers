@@ -117,7 +117,7 @@
    "8439": "Aaron Rodgers"
   },
   "4": {
-   "-16012": "Chiefs D/ST",
+   "-16028": "Commanders D/ST",
    "15847": "Travis Kelce",
    "3116389": "Samaje Perine",
    "3126486": "Deebo Samuel Sr.",
@@ -176,8 +176,7 @@
    "4912274": "Sione Vaki"
   },
   "9": {
-   "-16011": "Colts D/ST",
-   "2985659": "Wil Lutz",
+   "-16006": "Cowboys D/ST",
    "3128429": "Courtland Sutton",
    "3915511": "Joe Burrow",
    "3929630": "Saquon Barkley",
@@ -191,7 +190,8 @@
    "4426354": "George Pickens",
    "4429615": "Zay Flowers",
    "4596448": "Bucky Irving",
-   "4688813": "Josh Downs"
+   "4688813": "Josh Downs",
+   "5082424": "Dominic Zvada"
   }
  }
 }
