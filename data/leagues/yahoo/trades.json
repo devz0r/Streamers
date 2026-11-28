@@ -1,1 +1,23 @@
-[]
+[
+ {
+  "a": "1",
+  "a_name": "Dak Around & Find Out",
+  "a_got": [
+   "42626"
+  ],
+  "a_got_names": [
+   "Carnell Tate"
+  ],
+  "b": "8",
+  "b_name": "Bryce Young MVP",
+  "b_got": [
+   "41969"
+  ],
+  "b_got_names": [
+   "Ollie Gordon II"
+  ],
+  "season": 2026,
+  "week": 12,
+  "seen": "2026-11-28"
+ }
+]
